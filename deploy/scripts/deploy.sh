@@ -11,6 +11,16 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
+if [ -f ./catalog.env ]; then
+  # shellcheck disable=SC1091
+  . ./catalog.env
+fi
+
+if [ -n "${CATALOG_REF:-}" ] || [ -n "${NOMOS_CATALOG_REPO:-}" ] || [ -n "${NOMOS_CATALOG_DIR:-}" ]; then
+  echo "[deploy] Syncing external catalog..."
+  "$SCRIPT_DIR/sync-catalog.sh"
+fi
+
 TAG="${1:-}"
 if [ -n "$TAG" ]; then
   IMAGE_REPO="${NOMOS_IMAGE_REPO:-ghcr.io/pblumer/nomos}"
