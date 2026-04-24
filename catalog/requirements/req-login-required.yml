@@ -1,0 +1,3 @@
+id: req-login-required
+name: Login required
+description: Product requires a valid login identity.

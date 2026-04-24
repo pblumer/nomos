@@ -1,0 +1,3 @@
+id: req-mailbox-enabled
+name: Mailbox enabled
+description: Product requires a mailbox to be provisioned.

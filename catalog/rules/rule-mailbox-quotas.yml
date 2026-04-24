@@ -1,0 +1,3 @@
+id: rule-mailbox-quotas
+name: Mailbox quotas
+description: Mailbox quota profile must be assigned.

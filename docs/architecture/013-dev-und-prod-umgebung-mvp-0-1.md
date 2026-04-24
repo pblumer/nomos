@@ -66,6 +66,9 @@ Warum Single-VM für MVP:
 - NOMOS_API_HOST
 - NOMOS_API_PORT
 - NOMOS_FRONTEND_ORIGIN
+- NOMOS_PRODUCTS_DIR
+- NOMOS_REQUIREMENTS_DIR
+- NOMOS_RULES_DIR
 - NOMOS_GIT_PROVIDER
 - NOMOS_GIT_REPO_URL
 - NOMOS_GIT_DEFAULT_BRANCH=main
@@ -75,6 +78,8 @@ Warum Single-VM für MVP:
 - NOMOS_AI_ENABLED=true|false
 - NOMOS_AI_PROVIDER (optional)
 - NOMOS_AI_API_KEY (Secret, optional)
+
+Hinweis: Fuer Variante B kann NOMOS_PRODUCTS_DIR auf ein externes Katalog-Checkout zeigen (z. B. ../nomos-catalog/products). Requirements und Rules liegen dann parallel in ../nomos-catalog/requirements und ../nomos-catalog/rules.
 
 ## Build- und Release-Ansatz
 
