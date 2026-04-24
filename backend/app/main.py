@@ -30,6 +30,23 @@ def _validate_product(data: dict[str, object]) -> dict[str, object]:
     }
 
 
+def _load_product_or_404(product_id: str) -> dict[str, object]:
+    yml_path = _products_dir() / f"{product_id}.yml"
+    yaml_path = _products_dir() / f"{product_id}.yaml"
+
+    if yml_path.exists():
+        product = _read_yaml_file(yml_path)
+        product["validation"] = _validate_product(product)
+        return product
+
+    if yaml_path.exists():
+        product = _read_yaml_file(yaml_path)
+        product["validation"] = _validate_product(product)
+        return product
+
+    raise HTTPException(status_code=404, detail="Produkt nicht gefunden")
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -58,17 +75,21 @@ def list_products() -> dict[str, object]:
 
 @app.get("/api/v1/products/{product_id}")
 def get_product(product_id: str) -> dict[str, object]:
-    yml_path = _products_dir() / f"{product_id}.yml"
-    yaml_path = _products_dir() / f"{product_id}.yaml"
+    return _load_product_or_404(product_id)
 
-    if yml_path.exists():
-        product = _read_yaml_file(yml_path)
-        product["validation"] = _validate_product(product)
-        return product
 
-    if yaml_path.exists():
-        product = _read_yaml_file(yaml_path)
-        product["validation"] = _validate_product(product)
-        return product
+@app.get("/api/v1/products/{product_id}/requirements")
+def get_product_requirements(product_id: str) -> dict[str, object]:
+    product = _load_product_or_404(product_id)
+    requirements = product.get("requirements", [])
 
-    raise HTTPException(status_code=404, detail="Produkt nicht gefunden")
+    if not isinstance(requirements, list):
+        requirements = []
+
+    requirement_items = [str(item) for item in requirements]
+
+    return {
+        "product_id": product_id,
+        "items": requirement_items,
+        "count": len(requirement_items),
+    }
