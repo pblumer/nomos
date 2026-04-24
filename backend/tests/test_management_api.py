@@ -84,3 +84,59 @@ def test_add_and_delete_rule(monkeypatch, tmp_path: Path) -> None:
     delete_response = client.delete("/api/v1/products/produkt-1/rules/rule-mfa-enforcement")
     assert delete_response.status_code == 200
     assert delete_response.json() == {"item": "rule-mfa-enforcement", "removed": True}
+
+
+def test_add_requirement_rejects_empty_value(monkeypatch, tmp_path: Path) -> None:
+    products_dir = tmp_path / "products"
+    products_dir.mkdir()
+    _write_product(products_dir)
+
+    monkeypatch.setenv("NOMOS_PRODUCTS_DIR", str(products_dir))
+    client = TestClient(app)
+
+    response = client.post("/api/v1/products/produkt-1/requirements", json={"value": "   "})
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "value is required"}
+
+
+def test_add_requirement_rejects_duplicates(monkeypatch, tmp_path: Path) -> None:
+    products_dir = tmp_path / "products"
+    products_dir.mkdir()
+    _write_product(products_dir)
+
+    monkeypatch.setenv("NOMOS_PRODUCTS_DIR", str(products_dir))
+    client = TestClient(app)
+
+    response = client.post("/api/v1/products/produkt-1/requirements", json={"value": "login-required"})
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "item already exists"}
+
+
+def test_add_rule_rejects_empty_value(monkeypatch, tmp_path: Path) -> None:
+    products_dir = tmp_path / "products"
+    products_dir.mkdir()
+    _write_product(products_dir)
+
+    monkeypatch.setenv("NOMOS_PRODUCTS_DIR", str(products_dir))
+    client = TestClient(app)
+
+    response = client.post("/api/v1/products/produkt-1/rules", json={"value": ""})
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "value is required"}
+
+
+def test_add_rule_rejects_duplicates(monkeypatch, tmp_path: Path) -> None:
+    products_dir = tmp_path / "products"
+    products_dir.mkdir()
+    _write_product(products_dir)
+
+    monkeypatch.setenv("NOMOS_PRODUCTS_DIR", str(products_dir))
+    client = TestClient(app)
+
+    response = client.post("/api/v1/products/produkt-1/rules", json={"value": "rule-password-policy"})
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "item already exists"}

@@ -180,8 +180,9 @@ def add_product_requirement(product_id: str, payload: dict[str, str] = Body(...)
         raise HTTPException(status_code=400, detail="value is required")
 
     items = _list_field(product, "requirements")
-    if item not in items:
-        items.append(item)
+    if item in items:
+        raise HTTPException(status_code=409, detail="item already exists")
+    items.append(item)
 
     product["requirements"] = items
     product["validation"] = _validate_product(product)
@@ -214,8 +215,9 @@ def add_product_rule(product_id: str, payload: dict[str, str] = Body(...)) -> di
         raise HTTPException(status_code=400, detail="value is required")
 
     items = _list_field(product, "rules")
-    if item not in items:
-        items.append(item)
+    if item in items:
+        raise HTTPException(status_code=409, detail="item already exists")
+    items.append(item)
 
     product["rules"] = items
     product["validation"] = _validate_product(product)

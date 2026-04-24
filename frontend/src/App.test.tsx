@@ -404,4 +404,87 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove rule rule-mfa-enforcement" }));
     await waitFor(() => expect(screen.queryByText("rule-mfa-enforcement")).not.toBeInTheDocument());
   });
+
+  it("shows success and error toasts for requirement actions", async () => {
+    const requirements = ["mailbox-enabled", "login-required"];
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url.includes("/api/v1/products/produkt-1/summary")) {
+        return {
+          ok: true,
+          json: async () => ({
+            product_id: "produkt-1",
+            name: "Benutzerkonto mit Mailbox",
+            version: "0.1.0",
+            requirements_count: requirements.length,
+            rules_count: 2,
+            validation_is_valid: true,
+            validation_error_count: 0,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-1/requirements") && method === "GET") {
+        return {
+          ok: true,
+          json: async () => ({ product_id: "produkt-1", items: [...requirements], count: requirements.length }),
+        } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-1/requirements") && method === "POST") {
+        const body = JSON.parse(String(init?.body ?? "{}")) as { value?: string };
+        if (body.value === "login-required") {
+          return {
+            ok: false,
+            status: 409,
+            json: async () => ({ detail: "item already exists" }),
+          } as Response;
+        }
+
+        requirements.push(String(body.value));
+        return { ok: true, json: async () => ({ item: body.value }) } as Response;
+      }
+
+      if (url.endsWith("/api/v1/products")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [{ id: "produkt-1", name: "Benutzerkonto mit Mailbox", version: "0.1.0" }],
+            count: 1,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-1")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "produkt-1",
+            name: "Benutzerkonto mit Mailbox",
+            version: "0.1.0",
+            description: "Reference product for Nomos MVP",
+            validation: { is_valid: true, errors: [] },
+          }),
+        } as Response;
+      }
+
+      return { ok: true, json: async () => ({ items: [], count: 0 }) } as Response;
+    });
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Benutzerkonto mit Mailbox" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Load requirements" }));
+
+    fireEvent.change(screen.getByPlaceholderText("New requirement"), { target: { value: "mfa-required" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add requirement" }));
+    expect(await screen.findByRole("status", { name: "toast-success" })).toHaveTextContent("Requirement added");
+
+    fireEvent.change(screen.getByPlaceholderText("New requirement"), { target: { value: "login-required" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add requirement" }));
+    expect(await screen.findByRole("status", { name: "toast-error" })).toHaveTextContent("item already exists");
+  });
 });

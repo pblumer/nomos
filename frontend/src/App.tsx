@@ -64,7 +64,19 @@ function App() {
   const [rulesSort, setRulesSort] = useState<"asc" | "desc">("asc");
   const [newRule, setNewRule] = useState("");
 
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "";
+
+  const readErrorMessage = async (response: Response) => {
+    try {
+      const payload = (await response.json()) as { detail?: string };
+      if (payload?.detail) return payload.detail;
+    } catch {
+      // ignore parsing issues
+    }
+    return "Request failed";
+  };
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -141,13 +153,17 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ value }),
       });
-      if (!response.ok) return;
+      if (!response.ok) {
+        setToast({ type: "error", message: await readErrorMessage(response) });
+        return;
+      }
 
       setNewRequirement("");
       await loadRequirements();
       await loadProductSummary(selectedProduct.id);
+      setToast({ type: "success", message: "Requirement added" });
     } catch {
-      // Keep UI responsive if add fails.
+      setToast({ type: "error", message: "Request failed" });
     }
   };
 
@@ -159,12 +175,16 @@ function App() {
         `${apiBaseUrl}/api/v1/products/${selectedProduct.id}/requirements/${encodeURIComponent(item)}`,
         { method: "DELETE" }
       );
-      if (!response.ok) return;
+      if (!response.ok) {
+        setToast({ type: "error", message: await readErrorMessage(response) });
+        return;
+      }
 
       await loadRequirements();
       await loadProductSummary(selectedProduct.id);
+      setToast({ type: "success", message: "Requirement removed" });
     } catch {
-      // Keep UI responsive if delete fails.
+      setToast({ type: "error", message: "Request failed" });
     }
   };
 
@@ -193,13 +213,17 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ value }),
       });
-      if (!response.ok) return;
+      if (!response.ok) {
+        setToast({ type: "error", message: await readErrorMessage(response) });
+        return;
+      }
 
       setNewRule("");
       await loadRules();
       await loadProductSummary(selectedProduct.id);
+      setToast({ type: "success", message: "Rule added" });
     } catch {
-      // Keep UI responsive if add fails.
+      setToast({ type: "error", message: "Request failed" });
     }
   };
 
@@ -211,12 +235,16 @@ function App() {
         `${apiBaseUrl}/api/v1/products/${selectedProduct.id}/rules/${encodeURIComponent(item)}`,
         { method: "DELETE" }
       );
-      if (!response.ok) return;
+      if (!response.ok) {
+        setToast({ type: "error", message: await readErrorMessage(response) });
+        return;
+      }
 
       await loadRules();
       await loadProductSummary(selectedProduct.id);
+      setToast({ type: "success", message: "Rule removed" });
     } catch {
-      // Keep UI responsive if delete fails.
+      setToast({ type: "error", message: "Request failed" });
     }
   };
 
@@ -242,6 +270,11 @@ function App() {
     <main>
       <h1>Nomos MVP</h1>
       <p>Produktkatalog</p>
+      {toast ? (
+        <div role="status" aria-label={toast.type === "success" ? "toast-success" : "toast-error"}>
+          {toast.message}
+        </div>
+      ) : null}
       <ul>
         {products.map((product) => (
           <li key={product.id}>
