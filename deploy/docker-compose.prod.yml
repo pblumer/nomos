@@ -1,0 +1,51 @@
+services:
+  reverse-proxy:
+    image: caddy:2.9
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./reverse-proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+
+  backend:
+    image: ${NOMOS_BACKEND_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NOMOS_ENV: prod
+      NOMOS_API_HOST: 0.0.0.0
+      NOMOS_API_PORT: 8000
+      NOMOS_WORKSPACE_ROOT: ${NOMOS_WORKSPACE_ROOT:-/workspaces}
+      NOMOS_GIT_PROVIDER: ${NOMOS_GIT_PROVIDER:-github}
+      NOMOS_GIT_REPO_URL: ${NOMOS_GIT_REPO_URL}
+      NOMOS_GIT_DEFAULT_BRANCH: ${NOMOS_GIT_DEFAULT_BRANCH:-main}
+      NOMOS_GIT_TOKEN: ${NOMOS_GIT_TOKEN}
+      NOMOS_AI_ENABLED: ${NOMOS_AI_ENABLED:-false}
+      NOMOS_AI_PROVIDER: ${NOMOS_AI_PROVIDER}
+      NOMOS_AI_API_KEY: ${NOMOS_AI_API_KEY}
+      NOMOS_LOG_LEVEL: ${NOMOS_LOG_LEVEL:-INFO}
+    expose:
+      - "8000"
+    volumes:
+      - nomos_workspaces:/workspaces
+
+  frontend:
+    image: ${NOMOS_FRONTEND_IMAGE}
+    restart: unless-stopped
+    environment:
+      NOMOS_ENV: prod
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    expose:
+      - "80"
+
+volumes:
+  nomos_workspaces:
+  caddy_data:
+  caddy_config:

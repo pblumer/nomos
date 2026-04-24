@@ -117,11 +117,16 @@ Die Dokumentation beschreibt eine phasenweise Umsetzung:
 
 ```text
 /docs/architecture
-  000-011: Architektur, Scope, Domain-/Artefaktmodell,
-           Governance, KI-, API- und UI-Konzept, Roadmap, Handover
+  000-013: Architektur, Scope, Domain-/Artefaktmodell,
+           Governance, KI-, API- und UI-Konzept, Roadmap, Handover,
+           Technologie-Stack (012) und Dev/Prod-Umgebung (013)
 
 /docs/concepts
   Fachkonzept- und Metamodell-Dokumente (aus PDF in Markdown überführt)
+
+/deploy
+  docker-compose fuer Dev und Prod, .env.example,
+  Reverse-Proxy-Konfiguration und Deploy/Rollback-Skripte
 ```
 
 ## Referenzprodukt
