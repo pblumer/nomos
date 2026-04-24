@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 import yaml
-from fastapi import FastAPI, HTTPException
+from fastapi import Body, FastAPI, HTTPException
 
 app = FastAPI(title="Nomos API", version="0.1.0")
 
@@ -13,6 +13,20 @@ def _products_dir() -> Path:
 
 def _read_yaml_file(file_path: Path) -> dict[str, object]:
     return yaml.safe_load(file_path.read_text(encoding="utf-8")) or {}
+
+
+def _write_yaml_file(file_path: Path, data: dict[str, object]) -> None:
+    file_path.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+
+def _product_files() -> list[Path]:
+    return sorted([
+        *_products_dir().glob("*.yml"),
+        *_products_dir().glob("*.yaml"),
+    ])
 
 
 def _validate_product(data: dict[str, object]) -> dict[str, object]:
@@ -30,21 +44,26 @@ def _validate_product(data: dict[str, object]) -> dict[str, object]:
     }
 
 
-def _load_product_or_404(product_id: str) -> dict[str, object]:
+def _load_product_with_path_or_404(product_id: str) -> tuple[Path, dict[str, object]]:
     yml_path = _products_dir() / f"{product_id}.yml"
     yaml_path = _products_dir() / f"{product_id}.yaml"
 
     if yml_path.exists():
         product = _read_yaml_file(yml_path)
         product["validation"] = _validate_product(product)
-        return product
+        return yml_path, product
 
     if yaml_path.exists():
         product = _read_yaml_file(yaml_path)
         product["validation"] = _validate_product(product)
-        return product
+        return yaml_path, product
 
     raise HTTPException(status_code=404, detail="Produkt nicht gefunden")
+
+
+def _load_product_or_404(product_id: str) -> dict[str, object]:
+    _, product = _load_product_with_path_or_404(product_id)
+    return product
 
 
 @app.get("/health")
@@ -54,10 +73,7 @@ def health() -> dict[str, str]:
 
 @app.get("/api/v1/products")
 def list_products() -> dict[str, object]:
-    product_files = sorted([
-        *_products_dir().glob("*.yml"),
-        *_products_dir().glob("*.yaml"),
-    ])
+    product_files = _product_files()
 
     items: list[dict[str, str]] = []
     for file_path in product_files:
@@ -130,3 +146,95 @@ def get_product_summary(product_id: str) -> dict[str, object]:
         "validation_is_valid": bool(validation.get("is_valid", False)),
         "validation_error_count": len(errors),
     }
+
+
+@app.get("/api/v1/overview")
+def get_overview() -> dict[str, int]:
+    product_count = 0
+    requirements_count = 0
+    rules_count = 0
+    invalid_products_count = 0
+
+    for file_path in _product_files():
+        product_count += 1
+        product = _read_yaml_file(file_path)
+        validation = _validate_product(product)
+        requirements_count += len(_list_field(product, "requirements"))
+        rules_count += len(_list_field(product, "rules"))
+        if not validation["is_valid"]:
+            invalid_products_count += 1
+
+    return {
+        "product_count": product_count,
+        "requirements_count": requirements_count,
+        "rules_count": rules_count,
+        "invalid_products_count": invalid_products_count,
+    }
+
+
+@app.post("/api/v1/products/{product_id}/requirements", status_code=201)
+def add_product_requirement(product_id: str, payload: dict[str, str] = Body(...)) -> dict[str, str]:
+    file_path, product = _load_product_with_path_or_404(product_id)
+    item = str(payload.get("value", "")).strip()
+    if item == "":
+        raise HTTPException(status_code=400, detail="value is required")
+
+    items = _list_field(product, "requirements")
+    if item not in items:
+        items.append(item)
+
+    product["requirements"] = items
+    product["validation"] = _validate_product(product)
+    _write_yaml_file(file_path, product)
+
+    return {"item": item}
+
+
+@app.delete("/api/v1/products/{product_id}/requirements/{item}")
+def delete_product_requirement(product_id: str, item: str) -> dict[str, object]:
+    file_path, product = _load_product_with_path_or_404(product_id)
+    items = _list_field(product, "requirements")
+
+    if item not in items:
+        raise HTTPException(status_code=404, detail="item not found")
+
+    items = [current for current in items if current != item]
+    product["requirements"] = items
+    product["validation"] = _validate_product(product)
+    _write_yaml_file(file_path, product)
+
+    return {"item": item, "removed": True}
+
+
+@app.post("/api/v1/products/{product_id}/rules", status_code=201)
+def add_product_rule(product_id: str, payload: dict[str, str] = Body(...)) -> dict[str, str]:
+    file_path, product = _load_product_with_path_or_404(product_id)
+    item = str(payload.get("value", "")).strip()
+    if item == "":
+        raise HTTPException(status_code=400, detail="value is required")
+
+    items = _list_field(product, "rules")
+    if item not in items:
+        items.append(item)
+
+    product["rules"] = items
+    product["validation"] = _validate_product(product)
+    _write_yaml_file(file_path, product)
+
+    return {"item": item}
+
+
+@app.delete("/api/v1/products/{product_id}/rules/{item}")
+def delete_product_rule(product_id: str, item: str) -> dict[str, object]:
+    file_path, product = _load_product_with_path_or_404(product_id)
+    items = _list_field(product, "rules")
+
+    if item not in items:
+        raise HTTPException(status_code=404, detail="item not found")
+
+    items = [current for current in items if current != item]
+    product["rules"] = items
+    product["validation"] = _validate_product(product)
+    _write_yaml_file(file_path, product)
+
+    return {"item": item, "removed": True}

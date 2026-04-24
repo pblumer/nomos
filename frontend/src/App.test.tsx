@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
@@ -239,8 +239,8 @@ describe("App", () => {
       target: { value: "asc" },
     });
 
-    const sortedItems = screen.getAllByTestId("rules-item").map((node) => node.textContent);
-    expect(sortedItems[0]).toBe("rule-alpha");
+    const sortedItems = screen.getAllByTestId("rules-item").map((node) => node.textContent ?? "");
+    expect(sortedItems[0]).toContain("rule-alpha");
   });
 
   it("shows summary cards in product detail header", async () => {
@@ -297,5 +297,111 @@ describe("App", () => {
     expect(await screen.findByText("Requirements: 2")).toBeInTheDocument();
     expect(await screen.findByText("Rules: 3")).toBeInTheDocument();
     expect(await screen.findByText("Validation errors: 0")).toBeInTheDocument();
+  });
+
+  it("allows adding and removing requirements and rules", async () => {
+    const requirements = ["mailbox-enabled", "login-required"];
+    const rules = ["rule-password-policy", "rule-mailbox-quotas"];
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url.includes("/api/v1/products/produkt-1/summary")) {
+        return {
+          ok: true,
+          json: async () => ({
+            product_id: "produkt-1",
+            name: "Benutzerkonto mit Mailbox",
+            version: "0.1.0",
+            requirements_count: requirements.length,
+            rules_count: rules.length,
+            validation_is_valid: true,
+            validation_error_count: 0,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-1/requirements") && method === "GET") {
+        return {
+          ok: true,
+          json: async () => ({ product_id: "produkt-1", items: [...requirements], count: requirements.length }),
+        } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-1/requirements") && method === "POST") {
+        requirements.push("mfa-required");
+        return { ok: true, json: async () => ({ item: "mfa-required" }) } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-1/requirements/mfa-required") && method === "DELETE") {
+        const index = requirements.indexOf("mfa-required");
+        if (index >= 0) requirements.splice(index, 1);
+        return { ok: true, json: async () => ({ item: "mfa-required", removed: true }) } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-1/rules") && method === "GET") {
+        return {
+          ok: true,
+          json: async () => ({ product_id: "produkt-1", items: [...rules], count: rules.length }),
+        } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-1/rules") && method === "POST") {
+        rules.push("rule-mfa-enforcement");
+        return { ok: true, json: async () => ({ item: "rule-mfa-enforcement" }) } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-1/rules/rule-mfa-enforcement") && method === "DELETE") {
+        const index = rules.indexOf("rule-mfa-enforcement");
+        if (index >= 0) rules.splice(index, 1);
+        return { ok: true, json: async () => ({ item: "rule-mfa-enforcement", removed: true }) } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-1")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "produkt-1",
+            name: "Benutzerkonto mit Mailbox",
+            version: "0.1.0",
+            description: "Reference product for Nomos MVP",
+            validation: { is_valid: true, errors: [] },
+          }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          items: [
+            { id: "produkt-1", name: "Benutzerkonto mit Mailbox", version: "0.1.0" },
+          ],
+          count: 1,
+        }),
+      } as Response;
+    });
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Benutzerkonto mit Mailbox" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Load requirements" }));
+
+    fireEvent.change(screen.getByPlaceholderText("New requirement"), { target: { value: "mfa-required" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add requirement" }));
+    expect(await screen.findByText("mfa-required")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove requirement mfa-required" }));
+    await waitFor(() => expect(screen.queryByText("mfa-required")).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Rules tab" }));
+    fireEvent.click(screen.getByRole("button", { name: "Load rules" }));
+
+    fireEvent.change(screen.getByPlaceholderText("New rule"), { target: { value: "rule-mfa-enforcement" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add rule" }));
+    expect(await screen.findByText("rule-mfa-enforcement")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove rule rule-mfa-enforcement" }));
+    await waitFor(() => expect(screen.queryByText("rule-mfa-enforcement")).not.toBeInTheDocument());
   });
 });

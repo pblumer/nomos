@@ -57,10 +57,12 @@ function App() {
 
   const [requirements, setRequirements] = useState<string[]>([]);
   const [requirementsFilter, setRequirementsFilter] = useState("");
+  const [newRequirement, setNewRequirement] = useState("");
 
   const [rules, setRules] = useState<string[]>([]);
   const [rulesFilter, setRulesFilter] = useState("");
   const [rulesSort, setRulesSort] = useState<"asc" | "desc">("asc");
+  const [newRule, setNewRule] = useState("");
 
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "";
 
@@ -68,9 +70,7 @@ function App() {
     const loadProducts = async () => {
       try {
         const response = await fetch(`${apiBaseUrl}/api/v1/products`);
-        if (!response.ok) {
-          return;
-        }
+        if (!response.ok) return;
 
         const data = (await response.json()) as ProductResponse;
         setProducts(data.items);
@@ -85,9 +85,7 @@ function App() {
   const loadProductSummary = async (productId: string) => {
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/products/${productId}/summary`);
-      if (!response.ok) {
-        return;
-      }
+      if (!response.ok) return;
 
       const data = (await response.json()) as ProductSummary;
       setProductSummary(data);
@@ -99,9 +97,7 @@ function App() {
   const loadProductDetail = async (productId: string) => {
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/products/${productId}`);
-      if (!response.ok) {
-        return;
-      }
+      if (!response.ok) return;
 
       const data = (await response.json()) as ProductDetail;
       setSelectedProduct(data);
@@ -109,9 +105,11 @@ function App() {
       setActiveTab("requirements");
       setRequirements([]);
       setRequirementsFilter("");
+      setNewRequirement("");
       setRules([]);
       setRulesFilter("");
       setRulesSort("asc");
+      setNewRule("");
       void loadProductSummary(productId);
     } catch {
       // Keep UI responsive if detail call fails.
@@ -119,15 +117,11 @@ function App() {
   };
 
   const loadRequirements = async () => {
-    if (!selectedProduct) {
-      return;
-    }
+    if (!selectedProduct) return;
 
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/products/${selectedProduct.id}/requirements`);
-      if (!response.ok) {
-        return;
-      }
+      if (!response.ok) return;
 
       const data = (await response.json()) as ProductRequirementsResponse;
       setRequirements(data.items);
@@ -136,16 +130,50 @@ function App() {
     }
   };
 
-  const loadRules = async () => {
-    if (!selectedProduct) {
-      return;
+  const addRequirement = async () => {
+    if (!selectedProduct) return;
+    const value = newRequirement.trim();
+    if (value === "") return;
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/products/${selectedProduct.id}/requirements`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value }),
+      });
+      if (!response.ok) return;
+
+      setNewRequirement("");
+      await loadRequirements();
+      await loadProductSummary(selectedProduct.id);
+    } catch {
+      // Keep UI responsive if add fails.
     }
+  };
+
+  const removeRequirement = async (item: string) => {
+    if (!selectedProduct) return;
+
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/v1/products/${selectedProduct.id}/requirements/${encodeURIComponent(item)}`,
+        { method: "DELETE" }
+      );
+      if (!response.ok) return;
+
+      await loadRequirements();
+      await loadProductSummary(selectedProduct.id);
+    } catch {
+      // Keep UI responsive if delete fails.
+    }
+  };
+
+  const loadRules = async () => {
+    if (!selectedProduct) return;
 
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/products/${selectedProduct.id}/rules`);
-      if (!response.ok) {
-        return;
-      }
+      if (!response.ok) return;
 
       const data = (await response.json()) as ProductRulesResponse;
       setRules(data.items);
@@ -154,12 +182,47 @@ function App() {
     }
   };
 
+  const addRule = async () => {
+    if (!selectedProduct) return;
+    const value = newRule.trim();
+    if (value === "") return;
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/products/${selectedProduct.id}/rules`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value }),
+      });
+      if (!response.ok) return;
+
+      setNewRule("");
+      await loadRules();
+      await loadProductSummary(selectedProduct.id);
+    } catch {
+      // Keep UI responsive if add fails.
+    }
+  };
+
+  const removeRule = async (item: string) => {
+    if (!selectedProduct) return;
+
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/v1/products/${selectedProduct.id}/rules/${encodeURIComponent(item)}`,
+        { method: "DELETE" }
+      );
+      if (!response.ok) return;
+
+      await loadRules();
+      await loadProductSummary(selectedProduct.id);
+    } catch {
+      // Keep UI responsive if delete fails.
+    }
+  };
+
   const visibleRequirements = useMemo(() => {
     const source = requirements.length > 0 ? requirements : selectedProduct?.requirements ?? [];
-
-    if (requirementsFilter.trim() === "") {
-      return source;
-    }
+    if (requirementsFilter.trim() === "") return source;
 
     const query = requirementsFilter.toLowerCase();
     return source.filter((item) => item.toLowerCase().includes(query));
@@ -167,7 +230,6 @@ function App() {
 
   const visibleRules = useMemo(() => {
     const source = rules.length > 0 ? rules : selectedProduct?.rules ?? [];
-
     const filtered = rulesFilter.trim()
       ? source.filter((item) => item.toLowerCase().includes(rulesFilter.toLowerCase()))
       : source;
@@ -228,9 +290,25 @@ function App() {
                   onChange={(event) => setRequirementsFilter(event.target.value)}
                 />
               </div>
+              <div>
+                <input
+                  type="text"
+                  placeholder="New requirement"
+                  value={newRequirement}
+                  onChange={(event) => setNewRequirement(event.target.value)}
+                />
+                <button type="button" onClick={() => void addRequirement()}>
+                  Add requirement
+                </button>
+              </div>
               <ul>
                 {visibleRequirements.map((requirement) => (
-                  <li key={requirement}>{requirement}</li>
+                  <li key={requirement}>
+                    <span>{requirement}</span>
+                    <button type="button" onClick={() => void removeRequirement(requirement)}>
+                      Remove requirement {requirement}
+                    </button>
+                  </li>
                 ))}
               </ul>
             </section>
@@ -249,6 +327,17 @@ function App() {
                 />
               </div>
               <div>
+                <input
+                  type="text"
+                  placeholder="New rule"
+                  value={newRule}
+                  onChange={(event) => setNewRule(event.target.value)}
+                />
+                <button type="button" onClick={() => void addRule()}>
+                  Add rule
+                </button>
+              </div>
+              <div>
                 <label htmlFor="rules-sort">Rules sort</label>
                 <select
                   id="rules-sort"
@@ -262,7 +351,10 @@ function App() {
               <ul>
                 {visibleRules.map((rule) => (
                   <li key={rule} data-testid="rules-item">
-                    {rule}
+                    <span>{rule}</span>
+                    <button type="button" onClick={() => void removeRule(rule)}>
+                      Remove rule {rule}
+                    </button>
                   </li>
                 ))}
               </ul>
