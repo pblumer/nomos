@@ -122,3 +122,29 @@ def test_update_product_rejects_invalid_payload(monkeypatch, tmp_path: Path) -> 
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Missing required field: version"
+
+
+def test_get_product_resolves_id_even_if_filename_differs(monkeypatch, tmp_path: Path) -> None:
+    products_dir = tmp_path / "products"
+    products_dir.mkdir()
+
+    (products_dir / "produkt-benutzerkonto.yml").write_text(
+        yaml.safe_dump(
+            {
+                "id": "produkt-1",
+                "name": "Benutzerkonto mit Mailbox",
+                "version": "0.1.0",
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("NOMOS_PRODUCTS_DIR", str(products_dir))
+    client = TestClient(app)
+
+    response = client.get("/api/v1/products/produkt-1")
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "Benutzerkonto mit Mailbox"

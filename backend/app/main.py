@@ -122,6 +122,11 @@ def _load_product_with_path_or_404(product_id: str) -> tuple[Path, dict[str, obj
     if yaml_path.exists():
         return yaml_path, _enrich_product_for_response(_read_yaml_file(yaml_path))
 
+    for file_path in _product_files():
+        data = _read_yaml_file(file_path)
+        if str(data.get("id", "")).strip() == product_id:
+            return file_path, _enrich_product_for_response(data)
+
     raise HTTPException(status_code=404, detail="Produkt nicht gefunden")
 
 

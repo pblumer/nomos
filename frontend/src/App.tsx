@@ -373,16 +373,22 @@ function App() {
   }, [rules, rulesFilter, rulesSort, selectedProduct]);
 
   return (
-    <main>
-      <h1>Nomos MVP</h1>
-      <p>Produktkatalog</p>
+    <main className="app-shell">
+      <section className="card stack">
+        <h1>Nomos MVP</h1>
+        <p className="muted">Produktkatalog</p>
+      </section>
       {toast ? (
-        <div role="status" aria-label={toast.type === "success" ? "toast-success" : "toast-error"}>
+        <div
+          className={`card ${toast.type === "success" ? "toast-success" : "toast-error"}`}
+          role="status"
+          aria-label={toast.type === "success" ? "toast-success" : "toast-error"}
+        >
           {toast.message}
         </div>
       ) : null}
 
-      <section>
+      <section className="card stack">
         <h2>Neues Produkt</h2>
         <input
           type="text"
@@ -413,18 +419,22 @@ function App() {
         </button>
       </section>
 
-      <ul>
-        {products.map((product) => (
-          <li key={product.id}>
-            <button type="button" onClick={() => void loadProductDetail(product.id)}>
-              {product.name}
-            </button>
-          </li>
-        ))}
-      </ul>
+      <section className="card stack">
+        <h2>Produkte</h2>
+        <ul className="list">
+          {products.map((product) => (
+            <li key={product.id} className="list-item">
+              <button type="button" onClick={() => void loadProductDetail(product.id)}>
+                {product.name}
+              </button>
+              <span className="muted">{product.version}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       {selectedProduct ? (
-        <section>
+        <section className="card stack">
           <h2>Produktdetail</h2>
           <p>{selectedProduct.name}</p>
           <p>Version: {selectedProduct.version ?? "n/a"}</p>
