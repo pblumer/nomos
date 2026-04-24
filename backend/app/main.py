@@ -122,6 +122,12 @@ def _validate_requirement(data: dict[str, object]) -> dict[str, object]:
     if req_name == "":
         errors.append("Missing required field: name")
 
+    priority = str(data.get("priority", "")).strip()
+    if priority != "":
+        allowed_priorities = {"low", "medium", "high", "critical"}
+        if priority not in allowed_priorities:
+            errors.append(f"Invalid priority: {priority}")
+
     return {
         "is_valid": len(errors) == 0,
         "errors": errors,
@@ -173,6 +179,12 @@ def _validate_rule(data: dict[str, object]) -> dict[str, object]:
         allowed_severity = {"low", "medium", "high", "critical"}
         if severity not in allowed_severity:
             errors.append(f"Invalid severity: {severity}")
+
+    rule_type = str(data.get("type", "")).strip()
+    if rule_type != "":
+        allowed_types = {"must", "must_not", "derive", "allow", "deny"}
+        if rule_type not in allowed_types:
+            errors.append(f"Invalid type: {rule_type}")
 
     validation_value = data.get("validation")
     if validation_value is not None:
@@ -344,6 +356,12 @@ def list_rules() -> dict[str, object]:
                 "description": str(data.get("description", "")),
                 "severity": str(data.get("severity", "")),
                 "category": str(data.get("category", "")),
+                "type": str(data.get("type", "")),
+                "condition": str(data.get("condition", "")),
+                "effect": str(data.get("effect", "")),
+                "rationale": str(data.get("rationale", "")),
+                "evidence": str(data.get("evidence", "")),
+                "version": str(data.get("version", "")),
             }
         )
 
@@ -544,6 +562,11 @@ def list_requirements() -> dict[str, object]:
                 "id": str(data.get("id", "")),
                 "name": str(data.get("name", "")),
                 "description": str(data.get("description", "")),
+                "category": str(data.get("category", "")),
+                "scope": str(data.get("scope", "")),
+                "source": str(data.get("source", "")),
+                "priority": str(data.get("priority", "")),
+                "version": str(data.get("version", "")),
             }
         )
 
@@ -594,11 +617,22 @@ def add_product_variant(product_id: str, payload: dict[str, object] = Body(...))
     if variant_id in ids:
         raise HTTPException(status_code=409, detail="variant already exists")
 
-    items.append({
+    new_variant: dict[str, object] = {
         "id": variant_id,
         "name": str(payload.get("name", variant_id)),
+        "description": str(payload.get("description", "")),
         "context": str(payload.get("context", "")),
-    })
+    }
+    validity = payload.get("validity_conditions")
+    if isinstance(validity, list):
+        new_variant["validity_conditions"] = validity
+    req_ids = payload.get("requirement_ids")
+    if isinstance(req_ids, list):
+        new_variant["requirement_ids"] = req_ids
+    rule_ids = payload.get("rule_ids")
+    if isinstance(rule_ids, list):
+        new_variant["rule_ids"] = rule_ids
+    items.append(new_variant)
     product["variants"] = items
     product["validation"] = _validate_product(product)
     _write_yaml_file(file_path, product)

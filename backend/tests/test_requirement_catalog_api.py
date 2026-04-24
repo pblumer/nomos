@@ -73,6 +73,16 @@ def test_update_requirement_rejects_empty_name():
     assert "name" in response.json()["detail"].lower()
 
 
+def test_update_requirement_rejects_invalid_priority():
+    req_dir = Path(os.environ["NOMOS_REQUIREMENTS_DIR"])
+    req_path = req_dir / "req-a.yml"
+    req_path.write_text("id: req-a\nname: Req A\n")
+
+    response = client.put("/api/v1/requirements/req-a", json={"name": "Req A", "priority": "urgent"})
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid priority: urgent"
+
+
 def test_update_requirement_id_mismatch():
     req_dir = Path(os.environ["NOMOS_REQUIREMENTS_DIR"])
     req_path = req_dir / "req-a.yml"

@@ -131,3 +131,20 @@ def test_update_rule_rejects_invalid_validation_operator(monkeypatch, tmp_path: 
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid validation.operator: between"
+
+
+def test_update_rule_rejects_invalid_type(monkeypatch, tmp_path: Path) -> None:
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    (rules_dir / "rule-a.yml").write_text("id: rule-a\nname: Rule A\n", encoding="utf-8")
+
+    monkeypatch.setenv("NOMOS_RULES_DIR", str(rules_dir))
+    client = TestClient(app)
+
+    response = client.put(
+        "/api/v1/rules/rule-a",
+        json={"name": "Rule A", "type": "invalid_type"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid type: invalid_type"

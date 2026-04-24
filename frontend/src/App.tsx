@@ -46,6 +46,12 @@ type RuleDetail = {
   severity?: string;
   scope?: string;
   enforcement?: string;
+  type?: string;
+  condition?: string;
+  effect?: string;
+  rationale?: string;
+  evidence?: string;
+  version?: string;
   validation?: {
     type?: string;
     field?: string;
@@ -61,6 +67,12 @@ type RuleEditorState = {
   severity: string;
   scope: string;
   enforcement: string;
+  type: string;
+  condition: string;
+  effect: string;
+  rationale: string;
+  evidence: string;
+  version: string;
   validationType: string;
   validationField: string;
   validationOperator: string;
@@ -71,11 +83,21 @@ type RequirementDetail = {
   id: string;
   name: string;
   description?: string;
+  category?: string;
+  scope?: string;
+  source?: string;
+  priority?: string;
+  version?: string;
 };
 
 type RequirementEditorState = {
   name: string;
   description: string;
+  category: string;
+  scope: string;
+  source: string;
+  priority: string;
+  version: string;
 };
 
 type ProductSummary = {
@@ -104,8 +126,8 @@ function App() {
   const [rulesSort, setRulesSort] = useState<"asc" | "desc">("asc");
   const [newRule, setNewRule] = useState("");
 
-  const [variants, setVariants] = useState<Array<{ id: string; name: string; context?: string }>>([]);
-  const [newVariant, setNewVariant] = useState({ id: "", name: "", context: "" });
+  const [variants, setVariants] = useState<Array<{ id: string; name: string; description?: string; context?: string; validity_conditions?: string[]; requirement_ids?: string[]; rule_ids?: string[] }>>([]);
+  const [newVariant, setNewVariant] = useState({ id: "", name: "", description: "", context: "", validityConditions: "", requirementIds: "", ruleIds: "" });
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
   const [ruleDetails, setRuleDetails] = useState<Record<string, RuleDetail>>({});
   const [ruleEditor, setRuleEditor] = useState<RuleEditorState>({
@@ -115,6 +137,12 @@ function App() {
     severity: "",
     scope: "",
     enforcement: "",
+    type: "",
+    condition: "",
+    effect: "",
+    rationale: "",
+    evidence: "",
+    version: "",
     validationType: "",
     validationField: "",
     validationOperator: "",
@@ -126,6 +154,11 @@ function App() {
   const [requirementEditor, setRequirementEditor] = useState<RequirementEditorState>({
     name: "",
     description: "",
+    category: "",
+    scope: "",
+    source: "",
+    priority: "",
+    version: "",
   });
 
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -161,6 +194,12 @@ function App() {
     severity: detail.severity ?? "",
     scope: detail.scope ?? "",
     enforcement: detail.enforcement ?? "",
+    type: detail.type ?? "",
+    condition: detail.condition ?? "",
+    effect: detail.effect ?? "",
+    rationale: detail.rationale ?? "",
+    evidence: detail.evidence ?? "",
+    version: detail.version ?? "",
     validationType: detail.validation?.type ? String(detail.validation.type) : "",
     validationField: detail.validation?.field ? String(detail.validation.field) : "",
     validationOperator: detail.validation?.operator ? String(detail.validation.operator) : "",
@@ -170,6 +209,11 @@ function App() {
   const toRequirementEditorState = (detail: RequirementDetail): RequirementEditorState => ({
     name: detail.name ?? "",
     description: detail.description ?? "",
+    category: detail.category ?? "",
+    scope: detail.scope ?? "",
+    source: detail.source ?? "",
+    priority: detail.priority ?? "",
+    version: detail.version ?? "",
   });
 
   const loadProducts = async () => {
@@ -222,7 +266,7 @@ function App() {
       setRulesSort("asc");
       setNewRule("");
       setVariants([]);
-      setNewVariant({ id: "", name: "", context: "" });
+      setNewVariant({ id: "", name: "", description: "", context: "", validityConditions: "", requirementIds: "", ruleIds: "" });
       setSelectedRuleId(null);
       setRuleDetails({});
       setRuleEditor({
@@ -232,6 +276,12 @@ function App() {
         severity: "",
         scope: "",
         enforcement: "",
+        type: "",
+        condition: "",
+        effect: "",
+        rationale: "",
+        evidence: "",
+        version: "",
         validationType: "",
         validationField: "",
         validationOperator: "",
@@ -242,6 +292,11 @@ function App() {
       setRequirementEditor({
         name: "",
         description: "",
+        category: "",
+        scope: "",
+        source: "",
+        priority: "",
+        version: "",
       });
       void loadProductSummary(productId);
     } catch {
@@ -348,6 +403,12 @@ function App() {
         severity: "",
         scope: "",
         enforcement: "",
+        type: "",
+        condition: "",
+        effect: "",
+        rationale: "",
+        evidence: "",
+        version: "",
         validationType: "",
         validationField: "",
         validationOperator: "",
@@ -437,6 +498,12 @@ function App() {
         severity: "",
         scope: "",
         enforcement: "",
+        type: "",
+        condition: "",
+        effect: "",
+        rationale: "",
+        evidence: "",
+        version: "",
         validationType: "",
         validationField: "",
         validationOperator: "",
@@ -481,6 +548,12 @@ function App() {
       severity: ruleEditor.severity.trim(),
       scope: ruleEditor.scope.trim(),
       enforcement: ruleEditor.enforcement.trim(),
+      type: ruleEditor.type.trim(),
+      condition: ruleEditor.condition.trim(),
+      effect: ruleEditor.effect.trim(),
+      rationale: ruleEditor.rationale.trim(),
+      evidence: ruleEditor.evidence.trim(),
+      version: ruleEditor.version.trim(),
     };
 
     if (ruleEditor.validationType.trim() || ruleEditor.validationField.trim() || ruleEditor.validationOperator.trim() || ruleEditor.validationValue.trim()) {
@@ -542,6 +615,11 @@ function App() {
       id: selectedRequirementId,
       name: requirementEditor.name.trim(),
       description: requirementEditor.description.trim(),
+      category: requirementEditor.category.trim(),
+      scope: requirementEditor.scope.trim(),
+      source: requirementEditor.source.trim(),
+      priority: requirementEditor.priority.trim(),
+      version: requirementEditor.version.trim(),
     };
 
     try {
@@ -615,7 +693,7 @@ function App() {
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/products/${selectedProduct.id}/variants`);
       if (!response.ok) return;
-      const data = (await response.json()) as { items: Array<{ id: string; name: string; context?: string }> };
+      const data = (await response.json()) as { items: Array<{ id: string; name: string; description?: string; context?: string; validity_conditions?: string[]; requirement_ids?: string[]; rule_ids?: string[] }> };
       setVariants(data.items);
     } catch {
       // ignore
@@ -624,11 +702,18 @@ function App() {
 
   const addVariant = async () => {
     if (!selectedProduct) return;
-    const payload = {
+    const payload: Record<string, unknown> = {
       id: newVariant.id.trim(),
       name: newVariant.name.trim(),
+      description: newVariant.description.trim(),
       context: newVariant.context.trim(),
     };
+    const vc = newVariant.validityConditions.split(",").map((s) => s.trim()).filter(Boolean);
+    if (vc.length > 0) payload.validity_conditions = vc;
+    const reqIds = newVariant.requirementIds.split(",").map((s) => s.trim()).filter(Boolean);
+    if (reqIds.length > 0) payload.requirement_ids = reqIds;
+    const rIds = newVariant.ruleIds.split(",").map((s) => s.trim()).filter(Boolean);
+    if (rIds.length > 0) payload.rule_ids = rIds;
     if (!payload.id) {
       setToast({ type: "error", message: "Variant id is required" });
       return;
@@ -643,7 +728,7 @@ function App() {
         setToast({ type: "error", message: await readErrorMessage(response) });
         return;
       }
-      setNewVariant({ id: "", name: "", context: "" });
+      setNewVariant({ id: "", name: "", description: "", context: "", validityConditions: "", requirementIds: "", ruleIds: "" });
       await loadVariants();
       await loadProductSummary(selectedProduct.id);
       setToast({ type: "success", message: "Variant added" });
@@ -873,6 +958,40 @@ function App() {
                         value={requirementEditor.description}
                         onChange={(event) => setRequirementEditor((current) => ({ ...current, description: event.target.value }))}
                       />
+                      <div className="row">
+                        <input
+                          type="text"
+                          placeholder="Edit requirement category"
+                          value={requirementEditor.category}
+                          onChange={(event) => setRequirementEditor((current) => ({ ...current, category: event.target.value }))}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Edit requirement scope"
+                          value={requirementEditor.scope}
+                          onChange={(event) => setRequirementEditor((current) => ({ ...current, scope: event.target.value }))}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Edit requirement source"
+                          value={requirementEditor.source}
+                          onChange={(event) => setRequirementEditor((current) => ({ ...current, source: event.target.value }))}
+                        />
+                      </div>
+                      <div className="row">
+                        <input
+                          type="text"
+                          placeholder="Edit requirement priority (low/medium/high/critical)"
+                          value={requirementEditor.priority}
+                          onChange={(event) => setRequirementEditor((current) => ({ ...current, priority: event.target.value }))}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Edit requirement version"
+                          value={requirementEditor.version}
+                          onChange={(event) => setRequirementEditor((current) => ({ ...current, version: event.target.value }))}
+                        />
+                      </div>
 
                       <button type="button" onClick={() => void saveRequirementDetail()}>
                         Save requirement
@@ -975,6 +1094,46 @@ function App() {
                         value={ruleEditor.enforcement}
                         onChange={(event) => setRuleEditor((current) => ({ ...current, enforcement: event.target.value }))}
                       />
+                      <div className="row">
+                        <input
+                          type="text"
+                          placeholder="Edit rule type (must/must_not/derive/allow/deny)"
+                          value={ruleEditor.type}
+                          onChange={(event) => setRuleEditor((current) => ({ ...current, type: event.target.value }))}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Edit rule condition"
+                          value={ruleEditor.condition}
+                          onChange={(event) => setRuleEditor((current) => ({ ...current, condition: event.target.value }))}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Edit rule effect"
+                          value={ruleEditor.effect}
+                          onChange={(event) => setRuleEditor((current) => ({ ...current, effect: event.target.value }))}
+                        />
+                      </div>
+                      <div className="row">
+                        <input
+                          type="text"
+                          placeholder="Edit rule rationale"
+                          value={ruleEditor.rationale}
+                          onChange={(event) => setRuleEditor((current) => ({ ...current, rationale: event.target.value }))}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Edit rule evidence"
+                          value={ruleEditor.evidence}
+                          onChange={(event) => setRuleEditor((current) => ({ ...current, evidence: event.target.value }))}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Edit rule version"
+                          value={ruleEditor.version}
+                          onChange={(event) => setRuleEditor((current) => ({ ...current, version: event.target.value }))}
+                        />
+                      </div>
 
                       <div className="row">
                         <input
@@ -1030,9 +1189,33 @@ function App() {
                     />
                     <input
                       type="text"
+                      placeholder="New variant description"
+                      value={newVariant.description}
+                      onChange={(event) => setNewVariant((current) => ({ ...current, description: event.target.value }))}
+                    />
+                    <input
+                      type="text"
                       placeholder="New variant context"
                       value={newVariant.context}
                       onChange={(event) => setNewVariant((current) => ({ ...current, context: event.target.value }))}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Validity conditions (comma separated)"
+                      value={newVariant.validityConditions}
+                      onChange={(event) => setNewVariant((current) => ({ ...current, validityConditions: event.target.value }))}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Requirement ids (comma separated)"
+                      value={newVariant.requirementIds}
+                      onChange={(event) => setNewVariant((current) => ({ ...current, requirementIds: event.target.value }))}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Rule ids (comma separated)"
+                      value={newVariant.ruleIds}
+                      onChange={(event) => setNewVariant((current) => ({ ...current, ruleIds: event.target.value }))}
                     />
                     <button type="button" onClick={() => void addVariant()}>
                       Add variant
@@ -1044,6 +1227,15 @@ function App() {
                         <span>{variant.name}</span>
                         <span className="muted">{variant.id}</span>
                         <span className="muted">{variant.context}</span>
+                        {variant.validity_conditions && variant.validity_conditions.length > 0 ? (
+                          <span className="muted">Conditions: {variant.validity_conditions.join(", ")}</span>
+                        ) : null}
+                        {variant.requirement_ids && variant.requirement_ids.length > 0 ? (
+                          <span className="muted">Reqs: {variant.requirement_ids.join(", ")}</span>
+                        ) : null}
+                        {variant.rule_ids && variant.rule_ids.length > 0 ? (
+                          <span className="muted">Rules: {variant.rule_ids.join(", ")}</span>
+                        ) : null}
                         <button className="secondary" type="button" onClick={() => void removeVariant(variant.id)}>
                           Remove variant {variant.id}
                         </button>
