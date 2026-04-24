@@ -107,3 +107,26 @@ def get_product_rules(product_id: str) -> dict[str, object]:
         "items": rule_items,
         "count": len(rule_items),
     }
+
+
+@app.get("/api/v1/products/{product_id}/summary")
+def get_product_summary(product_id: str) -> dict[str, object]:
+    product = _load_product_or_404(product_id)
+    validation = product.get("validation", {})
+
+    if not isinstance(validation, dict):
+        validation = {"is_valid": False, "errors": []}
+
+    errors = validation.get("errors", [])
+    if not isinstance(errors, list):
+        errors = []
+
+    return {
+        "product_id": str(product.get("id", product_id)),
+        "name": str(product.get("name", "")),
+        "version": str(product.get("version", "")),
+        "requirements_count": len(_list_field(product, "requirements")),
+        "rules_count": len(_list_field(product, "rules")),
+        "validation_is_valid": bool(validation.get("is_valid", False)),
+        "validation_error_count": len(errors),
+    }

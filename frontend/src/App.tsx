@@ -38,9 +38,20 @@ type ProductRulesResponse = {
   count: number;
 };
 
+type ProductSummary = {
+  product_id: string;
+  name: string;
+  version: string;
+  requirements_count: number;
+  rules_count: number;
+  validation_is_valid: boolean;
+  validation_error_count: number;
+};
+
 function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<ProductDetail | null>(null);
+  const [productSummary, setProductSummary] = useState<ProductSummary | null>(null);
 
   const [activeTab, setActiveTab] = useState<"requirements" | "rules">("requirements");
 
@@ -71,6 +82,20 @@ function App() {
     void loadProducts();
   }, [apiBaseUrl]);
 
+  const loadProductSummary = async (productId: string) => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/products/${productId}/summary`);
+      if (!response.ok) {
+        return;
+      }
+
+      const data = (await response.json()) as ProductSummary;
+      setProductSummary(data);
+    } catch {
+      // Keep UI responsive if summary call fails.
+    }
+  };
+
   const loadProductDetail = async (productId: string) => {
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/products/${productId}`);
@@ -80,12 +105,14 @@ function App() {
 
       const data = (await response.json()) as ProductDetail;
       setSelectedProduct(data);
+      setProductSummary(null);
       setActiveTab("requirements");
       setRequirements([]);
       setRequirementsFilter("");
       setRules([]);
       setRulesFilter("");
       setRulesSort("asc");
+      void loadProductSummary(productId);
     } catch {
       // Keep UI responsive if detail call fails.
     }
@@ -169,6 +196,14 @@ function App() {
           <p>{selectedProduct.name}</p>
           <p>Version: {selectedProduct.version ?? "n/a"}</p>
           <p>{selectedProduct.description}</p>
+
+          {productSummary ? (
+            <div>
+              <p>Requirements: {productSummary.requirements_count}</p>
+              <p>Rules: {productSummary.rules_count}</p>
+              <p>Validation errors: {productSummary.validation_error_count}</p>
+            </div>
+          ) : null}
 
           <div>
             <button type="button" onClick={() => setActiveTab("requirements")}>

@@ -242,4 +242,60 @@ describe("App", () => {
     const sortedItems = screen.getAllByTestId("rules-item").map((node) => node.textContent);
     expect(sortedItems[0]).toBe("rule-alpha");
   });
+
+  it("shows summary cards in product detail header", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes("/api/v1/products/produkt-1/summary")) {
+        return {
+          ok: true,
+          json: async () => ({
+            product_id: "produkt-1",
+            name: "Benutzerkonto mit Mailbox",
+            version: "0.1.0",
+            requirements_count: 2,
+            rules_count: 3,
+            validation_is_valid: true,
+            validation_error_count: 0,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-1")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "produkt-1",
+            name: "Benutzerkonto mit Mailbox",
+            version: "0.1.0",
+            description: "Reference product for Nomos MVP",
+            validation: { is_valid: true, errors: [] },
+          }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          items: [
+            {
+              id: "produkt-1",
+              name: "Benutzerkonto mit Mailbox",
+              version: "0.1.0",
+            },
+          ],
+          count: 1,
+        }),
+      } as Response;
+    });
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Benutzerkonto mit Mailbox" }));
+
+    expect(await screen.findByText("Requirements: 2")).toBeInTheDocument();
+    expect(await screen.findByText("Rules: 3")).toBeInTheDocument();
+    expect(await screen.findByText("Validation errors: 0")).toBeInTheDocument();
+  });
 });
