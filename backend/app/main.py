@@ -58,6 +58,13 @@ def _rule_files() -> list[Path]:
     ])
 
 
+def _requirement_files() -> list[Path]:
+    return sorted([
+        *_requirements_dir().glob("*.yml"),
+        *_requirements_dir().glob("*.yaml"),
+    ])
+
+
 def _load_rule_with_path_or_404(rule_id: str) -> tuple[Path, dict[str, object]]:
     yml_path = _rules_dir() / f"{rule_id}.yml"
     yaml_path = _rules_dir() / f"{rule_id}.yaml"
@@ -79,6 +86,46 @@ def _load_rule_with_path_or_404(rule_id: str) -> tuple[Path, dict[str, object]]:
 def _load_rule_or_404(rule_id: str) -> dict[str, object]:
     _, rule = _load_rule_with_path_or_404(rule_id)
     return rule
+
+
+def _load_requirement_with_path_or_404(req_id: str) -> tuple[Path, dict[str, object]]:
+    yml_path = _requirements_dir() / f"{req_id}.yml"
+    yaml_path = _requirements_dir() / f"{req_id}.yaml"
+
+    if yml_path.exists():
+        return yml_path, _read_yaml_file(yml_path)
+
+    if yaml_path.exists():
+        return yaml_path, _read_yaml_file(yaml_path)
+
+    for file_path in _requirement_files():
+        data = _read_yaml_file(file_path)
+        if str(data.get("id", "")).strip() == req_id:
+            return file_path, data
+
+    raise HTTPException(status_code=404, detail="Requirement not found")
+
+
+def _load_requirement_or_404(req_id: str) -> dict[str, object]:
+    _, req = _load_requirement_with_path_or_404(req_id)
+    return req
+
+
+def _validate_requirement(data: dict[str, object]) -> dict[str, object]:
+    errors: list[str] = []
+
+    req_id = str(data.get("id", "")).strip()
+    if req_id == "":
+        errors.append("Missing required field: id")
+
+    req_name = str(data.get("name", "")).strip()
+    if req_name == "":
+        errors.append("Missing required field: name")
+
+    return {
+        "is_valid": len(errors) == 0,
+        "errors": errors,
+    }
 
 
 def _ensure_artifact_file(base_dir: Path, item_id: str, kind: str) -> None:
@@ -477,3 +524,40 @@ def delete_product_rule(product_id: str, item: str) -> dict[str, object]:
     product["validation"] = _validate_product(product)
     _write_yaml_file(file_path, product)
     return {"item": item, "removed": True}
+
+
+@app.get("/api/v1/requirements")
+def list_requirements() -> dict[str, object]:
+    items: list[dict[str, object]] = []
+    for file_path in _requirement_files():
+        data = _read_yaml_file(file_path)
+        items.append(
+            {
+                "id": str(data.get("id", "")),
+                "name": str(data.get("name", "")),
+                "description": str(data.get("description", "")),
+            }
+        )
+
+    return {"items": items, "count": len(items)}
+
+
+@app.get("/api/v1/requirements/{req_id}")
+def get_requirement(req_id: str) -> dict[str, object]:
+    return _load_requirement_or_404(req_id)
+
+
+@app.put("/api/v1/requirements/{req_id}")
+def update_requirement(req_id: str, payload: dict[str, object] = Body(...)) -> dict[str, object]:
+    file_path, current_req = _load_requirement_with_path_or_404(req_id)
+
+    if "id" in payload and str(payload.get("id", "")).strip() not in {"", req_id}:
+        raise HTTPException(status_code=400, detail="id in payload must match path")
+
+    merged_req = {**current_req, **payload, "id": req_id}
+    validation = _validate_requirement(merged_req)
+    if not validation["is_valid"]:
+        raise HTTPException(status_code=400, detail=validation["errors"][0])
+
+    _write_yaml_file(file_path, merged_req)
+    return merged_req

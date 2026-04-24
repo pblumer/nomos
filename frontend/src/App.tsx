@@ -67,6 +67,17 @@ type RuleEditorState = {
   validationValue: string;
 };
 
+type RequirementDetail = {
+  id: string;
+  name: string;
+  description?: string;
+};
+
+type RequirementEditorState = {
+  name: string;
+  description: string;
+};
+
 type ProductSummary = {
   product_id: string;
   name: string;
@@ -107,6 +118,13 @@ function App() {
     validationValue: "",
   });
 
+  const [selectedRequirementId, setSelectedRequirementId] = useState<string | null>(null);
+  const [requirementDetails, setRequirementDetails] = useState<Record<string, RequirementDetail>>({});
+  const [requirementEditor, setRequirementEditor] = useState<RequirementEditorState>({
+    name: "",
+    description: "",
+  });
+
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const [newProduct, setNewProduct] = useState({
@@ -144,6 +162,11 @@ function App() {
     validationField: detail.validation?.field ? String(detail.validation.field) : "",
     validationOperator: detail.validation?.operator ? String(detail.validation.operator) : "",
     validationValue: detail.validation?.value !== undefined ? String(detail.validation.value) : "",
+  });
+
+  const toRequirementEditorState = (detail: RequirementDetail): RequirementEditorState => ({
+    name: detail.name ?? "",
+    description: detail.description ?? "",
   });
 
   const loadProducts = async () => {
@@ -208,6 +231,12 @@ function App() {
         validationField: "",
         validationOperator: "",
         validationValue: "",
+      });
+      setSelectedRequirementId(null);
+      setRequirementDetails({});
+      setRequirementEditor({
+        name: "",
+        description: "",
       });
       void loadProductSummary(productId);
     } catch {
@@ -478,6 +507,58 @@ function App() {
     }
   };
 
+  const loadRequirementDetail = async (reqId: string) => {
+    if (requirementDetails[reqId]) {
+      setSelectedRequirementId(reqId);
+      setRequirementEditor(toRequirementEditorState(requirementDetails[reqId]));
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/requirements/${reqId}`);
+      if (!response.ok) {
+        setToast({ type: "error", message: await readErrorMessage(response) });
+        return;
+      }
+
+      const data = (await response.json()) as RequirementDetail;
+      setRequirementDetails((current) => ({ ...current, [reqId]: data }));
+      setSelectedRequirementId(reqId);
+      setRequirementEditor(toRequirementEditorState(data));
+    } catch {
+      setToast({ type: "error", message: "Request failed" });
+    }
+  };
+
+  const saveRequirementDetail = async () => {
+    if (!selectedRequirementId) return;
+
+    const payload: RequirementDetail = {
+      id: selectedRequirementId,
+      name: requirementEditor.name.trim(),
+      description: requirementEditor.description.trim(),
+    };
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/requirements/${selectedRequirementId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        setToast({ type: "error", message: await readErrorMessage(response) });
+        return;
+      }
+
+      const data = (await response.json()) as RequirementDetail;
+      setRequirementDetails((current) => ({ ...current, [selectedRequirementId]: data }));
+      setRequirementEditor(toRequirementEditorState(data));
+      setToast({ type: "success", message: "Requirement saved" });
+    } catch {
+      setToast({ type: "error", message: "Request failed" });
+    }
+  };
+
   const addRule = async () => {
     if (!selectedProduct) return;
     const value = newRule.trim();
@@ -694,12 +775,41 @@ function App() {
                     {visibleRequirements.map((requirement) => (
                       <li key={requirement} className="list-item">
                         <span>{requirement}</span>
-                        <button className="secondary" type="button" onClick={() => void removeRequirement(requirement)}>
-                          Remove requirement {requirement}
-                        </button>
+                        <div className="list-item-actions">
+                          <button className="secondary" type="button" onClick={() => void loadRequirementDetail(requirement)}>
+                            Show requirement details {requirement}
+                          </button>
+                          <button className="secondary" type="button" onClick={() => void removeRequirement(requirement)}>
+                            Remove requirement {requirement}
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>
+
+                  {selectedRequirementId && requirementDetails[selectedRequirementId] ? (
+                    <section className="card stack">
+                      <h4 className="section-title">Requirement detail: {requirementDetails[selectedRequirementId].name}</h4>
+                      <p>ID: {requirementDetails[selectedRequirementId].id}</p>
+
+                      <input
+                        type="text"
+                        placeholder="Edit requirement name"
+                        value={requirementEditor.name}
+                        onChange={(event) => setRequirementEditor((current) => ({ ...current, name: event.target.value }))}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Edit requirement description"
+                        value={requirementEditor.description}
+                        onChange={(event) => setRequirementEditor((current) => ({ ...current, description: event.target.value }))}
+                      />
+
+                      <button type="button" onClick={() => void saveRequirementDetail()}>
+                        Save requirement
+                      </button>
+                    </section>
+                  ) : null}
                 </section>
               ) : (
                 <section className="stack">
