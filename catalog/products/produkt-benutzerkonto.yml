@@ -1,3 +1,10 @@
 id: produkt-1
 name: Benutzerkonto mit Mailbox
 version: 0.1.0
+description: Reference product for Nomos MVP
+requirements:
+  - mailbox-enabled
+  - login-required
+rules:
+  - rule-mailbox-quotas
+  - rule-password-policy

@@ -15,6 +15,21 @@ def _read_yaml_file(file_path: Path) -> dict[str, object]:
     return yaml.safe_load(file_path.read_text(encoding="utf-8")) or {}
 
 
+def _validate_product(data: dict[str, object]) -> dict[str, object]:
+    required_fields = ["id", "name", "version"]
+    errors: list[str] = []
+
+    for field_name in required_fields:
+        value = data.get(field_name)
+        if value is None or str(value).strip() == "":
+            errors.append(f"Missing required field: {field_name}")
+
+    return {
+        "is_valid": len(errors) == 0,
+        "errors": errors,
+    }
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -47,9 +62,13 @@ def get_product(product_id: str) -> dict[str, object]:
     yaml_path = _products_dir() / f"{product_id}.yaml"
 
     if yml_path.exists():
-        return _read_yaml_file(yml_path)
+        product = _read_yaml_file(yml_path)
+        product["validation"] = _validate_product(product)
+        return product
 
     if yaml_path.exists():
-        return _read_yaml_file(yaml_path)
+        product = _read_yaml_file(yaml_path)
+        product["validation"] = _validate_product(product)
+        return product
 
     raise HTTPException(status_code=404, detail="Produkt nicht gefunden")

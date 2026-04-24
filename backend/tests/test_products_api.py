@@ -14,7 +14,25 @@ def _write_product(products_dir: Path, product_id: str = "produkt-1") -> None:
                 "id": product_id,
                 "name": "Benutzerkonto mit Mailbox",
                 "version": "0.1.0",
-                "beschreibung": "Referenzprodukt fuer Nomos MVP",
+                "description": "Reference product for Nomos MVP",
+                "requirements": ["mailbox-enabled", "login-required"],
+                "rules": ["rule-mailbox-quotas", "rule-password-policy"],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _write_invalid_product(products_dir: Path, product_id: str = "produkt-invalid") -> None:
+    product_file = products_dir / f"{product_id}.yml"
+    product_file.write_text(
+        yaml.safe_dump(
+            {
+                "id": product_id,
+                "name": "Broken Product",
+                "description": "Missing version field",
             },
             sort_keys=False,
             allow_unicode=True,
@@ -61,7 +79,32 @@ def test_product_detail_endpoint_returns_single_product(monkeypatch, tmp_path: P
         "id": "produkt-1",
         "name": "Benutzerkonto mit Mailbox",
         "version": "0.1.0",
-        "beschreibung": "Referenzprodukt fuer Nomos MVP",
+        "description": "Reference product for Nomos MVP",
+        "requirements": ["mailbox-enabled", "login-required"],
+        "rules": ["rule-mailbox-quotas", "rule-password-policy"],
+        "validation": {
+            "is_valid": True,
+            "errors": [],
+        },
+    }
+
+
+def test_product_detail_endpoint_returns_validation_errors_for_invalid_product(
+    monkeypatch, tmp_path: Path
+) -> None:
+    products_dir = tmp_path / "products"
+    products_dir.mkdir()
+    _write_invalid_product(products_dir)
+
+    monkeypatch.setenv("NOMOS_PRODUCTS_DIR", str(products_dir))
+    client = TestClient(app)
+
+    response = client.get("/api/v1/products/produkt-invalid")
+
+    assert response.status_code == 200
+    assert response.json()["validation"] == {
+        "is_valid": False,
+        "errors": ["Missing required field: version"],
     }
 
 

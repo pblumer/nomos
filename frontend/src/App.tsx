@@ -11,11 +11,19 @@ type ProductResponse = {
   count: number;
 };
 
+type ProductValidation = {
+  is_valid: boolean;
+  errors: string[];
+};
+
 type ProductDetail = {
   id: string;
   name: string;
-  version: string;
-  beschreibung?: string;
+  version?: string;
+  description?: string;
+  requirements?: string[];
+  rules?: string[];
+  validation?: ProductValidation;
 };
 
 function App() {
@@ -34,7 +42,7 @@ function App() {
         const data = (await response.json()) as ProductResponse;
         setProducts(data.items);
       } catch {
-        // In Dev ohne laufendes Backend soll die UI weiterhin rendern.
+        // In dev without backend the UI should still render.
       }
     };
 
@@ -51,7 +59,7 @@ function App() {
       const data = (await response.json()) as ProductDetail;
       setSelectedProduct(data);
     } catch {
-      // Fehler im Detail-Load sollen die Seite nicht blockieren.
+      // Keep UI responsive if detail call fails.
     }
   };
 
@@ -73,8 +81,33 @@ function App() {
         <section>
           <h2>Produktdetail</h2>
           <p>{selectedProduct.name}</p>
-          <p>Version: {selectedProduct.version}</p>
-          <p>{selectedProduct.beschreibung}</p>
+          <p>Version: {selectedProduct.version ?? "n/a"}</p>
+          <p>{selectedProduct.description}</p>
+
+          <h3>Requirements</h3>
+          <ul>
+            {(selectedProduct.requirements ?? []).map((requirement) => (
+              <li key={requirement}>{requirement}</li>
+            ))}
+          </ul>
+
+          <h3>Rules</h3>
+          <ul>
+            {(selectedProduct.rules ?? []).map((rule) => (
+              <li key={rule}>{rule}</li>
+            ))}
+          </ul>
+
+          <h3>Validation</h3>
+          {selectedProduct.validation?.errors?.length ? (
+            <ul>
+              {selectedProduct.validation.errors.map((errorMessage) => (
+                <li key={errorMessage}>{errorMessage}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No validation errors</p>
+          )}
         </section>
       ) : null}
     </main>

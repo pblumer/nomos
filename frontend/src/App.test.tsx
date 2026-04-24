@@ -44,7 +44,10 @@ describe("App", () => {
             id: "produkt-1",
             name: "Benutzerkonto mit Mailbox",
             version: "0.1.0",
-            beschreibung: "Referenzprodukt fuer Nomos MVP",
+            description: "Reference product for Nomos MVP",
+            requirements: ["mailbox-enabled", "login-required"],
+            rules: ["rule-mailbox-quotas", "rule-password-policy"],
+            validation: { is_valid: true, errors: [] },
           }),
         } as Response;
       }
@@ -68,6 +71,48 @@ describe("App", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Benutzerkonto mit Mailbox" }));
 
-    expect(await screen.findByText("Referenzprodukt fuer Nomos MVP")).toBeInTheDocument();
+    expect(await screen.findByText("Reference product for Nomos MVP")).toBeInTheDocument();
+    expect(await screen.findByText("mailbox-enabled")).toBeInTheDocument();
+    expect(await screen.findByText("rule-mailbox-quotas")).toBeInTheDocument();
+  });
+
+  it("shows validation errors in product detail", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/v1/products/produkt-invalid")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "produkt-invalid",
+            name: "Broken Product",
+            description: "Missing version field",
+            validation: {
+              is_valid: false,
+              errors: ["Missing required field: version"],
+            },
+          }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          items: [
+            {
+              id: "produkt-invalid",
+              name: "Broken Product",
+              version: "",
+            },
+          ],
+          count: 1,
+        }),
+      } as Response;
+    });
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Broken Product" }));
+
+    expect(await screen.findByText("Missing required field: version")).toBeInTheDocument();
   });
 });
