@@ -74,6 +74,8 @@ describe("App", () => {
 
     expect(await screen.findByText("Reference product for Nomos MVP")).toBeInTheDocument();
     expect(await screen.findByText("mailbox-enabled")).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Rules tab" }));
     expect(await screen.findByText("rule-mailbox-quotas")).toBeInTheDocument();
   });
 
@@ -173,5 +175,71 @@ describe("App", () => {
 
     expect(screen.getByText("login-required")).toBeInTheDocument();
     expect(screen.queryByText("mailbox-enabled")).not.toBeInTheDocument();
+  });
+
+  it("supports rules tab with filtering and sorting", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes("/api/v1/products/produkt-1/rules")) {
+        return {
+          ok: true,
+          json: async () => ({
+            product_id: "produkt-1",
+            items: ["rule-zeta", "rule-alpha", "rule-gamma"],
+            count: 3,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-1")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "produkt-1",
+            name: "Benutzerkonto mit Mailbox",
+            version: "0.1.0",
+            description: "Reference product for Nomos MVP",
+            validation: { is_valid: true, errors: [] },
+          }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          items: [
+            {
+              id: "produkt-1",
+              name: "Benutzerkonto mit Mailbox",
+              version: "0.1.0",
+            },
+          ],
+          count: 1,
+        }),
+      } as Response;
+    });
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Benutzerkonto mit Mailbox" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Rules tab" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Load rules" }));
+
+    expect(await screen.findByText("rule-zeta")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("Filter rules"), {
+      target: { value: "alpha" },
+    });
+
+    expect(screen.getByText("rule-alpha")).toBeInTheDocument();
+    expect(screen.queryByText("rule-zeta")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Rules sort"), {
+      target: { value: "asc" },
+    });
+
+    const sortedItems = screen.getAllByTestId("rules-item").map((node) => node.textContent);
+    expect(sortedItems[0]).toBe("rule-alpha");
   });
 });

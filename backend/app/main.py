@@ -78,18 +78,32 @@ def get_product(product_id: str) -> dict[str, object]:
     return _load_product_or_404(product_id)
 
 
+def _list_field(product: dict[str, object], field_name: str) -> list[str]:
+    value = product.get(field_name, [])
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value]
+
+
 @app.get("/api/v1/products/{product_id}/requirements")
 def get_product_requirements(product_id: str) -> dict[str, object]:
     product = _load_product_or_404(product_id)
-    requirements = product.get("requirements", [])
-
-    if not isinstance(requirements, list):
-        requirements = []
-
-    requirement_items = [str(item) for item in requirements]
+    requirement_items = _list_field(product, "requirements")
 
     return {
         "product_id": product_id,
         "items": requirement_items,
         "count": len(requirement_items),
+    }
+
+
+@app.get("/api/v1/products/{product_id}/rules")
+def get_product_rules(product_id: str) -> dict[str, object]:
+    product = _load_product_or_404(product_id)
+    rule_items = _list_field(product, "rules")
+
+    return {
+        "product_id": product_id,
+        "items": rule_items,
+        "count": len(rule_items),
     }
