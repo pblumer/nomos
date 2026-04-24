@@ -586,8 +586,109 @@ describe("App", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Show rule details rule-password-policy" }));
 
     expect(await screen.findByText("Rule detail: Password policy")).toBeInTheDocument();
-    expect(await screen.findByText("Severity: high")).toBeInTheDocument();
-    expect(await screen.findByText("Category: security")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("high")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("security")).toBeInTheDocument();
+  });
+
+  it("supports editing and saving a rule", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url.includes("/api/v1/products/produkt-1/rules") && method === "GET") {
+        return {
+          ok: true,
+          json: async () => ({ product_id: "produkt-1", items: ["rule-password-policy"], count: 1 }),
+        } as Response;
+      }
+
+      if (url.includes("/api/v1/rules/rule-password-policy") && method === "GET") {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "rule-password-policy",
+            name: "Password policy",
+            description: "Password policy assignment is mandatory.",
+            severity: "high",
+            category: "security",
+            validation: { type: "presence", field: "password_policy_id" },
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/v1/rules/rule-password-policy") && method === "PUT") {
+        const body = JSON.parse(String(init?.body ?? "{}")) as { name?: string; severity?: string };
+        return {
+          ok: true,
+          json: async () => ({
+            id: "rule-password-policy",
+            name: body.name,
+            description: "Password policy assignment is mandatory.",
+            severity: body.severity,
+            category: "security",
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-1/summary")) {
+        return {
+          ok: true,
+          json: async () => ({
+            product_id: "produkt-1",
+            name: "Benutzerkonto mit Mailbox",
+            version: "0.1.0",
+            requirements_count: 0,
+            rules_count: 1,
+            validation_is_valid: true,
+            validation_error_count: 0,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-1")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "produkt-1",
+            name: "Benutzerkonto mit Mailbox",
+            version: "0.1.0",
+            description: "Reference product for Nomos MVP",
+            validation: { is_valid: true, errors: [] },
+          }),
+        } as Response;
+      }
+
+      if (url.endsWith("/api/v1/products")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [{ id: "produkt-1", name: "Benutzerkonto mit Mailbox", version: "0.1.0" }],
+            count: 1,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/requirements")) {
+        return { ok: true, json: async () => ({ product_id: "produkt-1", items: [], count: 0 }) } as Response;
+      }
+
+      return { ok: true, json: async () => ({ items: [], count: 0 }) } as Response;
+    });
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Benutzerkonto mit Mailbox" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Rules tab" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Load rules" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Show rule details rule-password-policy" }));
+
+    fireEvent.change(await screen.findByPlaceholderText("Edit rule name"), { target: { value: "Password policy updated" } });
+    fireEvent.change(await screen.findByPlaceholderText("Edit rule severity"), { target: { value: "critical" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save rule" }));
+
+    expect(await screen.findByRole("status", { name: "toast-success" })).toHaveTextContent("Rule saved");
   });
 
   it("supports creating, editing and deleting products", async () => {

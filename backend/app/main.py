@@ -58,22 +58,27 @@ def _rule_files() -> list[Path]:
     ])
 
 
-def _load_rule_or_404(rule_id: str) -> dict[str, object]:
+def _load_rule_with_path_or_404(rule_id: str) -> tuple[Path, dict[str, object]]:
     yml_path = _rules_dir() / f"{rule_id}.yml"
     yaml_path = _rules_dir() / f"{rule_id}.yaml"
 
     if yml_path.exists():
-        return _read_yaml_file(yml_path)
+        return yml_path, _read_yaml_file(yml_path)
 
     if yaml_path.exists():
-        return _read_yaml_file(yaml_path)
+        return yaml_path, _read_yaml_file(yaml_path)
 
     for file_path in _rule_files():
         data = _read_yaml_file(file_path)
         if str(data.get("id", "")).strip() == rule_id:
-            return data
+            return file_path, data
 
     raise HTTPException(status_code=404, detail="Rule not found")
+
+
+def _load_rule_or_404(rule_id: str) -> dict[str, object]:
+    _, rule = _load_rule_with_path_or_404(rule_id)
+    return rule
 
 
 def _ensure_artifact_file(base_dir: Path, item_id: str, kind: str) -> None:
@@ -98,6 +103,48 @@ def _validate_product(data: dict[str, object]) -> dict[str, object]:
         value = data.get(field_name)
         if value is None or str(value).strip() == "":
             errors.append(f"Missing required field: {field_name}")
+
+    return {
+        "is_valid": len(errors) == 0,
+        "errors": errors,
+    }
+
+
+def _validate_rule(data: dict[str, object]) -> dict[str, object]:
+    errors: list[str] = []
+
+    rule_id = str(data.get("id", "")).strip()
+    if rule_id == "":
+        errors.append("Missing required field: id")
+
+    rule_name = str(data.get("name", "")).strip()
+    if rule_name == "":
+        errors.append("Missing required field: name")
+
+    severity = str(data.get("severity", "")).strip()
+    if severity != "":
+        allowed_severity = {"low", "medium", "high", "critical"}
+        if severity not in allowed_severity:
+            errors.append(f"Invalid severity: {severity}")
+
+    validation_value = data.get("validation")
+    if validation_value is not None:
+        if not isinstance(validation_value, dict):
+            errors.append("validation must be an object")
+        else:
+            validation_type = str(validation_value.get("type", "")).strip()
+            validation_field = str(validation_value.get("field", "")).strip()
+            if validation_type == "":
+                errors.append("Missing required field: validation.type")
+            if validation_field == "":
+                errors.append("Missing required field: validation.field")
+
+            operator = validation_value.get("operator")
+            if operator is not None and str(operator).strip() != "":
+                allowed_operators = {"eq", "neq", "lt", "lte", "gt", "gte", "matches"}
+                operator_str = str(operator).strip()
+                if operator_str not in allowed_operators:
+                    errors.append(f"Invalid validation.operator: {operator_str}")
 
     return {
         "is_valid": len(errors) == 0,
@@ -251,6 +298,22 @@ def list_rules() -> dict[str, object]:
 @app.get("/api/v1/rules/{rule_id}")
 def get_rule(rule_id: str) -> dict[str, object]:
     return _load_rule_or_404(rule_id)
+
+
+@app.put("/api/v1/rules/{rule_id}")
+def update_rule(rule_id: str, payload: dict[str, object] = Body(...)) -> dict[str, object]:
+    file_path, current_rule = _load_rule_with_path_or_404(rule_id)
+
+    if "id" in payload and str(payload.get("id", "")).strip() not in {"", rule_id}:
+        raise HTTPException(status_code=400, detail="id in payload must match path")
+
+    merged_rule = {**current_rule, **payload, "id": rule_id}
+    validation = _validate_rule(merged_rule)
+    if not validation["is_valid"]:
+        raise HTTPException(status_code=400, detail=validation["errors"][0])
+
+    _write_yaml_file(file_path, merged_rule)
+    return merged_rule
 
 
 @app.get("/api/v1/products/{product_id}/summary")

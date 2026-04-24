@@ -57,3 +57,77 @@ def test_list_rules_returns_count_and_basic_metadata(monkeypatch, tmp_path: Path
     assert payload["count"] == 2
     ids = [item["id"] for item in payload["items"]]
     assert ids == ["rule-1", "rule-2"]
+
+
+def test_update_rule_persists_extended_fields(monkeypatch, tmp_path: Path) -> None:
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+
+    (rules_dir / "rule-password-policy.yml").write_text(
+        "id: rule-password-policy\nname: Password policy\ndescription: old\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("NOMOS_RULES_DIR", str(rules_dir))
+    client = TestClient(app)
+
+    response = client.put(
+        "/api/v1/rules/rule-password-policy",
+        json={
+            "name": "Password policy updated",
+            "description": "Updated text",
+            "severity": "high",
+            "category": "security",
+            "validation": {"type": "presence", "field": "password_policy_id"},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["name"] == "Password policy updated"
+    assert payload["severity"] == "high"
+
+    saved = yaml.safe_load((rules_dir / "rule-password-policy.yml").read_text(encoding="utf-8"))
+    assert saved["validation"]["field"] == "password_policy_id"
+
+
+def test_update_rule_rejects_invalid_severity(monkeypatch, tmp_path: Path) -> None:
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    (rules_dir / "rule-password-policy.yml").write_text("id: rule-password-policy\nname: Password policy\n", encoding="utf-8")
+
+    monkeypatch.setenv("NOMOS_RULES_DIR", str(rules_dir))
+    client = TestClient(app)
+
+    response = client.put(
+        "/api/v1/rules/rule-password-policy",
+        json={"name": "Password policy", "severity": "urgent"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid severity: urgent"
+
+
+def test_update_rule_rejects_invalid_validation_operator(monkeypatch, tmp_path: Path) -> None:
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    (rules_dir / "rule-password-policy.yml").write_text("id: rule-password-policy\nname: Password policy\n", encoding="utf-8")
+
+    monkeypatch.setenv("NOMOS_RULES_DIR", str(rules_dir))
+    client = TestClient(app)
+
+    response = client.put(
+        "/api/v1/rules/rule-password-policy",
+        json={
+            "name": "Password policy",
+            "validation": {
+                "type": "threshold",
+                "field": "password_length",
+                "operator": "between",
+                "value": 12,
+            },
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid validation.operator: between"

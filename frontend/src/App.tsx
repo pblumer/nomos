@@ -46,6 +46,25 @@ type RuleDetail = {
   severity?: string;
   scope?: string;
   enforcement?: string;
+  validation?: {
+    type?: string;
+    field?: string;
+    operator?: string;
+    value?: string | number | boolean;
+  };
+};
+
+type RuleEditorState = {
+  name: string;
+  description: string;
+  category: string;
+  severity: string;
+  scope: string;
+  enforcement: string;
+  validationType: string;
+  validationField: string;
+  validationOperator: string;
+  validationValue: string;
 };
 
 type ProductSummary = {
@@ -75,6 +94,18 @@ function App() {
   const [newRule, setNewRule] = useState("");
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
   const [ruleDetails, setRuleDetails] = useState<Record<string, RuleDetail>>({});
+  const [ruleEditor, setRuleEditor] = useState<RuleEditorState>({
+    name: "",
+    description: "",
+    category: "",
+    severity: "",
+    scope: "",
+    enforcement: "",
+    validationType: "",
+    validationField: "",
+    validationOperator: "",
+    validationValue: "",
+  });
 
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -101,6 +132,19 @@ function App() {
     }
     return "Request failed";
   };
+
+  const toRuleEditorState = (detail: RuleDetail): RuleEditorState => ({
+    name: detail.name ?? "",
+    description: detail.description ?? "",
+    category: detail.category ?? "",
+    severity: detail.severity ?? "",
+    scope: detail.scope ?? "",
+    enforcement: detail.enforcement ?? "",
+    validationType: detail.validation?.type ? String(detail.validation.type) : "",
+    validationField: detail.validation?.field ? String(detail.validation.field) : "",
+    validationOperator: detail.validation?.operator ? String(detail.validation.operator) : "",
+    validationValue: detail.validation?.value !== undefined ? String(detail.validation.value) : "",
+  });
 
   const loadProducts = async () => {
     try {
@@ -153,6 +197,18 @@ function App() {
       setNewRule("");
       setSelectedRuleId(null);
       setRuleDetails({});
+      setRuleEditor({
+        name: "",
+        description: "",
+        category: "",
+        severity: "",
+        scope: "",
+        enforcement: "",
+        validationType: "",
+        validationField: "",
+        validationOperator: "",
+        validationValue: "",
+      });
       void loadProductSummary(productId);
     } catch {
       // Keep UI responsive if detail call fails.
@@ -251,6 +307,18 @@ function App() {
       setRules([]);
       setSelectedRuleId(null);
       setRuleDetails({});
+      setRuleEditor({
+        name: "",
+        description: "",
+        category: "",
+        severity: "",
+        scope: "",
+        enforcement: "",
+        validationType: "",
+        validationField: "",
+        validationOperator: "",
+        validationValue: "",
+      });
       await loadProducts();
       setToast({ type: "success", message: "Product deleted" });
     } catch {
@@ -328,6 +396,18 @@ function App() {
       const data = (await response.json()) as ProductRulesResponse;
       setRules(data.items);
       setSelectedRuleId(null);
+      setRuleEditor({
+        name: "",
+        description: "",
+        category: "",
+        severity: "",
+        scope: "",
+        enforcement: "",
+        validationType: "",
+        validationField: "",
+        validationOperator: "",
+        validationValue: "",
+      });
     } catch {
       // Keep UI responsive if rules call fails.
     }
@@ -336,6 +416,7 @@ function App() {
   const loadRuleDetail = async (ruleId: string) => {
     if (ruleDetails[ruleId]) {
       setSelectedRuleId(ruleId);
+      setRuleEditor(toRuleEditorState(ruleDetails[ruleId]));
       return;
     }
 
@@ -349,6 +430,49 @@ function App() {
       const data = (await response.json()) as RuleDetail;
       setRuleDetails((current) => ({ ...current, [ruleId]: data }));
       setSelectedRuleId(ruleId);
+      setRuleEditor(toRuleEditorState(data));
+    } catch {
+      setToast({ type: "error", message: "Request failed" });
+    }
+  };
+
+  const saveRuleDetail = async () => {
+    if (!selectedRuleId) return;
+
+    const payload: RuleDetail = {
+      id: selectedRuleId,
+      name: ruleEditor.name.trim(),
+      description: ruleEditor.description.trim(),
+      category: ruleEditor.category.trim(),
+      severity: ruleEditor.severity.trim(),
+      scope: ruleEditor.scope.trim(),
+      enforcement: ruleEditor.enforcement.trim(),
+    };
+
+    if (ruleEditor.validationType.trim() || ruleEditor.validationField.trim() || ruleEditor.validationOperator.trim() || ruleEditor.validationValue.trim()) {
+      payload.validation = {
+        type: ruleEditor.validationType.trim(),
+        field: ruleEditor.validationField.trim(),
+        operator: ruleEditor.validationOperator.trim(),
+        value: ruleEditor.validationValue.trim(),
+      };
+    }
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/rules/${selectedRuleId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        setToast({ type: "error", message: await readErrorMessage(response) });
+        return;
+      }
+
+      const data = (await response.json()) as RuleDetail;
+      setRuleDetails((current) => ({ ...current, [selectedRuleId]: data }));
+      setRuleEditor(toRuleEditorState(data));
+      setToast({ type: "success", message: "Rule saved" });
     } catch {
       setToast({ type: "error", message: "Request failed" });
     }
@@ -633,11 +757,76 @@ function App() {
                     <section className="card stack">
                       <h4 className="section-title">Rule detail: {selectedRuleDetail.name}</h4>
                       <p>ID: {selectedRuleDetail.id}</p>
-                      {selectedRuleDetail.description ? <p>{selectedRuleDetail.description}</p> : null}
-                      {selectedRuleDetail.category ? <p>Category: {selectedRuleDetail.category}</p> : null}
-                      {selectedRuleDetail.severity ? <p>Severity: {selectedRuleDetail.severity}</p> : null}
-                      {selectedRuleDetail.scope ? <p>Scope: {selectedRuleDetail.scope}</p> : null}
-                      {selectedRuleDetail.enforcement ? <p>Enforcement: {selectedRuleDetail.enforcement}</p> : null}
+
+                      <input
+                        type="text"
+                        placeholder="Edit rule name"
+                        value={ruleEditor.name}
+                        onChange={(event) => setRuleEditor((current) => ({ ...current, name: event.target.value }))}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Edit rule description"
+                        value={ruleEditor.description}
+                        onChange={(event) => setRuleEditor((current) => ({ ...current, description: event.target.value }))}
+                      />
+                      <div className="row">
+                        <input
+                          type="text"
+                          placeholder="Edit rule category"
+                          value={ruleEditor.category}
+                          onChange={(event) => setRuleEditor((current) => ({ ...current, category: event.target.value }))}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Edit rule severity"
+                          value={ruleEditor.severity}
+                          onChange={(event) => setRuleEditor((current) => ({ ...current, severity: event.target.value }))}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Edit rule scope"
+                          value={ruleEditor.scope}
+                          onChange={(event) => setRuleEditor((current) => ({ ...current, scope: event.target.value }))}
+                        />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Edit rule enforcement"
+                        value={ruleEditor.enforcement}
+                        onChange={(event) => setRuleEditor((current) => ({ ...current, enforcement: event.target.value }))}
+                      />
+
+                      <div className="row">
+                        <input
+                          type="text"
+                          placeholder="Edit validation type"
+                          value={ruleEditor.validationType}
+                          onChange={(event) => setRuleEditor((current) => ({ ...current, validationType: event.target.value }))}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Edit validation field"
+                          value={ruleEditor.validationField}
+                          onChange={(event) => setRuleEditor((current) => ({ ...current, validationField: event.target.value }))}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Edit validation operator"
+                          value={ruleEditor.validationOperator}
+                          onChange={(event) => setRuleEditor((current) => ({ ...current, validationOperator: event.target.value }))}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Edit validation value"
+                          value={ruleEditor.validationValue}
+                          onChange={(event) => setRuleEditor((current) => ({ ...current, validationValue: event.target.value }))}
+                        />
+                      </div>
+
+                      <button type="button" onClick={() => void saveRuleDetail()}>
+                        Save rule
+                      </button>
                     </section>
                   ) : null}
                 </section>
