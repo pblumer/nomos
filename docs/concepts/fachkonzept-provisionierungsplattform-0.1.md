@@ -4,9 +4,7 @@ Converted from PDF text extraction for use in the nomos repository.
 Note: Diagrams embedded as images in the original PDF are represented by textual placeholders/notes where text extraction cannot preserve the visual layout.
 -->
 
-# Fachkonzept: Plattform für produktbezogene
-Provisionierungsregeln, Entscheidungslogik und
-skillbasierte Ausführung
+# Fachkonzept: Plattform für produktbezogene Provisionierungsregeln, Entscheidungslogik und skillbasierte Ausführung
 ## 1. Ausgangslage und Zielbild
 ## 2. Fachliche Zielsetzung
               2.1 Zentrale fachliche Wissensbasis
