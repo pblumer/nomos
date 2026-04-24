@@ -117,9 +117,10 @@ Die Dokumentation beschreibt eine phasenweise Umsetzung:
 
 ```text
 /docs/architecture
-  000-013: Architektur, Scope, Domain-/Artefaktmodell,
+  000-014: Architektur, Scope, Domain-/Artefaktmodell,
            Governance, KI-, API- und UI-Konzept, Roadmap, Handover,
-           Technologie-Stack (012) und Dev/Prod-Umgebung (013)
+           Technologie-Stack (012), Dev/Prod-Umgebung (013),
+           Katalog-Repository und Release-Modell (014)
 
 /docs/concepts
   Fachkonzept- und Metamodell-Dokumente (aus PDF in Markdown überführt)
