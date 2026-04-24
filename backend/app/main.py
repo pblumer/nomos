@@ -28,13 +28,6 @@ def _rules_dir() -> Path:
     return _products_dir().parent / "rules"
 
 
-def _servers_dir() -> Path:
-    servers_env = os.getenv("NOMOS_SERVERS_DIR")
-    if servers_env:
-        return Path(servers_env)
-    return _products_dir().parent / "servers"
-
-
 def _read_yaml_file(file_path: Path) -> dict[str, object]:
     return yaml.safe_load(file_path.read_text(encoding="utf-8")) or {}
 
@@ -65,13 +58,6 @@ def _rule_files() -> list[Path]:
     ])
 
 
-def _server_files() -> list[Path]:
-    return sorted([
-        *_servers_dir().glob("*.yml"),
-        *_servers_dir().glob("*.yaml"),
-    ])
-
-
 def _load_rule_with_path_or_404(rule_id: str) -> tuple[Path, dict[str, object]]:
     yml_path = _rules_dir() / f"{rule_id}.yml"
     yaml_path = _rules_dir() / f"{rule_id}.yaml"
@@ -93,29 +79,6 @@ def _load_rule_with_path_or_404(rule_id: str) -> tuple[Path, dict[str, object]]:
 def _load_rule_or_404(rule_id: str) -> dict[str, object]:
     _, rule = _load_rule_with_path_or_404(rule_id)
     return rule
-
-
-def _load_server_with_path_or_404(server_id: str) -> tuple[Path, dict[str, object]]:
-    yml_path = _servers_dir() / f"{server_id}.yml"
-    yaml_path = _servers_dir() / f"{server_id}.yaml"
-
-    if yml_path.exists():
-        return yml_path, _read_yaml_file(yml_path)
-
-    if yaml_path.exists():
-        return yaml_path, _read_yaml_file(yaml_path)
-
-    for file_path in _server_files():
-        data = _read_yaml_file(file_path)
-        if str(data.get("id", "")).strip() == server_id:
-            return file_path, data
-
-    raise HTTPException(status_code=404, detail="Server not found")
-
-
-def _load_server_or_404(server_id: str) -> dict[str, object]:
-    _, server = _load_server_with_path_or_404(server_id)
-    return server
 
 
 def _ensure_artifact_file(base_dir: Path, item_id: str, kind: str) -> None:
@@ -182,21 +145,6 @@ def _validate_rule(data: dict[str, object]) -> dict[str, object]:
                 operator_str = str(operator).strip()
                 if operator_str not in allowed_operators:
                     errors.append(f"Invalid validation.operator: {operator_str}")
-
-    return {
-        "is_valid": len(errors) == 0,
-        "errors": errors,
-    }
-
-
-def _validate_server(data: dict[str, object]) -> dict[str, object]:
-    required_fields = ["id", "name"]
-    errors: list[str] = []
-
-    for field_name in required_fields:
-        value = data.get(field_name)
-        if value is None or str(value).strip() == "":
-            errors.append(f"Missing required field: {field_name}")
 
     return {
         "is_valid": len(errors) == 0,
@@ -529,68 +477,3 @@ def delete_product_rule(product_id: str, item: str) -> dict[str, object]:
     product["validation"] = _validate_product(product)
     _write_yaml_file(file_path, product)
     return {"item": item, "removed": True}
-
-
-@app.get("/api/v1/servers")
-def list_servers() -> dict[str, object]:
-    items: list[dict[str, str]] = []
-    for file_path in _server_files():
-        data = _read_yaml_file(file_path)
-        items.append(
-            {
-                "id": str(data.get("id", "")),
-                "name": str(data.get("name", "")),
-            }
-        )
-
-    return {"items": items, "count": len(items)}
-
-
-@app.get("/api/v1/servers/{server_id}")
-def get_server(server_id: str) -> dict[str, object]:
-    return _load_server_or_404(server_id)
-
-
-@app.post("/api/v1/servers", status_code=201)
-def create_server(payload: dict[str, object] = Body(...)) -> dict[str, object]:
-    server = dict(payload)
-    server_id = str(server.get("id", "")).strip()
-    if server_id == "":
-        raise HTTPException(status_code=400, detail="Missing required field: id")
-
-    yml_path = _servers_dir() / f"{server_id}.yml"
-    yaml_path = _servers_dir() / f"{server_id}.yaml"
-    if yml_path.exists() or yaml_path.exists():
-        raise HTTPException(status_code=409, detail="server already exists")
-
-    server["id"] = server_id
-    validation = _validate_server(server)
-    if not validation["is_valid"]:
-        raise HTTPException(status_code=400, detail=validation["errors"][0])
-
-    _write_yaml_file(yml_path, server)
-    return server
-
-
-@app.put("/api/v1/servers/{server_id}")
-def update_server(server_id: str, payload: dict[str, object] = Body(...)) -> dict[str, object]:
-    file_path, _ = _load_server_with_path_or_404(server_id)
-    current_server = _read_yaml_file(file_path)
-
-    if "id" in payload and str(payload.get("id", "")).strip() not in {"", server_id}:
-        raise HTTPException(status_code=400, detail="id in payload must match path")
-
-    merged_server = {**current_server, **payload, "id": server_id}
-    validation = _validate_server(merged_server)
-    if not validation["is_valid"]:
-        raise HTTPException(status_code=400, detail=validation["errors"][0])
-
-    _write_yaml_file(file_path, merged_server)
-    return merged_server
-
-
-@app.delete("/api/v1/servers/{server_id}")
-def delete_server(server_id: str) -> dict[str, object]:
-    file_path, _ = _load_server_with_path_or_404(server_id)
-    file_path.unlink(missing_ok=False)
-    return {"id": server_id, "removed": True}
