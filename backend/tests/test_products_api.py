@@ -82,6 +82,7 @@ def test_product_detail_endpoint_returns_single_product(monkeypatch, tmp_path: P
         "description": "Reference product for Nomos MVP",
         "requirements": ["mailbox-enabled", "login-required"],
         "rules": ["rule-mailbox-quotas", "rule-password-policy"],
+        "variants": [],
         "validation": {
             "is_valid": True,
             "errors": [],

@@ -93,7 +93,7 @@ function App() {
   const [selectedProduct, setSelectedProduct] = useState<ProductDetail | null>(null);
   const [productSummary, setProductSummary] = useState<ProductSummary | null>(null);
 
-  const [activeTab, setActiveTab] = useState<"requirements" | "rules">("requirements");
+  const [activeTab, setActiveTab] = useState<"requirements" | "rules" | "variants">("requirements");
 
   const [requirements, setRequirements] = useState<string[]>([]);
   const [requirementsFilter, setRequirementsFilter] = useState("");
@@ -103,6 +103,9 @@ function App() {
   const [rulesFilter, setRulesFilter] = useState("");
   const [rulesSort, setRulesSort] = useState<"asc" | "desc">("asc");
   const [newRule, setNewRule] = useState("");
+
+  const [variants, setVariants] = useState<Array<{ id: string; name: string; context?: string }>>([]);
+  const [newVariant, setNewVariant] = useState({ id: "", name: "", context: "" });
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
   const [ruleDetails, setRuleDetails] = useState<Record<string, RuleDetail>>({});
   const [ruleEditor, setRuleEditor] = useState<RuleEditorState>({
@@ -218,6 +221,8 @@ function App() {
       setRulesFilter("");
       setRulesSort("asc");
       setNewRule("");
+      setVariants([]);
+      setNewVariant({ id: "", name: "", context: "" });
       setSelectedRuleId(null);
       setRuleDetails({});
       setRuleEditor({
@@ -605,6 +610,67 @@ function App() {
     }
   };
 
+  const loadVariants = async () => {
+    if (!selectedProduct) return;
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/products/${selectedProduct.id}/variants`);
+      if (!response.ok) return;
+      const data = (await response.json()) as { items: Array<{ id: string; name: string; context?: string }> };
+      setVariants(data.items);
+    } catch {
+      // ignore
+    }
+  };
+
+  const addVariant = async () => {
+    if (!selectedProduct) return;
+    const payload = {
+      id: newVariant.id.trim(),
+      name: newVariant.name.trim(),
+      context: newVariant.context.trim(),
+    };
+    if (!payload.id) {
+      setToast({ type: "error", message: "Variant id is required" });
+      return;
+    }
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/products/${selectedProduct.id}/variants`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        setToast({ type: "error", message: await readErrorMessage(response) });
+        return;
+      }
+      setNewVariant({ id: "", name: "", context: "" });
+      await loadVariants();
+      await loadProductSummary(selectedProduct.id);
+      setToast({ type: "success", message: "Variant added" });
+    } catch {
+      setToast({ type: "error", message: "Request failed" });
+    }
+  };
+
+  const removeVariant = async (variantId: string) => {
+    if (!selectedProduct) return;
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/v1/products/${selectedProduct.id}/variants/${encodeURIComponent(variantId)}`,
+        { method: "DELETE" }
+      );
+      if (!response.ok) {
+        setToast({ type: "error", message: await readErrorMessage(response) });
+        return;
+      }
+      await loadVariants();
+      await loadProductSummary(selectedProduct.id);
+      setToast({ type: "success", message: "Variant removed" });
+    } catch {
+      setToast({ type: "error", message: "Request failed" });
+    }
+  };
+
   const visibleRequirements = useMemo(() => {
     const source = requirements.length > 0 ? requirements : selectedProduct?.requirements ?? [];
     if (requirementsFilter.trim() === "") return source;
@@ -744,6 +810,9 @@ function App() {
                 <button type="button" onClick={() => setActiveTab("rules")}>
                   Rules tab
                 </button>
+                <button type="button" onClick={() => setActiveTab("variants")}>
+                  Variants tab
+                </button>
               </div>
 
               {activeTab === "requirements" ? (
@@ -811,7 +880,7 @@ function App() {
                     </section>
                   ) : null}
                 </section>
-              ) : (
+              ) : activeTab === "rules" ? (
                 <section className="stack">
                   <h3 className="section-title">Rules</h3>
                   <button type="button" onClick={() => void loadRules()}>
@@ -939,6 +1008,48 @@ function App() {
                       </button>
                     </section>
                   ) : null}
+                </section>
+              ) : (
+                <section className="stack">
+                  <h3 className="section-title">Variants</h3>
+                  <button type="button" onClick={() => void loadVariants()}>
+                    Load variants
+                  </button>
+                  <div className="list-item-actions">
+                    <input
+                      type="text"
+                      placeholder="New variant id"
+                      value={newVariant.id}
+                      onChange={(event) => setNewVariant((current) => ({ ...current, id: event.target.value }))}
+                    />
+                    <input
+                      type="text"
+                      placeholder="New variant name"
+                      value={newVariant.name}
+                      onChange={(event) => setNewVariant((current) => ({ ...current, name: event.target.value }))}
+                    />
+                    <input
+                      type="text"
+                      placeholder="New variant context"
+                      value={newVariant.context}
+                      onChange={(event) => setNewVariant((current) => ({ ...current, context: event.target.value }))}
+                    />
+                    <button type="button" onClick={() => void addVariant()}>
+                      Add variant
+                    </button>
+                  </div>
+                  <ul className="list">
+                    {variants.map((variant) => (
+                      <li key={variant.id} className="list-item">
+                        <span>{variant.name}</span>
+                        <span className="muted">{variant.id}</span>
+                        <span className="muted">{variant.context}</span>
+                        <button className="secondary" type="button" onClick={() => void removeVariant(variant.id)}>
+                          Remove variant {variant.id}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 </section>
               )}
 

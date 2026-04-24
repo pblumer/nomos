@@ -223,10 +223,18 @@ def _rule_ids(product: dict[str, object]) -> list[str]:
     return []
 
 
+def _variants(product: dict[str, object]) -> list[dict[str, object]]:
+    value = product.get("variants")
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, dict)]
+    return []
+
+
 def _enrich_product_for_response(product: dict[str, object]) -> dict[str, object]:
     enriched = dict(product)
     enriched["requirements"] = _requirement_ids(product)
     enriched["rules"] = _rule_ids(product)
+    enriched["variants"] = _variants(product)
     enriched["validation"] = _validate_product(product)
     return enriched
 
@@ -561,3 +569,52 @@ def update_requirement(req_id: str, payload: dict[str, object] = Body(...)) -> d
 
     _write_yaml_file(file_path, merged_req)
     return merged_req
+
+
+@app.get("/api/v1/products/{product_id}/variants")
+def get_product_variants(product_id: str) -> dict[str, object]:
+    product = _load_product_or_404(product_id)
+    variant_items = _variants(product)
+    return {
+        "product_id": product_id,
+        "items": variant_items,
+        "count": len(variant_items),
+    }
+
+
+@app.post("/api/v1/products/{product_id}/variants", status_code=201)
+def add_product_variant(product_id: str, payload: dict[str, object] = Body(...)) -> dict[str, object]:
+    file_path, product = _load_product_with_path_or_404(product_id)
+    variant_id = str(payload.get("id", "")).strip()
+    if variant_id == "":
+        raise HTTPException(status_code=400, detail="id is required")
+
+    items = _variants(product)
+    ids = {str(v.get("id", "")) for v in items}
+    if variant_id in ids:
+        raise HTTPException(status_code=409, detail="variant already exists")
+
+    items.append({
+        "id": variant_id,
+        "name": str(payload.get("name", variant_id)),
+        "context": str(payload.get("context", "")),
+    })
+    product["variants"] = items
+    product["validation"] = _validate_product(product)
+    _write_yaml_file(file_path, product)
+    return {"item": variant_id}
+
+
+@app.delete("/api/v1/products/{product_id}/variants/{variant_id}")
+def delete_product_variant(product_id: str, variant_id: str) -> dict[str, object]:
+    file_path, product = _load_product_with_path_or_404(product_id)
+    items = _variants(product)
+    ids = {str(v.get("id", "")) for v in items}
+    if variant_id not in ids:
+        raise HTTPException(status_code=404, detail="variant not found")
+
+    items = [v for v in items if str(v.get("id", "")) != variant_id]
+    product["variants"] = items
+    product["validation"] = _validate_product(product)
+    _write_yaml_file(file_path, product)
+    return {"item": variant_id, "removed": True}
