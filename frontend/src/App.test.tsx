@@ -487,4 +487,123 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add requirement" }));
     expect(await screen.findByRole("status", { name: "toast-error" })).toHaveTextContent("item already exists");
   });
+
+  it("supports creating, editing and deleting products", async () => {
+    const products = [
+      { id: "produkt-1", name: "Benutzerkonto mit Mailbox", version: "0.1.0", description: "Initial" },
+    ];
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/v1/products") && method === "GET") {
+        return {
+          ok: true,
+          json: async () => ({
+            items: products.map((product) => ({ id: product.id, name: product.name, version: product.version })),
+            count: products.length,
+          }),
+        } as Response;
+      }
+
+      if (url.endsWith("/api/v1/products") && method === "POST") {
+        const body = JSON.parse(String(init?.body ?? "{}")) as {
+          id: string;
+          name: string;
+          version: string;
+          description?: string;
+        };
+        products.push({ ...body, description: body.description ?? "" });
+        return { ok: true, json: async () => body } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-2") && method === "PUT") {
+        const body = JSON.parse(String(init?.body ?? "{}")) as {
+          name: string;
+          version: string;
+          description?: string;
+        };
+        const index = products.findIndex((product) => product.id === "produkt-2");
+        products[index] = { ...products[index], ...body };
+        return { ok: true, json: async () => products[index] } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-2") && method === "DELETE") {
+        const index = products.findIndex((product) => product.id === "produkt-2");
+        if (index >= 0) products.splice(index, 1);
+        return { ok: true, json: async () => ({ id: "produkt-2", removed: true }) } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-2/summary")) {
+        return {
+          ok: true,
+          json: async () => ({
+            product_id: "produkt-2",
+            name: "Neues Produkt",
+            version: "1.0.0",
+            requirements_count: 0,
+            rules_count: 0,
+            validation_is_valid: true,
+            validation_error_count: 0,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-2")) {
+        const product = products.find((item) => item.id === "produkt-2");
+        return { ok: true, json: async () => product } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-1")) {
+        const product = products.find((item) => item.id === "produkt-1");
+        return {
+          ok: true,
+          json: async () => ({ ...product, validation: { is_valid: true, errors: [] } }),
+        } as Response;
+      }
+
+      if (url.includes("/summary")) {
+        return {
+          ok: true,
+          json: async () => ({
+            product_id: "produkt-1",
+            name: "Benutzerkonto mit Mailbox",
+            version: "0.1.0",
+            requirements_count: 0,
+            rules_count: 0,
+            validation_is_valid: true,
+            validation_error_count: 0,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/requirements") || url.includes("/rules")) {
+        return { ok: true, json: async () => ({ product_id: "produkt-1", items: [], count: 0 }) } as Response;
+      }
+
+      return { ok: true, json: async () => ({ items: [], count: 0 }) } as Response;
+    });
+
+    render(<App />);
+
+    fireEvent.change(screen.getByPlaceholderText("New product id"), { target: { value: "produkt-2" } });
+    fireEvent.change(screen.getByPlaceholderText("New product name"), { target: { value: "Neues Produkt" } });
+    fireEvent.change(screen.getByPlaceholderText("New product version"), { target: { value: "1.0.0" } });
+    fireEvent.change(screen.getByPlaceholderText("New product description"), { target: { value: "Created" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create product" }));
+
+    expect(await screen.findByRole("button", { name: "Neues Produkt" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Neues Produkt" }));
+    fireEvent.change(await screen.findByPlaceholderText("Edit product name"), {
+      target: { value: "Neues Produkt Bearbeitet" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save product" }));
+
+    await waitFor(() => expect(screen.getByText("Neues Produkt Bearbeitet")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete product" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Neues Produkt Bearbeitet" })).not.toBeInTheDocument());
+  });
 });

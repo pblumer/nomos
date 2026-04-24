@@ -130,6 +130,28 @@ def _load_product_or_404(product_id: str) -> dict[str, object]:
     return product
 
 
+def _normalize_string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _prepare_product_for_write(product: dict[str, object]) -> dict[str, object]:
+    prepared = dict(product)
+    prepared.pop("requirements", None)
+    prepared.pop("rules", None)
+    prepared.pop("validation", None)
+
+    requirement_ids = _normalize_string_list(prepared.get("requirement_ids", []))
+    rule_ids = _normalize_string_list(prepared.get("rule_ids", []))
+
+    prepared["requirement_ids"] = requirement_ids
+    prepared["requirements"] = requirement_ids
+    prepared["rule_ids"] = rule_ids
+    prepared["rules"] = rule_ids
+    return prepared
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -222,6 +244,53 @@ def get_overview() -> dict[str, int]:
         "rules_count": rules_count,
         "invalid_products_count": invalid_products_count,
     }
+
+
+@app.post("/api/v1/products", status_code=201)
+def create_product(payload: dict[str, object] = Body(...)) -> dict[str, object]:
+    product = _prepare_product_for_write(payload)
+    product_id = str(product.get("id", "")).strip()
+    if product_id == "":
+        raise HTTPException(status_code=400, detail="Missing required field: id")
+
+    yml_path = _products_dir() / f"{product_id}.yml"
+    yaml_path = _products_dir() / f"{product_id}.yaml"
+    if yml_path.exists() or yaml_path.exists():
+        raise HTTPException(status_code=409, detail="product already exists")
+
+    product["id"] = product_id
+    validation = _validate_product(product)
+    if not validation["is_valid"]:
+        raise HTTPException(status_code=400, detail=validation["errors"][0])
+
+    _write_yaml_file(yml_path, product)
+    return _enrich_product_for_response(product)
+
+
+@app.put("/api/v1/products/{product_id}")
+def update_product(product_id: str, payload: dict[str, object] = Body(...)) -> dict[str, object]:
+    file_path, _ = _load_product_with_path_or_404(product_id)
+    current_product = _read_yaml_file(file_path)
+
+    if "id" in payload and str(payload.get("id", "")).strip() not in {"", product_id}:
+        raise HTTPException(status_code=400, detail="id in payload must match path")
+
+    merged_product = {**current_product, **payload, "id": product_id}
+    merged_product = _prepare_product_for_write(merged_product)
+
+    validation = _validate_product(merged_product)
+    if not validation["is_valid"]:
+        raise HTTPException(status_code=400, detail=validation["errors"][0])
+
+    _write_yaml_file(file_path, merged_product)
+    return _enrich_product_for_response(merged_product)
+
+
+@app.delete("/api/v1/products/{product_id}")
+def delete_product(product_id: str) -> dict[str, object]:
+    file_path, _ = _load_product_with_path_or_404(product_id)
+    file_path.unlink(missing_ok=False)
+    return {"id": product_id, "removed": True}
 
 
 @app.post("/api/v1/products/{product_id}/requirements", status_code=201)

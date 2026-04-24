@@ -66,6 +66,18 @@ function App() {
 
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
+  const [newProduct, setNewProduct] = useState({
+    id: "",
+    name: "",
+    version: "",
+    description: "",
+  });
+  const [editProduct, setEditProduct] = useState({
+    name: "",
+    version: "",
+    description: "",
+  });
+
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "";
 
   const readErrorMessage = async (response: Response) => {
@@ -78,19 +90,19 @@ function App() {
     return "Request failed";
   };
 
+  const loadProducts = async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/products`);
+      if (!response.ok) return;
+
+      const data = (await response.json()) as ProductResponse;
+      setProducts(data.items);
+    } catch {
+      // In dev without backend the UI should still render.
+    }
+  };
+
   useEffect(() => {
-    const loadProducts = async () => {
-      try {
-        const response = await fetch(`${apiBaseUrl}/api/v1/products`);
-        if (!response.ok) return;
-
-        const data = (await response.json()) as ProductResponse;
-        setProducts(data.items);
-      } catch {
-        // In dev without backend the UI should still render.
-      }
-    };
-
     void loadProducts();
   }, [apiBaseUrl]);
 
@@ -113,6 +125,11 @@ function App() {
 
       const data = (await response.json()) as ProductDetail;
       setSelectedProduct(data);
+      setEditProduct({
+        name: data.name ?? "",
+        version: data.version ?? "",
+        description: data.description ?? "",
+      });
       setProductSummary(null);
       setActiveTab("requirements");
       setRequirements([]);
@@ -125,6 +142,95 @@ function App() {
       void loadProductSummary(productId);
     } catch {
       // Keep UI responsive if detail call fails.
+    }
+  };
+
+  const createProduct = async () => {
+    const payload = {
+      id: newProduct.id.trim(),
+      name: newProduct.name.trim(),
+      version: newProduct.version.trim(),
+      description: newProduct.description.trim(),
+    };
+
+    if (!payload.id || !payload.name || !payload.version) {
+      setToast({ type: "error", message: "id, name and version are required" });
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/products`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        setToast({ type: "error", message: await readErrorMessage(response) });
+        return;
+      }
+
+      setNewProduct({ id: "", name: "", version: "", description: "" });
+      await loadProducts();
+      await loadProductDetail(payload.id);
+      setToast({ type: "success", message: "Product created" });
+    } catch {
+      setToast({ type: "error", message: "Request failed" });
+    }
+  };
+
+  const saveProduct = async () => {
+    if (!selectedProduct) return;
+
+    const payload = {
+      name: editProduct.name.trim(),
+      version: editProduct.version.trim(),
+      description: editProduct.description.trim(),
+    };
+
+    if (!payload.name || !payload.version) {
+      setToast({ type: "error", message: "name and version are required" });
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/products/${selectedProduct.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        setToast({ type: "error", message: await readErrorMessage(response) });
+        return;
+      }
+
+      await loadProducts();
+      await loadProductDetail(selectedProduct.id);
+      setToast({ type: "success", message: "Product saved" });
+    } catch {
+      setToast({ type: "error", message: "Request failed" });
+    }
+  };
+
+  const removeProduct = async () => {
+    if (!selectedProduct) return;
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/products/${selectedProduct.id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        setToast({ type: "error", message: await readErrorMessage(response) });
+        return;
+      }
+
+      setSelectedProduct(null);
+      setProductSummary(null);
+      setRequirements([]);
+      setRules([]);
+      await loadProducts();
+      setToast({ type: "success", message: "Product deleted" });
+    } catch {
+      setToast({ type: "error", message: "Request failed" });
     }
   };
 
@@ -275,6 +381,38 @@ function App() {
           {toast.message}
         </div>
       ) : null}
+
+      <section>
+        <h2>Neues Produkt</h2>
+        <input
+          type="text"
+          placeholder="New product id"
+          value={newProduct.id}
+          onChange={(event) => setNewProduct((current) => ({ ...current, id: event.target.value }))}
+        />
+        <input
+          type="text"
+          placeholder="New product name"
+          value={newProduct.name}
+          onChange={(event) => setNewProduct((current) => ({ ...current, name: event.target.value }))}
+        />
+        <input
+          type="text"
+          placeholder="New product version"
+          value={newProduct.version}
+          onChange={(event) => setNewProduct((current) => ({ ...current, version: event.target.value }))}
+        />
+        <input
+          type="text"
+          placeholder="New product description"
+          value={newProduct.description}
+          onChange={(event) => setNewProduct((current) => ({ ...current, description: event.target.value }))}
+        />
+        <button type="button" onClick={() => void createProduct()}>
+          Create product
+        </button>
+      </section>
+
       <ul>
         {products.map((product) => (
           <li key={product.id}>
@@ -291,6 +429,34 @@ function App() {
           <p>{selectedProduct.name}</p>
           <p>Version: {selectedProduct.version ?? "n/a"}</p>
           <p>{selectedProduct.description}</p>
+
+          <section>
+            <h3>Produkt bearbeiten</h3>
+            <input
+              type="text"
+              placeholder="Edit product name"
+              value={editProduct.name}
+              onChange={(event) => setEditProduct((current) => ({ ...current, name: event.target.value }))}
+            />
+            <input
+              type="text"
+              placeholder="Edit product version"
+              value={editProduct.version}
+              onChange={(event) => setEditProduct((current) => ({ ...current, version: event.target.value }))}
+            />
+            <input
+              type="text"
+              placeholder="Edit product description"
+              value={editProduct.description}
+              onChange={(event) => setEditProduct((current) => ({ ...current, description: event.target.value }))}
+            />
+            <button type="button" onClick={() => void saveProduct()}>
+              Save product
+            </button>
+            <button type="button" onClick={() => void removeProduct()}>
+              Delete product
+            </button>
+          </section>
 
           {productSummary ? (
             <div>
