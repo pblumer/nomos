@@ -10,6 +10,8 @@ afterEach(() => {
 
 describe("App", () => {
   it("shows Nomos title", () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "Nomos MVP" })).toBeInTheDocument();
@@ -29,6 +31,8 @@ describe("App", () => {
         count: 1,
       }),
     } as Response);
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
 
     render(<App />);
 
@@ -67,6 +71,8 @@ describe("App", () => {
         }),
       } as Response;
     });
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
 
     render(<App />);
 
@@ -111,6 +117,8 @@ describe("App", () => {
         }),
       } as Response;
     });
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
 
     render(<App />);
 
@@ -161,6 +169,8 @@ describe("App", () => {
         }),
       } as Response;
     });
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
 
     render(<App />);
 
@@ -219,6 +229,8 @@ describe("App", () => {
         }),
       } as Response;
     });
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
 
     render(<App />);
 
@@ -289,6 +301,8 @@ describe("App", () => {
         }),
       } as Response;
     });
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
 
     render(<App />);
 
@@ -382,6 +396,8 @@ describe("App", () => {
       } as Response;
     });
 
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
     render(<App />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Benutzerkonto mit Mailbox" }));
@@ -474,6 +490,8 @@ describe("App", () => {
       return { ok: true, json: async () => ({ items: [], count: 0 }) } as Response;
     });
 
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
     render(<App />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Benutzerkonto mit Mailbox" }));
@@ -486,6 +504,90 @@ describe("App", () => {
     fireEvent.change(screen.getByPlaceholderText("New requirement"), { target: { value: "login-required" } });
     fireEvent.click(screen.getByRole("button", { name: "Add requirement" }));
     expect(await screen.findByRole("status", { name: "toast-error" })).toHaveTextContent("item already exists");
+  });
+
+  it("loads rule details and renders extended rule metadata", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url.includes("/api/v1/products/produkt-1/rules") && method === "GET") {
+        return {
+          ok: true,
+          json: async () => ({ product_id: "produkt-1", items: ["rule-password-policy"], count: 1 }),
+        } as Response;
+      }
+
+      if (url.includes("/api/v1/rules/rule-password-policy")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "rule-password-policy",
+            name: "Password policy",
+            description: "Password policy assignment is mandatory.",
+            severity: "high",
+            category: "security",
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-1/summary")) {
+        return {
+          ok: true,
+          json: async () => ({
+            product_id: "produkt-1",
+            name: "Benutzerkonto mit Mailbox",
+            version: "0.1.0",
+            requirements_count: 0,
+            rules_count: 1,
+            validation_is_valid: true,
+            validation_error_count: 0,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/v1/products/produkt-1")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "produkt-1",
+            name: "Benutzerkonto mit Mailbox",
+            version: "0.1.0",
+            description: "Reference product for Nomos MVP",
+            validation: { is_valid: true, errors: [] },
+          }),
+        } as Response;
+      }
+
+      if (url.endsWith("/api/v1/products")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [{ id: "produkt-1", name: "Benutzerkonto mit Mailbox", version: "0.1.0" }],
+            count: 1,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/requirements")) {
+        return { ok: true, json: async () => ({ product_id: "produkt-1", items: [], count: 0 }) } as Response;
+      }
+
+      return { ok: true, json: async () => ({ items: [], count: 0 }) } as Response;
+    });
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Benutzerkonto mit Mailbox" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Rules tab" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Load rules" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Show rule details rule-password-policy" }));
+
+    expect(await screen.findByText("Rule detail: Password policy")).toBeInTheDocument();
+    expect(await screen.findByText("Severity: high")).toBeInTheDocument();
+    expect(await screen.findByText("Category: security")).toBeInTheDocument();
   });
 
   it("supports creating, editing and deleting products", async () => {
@@ -584,6 +686,8 @@ describe("App", () => {
 
       return { ok: true, json: async () => ({ items: [], count: 0 }) } as Response;
     });
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
 
     render(<App />);
 

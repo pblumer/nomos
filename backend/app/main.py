@@ -51,6 +51,31 @@ def _artifact_file_path(base_dir: Path, item_id: str) -> Path:
     return base_dir / f"{item_id}.yml"
 
 
+def _rule_files() -> list[Path]:
+    return sorted([
+        *_rules_dir().glob("*.yml"),
+        *_rules_dir().glob("*.yaml"),
+    ])
+
+
+def _load_rule_or_404(rule_id: str) -> dict[str, object]:
+    yml_path = _rules_dir() / f"{rule_id}.yml"
+    yaml_path = _rules_dir() / f"{rule_id}.yaml"
+
+    if yml_path.exists():
+        return _read_yaml_file(yml_path)
+
+    if yaml_path.exists():
+        return _read_yaml_file(yaml_path)
+
+    for file_path in _rule_files():
+        data = _read_yaml_file(file_path)
+        if str(data.get("id", "")).strip() == rule_id:
+            return data
+
+    raise HTTPException(status_code=404, detail="Rule not found")
+
+
 def _ensure_artifact_file(base_dir: Path, item_id: str, kind: str) -> None:
     file_path = _artifact_file_path(base_dir, item_id)
     if file_path.exists():
@@ -203,6 +228,29 @@ def get_product_rules(product_id: str) -> dict[str, object]:
         "items": rule_items,
         "count": len(rule_items),
     }
+
+
+@app.get("/api/v1/rules")
+def list_rules() -> dict[str, object]:
+    items: list[dict[str, object]] = []
+    for file_path in _rule_files():
+        data = _read_yaml_file(file_path)
+        items.append(
+            {
+                "id": str(data.get("id", "")),
+                "name": str(data.get("name", "")),
+                "description": str(data.get("description", "")),
+                "severity": str(data.get("severity", "")),
+                "category": str(data.get("category", "")),
+            }
+        )
+
+    return {"items": items, "count": len(items)}
+
+
+@app.get("/api/v1/rules/{rule_id}")
+def get_rule(rule_id: str) -> dict[str, object]:
+    return _load_rule_or_404(rule_id)
 
 
 @app.get("/api/v1/products/{product_id}/summary")

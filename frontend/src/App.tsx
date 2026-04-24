@@ -38,6 +38,16 @@ type ProductRulesResponse = {
   count: number;
 };
 
+type RuleDetail = {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  severity?: string;
+  scope?: string;
+  enforcement?: string;
+};
+
 type ProductSummary = {
   product_id: string;
   name: string;
@@ -63,6 +73,8 @@ function App() {
   const [rulesFilter, setRulesFilter] = useState("");
   const [rulesSort, setRulesSort] = useState<"asc" | "desc">("asc");
   const [newRule, setNewRule] = useState("");
+  const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
+  const [ruleDetails, setRuleDetails] = useState<Record<string, RuleDetail>>({});
 
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -139,6 +151,8 @@ function App() {
       setRulesFilter("");
       setRulesSort("asc");
       setNewRule("");
+      setSelectedRuleId(null);
+      setRuleDetails({});
       void loadProductSummary(productId);
     } catch {
       // Keep UI responsive if detail call fails.
@@ -214,6 +228,14 @@ function App() {
   const removeProduct = async () => {
     if (!selectedProduct) return;
 
+    let confirmed = true;
+    try {
+      confirmed = typeof window.confirm === "function" ? window.confirm(`Delete product ${selectedProduct.name}?`) : true;
+    } catch {
+      confirmed = true;
+    }
+    if (!confirmed) return;
+
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/products/${selectedProduct.id}`, {
         method: "DELETE",
@@ -227,6 +249,8 @@ function App() {
       setProductSummary(null);
       setRequirements([]);
       setRules([]);
+      setSelectedRuleId(null);
+      setRuleDetails({});
       await loadProducts();
       setToast({ type: "success", message: "Product deleted" });
     } catch {
@@ -303,8 +327,30 @@ function App() {
 
       const data = (await response.json()) as ProductRulesResponse;
       setRules(data.items);
+      setSelectedRuleId(null);
     } catch {
       // Keep UI responsive if rules call fails.
+    }
+  };
+
+  const loadRuleDetail = async (ruleId: string) => {
+    if (ruleDetails[ruleId]) {
+      setSelectedRuleId(ruleId);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/rules/${ruleId}`);
+      if (!response.ok) {
+        setToast({ type: "error", message: await readErrorMessage(response) });
+        return;
+      }
+
+      const data = (await response.json()) as RuleDetail;
+      setRuleDetails((current) => ({ ...current, [ruleId]: data }));
+      setSelectedRuleId(ruleId);
+    } catch {
+      setToast({ type: "error", message: "Request failed" });
     }
   };
 
@@ -372,6 +418,8 @@ function App() {
     return rulesSort === "asc" ? sorted : sorted.reverse();
   }, [rules, rulesFilter, rulesSort, selectedProduct]);
 
+  const selectedRuleDetail = selectedRuleId ? ruleDetails[selectedRuleId] ?? null : null;
+
   return (
     <main className="app-shell">
       <section className="card stack">
@@ -388,200 +436,233 @@ function App() {
         </div>
       ) : null}
 
-      <section className="card stack">
-        <h2>Neues Produkt</h2>
-        <input
-          type="text"
-          placeholder="New product id"
-          value={newProduct.id}
-          onChange={(event) => setNewProduct((current) => ({ ...current, id: event.target.value }))}
-        />
-        <input
-          type="text"
-          placeholder="New product name"
-          value={newProduct.name}
-          onChange={(event) => setNewProduct((current) => ({ ...current, name: event.target.value }))}
-        />
-        <input
-          type="text"
-          placeholder="New product version"
-          value={newProduct.version}
-          onChange={(event) => setNewProduct((current) => ({ ...current, version: event.target.value }))}
-        />
-        <input
-          type="text"
-          placeholder="New product description"
-          value={newProduct.description}
-          onChange={(event) => setNewProduct((current) => ({ ...current, description: event.target.value }))}
-        />
-        <button type="button" onClick={() => void createProduct()}>
-          Create product
-        </button>
-      </section>
-
-      <section className="card stack">
-        <h2>Produkte</h2>
-        <ul className="list">
-          {products.map((product) => (
-            <li key={product.id} className="list-item">
-              <button type="button" onClick={() => void loadProductDetail(product.id)}>
-                {product.name}
-              </button>
-              <span className="muted">{product.version}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {selectedProduct ? (
-        <section className="card stack">
-          <h2>Produktdetail</h2>
-          <p>{selectedProduct.name}</p>
-          <p>Version: {selectedProduct.version ?? "n/a"}</p>
-          <p>{selectedProduct.description}</p>
-
-          <section>
-            <h3>Produkt bearbeiten</h3>
+      <section className="workspace-grid">
+        <div className="left-column">
+          <section className="card stack">
+            <h2 className="section-title">Neues Produkt</h2>
             <input
               type="text"
-              placeholder="Edit product name"
-              value={editProduct.name}
-              onChange={(event) => setEditProduct((current) => ({ ...current, name: event.target.value }))}
+              placeholder="New product id"
+              value={newProduct.id}
+              onChange={(event) => setNewProduct((current) => ({ ...current, id: event.target.value }))}
             />
             <input
               type="text"
-              placeholder="Edit product version"
-              value={editProduct.version}
-              onChange={(event) => setEditProduct((current) => ({ ...current, version: event.target.value }))}
+              placeholder="New product name"
+              value={newProduct.name}
+              onChange={(event) => setNewProduct((current) => ({ ...current, name: event.target.value }))}
             />
             <input
               type="text"
-              placeholder="Edit product description"
-              value={editProduct.description}
-              onChange={(event) => setEditProduct((current) => ({ ...current, description: event.target.value }))}
+              placeholder="New product version"
+              value={newProduct.version}
+              onChange={(event) => setNewProduct((current) => ({ ...current, version: event.target.value }))}
             />
-            <button type="button" onClick={() => void saveProduct()}>
-              Save product
-            </button>
-            <button type="button" onClick={() => void removeProduct()}>
-              Delete product
+            <input
+              type="text"
+              placeholder="New product description"
+              value={newProduct.description}
+              onChange={(event) => setNewProduct((current) => ({ ...current, description: event.target.value }))}
+            />
+            <button type="button" onClick={() => void createProduct()}>
+              Create product
             </button>
           </section>
 
-          {productSummary ? (
-            <div>
-              <p>Requirements: {productSummary.requirements_count}</p>
-              <p>Rules: {productSummary.rules_count}</p>
-              <p>Validation errors: {productSummary.validation_error_count}</p>
-            </div>
-          ) : null}
-
-          <div>
-            <button type="button" onClick={() => setActiveTab("requirements")}>
-              Requirements tab
-            </button>
-            <button type="button" onClick={() => setActiveTab("rules")}>
-              Rules tab
-            </button>
-          </div>
-
-          {activeTab === "requirements" ? (
-            <section>
-              <h3>Requirements</h3>
-              <button type="button" onClick={() => void loadRequirements()}>
-                Load requirements
-              </button>
-              <div>
-                <input
-                  type="text"
-                  placeholder="Filter requirements"
-                  value={requirementsFilter}
-                  onChange={(event) => setRequirementsFilter(event.target.value)}
-                />
-              </div>
-              <div>
-                <input
-                  type="text"
-                  placeholder="New requirement"
-                  value={newRequirement}
-                  onChange={(event) => setNewRequirement(event.target.value)}
-                />
-                <button type="button" onClick={() => void addRequirement()}>
-                  Add requirement
-                </button>
-              </div>
-              <ul>
-                {visibleRequirements.map((requirement) => (
-                  <li key={requirement}>
-                    <span>{requirement}</span>
-                    <button type="button" onClick={() => void removeRequirement(requirement)}>
-                      Remove requirement {requirement}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : (
-            <section>
-              <h3>Rules</h3>
-              <button type="button" onClick={() => void loadRules()}>
-                Load rules
-              </button>
-              <div>
-                <input
-                  type="text"
-                  placeholder="Filter rules"
-                  value={rulesFilter}
-                  onChange={(event) => setRulesFilter(event.target.value)}
-                />
-              </div>
-              <div>
-                <input
-                  type="text"
-                  placeholder="New rule"
-                  value={newRule}
-                  onChange={(event) => setNewRule(event.target.value)}
-                />
-                <button type="button" onClick={() => void addRule()}>
-                  Add rule
-                </button>
-              </div>
-              <div>
-                <label htmlFor="rules-sort">Rules sort</label>
-                <select
-                  id="rules-sort"
-                  value={rulesSort}
-                  onChange={(event) => setRulesSort(event.target.value as "asc" | "desc")}
-                >
-                  <option value="asc">asc</option>
-                  <option value="desc">desc</option>
-                </select>
-              </div>
-              <ul>
-                {visibleRules.map((rule) => (
-                  <li key={rule} data-testid="rules-item">
-                    <span>{rule}</span>
-                    <button type="button" onClick={() => void removeRule(rule)}>
-                      Remove rule {rule}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          <h3>Validation</h3>
-          {selectedProduct.validation?.errors?.length ? (
-            <ul>
-              {selectedProduct.validation.errors.map((errorMessage) => (
-                <li key={errorMessage}>{errorMessage}</li>
+          <section className="card stack">
+            <h2 className="section-title">Produkte</h2>
+            <ul className="list">
+              {products.map((product) => (
+                <li key={product.id} className="list-item">
+                  <button type="button" onClick={() => void loadProductDetail(product.id)}>
+                    {product.name}
+                  </button>
+                  <span className="muted">{product.version}</span>
+                </li>
               ))}
             </ul>
+          </section>
+        </div>
+
+        <div className="right-column">
+          {selectedProduct ? (
+            <section className="card stack">
+              <h2 className="section-title">Produktdetail</h2>
+              <p>{selectedProduct.name}</p>
+              <p>Version: {selectedProduct.version ?? "n/a"}</p>
+              <p>{selectedProduct.description}</p>
+
+              <section className="stack">
+                <h3 className="section-title">Produkt bearbeiten</h3>
+                <div className="row">
+                  <input
+                    type="text"
+                    placeholder="Edit product name"
+                    value={editProduct.name}
+                    onChange={(event) => setEditProduct((current) => ({ ...current, name: event.target.value }))}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Edit product version"
+                    value={editProduct.version}
+                    onChange={(event) => setEditProduct((current) => ({ ...current, version: event.target.value }))}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Edit product description"
+                    value={editProduct.description}
+                    onChange={(event) => setEditProduct((current) => ({ ...current, description: event.target.value }))}
+                  />
+                </div>
+                <div className="list-item-actions">
+                  <button type="button" onClick={() => void saveProduct()}>
+                    Save product
+                  </button>
+                  <button className="secondary" type="button" onClick={() => void removeProduct()}>
+                    Delete product
+                  </button>
+                </div>
+              </section>
+
+              {productSummary ? (
+                <div className="stats-grid">
+                  <div className="stat">Requirements: {productSummary.requirements_count}</div>
+                  <div className="stat">Rules: {productSummary.rules_count}</div>
+                  <div className="stat">Validation errors: {productSummary.validation_error_count}</div>
+                </div>
+              ) : null}
+
+              <div className="list-item-actions">
+                <button type="button" onClick={() => setActiveTab("requirements")}>
+                  Requirements tab
+                </button>
+                <button type="button" onClick={() => setActiveTab("rules")}>
+                  Rules tab
+                </button>
+              </div>
+
+              {activeTab === "requirements" ? (
+                <section className="stack">
+                  <h3 className="section-title">Requirements</h3>
+                  <button type="button" onClick={() => void loadRequirements()}>
+                    Load requirements
+                  </button>
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="Filter requirements"
+                      value={requirementsFilter}
+                      onChange={(event) => setRequirementsFilter(event.target.value)}
+                    />
+                  </div>
+                  <div className="list-item-actions">
+                    <input
+                      type="text"
+                      placeholder="New requirement"
+                      value={newRequirement}
+                      onChange={(event) => setNewRequirement(event.target.value)}
+                    />
+                    <button type="button" onClick={() => void addRequirement()}>
+                      Add requirement
+                    </button>
+                  </div>
+                  <ul className="list">
+                    {visibleRequirements.map((requirement) => (
+                      <li key={requirement} className="list-item">
+                        <span>{requirement}</span>
+                        <button className="secondary" type="button" onClick={() => void removeRequirement(requirement)}>
+                          Remove requirement {requirement}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : (
+                <section className="stack">
+                  <h3 className="section-title">Rules</h3>
+                  <button type="button" onClick={() => void loadRules()}>
+                    Load rules
+                  </button>
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="Filter rules"
+                      value={rulesFilter}
+                      onChange={(event) => setRulesFilter(event.target.value)}
+                    />
+                  </div>
+                  <div className="list-item-actions">
+                    <input
+                      type="text"
+                      placeholder="New rule"
+                      value={newRule}
+                      onChange={(event) => setNewRule(event.target.value)}
+                    />
+                    <button type="button" onClick={() => void addRule()}>
+                      Add rule
+                    </button>
+                  </div>
+                  <div>
+                    <label htmlFor="rules-sort">Rules sort</label>
+                    <select
+                      id="rules-sort"
+                      value={rulesSort}
+                      onChange={(event) => setRulesSort(event.target.value as "asc" | "desc")}
+                    >
+                      <option value="asc">asc</option>
+                      <option value="desc">desc</option>
+                    </select>
+                  </div>
+                  <ul className="list">
+                    {visibleRules.map((rule) => (
+                      <li key={rule} className="list-item" data-testid="rules-item">
+                        <span>{rule}</span>
+                        <div className="list-item-actions">
+                          <button className="secondary" type="button" onClick={() => void loadRuleDetail(rule)}>
+                            Show rule details {rule}
+                          </button>
+                          <button className="secondary" type="button" onClick={() => void removeRule(rule)}>
+                            Remove rule {rule}
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {selectedRuleDetail ? (
+                    <section className="card stack">
+                      <h4 className="section-title">Rule detail: {selectedRuleDetail.name}</h4>
+                      <p>ID: {selectedRuleDetail.id}</p>
+                      {selectedRuleDetail.description ? <p>{selectedRuleDetail.description}</p> : null}
+                      {selectedRuleDetail.category ? <p>Category: {selectedRuleDetail.category}</p> : null}
+                      {selectedRuleDetail.severity ? <p>Severity: {selectedRuleDetail.severity}</p> : null}
+                      {selectedRuleDetail.scope ? <p>Scope: {selectedRuleDetail.scope}</p> : null}
+                      {selectedRuleDetail.enforcement ? <p>Enforcement: {selectedRuleDetail.enforcement}</p> : null}
+                    </section>
+                  ) : null}
+                </section>
+              )}
+
+              <h3 className="section-title">Validation</h3>
+              {selectedProduct.validation?.errors?.length ? (
+                <ul className="list">
+                  {selectedProduct.validation.errors.map((errorMessage) => (
+                    <li className="list-item" key={errorMessage}>
+                      {errorMessage}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No validation errors</p>
+              )}
+            </section>
           ) : (
-            <p>No validation errors</p>
+            <section className="card">
+              <p className="muted">Bitte links ein Produkt wählen.</p>
+            </section>
           )}
-        </section>
-      ) : null}
+        </div>
+      </section>
     </main>
   );
 }
