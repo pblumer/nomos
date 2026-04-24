@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import ServerView from "./ServerView";
 
 type Product = {
   id: string;
@@ -108,6 +109,7 @@ function App() {
   });
 
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [viewMode, setViewMode] = useState<"products" | "servers">("products");
 
   const [newProduct, setNewProduct] = useState({
     id: "",
@@ -548,7 +550,14 @@ function App() {
     <main className="app-shell">
       <section className="card stack">
         <h1>Nomos MVP</h1>
-        <p className="muted">Produktkatalog</p>
+        <div className="list-item-actions">
+          <button type="button" className={viewMode === "products" ? "" : "secondary"} onClick={() => setViewMode("products")}>
+            Products
+          </button>
+          <button type="button" className={viewMode === "servers" ? "" : "secondary"} onClick={() => setViewMode("servers")}>
+            Servers
+          </button>
+        </div>
       </section>
       {toast ? (
         <div
@@ -560,6 +569,7 @@ function App() {
         </div>
       ) : null}
 
+      {viewMode === "products" ? (
       <section className="workspace-grid">
         <div className="left-column">
           <section className="card stack">
@@ -852,6 +862,9 @@ function App() {
           )}
         </div>
       </section>
+      ) : (
+        <ServerView apiBaseUrl={apiBaseUrl} />
+      )}
     </main>
   );
 }
