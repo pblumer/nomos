@@ -1,0 +1,15 @@
+version: 2
+project_name: nomos
+builds:
+  - main: ./cmd/nomos
+    binary: nomos
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X github.com/nomos/nomos/internal/cli.version={{.Version}} -X github.com/nomos/nomos/internal/cli.commit={{.Commit}} -X github.com/nomos/nomos/internal/cli.date={{.Date}}
+archives:
+  - formats: [tar.gz]
+checksum:
+  name_template: checksums.txt
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
