@@ -1,0 +1,10 @@
+id: domain-identity-blumer-cloud
+type: domain
+name: identity.blumer.cloud
+version: 0.1.0
+status: draft
+owner: Identity Team
+dns_name: identity.blumer.cloud
+summary: Nomos Domaene identity.blumer.cloud.
+services:
+  - user-account

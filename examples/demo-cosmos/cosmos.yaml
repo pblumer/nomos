@@ -1,0 +1,9 @@
+id: cosmos-local
+type: cosmos
+name: Local Cosmos
+version: 0.1.0
+status: draft
+owner: unknown
+summary: Lokaler Nomos Cosmos.
+domains:
+  - identity.blumer.cloud

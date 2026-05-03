@@ -1,0 +1,12 @@
+id: service-user-account
+type: service
+name: user-account
+version: 0.1.0
+status: draft
+owner: Identity Team
+summary: Nomos Service user-account.
+capabilities: []
+requirements: []
+rules: []
+processes: []
+skills: []
