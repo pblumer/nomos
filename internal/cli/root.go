@@ -8,8 +8,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/model"
@@ -101,7 +104,11 @@ func cosmosCmd() *cobra.Command {
 		if err := fsx.ReadYAML(filepath.Join(p, "cosmos.yaml"), &co); err != nil {
 			return err
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "id=%s name=%s version=%s status=%s owner=%s domains=%d\n", co.ID, co.Name, co.Version, co.Status, co.Owner, len(co.Domains))
+		domains, err := scanDomains(p)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "id=%s name=%s version=%s status=%s owner=%s domains=%d\n", co.ID, co.Name, co.Version, co.Status, co.Owner, len(domains))
 		return nil
 	}}
 	info.Flags().String("path", ".", "")
@@ -242,11 +249,139 @@ func validateCmd() *cobra.Command {
 func graphCmd() *cobra.Command {
 	c := &cobra.Command{Use: "graph", RunE: func(cmd *cobra.Command, args []string) error {
 		p, _ := cmd.Flags().GetString("path")
-		fmt.Fprintf(cmd.OutOrStdout(), "graph TD\n  cosmos[\"Cosmos: %s\"]\n", p)
+		tree, err := loadCosmosTree(p)
+		if err != nil {
+			return err
+		}
+		cosmosName := tree.Cosmos.Name
+		if cosmosName == "" {
+			cosmosName = p
+		}
+		cosmosID := mermaidID("cosmos", cosmosName)
+		fmt.Fprintf(cmd.OutOrStdout(), "graph TD\n")
+		fmt.Fprintf(cmd.OutOrStdout(), "  %s[\"Cosmos: %s\"]\n", cosmosID, mermaidLabel(cosmosName))
+		for _, d := range tree.Domains {
+			domainID := mermaidID("domain", d.Name)
+			fmt.Fprintf(cmd.OutOrStdout(), "  %s --> %s[\"Domain: %s\"]\n", cosmosID, domainID, mermaidLabel(d.Name))
+			for _, s := range d.Services {
+				serviceID := mermaidID("service", d.Name, s.Name)
+				fmt.Fprintf(cmd.OutOrStdout(), "  %s --> %s[\"Service: %s\"]\n", domainID, serviceID, mermaidLabel(s.Name))
+			}
+		}
 		return nil
 	}}
 	c.Flags().String("path", ".", "Path to the Cosmos repository")
 	return c
+}
+
+type cosmosTree struct {
+	Cosmos  model.Cosmos
+	Domains []domainNode
+}
+type domainNode struct {
+	Name     string
+	Services []serviceNode
+}
+type serviceNode struct{ Name string }
+
+func loadCosmosTree(p string) (cosmosTree, error) {
+	var co model.Cosmos
+	if err := fsx.ReadYAML(filepath.Join(p, "cosmos.yaml"), &co); err != nil {
+		return cosmosTree{}, err
+	}
+	domains, err := scanDomains(p)
+	if err != nil {
+		return cosmosTree{}, err
+	}
+	return cosmosTree{Cosmos: co, Domains: domains}, nil
+}
+
+func scanDomains(p string) ([]domainNode, error) {
+	var domains []domainNode
+	ents, err := os.ReadDir(filepath.Join(p, "domains"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return domains, nil
+		}
+		return nil, err
+	}
+	for _, e := range ents {
+		if !e.IsDir() {
+			continue
+		}
+		domainDir := filepath.Join(p, "domains", e.Name())
+		domainYAML := filepath.Join(domainDir, "domain.yaml")
+		if _, err := os.Stat(domainYAML); err != nil {
+			continue
+		}
+		var d model.Domain
+		if err := fsx.ReadYAML(domainYAML, &d); err != nil {
+			return nil, err
+		}
+		name := firstNonEmpty(d.Name, d.DNSName, e.Name())
+		services, err := scanServices(domainDir)
+		if err != nil {
+			return nil, err
+		}
+		domains = append(domains, domainNode{Name: name, Services: services})
+	}
+	sort.Slice(domains, func(i, j int) bool { return domains[i].Name < domains[j].Name })
+	return domains, nil
+}
+func scanServices(domainDir string) ([]serviceNode, error) {
+	var services []serviceNode
+	ents, err := os.ReadDir(filepath.Join(domainDir, "services"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return services, nil
+		}
+		return nil, err
+	}
+	for _, e := range ents {
+		if !e.IsDir() {
+			continue
+		}
+		serviceYAML := filepath.Join(domainDir, "services", e.Name(), "service.yaml")
+		if _, err := os.Stat(serviceYAML); err != nil {
+			continue
+		}
+		var s model.Service
+		if err := fsx.ReadYAML(serviceYAML, &s); err != nil {
+			return nil, err
+		}
+		services = append(services, serviceNode{Name: firstNonEmpty(s.Name, e.Name())})
+	}
+	sort.Slice(services, func(i, j int) bool { return services[i].Name < services[j].Name })
+	return services, nil
+}
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+var nonAlphaNum = regexp.MustCompile(`[^a-z0-9]+`)
+
+func mermaidID(parts ...string) string {
+	base := strings.ToLower(strings.Join(parts, "_"))
+	base = nonAlphaNum.ReplaceAllString(base, "_")
+	base = strings.Trim(base, "_")
+	if base == "" {
+		base = "node"
+	}
+	if r := rune(base[0]); unicode.IsDigit(r) {
+		base = "n_" + base
+	}
+	return base
+}
+func mermaidLabel(label string) string {
+	label = strings.ReplaceAll(label, "\"", "\\\"")
+	label = strings.ReplaceAll(label, "\n", " ")
+	label = strings.ReplaceAll(label, "\r", " ")
+	return label
 }
 func verifyCmd() *cobra.Command {
 	v := &cobra.Command{Use: "verify"}
