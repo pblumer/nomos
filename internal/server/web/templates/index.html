@@ -1,1 +1,14 @@
-{{define "index"}}<html><body><h1>Nomos</h1><h2>{{.Tree.Cosmos.Name}}</h2><div>Domains: {{.DomainCount}}</div><div>Services: {{.ServiceCount}}</div></body></html>{{end}}
+{{define "index"}}{{template "layout" .}}{{end}}
+{{define "content_index"}}
+<section class="page-header"><h2>Governance Dashboard</h2><p>Overview of your Nomos cosmos</p><a class="button button-primary" href="/domains">View Domains</a></section>
+<section class="metric-grid">
+  <article class="metric-card"><p>Domains</p><h3>{{.DomainCount}}</h3></article>
+  <article class="metric-card"><p>Services</p><h3>{{.ServiceCount}}</h3></article>
+  <article class="metric-card"><p>Findings</p><h3>{{len .Validation.Findings}}</h3></article>
+  <article class="metric-card"><p>Status</p><h3><span class="badge">{{.Tree.Cosmos.Status}}</span></h3></article>
+</section>
+<section class="split-grid">
+  <article class="card"><h3>Cosmos Overview</h3><ul class="meta-list"><li><strong>{{.Tree.Cosmos.Name}}</strong></li><li><code>{{.Tree.Cosmos.ID}}</code> · v{{.Tree.Cosmos.Version}}</li><li>Owner: {{.Tree.Cosmos.Owner}}</li><li>Path: <code>{{.CosmosPath}}</code></li></ul></article>
+  <article class="card"><h3>Recent Domains</h3>{{range .Tree.Domains}}<div class="list-row">{{.Name}} <span class="badge badge-draft">{{.Status}}</span></div>{{else}}<p class="empty-state">No domains available</p>{{end}}</article>
+</section>
+{{end}}

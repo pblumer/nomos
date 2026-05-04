@@ -204,3 +204,15 @@ Recommended SemVer evolution:
 Pages: `/`, `/domains`, `/graph`, `/validate`.
 API: `/health`, `/api/v1/cosmos`, `/api/v1/domains`, `/api/v1/graph`, `/api/v1/validate`.
 Read-only MVP over filesystem-backed Cosmos.
+
+## Go-served Web UI
+
+The read-only Nomos Web UI is served directly by `nomos serve` using embedded Go templates and static assets (`html/template` + `embed`). It mirrors the existing Nomos frontend visual language (sidebar, topbar, cards, tables, badges) without requiring Node, React, or Vite at runtime.
+
+```bash
+make build
+COSMOS_PATH=/tmp/nomos-demo NOMOS_BIN=./bin/nomos ./scripts/create-demo-cosmos.sh
+./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080
+```
+
+Open `http://127.0.0.1:8080`.
