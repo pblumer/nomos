@@ -232,3 +232,13 @@ Notes:
 
 ## Web UI
 Run `./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080`.
+
+### Go Web UI (read-only)
+
+`nomos serve` also provides a read-only web interface rendered by embedded Go templates and static assets. It intentionally mirrors the Nomos frontend design language and does not require a separate Node/Vite build chain.
+
+```bash
+make build
+COSMOS_PATH=/tmp/nomos-demo NOMOS_BIN=./bin/nomos ./scripts/create-demo-cosmos.sh
+./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080
+```
