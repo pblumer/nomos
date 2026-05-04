@@ -1,1 +1,208 @@
-# cli-usage
+# CLI Usage (`nomos`)
+
+Diese Seite dokumentiert die aktuelle Nutzung der Nomos-CLI auf Basis der implementierten Commands in `internal/cli/root.go`.
+
+## Schnellstart
+
+```bash
+go run ./cmd/nomos --help
+```
+
+Version anzeigen:
+
+```bash
+go run ./cmd/nomos version
+```
+
+## Command-Übersicht
+
+- `nomos version`
+- `nomos cosmos init <path>`
+- `nomos cosmos info [--path <dir>]`
+- `nomos cosmos doctor [--path <dir>]`
+- `nomos domain add <dns> [--path <dir>] [--owner <owner>] [--force]`
+- `nomos domain list`
+- `nomos service add <name> --domain <dns> [--path <dir>] [--owner <owner>] [--force]`
+- `nomos validate`
+- `nomos graph`
+- `nomos verify domain <dns> [--path <dir>]`
+- `nomos serve [--listen <host:port>]`
+
+---
+
+## `nomos cosmos`
+
+### `nomos cosmos init <path>`
+Erzeugt eine neue lokale Cosmos-Struktur.
+
+**Erstellt u. a. folgende Pfade:**
+- `<path>/cosmos.yaml`
+- `<path>/README.md`
+- `<path>/domains/`
+- `<path>/.nomos/cache/`
+- `<path>/.nomos/index/`
+- `<path>/.nomos/evidence/`
+
+**Flags:**
+- `--force`: erlaubt Initialisierung in nicht-leerem Zielverzeichnis.
+- `--git`: legt aktuell `.gitkeep` im Zielverzeichnis an (initialisiert kein echtes Git-Repo).
+
+**Beispiel:**
+```bash
+go run ./cmd/nomos cosmos init ./my-cosmos --force
+```
+
+### `nomos cosmos info`
+Liest `cosmos.yaml` und gibt Kernfelder aus (`id`, `name`, `version`, `status`, `owner`, `domains`).
+
+**Flag:**
+- `--path` (Default: `.`)
+
+### `nomos cosmos doctor`
+Prüft Basiszustand:
+- ob `cosmos.yaml` existiert
+- ob ein `.git`-Ordner vorhanden ist
+
+**Ausgabeverhalten:**
+- Fehler bei fehlender `cosmos.yaml` (Exit-Code 1)
+- Warnung, wenn Git nicht initialisiert ist
+
+---
+
+## `nomos domain`
+
+### `nomos domain add <dns>`
+Erzeugt eine Domain unter `domains/<dns>/`.
+
+**Validierung:**
+- DNS-Name muss mindestens einen Punkt enthalten (`.`), sonst Fehler.
+
+**Erstellt:**
+- `domains/<dns>/domain.yaml`
+- `domains/<dns>/README.md`
+- `domains/<dns>/services/`
+
+**Flags:**
+- `--path` (Default: `.`)
+- `--owner` (Default: `unknown`)
+- `--force` (überschreibt vorhandene Domain-Struktur)
+
+### `nomos domain list`
+Listet alle Unterordner unter `domains/`.
+
+> Hinweis: Für `domain list` ist derzeit kein `--path`-Flag definiert; der Befehl arbeitet relativ zum aktuellen Arbeitsverzeichnis.
+
+---
+
+## `nomos service`
+
+### `nomos service add <name> --domain <dns>`
+Erzeugt einen Service unter `domains/<dns>/services/<name>/`.
+
+**Erstellt Unterordner:**
+- `capabilities/`
+- `requirements/`
+- `rules/`
+- `processes/`
+- `skills/`
+- `findings/`
+- `evidence/`
+
+**Zusätzlich:**
+- `service.yaml`
+- `README.md`
+
+**Flags:**
+- `--domain` (**pflichtig**)
+- `--path` (Default: `.`)
+- `--owner` (Default: `unknown`)
+- `--force`
+
+---
+
+## `nomos validate`
+
+Führt eine minimale Validierung aus.
+
+Aktuell wird geprüft:
+- Existenz von `cosmos.yaml`
+
+**Ausgabe:**
+- Text (Standard)
+- JSON mit `--format json`
+
+**Exit-Codes:**
+- `0`: keine Findings
+- `1`: mindestens ein Finding mit Fehler
+
+Beispiel:
+
+```bash
+go run ./cmd/nomos validate --path . --format json
+```
+
+---
+
+## `nomos graph`
+
+Gibt eine einfache Mermaid-Graph-Definition auf stdout aus.
+
+Beispielausgabe:
+
+```mermaid
+graph TD
+  cosmos["Cosmos: ."]
+```
+
+---
+
+## `nomos verify`
+
+### `nomos verify domain <dns>`
+Prüft DNS-TXT-Record `_nomos.<dns>` auf den Inhalt `nomos-domain=<dns>`.
+
+**Nebenwirkung:**
+- schreibt ein Evidence-File nach `.nomos/evidence/<dns>-dns.yaml`
+
+**Statuslogik:**
+- `verified`, wenn erwarteter TXT-Inhalt gefunden wurde
+- sonst `failed` und Befehl endet mit Fehler
+
+**Flag:**
+- `--path` (Default: `.`)
+
+---
+
+## `nomos serve`
+
+Startet einen HTTP-Server.
+
+**Flag:**
+- `--listen` (Default: `127.0.0.1:8080`)
+
+**Endpoints:**
+- `GET /health` → `{ "status": "ok", "service": "nomos", "version": "..." }`
+- `GET /api/v1/validate` → `{ "status": "ok" }`
+
+---
+
+## Typische Workflow-Beispiele
+
+### 1) Neues Cosmos-Repository erzeugen
+```bash
+go run ./cmd/nomos cosmos init ./demo-cosmos
+cd ./demo-cosmos
+go run ../cmd/nomos cosmos doctor --path .
+```
+
+### 2) Domain und Service anlegen
+```bash
+go run ./cmd/nomos domain add example.com --path . --owner platform-team
+go run ./cmd/nomos service add identity-api --domain example.com --path . --owner iam-team
+```
+
+### 3) Validieren und Graph ausgeben
+```bash
+go run ./cmd/nomos validate --path .
+go run ./cmd/nomos graph --path .
+```
