@@ -229,3 +229,6 @@ Notes:
 - `--format` supports `text` and `json`.
 - Invalid formats (for example `--format xml`) return an error.
 - If `--short` and `--format` are both set, `--short` wins and only the version string is printed.
+
+## Web UI
+Run `./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080`.
