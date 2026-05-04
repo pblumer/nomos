@@ -170,3 +170,5 @@ echo "==> Git Status"
 
 echo ""
 echo "Demo-Cosmos wurde erfolgreich erstellt: $COSMOS_PATH"
+echo "Start Web UI with:"
+echo "  ./bin/nomos serve --path $COSMOS_PATH --listen 127.0.0.1:8080"

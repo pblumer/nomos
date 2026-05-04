@@ -1,0 +1,1 @@
+{{define "domain_detail"}}<html><body><h1>{{.Domain}}</h1>{{range .Tree.Domains}}{{if eq .Name $.Domain}}{{range .Services}}<div>{{.Name}}</div>{{end}}{{end}}{{end}}</body></html>{{end}}

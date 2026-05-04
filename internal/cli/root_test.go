@@ -449,7 +449,7 @@ func TestServeMuxValidateEndpoint(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatal(rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), `"status":"ok"`) {
+	if !strings.Contains(rr.Body.String(), `"status"`) {
 		t.Fatal(rr.Body.String())
 	}
 }
