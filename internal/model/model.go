@@ -1,14 +1,14 @@
 package model
 
 type Cosmos struct {
-	ID       string   `yaml:"id" json:"id"`
-	Type     string   `yaml:"type" json:"type"`
-	Name     string   `yaml:"name" json:"name"`
-	Version  string   `yaml:"version" json:"version"`
-	Status   string   `yaml:"status" json:"status"`
-	Owner    string   `yaml:"owner" json:"owner"`
-	Summary  string   `yaml:"summary" json:"summary"`
-	Domains  []string `yaml:"domains" json:"domains"`
+	ID      string   `yaml:"id" json:"id"`
+	Type    string   `yaml:"type" json:"type"`
+	Name    string   `yaml:"name" json:"name"`
+	Version string   `yaml:"version" json:"version"`
+	Status  string   `yaml:"status" json:"status"`
+	Owner   string   `yaml:"owner" json:"owner"`
+	Summary string   `yaml:"summary" json:"summary"`
+	Domains []string `yaml:"domains" json:"domains"`
 }
 
 type Domain struct {
@@ -24,13 +24,13 @@ type Domain struct {
 }
 
 type Service struct {
-	ID string `yaml:"id" json:"id"`
-	Type string `yaml:"type" json:"type"`
-	Name string `yaml:"name" json:"name"`
+	ID      string `yaml:"id" json:"id"`
+	Type    string `yaml:"type" json:"type"`
+	Name    string `yaml:"name" json:"name"`
 	Version string `yaml:"version" json:"version"`
-	Status string `yaml:"status" json:"status"`
-	Owner string `yaml:"owner" json:"owner"`
+	Status  string `yaml:"status" json:"status"`
+	Owner   string `yaml:"owner" json:"owner"`
 	Summary string `yaml:"summary" json:"summary"`
 }
 
-type Finding struct { Severity, Code, Message, Path, Recommendation string }
+type Finding struct{ Severity, Code, Message, Path, Recommendation string }
