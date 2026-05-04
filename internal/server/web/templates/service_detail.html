@@ -1,1 +1,10 @@
-{{define "service_detail"}}<html><body><h1>{{.Service}}</h1><div>{{.Domain}}</div></body></html>{{end}}
+{{define "service_detail"}}{{template "layout" .}}{{end}}
+{{define "content_service_detail"}}
+<section class="page-header"><h2>{{.Service}}</h2><p>Service in {{.Domain}}</p></section>
+{{range .Tree.Domains}}{{if eq .Name $.Domain}}{{range .Services}}{{if eq .Name $.Service}}
+<section class="card"><h3>Service Metadata</h3><p>Domain: {{$.Domain}}</p><p>Owner: {{.Owner}}</p><p>Status: <span class="badge">{{.Status}}</span></p><p>Path: <code>{{.Path}}</code></p></section>
+<section class="card"><h3>service.yaml</h3><pre class="code-block">name: {{.Name}}
+owner: {{.Owner}}
+status: {{.Status}}</pre></section>
+{{end}}{{end}}{{end}}{{end}}
+{{end}}

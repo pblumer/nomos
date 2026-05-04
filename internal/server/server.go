@@ -80,52 +80,73 @@ func (h *handler) apiValidate(w http.ResponseWriter, r *http.Request) {
 }
 func (h *handler) routes(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
-		h.page(w, "index", nil)
+		h.page(w, "index", map[string]any{"ActiveNav": "dashboard", "PageTitle": "Dashboard", "ContentTemplate": "content_index"})
 		return
 	}
 	if r.URL.Path == "/domains" {
-		h.page(w, "domains", nil)
+		h.page(w, "domains", map[string]any{"ActiveNav": "domains", "PageTitle": "Domains", "ContentTemplate": "content_domains"})
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/domains/") {
-		h.page(w, "domain_detail", map[string]any{"Domain": strings.TrimPrefix(r.URL.Path, "/domains/")})
+		h.page(w, "domain_detail", map[string]any{"Domain": strings.TrimPrefix(r.URL.Path, "/domains/"), "ActiveNav": "domains", "PageTitle": "Domain", "ContentTemplate": "content_domain_detail"})
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/services/") {
 		p := strings.Split(strings.TrimPrefix(r.URL.Path, "/services/"), "/")
 		if len(p) >= 2 {
-			h.page(w, "service_detail", map[string]any{"Domain": p[0], "Service": p[1]})
+			h.page(w, "service_detail", map[string]any{"Domain": p[0], "Service": p[1], "ActiveNav": "domains", "PageTitle": "Service", "ContentTemplate": "content_service_detail"})
 			return
 		}
 	}
 	if r.URL.Path == "/graph" {
-		h.page(w, "graph", nil)
+		h.page(w, "graph", map[string]any{"ActiveNav": "graph", "PageTitle": "Graph", "ContentTemplate": "content_graph"})
 		return
 	}
 	if r.URL.Path == "/validate" {
-		h.page(w, "validate", nil)
+		h.page(w, "validate", map[string]any{"ActiveNav": "validate", "PageTitle": "Validation", "ContentTemplate": "content_validate"})
 		return
 	}
 	http.NotFound(w, r)
+}
+func activeNavFor(path string) string {
+	switch {
+	case path == "/":
+		return "dashboard"
+	case path == "/domains" || strings.HasPrefix(path, "/domains/") || strings.HasPrefix(path, "/services/"):
+		return "domains"
+	case path == "/graph":
+		return "graph"
+	case path == "/validate":
+		return "validate"
+	default:
+		return ""
+	}
 }
 func (h *handler) page(w http.ResponseWriter, name string, extra map[string]any) {
 	tree, err := cosmosfs.LoadTree(h.cosmosPath)
 	if err != nil {
 		w.WriteHeader(500)
-		_ = h.tmpl.ExecuteTemplate(w, "error", map[string]any{"Error": err.Error()})
+		if err := h.tmpl.ExecuteTemplate(w, "error", map[string]any{"Error": err.Error(), "PageTitle": "Error", "ActiveNav": activeNavFor("/"), "ContentTemplate": "content_error", "Tree": map[string]any{"Cosmos": map[string]any{"ID": "n/a"}}}); err != nil {
+			http.Error(w, err.Error(), 500)
+		}
 		return
 	}
 	sv := 0
 	for _, d := range tree.Domains {
 		sv += len(d.Services)
 	}
-	data := map[string]any{"Tree": tree, "DomainCount": len(tree.Domains), "ServiceCount": sv, "Mermaid": graph.Mermaid(tree)}
+	data := map[string]any{"Tree": tree, "DomainCount": len(tree.Domains), "ServiceCount": sv, "Mermaid": graph.Mermaid(tree), "CosmosPath": h.cosmosPath, "ActiveNav": activeNavFor("/"), "PageTitle": "Dashboard", "ContentTemplate": "content_index"}
+	if v, ok := data["ActiveNav"]; ok && v == "" {
+		data["ActiveNav"] = activeNavFor("/")
+	}
 	for k, v := range extra {
 		data[k] = v
 	}
 	res, _ := validate.Validate(h.cosmosPath)
 	data["Validation"] = res
-	_ = h.tmpl.ExecuteTemplate(w, name, data)
+	if err := h.tmpl.ExecuteTemplate(w, name, data); err != nil {
+		http.Error(w, err.Error(), 500)
+	}
 }
 func (h *handler) apiErr(w http.ResponseWriter, code int, err error) {
 	writeJSON(w, code, map[string]any{"error": map[string]string{"code": "COSMOS_LOAD_FAILED", "message": err.Error()}})
