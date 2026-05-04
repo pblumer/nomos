@@ -54,6 +54,7 @@ go run ./cmd/nomos cosmos init ./my-cosmos --force
 
 ### `nomos cosmos info`
 Liest `cosmos.yaml` und gibt Kernfelder aus (`id`, `name`, `version`, `status`, `owner`, `domains`).
+Die Domain-Anzahl wird aus dem Dateisystem ermittelt (`domains/*/domain.yaml`) und nicht aus einem statischen Feld in `cosmos.yaml`.
 
 **Flag:**
 - `--path` (Default: `.`)
@@ -145,13 +146,18 @@ go run ./cmd/nomos validate --path . --format json
 
 ## `nomos graph`
 
-Gibt eine einfache Mermaid-Graph-Definition auf stdout aus.
+Liest die Cosmos-Struktur aus dem Dateisystem und gibt eine Mermaid-Graph-Definition auf stdout aus:
+- Cosmos-Knoten
+- Domain-Knoten aus `domains/*/domain.yaml`
+- Service-Knoten aus `domains/<domain>/services/*/service.yaml`
 
 Beispielausgabe:
 
 ```mermaid
 graph TD
-  cosmos["Cosmos: ."]
+  cosmos_local_cosmos["Cosmos: Local Cosmos"]
+  cosmos_local_cosmos --> domain_identity_blumer_cloud["Domain: identity.blumer.cloud"]
+  domain_identity_blumer_cloud --> service_identity_blumer_cloud_user_account["Service: user-account"]
 ```
 
 ---
