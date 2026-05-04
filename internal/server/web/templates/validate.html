@@ -1,1 +1,7 @@
-{{define "validate"}}<html><body><h1>Validation</h1><div>{{.Validation.Status}}</div></body></html>{{end}}
+{{define "validate"}}{{template "layout" .}}{{end}}
+{{define "content_validate"}}
+<section class="page-header"><h2>Validation</h2><p>Structural validation results for the current Cosmos</p></section>
+<section class="card"><h3>Status</h3><span class="badge">{{.Validation.Status}}</span></section>
+{{if eq (len .Validation.Findings) 0}}<div class="alert alert-success">No validation findings.</div>{{else}}
+<section class="card"><h3>Findings</h3><div class="table-wrap"><table class="data-table"><thead><tr><th>Severity</th><th>Code</th><th>Message</th><th>Path</th></tr></thead><tbody>{{range .Validation.Findings}}<tr><td><span class="badge">{{.Severity}}</span></td><td>{{.Code}}</td><td>{{.Message}}</td><td><code>{{.Path}}</code></td></tr>{{end}}</tbody></table></div></section>{{end}}
+{{end}}
