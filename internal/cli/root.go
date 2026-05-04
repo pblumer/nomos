@@ -14,8 +14,12 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/nomos/nomos/internal/cosmosfs"
 	"github.com/nomos/nomos/internal/fsx"
+	"github.com/nomos/nomos/internal/graph"
 	"github.com/nomos/nomos/internal/model"
+	"github.com/nomos/nomos/internal/server"
+	"github.com/nomos/nomos/internal/validate"
 	versionpkg "github.com/nomos/nomos/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -220,25 +224,22 @@ func validateCmd() *cobra.Command {
 		if p == "" {
 			p = "."
 		}
-		findings := []model.Finding{}
-		if _, e := os.Stat(filepath.Join(p, "cosmos.yaml")); e != nil {
-			findings = append(findings, model.Finding{Severity: "error", Code: "COSMOS_MISSING", Message: "cosmos.yaml fehlt", Path: "cosmos.yaml", Recommendation: "Erzeuge eine Cosmos Struktur."})
-		}
+		res, _ := validate.Validate(p)
 		outFmt, _ := cmd.Flags().GetString("format")
 		if outFmt != "text" && outFmt != "json" {
 			return fmt.Errorf("ungueltiges format: %s", outFmt)
 		}
 		if outFmt == "json" {
-			b, _ := json.MarshalIndent(map[string]any{"status": "ok", "findings": findings}, "", "  ")
+			b, _ := json.MarshalIndent(res, "", "  ")
 			fmt.Fprintln(cmd.OutOrStdout(), string(b))
 		} else {
 			fmt.Fprintln(cmd.OutOrStdout(), "Nomos Validierung")
-			for _, f := range findings {
+			for _, f := range res.Findings {
 				fmt.Fprintf(cmd.OutOrStdout(), "%s %s\n", strings.ToUpper(f.Severity), f.Message)
 			}
 		}
-		if len(findings) > 0 {
-			return fmt.Errorf("validation failed with %d finding(s)", len(findings))
+		if len(res.Findings) > 0 {
+			return fmt.Errorf("validation failed with %d finding(s)", len(res.Findings))
 		}
 		return nil
 	}}
@@ -249,25 +250,11 @@ func validateCmd() *cobra.Command {
 func graphCmd() *cobra.Command {
 	c := &cobra.Command{Use: "graph", RunE: func(cmd *cobra.Command, args []string) error {
 		p, _ := cmd.Flags().GetString("path")
-		tree, err := loadCosmosTree(p)
+		tree, err := cosmosfs.LoadTree(p)
 		if err != nil {
 			return err
 		}
-		cosmosName := tree.Cosmos.Name
-		if cosmosName == "" {
-			cosmosName = p
-		}
-		cosmosID := mermaidID("cosmos", cosmosName)
-		fmt.Fprintf(cmd.OutOrStdout(), "graph TD\n")
-		fmt.Fprintf(cmd.OutOrStdout(), "  %s[\"Cosmos: %s\"]\n", cosmosID, mermaidLabel(cosmosName))
-		for _, d := range tree.Domains {
-			domainID := mermaidID("domain", d.Name)
-			fmt.Fprintf(cmd.OutOrStdout(), "  %s --> %s[\"Domain: %s\"]\n", cosmosID, domainID, mermaidLabel(d.Name))
-			for _, s := range d.Services {
-				serviceID := mermaidID("service", d.Name, s.Name)
-				fmt.Fprintf(cmd.OutOrStdout(), "  %s --> %s[\"Service: %s\"]\n", domainID, serviceID, mermaidLabel(s.Name))
-			}
-		}
+		fmt.Fprint(cmd.OutOrStdout(), graph.Mermaid(tree))
 		return nil
 	}}
 	c.Flags().String("path", ".", "Path to the Cosmos repository")
@@ -410,21 +397,12 @@ func verifyCmd() *cobra.Command {
 	v.AddCommand(d)
 	return v
 }
-func newServeMux(cosmosPath string) http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok", "service": "nomos", "version": versionpkg.Get().Version})
-	})
-	mux.HandleFunc("/api/v1/validate", func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok", "path": cosmosPath})
-	})
-	return mux
-}
+func newServeMux(cosmosPath string) http.Handler { return server.NewHandler(cosmosPath) }
 func serveCmd() *cobra.Command {
 	c := &cobra.Command{Use: "serve", RunE: func(cmd *cobra.Command, args []string) error {
 		listen, _ := cmd.Flags().GetString("listen")
 		p, _ := cmd.Flags().GetString("path")
-		fmt.Fprintln(cmd.OutOrStdout(), "Server lauscht auf", listen)
+		fmt.Fprintf(cmd.OutOrStdout(), "Nomos server listening on http://%s\nCosmos path: %s\n", listen, p)
 		return http.ListenAndServe(listen, newServeMux(p))
 	}}
 	c.Flags().String("listen", "127.0.0.1:8080", "")

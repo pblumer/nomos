@@ -196,3 +196,11 @@ Recommended SemVer evolution:
 - `v0.2.x`: improved artifact model and validation
 - `v0.3.x`: HTTP API/server improvements
 - `v1.0.0`: stable CLI and artifact format
+
+## Running the Nomos Web UI
+
+`./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080`
+
+Pages: `/`, `/domains`, `/graph`, `/validate`.
+API: `/health`, `/api/v1/cosmos`, `/api/v1/domains`, `/api/v1/graph`, `/api/v1/validate`.
+Read-only MVP over filesystem-backed Cosmos.
