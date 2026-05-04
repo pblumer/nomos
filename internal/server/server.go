@@ -84,7 +84,13 @@ func (h *handler) routes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == "/domains" {
-		h.page(w, "domains", map[string]any{"ActiveNav": "domains", "PageTitle": "Domains", "ContentTemplate": "content_domains"})
+		tree, err := cosmosfs.LoadTree(h.cosmosPath)
+		if err != nil {
+			h.page(w, "domains", map[string]any{"ActiveNav": "domains", "PageTitle": "Domains Explorer", "ContentTemplate": "content_domains"})
+			return
+		}
+		explorer := buildDomainsExplorer(tree, r.URL.Query().Get("selected"))
+		h.page(w, "domains", map[string]any{"ActiveNav": "domains", "PageTitle": "Domains Explorer", "ContentTemplate": "content_domains", "Explorer": explorer})
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/domains/") {

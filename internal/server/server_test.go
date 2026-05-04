@@ -50,7 +50,22 @@ func TestWebShellPagesAndAPI(t *testing.T) { /* same as before */
 	if rr := get(h, "/domains"); rr.Code != 200 {
 		t.Fatal(rr.Code)
 	} else {
-		hasAll(t, rr.Body.String(), "Domains", "Manage and inspect domains", "identity.blumer.cloud", "data-table")
+		hasAll(t, rr.Body.String(), "Domains Explorer", "Browse domains and services like a repository tree", "identity.blumer.cloud", "user-account", "explorer-layout", "explorer-tree", "details-panel", "Domain count", "Service count")
+	}
+	if rr := get(h, "/domains?selected=domain:identity.blumer.cloud"); rr.Code != 200 {
+		t.Fatal(rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "Domain Details", "identity.blumer.cloud", "Service count", "user-account")
+	}
+	if rr := get(h, "/domains?selected=service:identity.blumer.cloud/user-account"); rr.Code != 200 {
+		t.Fatal(rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "Service Details", "user-account", "identity.blumer.cloud")
+	}
+	if rr := get(h, "/domains?selected=domain:does-not-exist.example"); rr.Code != 200 {
+		t.Fatal(rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "Cosmos Summary", "Local Cosmos")
 	}
 	if rr := get(h, "/domains/identity.blumer.cloud"); rr.Code != 200 {
 		t.Fatal(rr.Code)
@@ -78,7 +93,7 @@ func TestWebShellPagesAndAPI(t *testing.T) { /* same as before */
 	if rr := get(h, "/static/app.css"); rr.Code != 200 {
 		t.Fatal(rr.Code)
 	} else {
-		hasAll(t, rr.Body.String(), "--color-primary", ".app-sidebar", ".metric-card")
+		hasAll(t, rr.Body.String(), "--color-primary", ".app-sidebar", ".metric-card", ".explorer-layout", ".explorer-tree", ".details-panel")
 		if !strings.Contains(rr.Header().Get("Content-Type"), "text/css") {
 			t.Fatal(rr.Header().Get("Content-Type"))
 		}
