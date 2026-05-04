@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -28,7 +29,7 @@ func newRoot() *cobra.Command {
 }
 func versionCmd() *cobra.Command {
 	return &cobra.Command{Use: "version", Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("version=%s\ncommit=%s\ndate=%s\ngo=%s\nosarch=%s/%s\n", version, commit, date, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+		fmt.Fprintf(cmd.OutOrStdout(), "version=%s\ncommit=%s\ndate=%s\ngo=%s\nosarch=%s/%s\n", version, commit, date, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 	}}
 }
 
@@ -43,17 +44,30 @@ func cosmosCmd() *cobra.Command {
 				return fmt.Errorf("Zielpfad ist nicht leer")
 			}
 		}
-		os.MkdirAll(filepath.Join(p, "domains"), 0o755)
-		os.MkdirAll(filepath.Join(p, ".nomos/cache"), 0o755)
-		os.MkdirAll(filepath.Join(p, ".nomos/index"), 0o755)
-		os.MkdirAll(filepath.Join(p, ".nomos/evidence"), 0o755)
-		co := model.Cosmos{ID: "cosmos-local", Type: "cosmos", Name: "Local Cosmos", Version: "0.1.0", Status: "draft", Owner: "unknown", Summary: "Lokaler Nomos Cosmos.", Domains: []string{}}
-		_ = fsx.WriteYAML(filepath.Join(p, "cosmos.yaml"), co)
-		_ = os.WriteFile(filepath.Join(p, "README.md"), []byte("# Cosmos\n"), 0o644)
-		if git {
-			_ = os.WriteFile(filepath.Join(p, ".gitkeep"), []byte{}, 0o644)
+		for _, d := range []string{"domains", ".nomos/cache", ".nomos/index", ".nomos/evidence"} {
+			if err := os.MkdirAll(filepath.Join(p, d), 0o755); err != nil {
+				return err
+			}
 		}
-		fmt.Println("Cosmos wurde erstellt:", p)
+		co := model.Cosmos{ID: "cosmos-local", Type: "cosmos", Name: "Local Cosmos", Version: "0.1.0", Status: "draft", Owner: "unknown", Summary: "Lokaler Nomos Cosmos.", Domains: []string{}}
+		if err := fsx.WriteYAML(filepath.Join(p, "cosmos.yaml"), co); err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(p, "README.md"), []byte("# Cosmos\n"), 0o644); err != nil {
+			return err
+		}
+		if git {
+			if err := os.WriteFile(filepath.Join(p, ".gitkeep"), []byte{}, 0o644); err != nil {
+				return err
+			}
+			g := exec.Command("git", "init")
+			g.Dir = p
+			out, err := g.CombinedOutput()
+			if err != nil {
+				return fmt.Errorf("git init fehlgeschlagen: %w: %s", err, strings.TrimSpace(string(out)))
+			}
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), "Cosmos wurde erstellt:", p)
 		return nil
 	}}
 	init.Flags().BoolVar(&force, "force", false, "")
@@ -68,7 +82,7 @@ func cosmosCmd() *cobra.Command {
 		if err := fsx.ReadYAML(filepath.Join(p, "cosmos.yaml"), &co); err != nil {
 			return err
 		}
-		fmt.Printf("id=%s name=%s version=%s status=%s owner=%s domains=%d\n", co.ID, co.Name, co.Version, co.Status, co.Owner, len(co.Domains))
+		fmt.Fprintf(cmd.OutOrStdout(), "id=%s name=%s version=%s status=%s owner=%s domains=%d\n", co.ID, co.Name, co.Version, co.Status, co.Owner, len(co.Domains))
 		return nil
 	}}
 	info.Flags().String("path", ".", "")
@@ -79,14 +93,14 @@ func cosmosCmd() *cobra.Command {
 			p = "."
 		}
 		if _, e := os.Stat(filepath.Join(p, "cosmos.yaml")); e != nil {
-			fmt.Println("ERROR cosmos.yaml fehlt")
-			os.Exit(1)
+			fmt.Fprintln(cmd.OutOrStdout(), "ERROR cosmos.yaml fehlt")
+			return fmt.Errorf("cosmos.yaml fehlt")
 		}
-		fmt.Println("OK cosmos.yaml gefunden")
+		fmt.Fprintln(cmd.OutOrStdout(), "OK cosmos.yaml gefunden")
 		if _, e := os.Stat(filepath.Join(p, ".git")); e != nil {
-			fmt.Println("WARNING Git Repository nicht initialisiert")
+			fmt.Fprintln(cmd.OutOrStdout(), "WARNING Git Repository nicht initialisiert")
 		} else {
-			fmt.Println("OK Git Repository gefunden")
+			fmt.Fprintln(cmd.OutOrStdout(), "OK Git Repository gefunden")
 		}
 		return nil
 	}}
@@ -109,26 +123,34 @@ func domainCmd() *cobra.Command {
 		if _, e := os.Stat(ddir); e == nil && !force {
 			return fmt.Errorf("Domain existiert bereits")
 		}
-		os.MkdirAll(filepath.Join(ddir, "services"), 0o755)
+		if err := os.MkdirAll(filepath.Join(ddir, "services"), 0o755); err != nil {
+			return err
+		}
 		d := model.Domain{ID: "domain-" + strings.ReplaceAll(dns, ".", "-"), Type: "domain", Name: dns, Version: "0.1.0", Status: "draft", Owner: owner, DNSName: dns, Summary: "Nomos Domaene " + dns + "."}
-		_ = fsx.WriteYAML(filepath.Join(ddir, "domain.yaml"), d)
-		_ = os.WriteFile(filepath.Join(ddir, "README.md"), []byte("# Domain\n"), 0o644)
+		if err := fsx.WriteYAML(filepath.Join(ddir, "domain.yaml"), d); err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(ddir, "README.md"), []byte("# Domain\n"), 0o644); err != nil {
+			return err
+		}
 		return nil
 	}}
 	add.Flags().String("path", ".", "")
 	add.Flags().String("owner", "unknown", "")
 	add.Flags().BoolVar(&force, "force", false, "")
 	c.AddCommand(add)
-	c.AddCommand(&cobra.Command{Use: "list", RunE: func(cmd *cobra.Command, args []string) error {
+	list := &cobra.Command{Use: "list", RunE: func(cmd *cobra.Command, args []string) error {
 		p, _ := cmd.Flags().GetString("path")
 		ents, _ := os.ReadDir(filepath.Join(p, "domains"))
 		for _, e := range ents {
 			if e.IsDir() {
-				fmt.Println(e.Name())
+				fmt.Fprintln(cmd.OutOrStdout(), e.Name())
 			}
 		}
 		return nil
-	}})
+	}}
+	list.Flags().String("path", ".", "Path to the Cosmos repository")
+	c.AddCommand(list)
 	return c
 }
 func serviceCmd() *cobra.Command {
@@ -144,11 +166,17 @@ func serviceCmd() *cobra.Command {
 			return fmt.Errorf("Service existiert bereits")
 		}
 		for _, d := range []string{"capabilities", "requirements", "rules", "processes", "skills", "findings", "evidence"} {
-			os.MkdirAll(filepath.Join(sdir, d), 0o755)
+			if err := os.MkdirAll(filepath.Join(sdir, d), 0o755); err != nil {
+				return err
+			}
 		}
 		s := model.Service{ID: "service-" + name, Type: "service", Name: name, Version: "0.1.0", Status: "draft", Owner: owner, Summary: "Nomos Service " + name + "."}
-		_ = fsx.WriteYAML(filepath.Join(sdir, "service.yaml"), s)
-		_ = os.WriteFile(filepath.Join(sdir, "README.md"), []byte("# Service\n"), 0o644)
+		if err := fsx.WriteYAML(filepath.Join(sdir, "service.yaml"), s); err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(sdir, "README.md"), []byte("# Service\n"), 0o644); err != nil {
+			return err
+		}
 		return nil
 	}}
 	add.Flags().String("domain", "", "")
@@ -161,7 +189,7 @@ func serviceCmd() *cobra.Command {
 }
 
 func validateCmd() *cobra.Command {
-	return &cobra.Command{Use: "validate", RunE: func(cmd *cobra.Command, args []string) error {
+	c := &cobra.Command{Use: "validate", RunE: func(cmd *cobra.Command, args []string) error {
 		p, _ := cmd.Flags().GetString("path")
 		if p == "" {
 			p = "."
@@ -171,27 +199,35 @@ func validateCmd() *cobra.Command {
 			findings = append(findings, model.Finding{Severity: "error", Code: "COSMOS_MISSING", Message: "cosmos.yaml fehlt", Path: "cosmos.yaml", Recommendation: "Erzeuge eine Cosmos Struktur."})
 		}
 		outFmt, _ := cmd.Flags().GetString("format")
+		if outFmt != "text" && outFmt != "json" {
+			return fmt.Errorf("ungueltiges format: %s", outFmt)
+		}
 		if outFmt == "json" {
 			b, _ := json.MarshalIndent(map[string]any{"status": "ok", "findings": findings}, "", "  ")
-			fmt.Println(string(b))
+			fmt.Fprintln(cmd.OutOrStdout(), string(b))
 		} else {
-			fmt.Println("Nomos Validierung")
+			fmt.Fprintln(cmd.OutOrStdout(), "Nomos Validierung")
 			for _, f := range findings {
-				fmt.Printf("%s %s\n", strings.ToUpper(f.Severity), f.Message)
+				fmt.Fprintf(cmd.OutOrStdout(), "%s %s\n", strings.ToUpper(f.Severity), f.Message)
 			}
 		}
 		if len(findings) > 0 {
-			os.Exit(1)
+			return fmt.Errorf("validation failed with %d finding(s)", len(findings))
 		}
 		return nil
 	}}
+	c.Flags().String("path", ".", "Path to the Cosmos repository")
+	c.Flags().String("format", "text", "Output format: text or json")
+	return c
 }
 func graphCmd() *cobra.Command {
-	return &cobra.Command{Use: "graph", RunE: func(cmd *cobra.Command, args []string) error {
+	c := &cobra.Command{Use: "graph", RunE: func(cmd *cobra.Command, args []string) error {
 		p, _ := cmd.Flags().GetString("path")
-		fmt.Printf("graph TD\n  cosmos[\"Cosmos: %s\"]\n", p)
+		fmt.Fprintf(cmd.OutOrStdout(), "graph TD\n  cosmos[\"Cosmos: %s\"]\n", p)
 		return nil
 	}}
+	c.Flags().String("path", ".", "Path to the Cosmos repository")
+	return c
 }
 func verifyCmd() *cobra.Command {
 	v := &cobra.Command{Use: "verify"}
@@ -213,26 +249,31 @@ func verifyCmd() *cobra.Command {
 		if err != nil || status != "verified" {
 			return fmt.Errorf("DNS Verifikation fehlgeschlagen")
 		}
-		fmt.Println("DNS Verifikation erfolgreich")
+		fmt.Fprintln(cmd.OutOrStdout(), "DNS Verifikation erfolgreich")
 		return nil
 	}}
 	d.Flags().String("path", ".", "")
 	v.AddCommand(d)
 	return v
 }
+func newServeMux(cosmosPath string) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok", "service": "nomos", "version": version})
+	})
+	mux.HandleFunc("/api/v1/validate", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok", "path": cosmosPath})
+	})
+	return mux
+}
 func serveCmd() *cobra.Command {
 	c := &cobra.Command{Use: "serve", RunE: func(cmd *cobra.Command, args []string) error {
 		listen, _ := cmd.Flags().GetString("listen")
-		mux := http.NewServeMux()
-		mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-			_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok", "service": "nomos", "version": version})
-		})
-		mux.HandleFunc("/api/v1/validate", func(w http.ResponseWriter, r *http.Request) {
-			_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
-		})
-		fmt.Println("Server lauscht auf", listen)
-		return http.ListenAndServe(listen, mux)
+		p, _ := cmd.Flags().GetString("path")
+		fmt.Fprintln(cmd.OutOrStdout(), "Server lauscht auf", listen)
+		return http.ListenAndServe(listen, newServeMux(p))
 	}}
 	c.Flags().String("listen", "127.0.0.1:8080", "")
+	c.Flags().String("path", ".", "Path to the Cosmos repository")
 	return c
 }

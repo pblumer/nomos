@@ -21,12 +21,12 @@ go run ./cmd/nomos version
 - `nomos cosmos info [--path <dir>]`
 - `nomos cosmos doctor [--path <dir>]`
 - `nomos domain add <dns> [--path <dir>] [--owner <owner>] [--force]`
-- `nomos domain list`
+- `nomos domain list [--path <dir>]`
 - `nomos service add <name> --domain <dns> [--path <dir>] [--owner <owner>] [--force]`
-- `nomos validate`
-- `nomos graph`
+- `nomos validate [--path <dir>] [--format <text|json>]`
+- `nomos graph [--path <dir>]`
 - `nomos verify domain <dns> [--path <dir>]`
-- `nomos serve [--listen <host:port>]`
+- `nomos serve [--path <dir>] [--listen <host:port>]`
 
 ---
 
@@ -45,7 +45,7 @@ Erzeugt eine neue lokale Cosmos-Struktur.
 
 **Flags:**
 - `--force`: erlaubt Initialisierung in nicht-leerem Zielverzeichnis.
-- `--git`: legt aktuell `.gitkeep` im Zielverzeichnis an (initialisiert kein echtes Git-Repo).
+- `--git`: führt `git init` im Zielverzeichnis aus und erzeugt zusätzlich `.gitkeep`.
 
 **Beispiel:**
 ```bash
@@ -90,7 +90,7 @@ Erzeugt eine Domain unter `domains/<dns>/`.
 ### `nomos domain list`
 Listet alle Unterordner unter `domains/`.
 
-> Hinweis: Für `domain list` ist derzeit kein `--path`-Flag definiert; der Befehl arbeitet relativ zum aktuellen Arbeitsverzeichnis.
+Flag: `--path` (Default: `.`).
 
 ---
 
@@ -177,7 +177,8 @@ Prüft DNS-TXT-Record `_nomos.<dns>` auf den Inhalt `nomos-domain=<dns>`.
 
 Startet einen HTTP-Server.
 
-**Flag:**
+**Flags:**
+- `--path` (Default: `.`)
 - `--listen` (Default: `127.0.0.1:8080`)
 
 **Endpoints:**
