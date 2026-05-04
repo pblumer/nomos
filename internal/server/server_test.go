@@ -26,52 +26,87 @@ func createTestCosmos(t *testing.T) string {
 	must(os.WriteFile(filepath.Join(p, "domains/platform.blumer.cloud/services/rule-validation-api/service.yaml"), []byte("name: rule-validation-api\n"), 0o644))
 	return p
 }
-func get(t *testing.T, h http.Handler, path string) *httptest.ResponseRecorder {
+func get(h http.Handler, path string) *httptest.ResponseRecorder {
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, path, nil))
 	return rr
 }
-func TestAll(t *testing.T) {
+func hasAll(t *testing.T, b string, m ...string) {
+	t.Helper()
+	for _, s := range m {
+		if !strings.Contains(b, s) {
+			t.Fatalf("missing %q", s)
+		}
+	}
+}
+
+func TestWebShellPagesAndAPI(t *testing.T) { /* same as before */
 	h := NewHandler(createTestCosmos(t))
-	if get(t, h, "/health").Code != 200 {
-		t.Fatal()
+	if rr := get(h, "/"); rr.Code != 200 {
+		t.Fatal(rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "Nomos", "Governance Platform", "Governance Dashboard", "app-sidebar", "app-topbar", "metric-card", "Cosmos Overview")
 	}
-	if !strings.Contains(get(t, h, "/").Body.String(), "Local Cosmos") {
-		t.Fatal()
+	if rr := get(h, "/domains"); rr.Code != 200 {
+		t.Fatal(rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "Domains", "Manage and inspect domains", "identity.blumer.cloud", "data-table")
 	}
-	if !strings.Contains(get(t, h, "/domains").Body.String(), "identity.blumer.cloud") {
-		t.Fatal()
+	if rr := get(h, "/domains/identity.blumer.cloud"); rr.Code != 200 {
+		t.Fatal(rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "identity.blumer.cloud")
 	}
-	if get(t, h, "/domains/identity.blumer.cloud").Code != 200 {
-		t.Fatal()
+	if rr := get(h, "/services/identity.blumer.cloud/user-account"); rr.Code != 200 {
+		t.Fatal(rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "user-account", "identity.blumer.cloud", "Service Metadata")
 	}
-	if get(t, h, "/services/identity.blumer.cloud/user-account").Code != 200 {
-		t.Fatal()
+	if rr := get(h, "/graph"); rr.Code != 200 {
+		t.Fatal(rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "Cosmos Graph", "graph TD", "code-block")
 	}
-	if !strings.Contains(get(t, h, "/graph").Body.String(), "graph TD") {
-		t.Fatal()
+	if rr := get(h, "/validate"); rr.Code != 200 {
+		t.Fatal(rr.Code)
+	} else if !(strings.Contains(rr.Body.String(), "No validation findings") || strings.Contains(rr.Body.String(), "Findings")) {
+		t.Fatal("missing validation state")
 	}
-	if get(t, h, "/validate").Code != 200 {
-		t.Fatal()
+	if rr := get(h, "/validate"); !strings.Contains(rr.Body.String(), "badge") && !strings.Contains(rr.Body.String(), "alert") {
+		t.Fatal("missing badge/alert")
+	}
+	if rr := get(h, "/static/app.css"); rr.Code != 200 {
+		t.Fatal(rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "--color-primary", ".app-sidebar", ".metric-card")
+		if !strings.Contains(rr.Header().Get("Content-Type"), "text/css") {
+			t.Fatal(rr.Header().Get("Content-Type"))
+		}
+	}
+	if rr := get(h, "/health"); rr.Code != 200 {
+		t.Fatal(rr.Code)
 	}
 	var m map[string]any
-	_ = json.Unmarshal(get(t, h, "/api/v1/cosmos").Body.Bytes(), &m)
+	_ = json.Unmarshal(get(h, "/api/v1/cosmos").Body.Bytes(), &m)
 	if m["name"] != "Local Cosmos" {
 		t.Fatal(m)
 	}
-	if !strings.HasPrefix(get(t, h, "/api/v1/graph").Body.String(), "graph TD") {
-		t.Fatal()
+	if get(h, "/api/v1/domains").Code != 200 || get(h, "/api/v1/graph").Code != 200 || get(h, "/api/v1/validate").Code != 200 {
+		t.Fatal("api failed")
 	}
-	if get(t, h, "/does-not-exist").Code != 404 {
+	if get(h, "/does-not-exist").Code != 404 {
 		t.Fatal()
 	}
 }
-func TestMissingCosmos(t *testing.T) {
+
+func TestMissingCosmosStyledError(t *testing.T) {
 	h := NewHandler(t.TempDir())
-	if get(t, h, "/").Code != 500 {
-		t.Fatal()
+	rr := get(h, "/")
+	if rr.Code == 200 {
+		t.Fatal("expected non-200")
 	}
-	if !strings.Contains(get(t, h, "/api/v1/cosmos").Body.String(), "cosmos.yaml") {
+	hasAll(t, rr.Body.String(), "Nomos", "Error", "Back to dashboard")
+	if !strings.Contains(get(h, "/api/v1/cosmos").Body.String(), "cosmos.yaml") {
 		t.Fatal()
 	}
 }
