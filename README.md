@@ -202,6 +202,12 @@ Recommended SemVer evolution:
 `./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080`
 
 Pages: `/`, `/domains`, `/graph`, `/validate`.
+
+`/domains` is now an explorer-style tree view (Cosmos → Domains → Services) with a detail pane.
+Selection can be deep-linked with query parameters:
+- `/domains`
+- `/domains?selected=domain:identity.blumer.cloud`
+- `/domains?selected=service:identity.blumer.cloud/user-account`
 API: `/health`, `/api/v1/cosmos`, `/api/v1/domains`, `/api/v1/graph`, `/api/v1/validate`.
 Read-only MVP over filesystem-backed Cosmos.
 

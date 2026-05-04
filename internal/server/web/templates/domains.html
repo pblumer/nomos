@@ -1,5 +1,37 @@
 {{define "domains"}}{{template "layout" .}}{{end}}
 {{define "content_domains"}}
-<section class="page-header"><h2>Domains</h2><p>Manage and inspect domains in this Cosmos</p></section>
-<section class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Domain</th><th>Owner</th><th>Services</th><th>Status</th><th>Actions</th></tr></thead><tbody>{{range .Tree.Domains}}<tr><td><strong>{{.Name}}</strong></td><td>{{.Owner}}</td><td>{{len .Services}}</td><td><span class="badge">{{.Status}}</span></td><td><a class="button button-secondary" href="/domains/{{.Name}}">View Details</a></td></tr>{{end}}</tbody></table></div></section>
+<section class="page-header"><div><h2>Domains Explorer</h2><p>Browse domains and services like a repository tree</p></div><a class="button button-secondary" href="/domains">Refresh</a></section>
+<section class="explorer-layout">
+  <aside class="card explorer-panel explorer-tree">
+    <a class="explorer-node-row {{if .Explorer.Cosmos.Selected}}is-selected{{end}}" href="{{.Explorer.Cosmos.Link}}"><span class="material-symbols-outlined explorer-node-icon">hub</span><span class="explorer-node-label">{{.Explorer.Cosmos.Name}}</span></a>
+    <div class="explorer-node-children">
+      {{range .Explorer.Domains}}
+      <div class="explorer-node is-domain {{if .Selected}}is-selected{{end}}">
+        <a class="explorer-node-row" href="{{.Link}}"><span class="material-symbols-outlined explorer-node-icon">folder</span><span class="explorer-node-label">{{.Name}}</span><span class="tree-count">({{.ServiceCount}})</span></a>
+        <div class="explorer-node-children">
+          {{range .Services}}
+          <a class="explorer-node-row explorer-service {{if .Selected}}is-selected{{end}}" href="{{.Link}}"><span class="material-symbols-outlined explorer-node-icon">description</span><span class="explorer-node-label">{{.Name}}</span></a>
+          {{end}}
+        </div>
+      </div>
+      {{end}}
+    </div>
+  </aside>
+
+  <section class="card details-panel">
+    {{if .Explorer.SelectedCosmos}}
+    <h3>Cosmos Summary</h3>
+    <div class="details-grid"><p><strong>Name</strong><br>{{.Explorer.SelectedCosmos.Name}}</p><p><strong>ID</strong><br>{{.Explorer.SelectedCosmos.ID}}</p><p><strong>Version</strong><br>{{.Explorer.SelectedCosmos.Version}}</p><p><strong>Status</strong><br>{{.Explorer.SelectedCosmos.Status}}</p><p><strong>Owner</strong><br>{{.Explorer.SelectedCosmos.Owner}}</p><p><strong>Path</strong><br><code>{{.Explorer.SelectedCosmos.Path}}</code></p><p><strong>Domain count</strong><br>{{.Explorer.SelectedCosmos.DomainCount}}</p><p><strong>Service count</strong><br>{{.Explorer.SelectedCosmos.ServiceCount}}</p></div>
+    {{else if .Explorer.SelectedDomain}}
+    <h3>Domain Details</h3>
+    <div class="details-grid"><p><strong>Domain</strong><br>{{.Explorer.SelectedDomain.Name}}</p><p><strong>Owner</strong><br>{{.Explorer.SelectedDomain.Owner}}</p><p><strong>Status</strong><br>{{.Explorer.SelectedDomain.Status}}</p><p><strong>Path</strong><br><code>{{.Explorer.SelectedDomain.Path}}</code></p><p><strong>Service count</strong><br>{{.Explorer.SelectedDomain.ServiceCount}}</p></div>
+    <h4>Services</h4><ul class="details-list">{{range .Explorer.SelectedDomain.Services}}<li><a href="{{.Link}}">{{.Name}}</a></li>{{end}}</ul>
+    <p><a class="button button-secondary" href="{{.Explorer.SelectedDomain.PageLink}}">Open domain page</a></p>
+    {{else if .Explorer.SelectedService}}
+    <h3>Service Details</h3>
+    <div class="details-grid"><p><strong>Service</strong><br>{{.Explorer.SelectedService.Name}}</p><p><strong>Domain</strong><br>{{.Explorer.SelectedService.Domain}}</p><p><strong>Owner</strong><br>{{.Explorer.SelectedService.Owner}}</p><p><strong>Status</strong><br>{{.Explorer.SelectedService.Status}}</p><p><strong>Path</strong><br><code>{{.Explorer.SelectedService.Path}}</code></p></div>
+    <p><a class="button button-secondary" href="{{.Explorer.SelectedService.PageLink}}">Open service page</a></p>
+    {{end}}
+  </section>
+</section>
 {{end}}
