@@ -153,3 +153,46 @@ Als roter Faden dient „**Benutzerkonto mit Mailbox**“ (Varianten intern/exte
 ## Hinweis zum Reifegrad
 
 Dieses Repository enthält aktuell primär **Konzepte und Architekturgrundlagen** für MVP 0.1 sowie eine erste technische Grundlage (inklusive CLI). Die weitere technische Umsetzung wird gemäß Roadmap in nachfolgenden Phasen ausgebaut.
+
+## Building the CLI with version metadata
+
+Local development build:
+
+```bash
+make build
+```
+
+Inspect version output:
+
+```bash
+./bin/nomos version
+./bin/nomos version --short
+./bin/nomos version --format json
+```
+
+Build with explicit version:
+
+```bash
+make build VERSION=v0.1.0
+```
+
+Release-style build (sets `builtBy=release`):
+
+```bash
+make release-build VERSION=v0.1.0
+```
+
+Version fields:
+- `version`: semantic version (`vMAJOR.MINOR.PATCH`) or `dev`
+- `commit`: short git commit hash (or `none` outside git)
+- `date`: UTC build timestamp
+- `dirty`: `true`/`false` in a git work tree, otherwise `unknown`
+- `builtBy`: build origin (`source`, `release`, `ci`, ...)
+- `go`: Go runtime version
+- `os/arch`: target OS and architecture
+
+Recommended SemVer evolution:
+- `v0.1.x`: early local CLI and Cosmos bootstrap behavior
+- `v0.2.x`: improved artifact model and validation
+- `v0.3.x`: HTTP API/server improvements
+- `v1.0.0`: stable CLI and artifact format

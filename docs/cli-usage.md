@@ -207,3 +207,19 @@ go run ./cmd/nomos service add identity-api --domain example.com --path . --owne
 go run ./cmd/nomos validate --path .
 go run ./cmd/nomos graph --path .
 ```
+
+## `nomos version`
+
+Supports multiple output modes:
+
+```bash
+nomos version
+nomos version --short
+nomos version --format text
+nomos version --format json
+```
+
+Notes:
+- `--format` supports `text` and `json`.
+- Invalid formats (for example `--format xml`) return an error.
+- If `--short` and `--format` are both set, `--short` wins and only the version string is printed.

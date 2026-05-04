@@ -26,15 +26,85 @@ func executeCommand(t *testing.T, args ...string) (string, string, error) {
 	return out.String(), errOut.String(), err
 }
 
-func TestVersionCommand(t *testing.T) {
+func TestVersionCommandTextOutput(t *testing.T) {
 	out, _, err := executeCommand(t, "version")
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
-	for _, s := range []string{"version=", "go=", "osarch="} {
+	for _, s := range []string{"nomos version", "commit:", "date:", "dirty:", "builtBy:", "go:", "os/arch:"} {
 		if !strings.Contains(out, s) {
 			t.Fatalf("output missing %q: %s", s, out)
 		}
+	}
+}
+
+func TestVersionCommandShortOutput(t *testing.T) {
+	out, _, err := executeCommand(t, "version", "--short")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	trimmed := strings.TrimSpace(out)
+	if trimmed == "" {
+		t.Fatal("expected short output")
+	}
+	if strings.Contains(trimmed, "commit:") || strings.Contains(trimmed, "go:") {
+		t.Fatalf("expected only version output, got %q", trimmed)
+	}
+}
+
+func TestVersionCommandJSONOutput(t *testing.T) {
+	out, _, err := executeCommand(t, "version", "--format", "json")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("invalid json: %v (%s)", err, out)
+	}
+	if got["name"] != "nomos" {
+		t.Fatalf("unexpected name: %v", got["name"])
+	}
+	if got["version"] == "" {
+		t.Fatalf("missing version: %v", got)
+	}
+	for _, key := range []string{"commit", "date", "dirty", "builtBy", "go", "os", "arch"} {
+		if _, ok := got[key]; !ok {
+			t.Fatalf("missing key %q in %v", key, got)
+		}
+	}
+}
+
+func TestVersionCommandExplicitTextFormat(t *testing.T) {
+	out, _, err := executeCommand(t, "version", "--format", "text")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if !strings.Contains(out, "nomos version") || !strings.Contains(out, "os/arch:") {
+		t.Fatalf("unexpected output: %s", out)
+	}
+}
+
+func TestVersionCommandRejectsInvalidFormat(t *testing.T) {
+	_, _, err := executeCommand(t, "version", "--format", "xml")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "format") && !strings.Contains(err.Error(), "unsupported") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestVersionCommandShortOverridesFormat(t *testing.T) {
+	out, _, err := executeCommand(t, "version", "--short", "--format", "json")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	trimmed := strings.TrimSpace(out)
+	if trimmed == "" {
+		t.Fatal("expected output")
+	}
+	if strings.Contains(trimmed, "{") || strings.Contains(trimmed, "commit") {
+		t.Fatalf("expected short output to override format, got %q", trimmed)
 	}
 }
 

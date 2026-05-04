@@ -8,18 +8,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/model"
+	versionpkg "github.com/nomos/nomos/internal/version"
 	"github.com/spf13/cobra"
 )
-
-var version = "dev"
-var commit = "none"
-var date = "unknown"
 
 func Execute() { _ = newRoot().Execute() }
 func newRoot() *cobra.Command {
@@ -28,9 +24,32 @@ func newRoot() *cobra.Command {
 	return root
 }
 func versionCmd() *cobra.Command {
-	return &cobra.Command{Use: "version", Run: func(cmd *cobra.Command, args []string) {
-		fmt.Fprintf(cmd.OutOrStdout(), "version=%s\ncommit=%s\ndate=%s\ngo=%s\nosarch=%s/%s\n", version, commit, date, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	var format string
+	var short bool
+
+	c := &cobra.Command{Use: "version", RunE: func(cmd *cobra.Command, args []string) error {
+		info := versionpkg.Get()
+
+		// --short intentionally overrides --format for easy scripting.
+		if short {
+			_, err := fmt.Fprintln(cmd.OutOrStdout(), info.Version)
+			return err
+		}
+
+		switch format {
+		case "", "text":
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "nomos version %s\ncommit:  %s\ndate:    %s\ndirty:   %s\nbuiltBy: %s\ngo:      %s\nos/arch: %s\n", info.Version, info.Commit, info.Date, info.Dirty, info.BuiltBy, info.Go, info.OSArch())
+			return err
+		case "json":
+			enc := json.NewEncoder(cmd.OutOrStdout())
+			return enc.Encode(info)
+		default:
+			return fmt.Errorf("unsupported format %q (supported: text, json)", format)
+		}
 	}}
+	c.Flags().StringVar(&format, "format", "text", "Output format: text or json")
+	c.Flags().BoolVar(&short, "short", false, "Print only the version")
+	return c
 }
 
 func cosmosCmd() *cobra.Command {
@@ -259,7 +278,7 @@ func verifyCmd() *cobra.Command {
 func newServeMux(cosmosPath string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok", "service": "nomos", "version": version})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok", "service": "nomos", "version": versionpkg.Get().Version})
 	})
 	mux.HandleFunc("/api/v1/validate", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok", "path": cosmosPath})
