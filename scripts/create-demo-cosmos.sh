@@ -5,12 +5,15 @@ set -eu
 #
 # Aufruf:
 #   sh scripts/create-demo-cosmos.sh
+#   sh scripts/create-demo-cosmos.sh /tmp/nomos-demo
 #
 # Optional:
 #   NOMOS_BIN=./bin/nomos COSMOS_PATH=./tmp/demo-cosmos sh scripts/create-demo-cosmos.sh
 
 NOMOS_BIN="${NOMOS_BIN:-./bin/nomos}"
-COSMOS_PATH="${COSMOS_PATH:-./tmp/demo-cosmos}"
+
+# Priorität: 1. Argument, 2. COSMOS_PATH Environment Variable, 3. Default.
+COSMOS_PATH="${1:-${COSMOS_PATH:-./tmp/demo-cosmos}}"
 
 echo "==> Prüfe Nomos CLI"
 if [ ! -x "$NOMOS_BIN" ]; then
