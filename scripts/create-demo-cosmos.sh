@@ -140,6 +140,12 @@ echo "==> Erstelle Services"
   --owner "Assurance Team"
 
 echo ""
+echo "==> Kopiere Blueprint- und Instance-Beispielkatalog"
+mkdir -p "$COSMOS_PATH/catalog"
+cp -R catalog/blueprints "$COSMOS_PATH/catalog/"
+cp -R catalog/instances "$COSMOS_PATH/catalog/"
+
+echo ""
 echo "==> Cosmos Info"
 "$NOMOS_BIN" cosmos info --path "$COSMOS_PATH"
 

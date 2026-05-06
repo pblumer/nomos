@@ -191,3 +191,83 @@ func fallback(v, d string) string {
 	}
 	return v
 }
+
+func ListBlueprints(path string) (BlueprintsDTO, error) {
+	tree, err := load(path)
+	if err != nil {
+		return BlueprintsDTO{}, err
+	}
+	out := BlueprintsDTO{Blueprints: []BlueprintDTO{}}
+	for _, b := range tree.Blueprints {
+		out.Blueprints = append(out.Blueprints, blueprintDTO(b))
+	}
+	out.Count = len(out.Blueprints)
+	return out, nil
+}
+
+func GetBlueprint(path, id string) (BlueprintDTO, error) {
+	items, err := ListBlueprints(path)
+	if err != nil {
+		return BlueprintDTO{}, err
+	}
+	for _, b := range items.Blueprints {
+		if b.ID == id {
+			return b, nil
+		}
+	}
+	return BlueprintDTO{}, Error(CodeBlueprintNotFound, "Blueprint not found: "+id, http.StatusNotFound, nil)
+}
+
+func ListInstances(path string) (InstancesDTO, error) {
+	tree, err := load(path)
+	if err != nil {
+		return InstancesDTO{}, err
+	}
+	out := InstancesDTO{Instances: []InstanceDTO{}}
+	for _, i := range tree.Instances {
+		out.Instances = append(out.Instances, instanceDTO(i))
+	}
+	out.Count = len(out.Instances)
+	return out, nil
+}
+
+func GetInstance(path, id string) (InstanceDTO, error) {
+	items, err := ListInstances(path)
+	if err != nil {
+		return InstanceDTO{}, err
+	}
+	for _, i := range items.Instances {
+		if i.ID == id {
+			return i, nil
+		}
+	}
+	return InstanceDTO{}, Error(CodeInstanceNotFound, "Instance not found: "+id, http.StatusNotFound, nil)
+}
+
+func GetInstanceCompliance(path, id string) (ComplianceDTO, error) {
+	inst, err := GetInstance(path, id)
+	if err != nil {
+		return ComplianceDTO{}, err
+	}
+	return ComplianceDTO{InstanceID: inst.ID, Status: inst.ComplianceStatus, Evidence: inst.Evidence, Findings: inst.Findings}, nil
+}
+
+func blueprintDTO(b cosmosfs.BlueprintNode) BlueprintDTO {
+	variants := make([]VariantDTO, 0, len(b.Metadata.Variants))
+	for _, v := range b.Metadata.Variants {
+		variants = append(variants, VariantDTO{ID: v.ID, Name: v.Name})
+	}
+	return BlueprintDTO{ID: b.Metadata.ID, Type: b.Metadata.Type, Name: b.Metadata.Name, Version: b.Metadata.Version, Status: b.Metadata.Status, Owner: b.Metadata.Owner, Summary: b.Metadata.Summary, Path: b.Path, Variants: variants, Capabilities: b.Metadata.Capabilities, TargetSystems: b.Metadata.TargetSystems, RequiredInputs: b.Metadata.RequiredInputs, RequiredServiceBlueprints: b.Metadata.RequiredServiceBlueprints, Rules: b.Metadata.Rules, QualityCriteria: b.Metadata.QualityCriteria, EvidenceRequirements: b.Metadata.EvidenceRequirements}
+}
+
+func instanceDTO(i cosmosfs.InstanceNode) InstanceDTO {
+	evidence := make([]EvidenceDTO, 0, len(i.Metadata.Evidence))
+	for _, e := range i.Metadata.Evidence {
+		evidence = append(evidence, EvidenceDTO{ID: e.ID, Type: e.Type, Summary: e.Summary})
+	}
+	findings := make([]CatalogFindingDTO, 0, len(i.Metadata.Findings))
+	for _, f := range i.Metadata.Findings {
+		findings = append(findings, CatalogFindingDTO{ID: f.ID, Severity: f.Severity, Category: f.Category, Summary: f.Summary, Code: f.Code, Message: f.Message, Path: f.Path})
+	}
+	return InstanceDTO{ID: i.Metadata.ID, Type: i.Metadata.Type, Name: i.Metadata.Name, BlueprintRef: i.Metadata.BlueprintRef, BlueprintVersion: i.Metadata.BlueprintVersion, Status: i.Metadata.Status, Owner: i.Metadata.Owner, Path: i.Path, Inputs: i.Metadata.Inputs, ObservedState: i.Metadata.ObservedState, ProvisionedServiceInstances: i.Metadata.ProvisionedServiceInstances, OwningProductInstance: i.Metadata.OwningProductInstance, ProviderRef: i.Metadata.ProviderRef, ComplianceStatus: i.Metadata.ComplianceStatus, Evidence: evidence, Findings: findings}
+}

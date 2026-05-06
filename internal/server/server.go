@@ -37,6 +37,14 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/v1/namespaces", h.apiNamespaces)
 	mux.HandleFunc("/api/v1/graph", h.apiGraph)
 	mux.HandleFunc("/api/v1/validate", h.apiValidate)
+	mux.HandleFunc("/api/v1/blueprints", h.apiBlueprints)
+	mux.HandleFunc("/api/v1/blueprints/", h.apiBlueprintRoutes)
+	mux.HandleFunc("/api/v1/instances", h.apiInstances)
+	mux.HandleFunc("/api/v1/instances/", h.apiInstanceRoutes)
+	mux.HandleFunc("/api/blueprints", h.apiBlueprints)
+	mux.HandleFunc("/api/blueprints/", h.apiBlueprintRoutes)
+	mux.HandleFunc("/api/instances", h.apiInstances)
+	mux.HandleFunc("/api/instances/", h.apiInstanceRoutes)
 	mux.HandleFunc("/", h.routes)
 	return mux
 }
@@ -118,6 +126,68 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, dto)
+}
+
+func (h *handler) apiBlueprints(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/blueprints" && r.URL.Path != "/api/blueprints" {
+		http.NotFound(w, r)
+		return
+	}
+	dto, err := app.ListBlueprints(h.cosmosPath)
+	if err != nil {
+		h.apiErr(w, err)
+		return
+	}
+	writeJSON(w, 200, dto)
+}
+func (h *handler) apiBlueprintRoutes(w http.ResponseWriter, r *http.Request) {
+	rest := strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, "/api/v1/blueprints/"), "/api/blueprints/")
+	parts := strings.Split(rest, "/")
+	if len(parts) == 1 && parts[0] != "" {
+		dto, err := app.GetBlueprint(h.cosmosPath, parts[0])
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, 200, dto)
+		return
+	}
+	http.NotFound(w, r)
+}
+func (h *handler) apiInstances(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/instances" && r.URL.Path != "/api/instances" {
+		http.NotFound(w, r)
+		return
+	}
+	dto, err := app.ListInstances(h.cosmosPath)
+	if err != nil {
+		h.apiErr(w, err)
+		return
+	}
+	writeJSON(w, 200, dto)
+}
+func (h *handler) apiInstanceRoutes(w http.ResponseWriter, r *http.Request) {
+	rest := strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, "/api/v1/instances/"), "/api/instances/")
+	parts := strings.Split(rest, "/")
+	if len(parts) == 1 && parts[0] != "" {
+		dto, err := app.GetInstance(h.cosmosPath, parts[0])
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, 200, dto)
+		return
+	}
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "compliance" {
+		dto, err := app.GetInstanceCompliance(h.cosmosPath, parts[0])
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, 200, dto)
+		return
+	}
+	http.NotFound(w, r)
 }
 func (h *handler) apiNamespaces(w http.ResponseWriter, r *http.Request) {
 	dto, err := app.BuildNamespaceTree(h.cosmosPath)

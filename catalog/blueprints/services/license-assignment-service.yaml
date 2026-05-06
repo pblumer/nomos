@@ -1,0 +1,20 @@
+id: SB-LICENSE-ASSIGNMENT-001
+type: service_blueprint
+name: License Assignment Service
+version: 0.1.0
+status: draft
+owner: Identity & Collaboration
+summary: Blueprint fuer die Zuweisung erforderlicher Lizenzen.
+capabilities:
+  - assign_license
+  - validate_license_state
+target_systems:
+  - SYS-LICENSE-001
+required_inputs:
+  - account_reference
+  - license_sku
+quality_criteria:
+  - license_assigned
+  - license_active
+evidence_requirements:
+  - license_assignment_response

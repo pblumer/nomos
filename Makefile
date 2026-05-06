@@ -32,9 +32,7 @@ release-build:
 	$(MAKE) build VERSION=$(VERSION) BUILT_BY=release
 demo: build
 	rm -rf ./tmp/demo-cosmos
-	./bin/nomos cosmos init ./tmp/demo-cosmos --git
-	./bin/nomos domain add identity.blumer.cloud --path ./tmp/demo-cosmos --owner "Identity Team"
-	./bin/nomos service add user-account --domain identity.blumer.cloud --path ./tmp/demo-cosmos --owner "Identity Team"
+	NOMOS_BIN=./bin/nomos COSMOS_PATH=./tmp/demo-cosmos sh scripts/create-demo-cosmos.sh
 validate-demo: build
 	./bin/nomos validate --path ./tmp/demo-cosmos
 serve-demo: build

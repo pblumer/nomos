@@ -19,11 +19,15 @@ func createTestCosmos(t *testing.T) string {
 	}
 	must(os.MkdirAll(filepath.Join(p, "domains/identity.blumer.cloud/services/user-account"), 0o755))
 	must(os.MkdirAll(filepath.Join(p, "domains/platform.blumer.cloud/services/rule-validation-api"), 0o755))
+	must(os.MkdirAll(filepath.Join(p, "catalog/blueprints/products"), 0o755))
+	must(os.MkdirAll(filepath.Join(p, "catalog/instances/products"), 0o755))
 	must(os.WriteFile(filepath.Join(p, "cosmos.yaml"), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: unknown\n"), 0o644))
 	must(os.WriteFile(filepath.Join(p, "domains/identity.blumer.cloud/domain.yaml"), []byte("name: identity.blumer.cloud\n"), 0o644))
 	must(os.WriteFile(filepath.Join(p, "domains/platform.blumer.cloud/domain.yaml"), []byte("name: platform.blumer.cloud\n"), 0o644))
 	must(os.WriteFile(filepath.Join(p, "domains/identity.blumer.cloud/services/user-account/service.yaml"), []byte("name: user-account\n"), 0o644))
 	must(os.WriteFile(filepath.Join(p, "domains/platform.blumer.cloud/services/rule-validation-api/service.yaml"), []byte("name: rule-validation-api\n"), 0o644))
+	must(os.WriteFile(filepath.Join(p, "catalog/blueprints/products/account.yaml"), []byte("id: PB-ACC-MBX-001\ntype: product_blueprint\nname: Benutzerkonto mit Mailbox\nversion: 0.1.0\nstatus: draft\nowner: Team\nrequired_inputs:\n  - person_reference\nrequired_service_blueprints:\n  - SB-1\n"), 0o644))
+	must(os.WriteFile(filepath.Join(p, "catalog/instances/products/account-instance.yaml"), []byte("id: PI-ACC-MBX-EXAMPLE-001\ntype: product_instance\nname: Beispielinstanz Benutzerkonto mit Mailbox\nblueprint_ref: PB-ACC-MBX-001\nblueprint_version: 0.1.0\ncompliance_status: compliant\nfindings: []\n"), 0o644))
 	return p
 }
 func get(h http.Handler, path string) *httptest.ResponseRecorder {
@@ -106,7 +110,7 @@ func TestWebShellPagesAndAPI(t *testing.T) { /* same as before */
 	if m["name"] != "Local Cosmos" {
 		t.Fatal(m)
 	}
-	if get(h, "/api/v1/domains").Code != 200 || get(h, "/api/v1/graph").Code != 200 || get(h, "/api/v1/validate").Code != 200 {
+	if get(h, "/api/v1/domains").Code != 200 || get(h, "/api/v1/blueprints").Code != 200 || get(h, "/api/v1/instances").Code != 200 || get(h, "/api/v1/graph").Code != 200 || get(h, "/api/v1/validate").Code != 200 {
 		t.Fatal("api failed")
 	}
 	if get(h, "/does-not-exist").Code != 404 {
@@ -170,5 +174,29 @@ func TestRESTDetailRoutesAndErrors(t *testing.T) {
 	}
 	if rr := get(h, "/api/v1/domains/identity.blumer.cloud/services/does-not-exist"); rr.Code != 404 || !strings.Contains(rr.Body.String(), "SERVICE_NOT_FOUND") {
 		t.Fatalf("expected service 404, got %d %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestBlueprintAndInstanceAPIRoutes(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	if rr := get(h, "/api/v1/blueprints"); rr.Code != 200 {
+		t.Fatalf("blueprints status=%d", rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "PB-ACC-MBX-001", "Benutzerkonto mit Mailbox")
+	}
+	if rr := get(h, "/api/blueprints/PB-ACC-MBX-001"); rr.Code != 200 {
+		t.Fatalf("blueprint detail status=%d", rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "product_blueprint")
+	}
+	if rr := get(h, "/api/v1/instances"); rr.Code != 200 {
+		t.Fatalf("instances status=%d", rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "PI-ACC-MBX-EXAMPLE-001")
+	}
+	if rr := get(h, "/api/instances/PI-ACC-MBX-EXAMPLE-001/compliance"); rr.Code != 200 {
+		t.Fatalf("compliance status=%d", rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "compliant")
 	}
 }

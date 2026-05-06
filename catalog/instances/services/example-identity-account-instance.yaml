@@ -1,0 +1,18 @@
+id: SI-IDENTITY-ACCOUNT-EXAMPLE-001
+type: service_instance
+name: Beispiel Identity Account Service Instance
+blueprint_ref: SB-IDENTITY-ACCOUNT-001
+blueprint_version: 0.1.0
+owning_product_instance: PI-ACC-MBX-EXAMPLE-001
+provider_ref: SYS-IAM-001
+status: active
+observed_state:
+  account_status: active
+  account_enabled: "true"
+  tenant_id: tenant-main
+compliance_status: compliant
+evidence:
+  - id: EV-IDENTITY-001
+    type: target_system_snapshot
+    summary: Identitaetskonto wurde im Zielsystem gefunden.
+findings: []

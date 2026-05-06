@@ -1,0 +1,22 @@
+id: SI-MAILBOX-EXAMPLE-001
+type: service_instance
+name: Beispiel Mailbox Service Instance
+blueprint_ref: SB-MAILBOX-001
+blueprint_version: 0.1.0
+owning_product_instance: PI-ACC-MBX-EXAMPLE-001
+provider_ref: SYS-M365-001
+status: active
+observed_state:
+  mailbox_status: active
+  primary_smtp_address: anna.beispiel@example.org
+  tenant_id: tenant-main
+compliance_status: warning
+evidence:
+  - id: EV-MAILBOX-001
+    type: target_system_snapshot
+    summary: Mailbox wurde im Zielsystem gefunden.
+findings:
+  - id: FIND-MAILBOX-001
+    severity: warning
+    category: naming
+    summary: Mailadresse verwendet noch die alte Namenskonvention.
