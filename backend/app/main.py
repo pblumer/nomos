@@ -14,6 +14,20 @@ def _products_dir() -> Path:
     return Path("catalog/products")
 
 
+def _blueprints_dir() -> Path:
+    blueprints_env = os.getenv("NOMOS_BLUEPRINTS_DIR")
+    if blueprints_env:
+        return Path(blueprints_env)
+    return _products_dir().parent / "blueprints"
+
+
+def _instances_dir() -> Path:
+    instances_env = os.getenv("NOMOS_INSTANCES_DIR")
+    if instances_env:
+        return Path(instances_env)
+    return _products_dir().parent / "instances"
+
+
 def _requirements_dir() -> Path:
     requirements_env = os.getenv("NOMOS_REQUIREMENTS_DIR")
     if requirements_env:
@@ -38,6 +52,39 @@ def _write_yaml_file(file_path: Path, data: dict[str, object]) -> None:
         yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
         encoding="utf-8",
     )
+
+
+def _yaml_files_recursive(base_dir: Path) -> list[Path]:
+    return sorted([
+        *base_dir.rglob("*.yml"),
+        *base_dir.rglob("*.yaml"),
+    ])
+
+
+def _blueprint_files() -> list[Path]:
+    return _yaml_files_recursive(_blueprints_dir())
+
+
+def _instance_files() -> list[Path]:
+    return _yaml_files_recursive(_instances_dir())
+
+
+def _load_artifact_or_404(files: list[Path], item_id: str, detail: str) -> dict[str, object]:
+    for file_path in files:
+        data = _read_yaml_file(file_path)
+        if str(data.get("id", "")).strip() == item_id:
+            return data
+    raise HTTPException(status_code=404, detail=detail)
+
+
+def _artifact_summary(data: dict[str, object]) -> dict[str, object]:
+    return {
+        "id": str(data.get("id", "")),
+        "type": str(data.get("type", "")),
+        "name": str(data.get("name", "")),
+        "version": str(data.get("version", "")),
+        "status": str(data.get("status", "")),
+    }
 
 
 def _product_files() -> list[Path]:
@@ -652,3 +699,36 @@ def delete_product_variant(product_id: str, variant_id: str) -> dict[str, object
     product["validation"] = _validate_product(product)
     _write_yaml_file(file_path, product)
     return {"item": variant_id, "removed": True}
+
+
+@app.get("/api/v1/blueprints")
+def list_blueprints() -> dict[str, object]:
+    items = [_artifact_summary(_read_yaml_file(file_path)) for file_path in _blueprint_files()]
+    return {"items": items, "count": len(items)}
+
+
+@app.get("/api/v1/blueprints/{blueprint_id}")
+def get_blueprint(blueprint_id: str) -> dict[str, object]:
+    return _load_artifact_or_404(_blueprint_files(), blueprint_id, "Blueprint not found")
+
+
+@app.get("/api/v1/instances")
+def list_instances() -> dict[str, object]:
+    items = [_artifact_summary(_read_yaml_file(file_path)) for file_path in _instance_files()]
+    return {"items": items, "count": len(items)}
+
+
+@app.get("/api/v1/instances/{instance_id}")
+def get_instance(instance_id: str) -> dict[str, object]:
+    return _load_artifact_or_404(_instance_files(), instance_id, "Instance not found")
+
+
+@app.get("/api/v1/instances/{instance_id}/compliance")
+def get_instance_compliance(instance_id: str) -> dict[str, object]:
+    instance = _load_artifact_or_404(_instance_files(), instance_id, "Instance not found")
+    return {
+        "instance_id": str(instance.get("id", instance_id)),
+        "status": str(instance.get("compliance_status", "unknown")),
+        "evidence": instance.get("evidence", []),
+        "findings": instance.get("findings", []),
+    }

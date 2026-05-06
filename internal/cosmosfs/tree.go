@@ -11,9 +11,11 @@ import (
 )
 
 type Tree struct {
-	Path    string
-	Cosmos  model.Cosmos
-	Domains []DomainNode
+	Path       string
+	Cosmos     model.Cosmos
+	Domains    []DomainNode
+	Blueprints []BlueprintNode
+	Instances  []InstanceNode
 }
 type DomainNode struct {
 	Path     string
@@ -26,6 +28,14 @@ type ServiceNode struct {
 	Name     string
 	Metadata model.Service
 }
+type BlueprintNode struct {
+	Path     string
+	Metadata model.Blueprint
+}
+type InstanceNode struct {
+	Path     string
+	Metadata model.Instance
+}
 
 func LoadTree(path string) (Tree, error) {
 	var co model.Cosmos
@@ -34,10 +44,7 @@ func LoadTree(path string) (Tree, error) {
 	}
 	tree := Tree{Path: path, Cosmos: co}
 	ents, err := os.ReadDir(filepath.Join(path, "domains"))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return tree, nil
-		}
+	if err != nil && !os.IsNotExist(err) {
 		return Tree{}, err
 	}
 	for _, e := range ents {
@@ -75,6 +82,16 @@ func LoadTree(path string) (Tree, error) {
 		tree.Domains = append(tree.Domains, dn)
 	}
 	sort.Slice(tree.Domains, func(i, j int) bool { return tree.Domains[i].Name < tree.Domains[j].Name })
+	blueprints, err := scanBlueprints(path)
+	if err != nil {
+		return Tree{}, err
+	}
+	instances, err := scanInstances(path)
+	if err != nil {
+		return Tree{}, err
+	}
+	tree.Blueprints = blueprints
+	tree.Instances = instances
 	return tree, nil
 }
 func firstNonEmpty(values ...string) string {
@@ -84,4 +101,79 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func scanBlueprints(path string) ([]BlueprintNode, error) {
+	return scanBlueprintArtifacts(filepath.Join(path, "catalog", "blueprints"))
+}
+
+func scanBlueprintArtifacts(root string) ([]BlueprintNode, error) {
+	var nodes []BlueprintNode
+	if _, err := os.Stat(root); err != nil {
+		if os.IsNotExist(err) {
+			return nodes, nil
+		}
+		return nil, err
+	}
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !isYAML(path) {
+			return nil
+		}
+		var b model.Blueprint
+		if err := fsx.ReadYAML(path, &b); err != nil {
+			return err
+		}
+		if b.Type == "product_blueprint" || b.Type == "service_blueprint" {
+			nodes = append(nodes, BlueprintNode{Path: path, Metadata: b})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(nodes, func(i, j int) bool { return nodes[i].Metadata.ID < nodes[j].Metadata.ID })
+	return nodes, nil
+}
+
+func scanInstances(path string) ([]InstanceNode, error) {
+	return scanInstanceArtifacts(filepath.Join(path, "catalog", "instances"))
+}
+
+func scanInstanceArtifacts(root string) ([]InstanceNode, error) {
+	var nodes []InstanceNode
+	if _, err := os.Stat(root); err != nil {
+		if os.IsNotExist(err) {
+			return nodes, nil
+		}
+		return nil, err
+	}
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !isYAML(path) {
+			return nil
+		}
+		var inst model.Instance
+		if err := fsx.ReadYAML(path, &inst); err != nil {
+			return err
+		}
+		if inst.Type == "product_instance" || inst.Type == "service_instance" {
+			nodes = append(nodes, InstanceNode{Path: path, Metadata: inst})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(nodes, func(i, j int) bool { return nodes[i].Metadata.ID < nodes[j].Metadata.ID })
+	return nodes, nil
+}
+
+func isYAML(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	return ext == ".yaml" || ext == ".yml"
 }

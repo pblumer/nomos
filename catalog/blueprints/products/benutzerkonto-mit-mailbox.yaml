@@ -1,0 +1,34 @@
+id: PB-ACC-MBX-001
+type: product_blueprint
+name: Benutzerkonto mit Mailbox
+version: 0.1.0
+status: draft
+owner: Identity & Collaboration
+summary: Provisionierbarer Blueprint fuer ein Benutzerkonto mit Mailbox.
+variants:
+  - id: VAR-ACC-MBX-INT
+    name: Internes Benutzerkonto mit Mailbox
+  - id: VAR-ACC-MBX-EXT
+    name: Externes Benutzerkonto mit Mailbox
+required_inputs:
+  - person_reference
+  - first_name
+  - last_name
+  - user_type
+  - tenant_id
+required_service_blueprints:
+  - SB-IDENTITY-ACCOUNT-001
+  - SB-MAILBOX-001
+  - SB-LICENSE-ASSIGNMENT-001
+rules:
+  - RULE-ACC-001
+  - RULE-ACC-003
+quality_criteria:
+  - account_exists
+  - mailbox_exists
+  - tenant_matches
+  - no_blocking_findings
+evidence_requirements:
+  - account_creation_response
+  - mailbox_creation_response
+  - compliance_check_result

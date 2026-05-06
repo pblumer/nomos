@@ -25,7 +25,7 @@ import (
 func Execute() { _ = newRoot().Execute() }
 func newRoot() *cobra.Command {
 	root := &cobra.Command{Use: "nomos", Short: "Nomos Cosmos CLI", Long: "Nomos verwaltet lokale Cosmos Repositories."}
-	root.AddCommand(versionCmd(), cosmosCmd(), domainCmd(), serviceCmd(), namespaceCmd(), validateCmd(), graphCmd(), verifyCmd(), serveCmd())
+	root.AddCommand(versionCmd(), cosmosCmd(), domainCmd(), serviceCmd(), blueprintCmd(), instanceCmd(), namespaceCmd(), validateCmd(), graphCmd(), verifyCmd(), serveCmd())
 	return root
 }
 func versionCmd() *cobra.Command {
@@ -265,6 +265,94 @@ func serviceCmd() *cobra.Command {
 	get.Flags().String("format", "text", "Output format: text or json")
 	_ = get.MarkFlagRequired("domain")
 	c.AddCommand(add, get)
+	return c
+}
+
+func blueprintCmd() *cobra.Command {
+	c := &cobra.Command{Use: "blueprint"}
+	list := &cobra.Command{Use: "list", RunE: func(cmd *cobra.Command, args []string) error {
+		p, _ := cmd.Flags().GetString("path")
+		outFmt, _ := cmd.Flags().GetString("format")
+		if err := validateFormat(outFmt); err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		items, err := app.ListBlueprints(p)
+		if err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		if outFmt == "json" {
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(items)
+		}
+		for _, b := range items.Blueprints {
+			fmt.Fprintf(cmd.OutOrStdout(), "%-28s %-18s %-36s %s\n", b.ID, b.Type, b.Name, b.Version)
+		}
+		return nil
+	}}
+	list.Flags().String("path", ".", "Path to the Cosmos repository")
+	list.Flags().String("format", "text", "Output format: text or json")
+	show := &cobra.Command{Use: "show <id>", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		p, _ := cmd.Flags().GetString("path")
+		outFmt, _ := cmd.Flags().GetString("format")
+		if err := validateFormat(outFmt); err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		item, err := app.GetBlueprint(p, args[0])
+		if err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		if outFmt == "json" {
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(item)
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "%s\nType: %s\nName: %s\nVersion: %s\nStatus: %s\nOwner: %s\nPath: %s\n", item.ID, item.Type, item.Name, item.Version, item.Status, item.Owner, item.Path)
+		return nil
+	}}
+	show.Flags().String("path", ".", "Path to the Cosmos repository")
+	show.Flags().String("format", "text", "Output format: text or json")
+	c.AddCommand(list, show)
+	return c
+}
+
+func instanceCmd() *cobra.Command {
+	c := &cobra.Command{Use: "instance"}
+	list := &cobra.Command{Use: "list", RunE: func(cmd *cobra.Command, args []string) error {
+		p, _ := cmd.Flags().GetString("path")
+		outFmt, _ := cmd.Flags().GetString("format")
+		if err := validateFormat(outFmt); err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		items, err := app.ListInstances(p)
+		if err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		if outFmt == "json" {
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(items)
+		}
+		for _, i := range items.Instances {
+			fmt.Fprintf(cmd.OutOrStdout(), "%-32s %-18s %-28s %s\n", i.ID, i.Type, i.BlueprintRef, i.ComplianceStatus)
+		}
+		return nil
+	}}
+	list.Flags().String("path", ".", "Path to the Cosmos repository")
+	list.Flags().String("format", "text", "Output format: text or json")
+	show := &cobra.Command{Use: "show <id>", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		p, _ := cmd.Flags().GetString("path")
+		outFmt, _ := cmd.Flags().GetString("format")
+		if err := validateFormat(outFmt); err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		item, err := app.GetInstance(p, args[0])
+		if err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		if outFmt == "json" {
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(item)
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "%s\nType: %s\nBlueprint: %s@%s\nStatus: %s\nCompliance: %s\nPath: %s\n", item.ID, item.Type, item.BlueprintRef, item.BlueprintVersion, item.Status, item.ComplianceStatus, item.Path)
+		return nil
+	}}
+	show.Flags().String("path", ".", "Path to the Cosmos repository")
+	show.Flags().String("format", "text", "Output format: text or json")
+	c.AddCommand(list, show)
 	return c
 }
 

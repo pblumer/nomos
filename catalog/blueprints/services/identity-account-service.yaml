@@ -1,0 +1,21 @@
+id: SB-IDENTITY-ACCOUNT-001
+type: service_blueprint
+name: Identity Account Service
+version: 0.1.0
+status: draft
+owner: Identity & Collaboration
+summary: Blueprint fuer die Bereitstellung eines Identitaetskontos.
+capabilities:
+  - create_account
+  - validate_identity
+target_systems:
+  - SYS-IAM-001
+required_inputs:
+  - person_reference
+  - first_name
+  - last_name
+quality_criteria:
+  - account_exists
+  - account_enabled
+evidence_requirements:
+  - account_creation_response

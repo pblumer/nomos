@@ -19,6 +19,22 @@ func Mermaid(tree cosmosfs.Tree) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "graph TD\n")
 	fmt.Fprintf(&b, "  %s[\"Cosmos: %s\"]\n", cosmosID, mermaidLabel(cosmosName))
+	for _, bpn := range tree.Blueprints {
+		bp := bpn.Metadata
+		bpID := mermaidID("blueprint", bp.ID)
+		fmt.Fprintf(&b, "  %s --> %s[\"Blueprint: %s\"]\n", cosmosID, bpID, mermaidLabel(bp.Name))
+		for _, svc := range bp.RequiredServiceBlueprints {
+			fmt.Fprintf(&b, "  %s -. requires .-> %s[\"Service Blueprint: %s\"]\n", bpID, mermaidID("blueprint", svc), mermaidLabel(svc))
+		}
+	}
+	for _, instn := range tree.Instances {
+		inst := instn.Metadata
+		instID := mermaidID("instance", inst.ID)
+		fmt.Fprintf(&b, "  %s --> %s[\"Instance: %s\"]\n", cosmosID, instID, mermaidLabel(inst.Name))
+		if inst.BlueprintRef != "" {
+			fmt.Fprintf(&b, "  %s -. conforms .-> %s\n", instID, mermaidID("blueprint", inst.BlueprintRef))
+		}
+	}
 	for _, d := range tree.Domains {
 		domainID := mermaidID("domain", d.Name)
 		fmt.Fprintf(&b, "  %s --> %s[\"Domain: %s\"]\n", cosmosID, domainID, mermaidLabel(d.Name+"\n"+namespace.DisplayPath(d.Name)))

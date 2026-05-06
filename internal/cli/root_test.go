@@ -581,3 +581,36 @@ func TestCLIJSONErrorsAndInvalidFormats(t *testing.T) {
 		}
 	}
 }
+
+func TestBlueprintAndInstanceCommands(t *testing.T) {
+	p := t.TempDir()
+	_, _, _ = executeCommand(t, "cosmos", "init", p)
+	mustWriteCLI(t, filepath.Join(p, "catalog", "blueprints", "products", "account.yaml"), "id: PB-ACC-MBX-001\ntype: product_blueprint\nname: Benutzerkonto mit Mailbox\nversion: 0.1.0\nstatus: draft\nowner: Team\nrequired_inputs:\n  - person_reference\nrequired_service_blueprints:\n  - SB-1\n")
+	mustWriteCLI(t, filepath.Join(p, "catalog", "instances", "products", "account-instance.yaml"), "id: PI-ACC-MBX-EXAMPLE-001\ntype: product_instance\nname: Beispielinstanz Benutzerkonto mit Mailbox\nblueprint_ref: PB-ACC-MBX-001\nblueprint_version: 0.1.0\ncompliance_status: compliant\nfindings: []\n")
+
+	out, _, err := executeCommand(t, "blueprint", "list", "--path", p)
+	if err != nil {
+		t.Fatalf("blueprint list failed: %v", err)
+	}
+	if !strings.Contains(out, "PB-ACC-MBX-001") {
+		t.Fatalf("missing blueprint in output: %s", out)
+	}
+
+	out, _, err = executeCommand(t, "instance", "show", "PI-ACC-MBX-EXAMPLE-001", "--path", p)
+	if err != nil {
+		t.Fatalf("instance show failed: %v", err)
+	}
+	if !strings.Contains(out, "Compliance: compliant") {
+		t.Fatalf("missing compliance in output: %s", out)
+	}
+}
+
+func mustWriteCLI(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
