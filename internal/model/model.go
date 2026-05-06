@@ -38,24 +38,33 @@ type Variant struct {
 	Name string `yaml:"name" json:"name"`
 }
 
+type RequiredServiceRef struct {
+	ServiceRef          string `yaml:"service_ref" json:"service_ref"`
+	ServiceBlueprintRef string `yaml:"service_blueprint_ref" json:"service_blueprint_ref"`
+	Purpose             string `yaml:"purpose,omitempty" json:"purpose,omitempty"`
+	Required            bool   `yaml:"required" json:"required"`
+}
+
 type Blueprint struct {
-	ID                        string    `yaml:"id" json:"id"`
-	Type                      string    `yaml:"type" json:"type"`
-	Name                      string    `yaml:"name" json:"name"`
-	Version                   string    `yaml:"version" json:"version"`
-	Status                    string    `yaml:"status" json:"status"`
-	Owner                     string    `yaml:"owner" json:"owner"`
-	Summary                   string    `yaml:"summary" json:"summary"`
-	Variants                  []Variant `yaml:"variants" json:"variants,omitempty"`
-	Capabilities              []string  `yaml:"capabilities" json:"capabilities,omitempty"`
-	TargetSystems             []string  `yaml:"target_systems" json:"target_systems,omitempty"`
-	Providers                 []string  `yaml:"providers" json:"providers,omitempty"`
-	Actions                   []string  `yaml:"actions" json:"actions,omitempty"`
-	RequiredInputs            []string  `yaml:"required_inputs" json:"required_inputs"`
-	RequiredServiceBlueprints []string  `yaml:"required_service_blueprints" json:"required_service_blueprints,omitempty"`
-	Rules                     []string  `yaml:"rules" json:"rules,omitempty"`
-	QualityCriteria           []string  `yaml:"quality_criteria" json:"quality_criteria"`
-	EvidenceRequirements      []string  `yaml:"evidence_requirements" json:"evidence_requirements"`
+	ID                        string               `yaml:"id" json:"id"`
+	Type                      string               `yaml:"type" json:"type"`
+	Name                      string               `yaml:"name" json:"name"`
+	Version                   string               `yaml:"version" json:"version"`
+	Status                    string               `yaml:"status" json:"status"`
+	Owner                     string               `yaml:"owner" json:"owner"`
+	Summary                   string               `yaml:"summary" json:"summary"`
+	Variants                  []Variant            `yaml:"variants" json:"variants,omitempty"`
+	Capabilities              []string             `yaml:"capabilities" json:"capabilities,omitempty"`
+	TargetSystems             []string             `yaml:"target_systems" json:"target_systems,omitempty"`
+	Providers                 []string             `yaml:"providers" json:"providers,omitempty"`
+	Actions                   []string             `yaml:"actions" json:"actions,omitempty"`
+	RequiredInputs            []string             `yaml:"required_inputs" json:"required_inputs"`
+	RequiredServiceBlueprints []string             `yaml:"required_service_blueprints" json:"required_service_blueprints,omitempty"`
+	RequiredServices          []RequiredServiceRef `yaml:"required_services" json:"required_services,omitempty"`
+	NamespaceServiceRef       string               `yaml:"namespace_service_ref" json:"namespace_service_ref,omitempty"`
+	Rules                     []string             `yaml:"rules" json:"rules,omitempty"`
+	QualityCriteria           []string             `yaml:"quality_criteria" json:"quality_criteria"`
+	EvidenceRequirements      []string             `yaml:"evidence_requirements" json:"evidence_requirements"`
 }
 
 type Instance struct {

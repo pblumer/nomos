@@ -217,11 +217,16 @@ The read-only Nomos Web UI is served directly by `nomos serve` using embedded Go
 
 ```bash
 make build
-COSMOS_PATH=/tmp/nomos-demo NOMOS_BIN=./bin/nomos ./scripts/create-demo-cosmos.sh
+./scripts/create-demo-cosmos.sh /tmp/nomos-demo
 ./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080
 ```
 
 Open `http://127.0.0.1:8080`.
+
+
+## Blueprint relationships in the demo cosmos
+
+The demo Product Blueprint `PB-ACC-MBX-001` (`Benutzerkonto mit Mailbox`) keeps `required_service_blueprints` for backward compatibility and adds `required_services` to make concrete provisioning dependencies explicit. Each entry maps a concrete Namespace Service, such as `identity.blumer.cloud/user-account` or `collaboration.blumer.cloud/license-assignment`, to the Service Blueprint used for provisioning it. Service Blueprints expose the reverse context with `namespace_service_ref`.
 
 ## CLI/REST parity and namespace display
 
@@ -236,7 +241,10 @@ The read-only CLI and REST API now share the same DTOs and application use cases
 | `nomos cosmos info --format json` | `GET /api/v1/cosmos` |
 | `nomos domain list --format json` | `GET /api/v1/domains` |
 | `nomos domain get <domain> --format json` | `GET /api/v1/domains/{domain}` |
+| `nomos service list --domain <domain> --format json` | `GET /api/v1/domains/{domain}/services` |
 | `nomos service get <service> --domain <domain> --format json` | `GET /api/v1/domains/{domain}/services/{service}` |
+| `nomos blueprint list --format json` | `GET /api/v1/blueprints` |
+| `nomos blueprint show <id> --format json` | `GET /api/v1/blueprints/{id}` |
 | `nomos graph` | `GET /api/v1/graph` |
 | `nomos validate --format json` | `GET /api/v1/validate` |
 | `nomos namespace tree --format json` | `GET /api/v1/namespaces` |

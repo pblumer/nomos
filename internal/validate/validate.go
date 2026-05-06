@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,8 +37,11 @@ func Validate(path string) (Result, error) {
 	if err := validateCatalogArtifacts(path, &res); err != nil {
 		return res, err
 	}
-	if len(res.Findings) > 0 {
-		res.Status = "failed"
+	for _, f := range res.Findings {
+		if f.Severity == "error" {
+			res.Status = "failed"
+			break
+		}
 	}
 	return res, nil
 }
@@ -97,9 +101,26 @@ func validateBlueprint(b model.Blueprint, path string, res *Result) {
 		if len(b.RequiredServiceBlueprints) == 0 {
 			res.add("PRODUCT_BLUEPRINT_SERVICES_EMPTY", "error", "Provisionierbarer Product Blueprint benoetigt required_service_blueprints", path)
 		}
+		if len(b.RequiredServices) == 0 {
+			res.add("PRODUCT_BLUEPRINT_REQUIRED_SERVICES_RECOMMENDED", "warning", "Product Blueprint sollte required_services mit Namespace Services und Service Blueprints angeben", path)
+		}
+		for i, svc := range b.RequiredServices {
+			entryPath := path + ":required_services[" + fmt.Sprint(i) + "]"
+			if strings.TrimSpace(svc.ServiceRef) == "" {
+				res.add("PRODUCT_BLUEPRINT_REQUIRED_SERVICE_REF_EMPTY", "error", "required_services Eintrag benoetigt service_ref", entryPath)
+			}
+			if strings.TrimSpace(svc.ServiceBlueprintRef) == "" {
+				res.add("PRODUCT_BLUEPRINT_REQUIRED_SERVICE_BLUEPRINT_REF_EMPTY", "error", "required_services Eintrag benoetigt service_blueprint_ref", entryPath)
+			}
+		}
 	}
-	if b.Type == "service_blueprint" && len(b.TargetSystems) == 0 && len(b.Providers) == 0 && len(b.Capabilities) == 0 && len(b.Actions) == 0 && len(b.QualityCriteria) == 0 {
-		res.add("SERVICE_BLUEPRINT_CAPABILITY_EMPTY", "error", "Service Blueprint benoetigt mindestens Provider/Zielsystem, Capability, Action oder Quality Criterion", path)
+	if b.Type == "service_blueprint" {
+		if ref := strings.TrimSpace(b.NamespaceServiceRef); ref != "" && !strings.Contains(ref, "/") {
+			res.add("SERVICE_BLUEPRINT_NAMESPACE_SERVICE_REF_SHAPE", "warning", "namespace_service_ref sollte die Form <domain>/<service> haben", path)
+		}
+		if len(b.TargetSystems) == 0 && len(b.Providers) == 0 && len(b.Capabilities) == 0 && len(b.Actions) == 0 && len(b.QualityCriteria) == 0 {
+			res.add("SERVICE_BLUEPRINT_CAPABILITY_EMPTY", "error", "Service Blueprint benoetigt mindestens Provider/Zielsystem, Capability, Action oder Quality Criterion", path)
+		}
 	}
 }
 

@@ -20,13 +20,15 @@ func createTestCosmos(t *testing.T) string {
 	must(os.MkdirAll(filepath.Join(p, "domains/identity.blumer.cloud/services/user-account"), 0o755))
 	must(os.MkdirAll(filepath.Join(p, "domains/platform.blumer.cloud/services/rule-validation-api"), 0o755))
 	must(os.MkdirAll(filepath.Join(p, "catalog/blueprints/products"), 0o755))
+	must(os.MkdirAll(filepath.Join(p, "catalog/blueprints/services"), 0o755))
 	must(os.MkdirAll(filepath.Join(p, "catalog/instances/products"), 0o755))
 	must(os.WriteFile(filepath.Join(p, "cosmos.yaml"), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: unknown\n"), 0o644))
 	must(os.WriteFile(filepath.Join(p, "domains/identity.blumer.cloud/domain.yaml"), []byte("name: identity.blumer.cloud\n"), 0o644))
 	must(os.WriteFile(filepath.Join(p, "domains/platform.blumer.cloud/domain.yaml"), []byte("name: platform.blumer.cloud\n"), 0o644))
 	must(os.WriteFile(filepath.Join(p, "domains/identity.blumer.cloud/services/user-account/service.yaml"), []byte("name: user-account\n"), 0o644))
 	must(os.WriteFile(filepath.Join(p, "domains/platform.blumer.cloud/services/rule-validation-api/service.yaml"), []byte("name: rule-validation-api\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "catalog/blueprints/products/account.yaml"), []byte("id: PB-ACC-MBX-001\ntype: product_blueprint\nname: Benutzerkonto mit Mailbox\nversion: 0.1.0\nstatus: draft\nowner: Team\nrequired_inputs:\n  - person_reference\nrequired_service_blueprints:\n  - SB-1\n"), 0o644))
+	must(os.WriteFile(filepath.Join(p, "catalog/blueprints/products/account.yaml"), []byte("id: PB-ACC-MBX-001\ntype: product_blueprint\nname: Benutzerkonto mit Mailbox\nversion: 0.1.0\nstatus: draft\nowner: Team\nrequired_inputs:\n  - person_reference\nrequired_service_blueprints:\n  - SB-1\nrequired_services:\n  - service_ref: identity.blumer.cloud/user-account\n    service_blueprint_ref: SB-1\n    required: true\n"), 0o644))
+	must(os.WriteFile(filepath.Join(p, "catalog/blueprints/services/account-service.yaml"), []byte("id: SB-1\ntype: service_blueprint\nname: Account Service\nversion: 0.1.0\nstatus: draft\nowner: Team\nnamespace_service_ref: identity.blumer.cloud/user-account\ncapabilities:\n  - create_account\n"), 0o644))
 	must(os.WriteFile(filepath.Join(p, "catalog/instances/products/account-instance.yaml"), []byte("id: PI-ACC-MBX-EXAMPLE-001\ntype: product_instance\nname: Beispielinstanz Benutzerkonto mit Mailbox\nblueprint_ref: PB-ACC-MBX-001\nblueprint_version: 0.1.0\ncompliance_status: compliant\nfindings: []\n"), 0o644))
 	return p
 }
@@ -182,12 +184,17 @@ func TestBlueprintAndInstanceAPIRoutes(t *testing.T) {
 	if rr := get(h, "/api/v1/blueprints"); rr.Code != 200 {
 		t.Fatalf("blueprints status=%d", rr.Code)
 	} else {
-		hasAll(t, rr.Body.String(), "PB-ACC-MBX-001", "Benutzerkonto mit Mailbox")
+		hasAll(t, rr.Body.String(), "PB-ACC-MBX-001", "Benutzerkonto mit Mailbox", "required_services", "identity.blumer.cloud/user-account")
 	}
 	if rr := get(h, "/api/blueprints/PB-ACC-MBX-001"); rr.Code != 200 {
 		t.Fatalf("blueprint detail status=%d", rr.Code)
 	} else {
-		hasAll(t, rr.Body.String(), "product_blueprint")
+		hasAll(t, rr.Body.String(), "product_blueprint", "required_services", "identity.blumer.cloud/user-account")
+	}
+	if rr := get(h, "/api/v1/blueprints/SB-1"); rr.Code != 200 {
+		t.Fatalf("service blueprint detail status=%d", rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "service_blueprint", "namespace_service_ref", "identity.blumer.cloud/user-account")
 	}
 	if rr := get(h, "/api/v1/instances"); rr.Code != 200 {
 		t.Fatalf("instances status=%d", rr.Code)

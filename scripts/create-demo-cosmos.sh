@@ -84,6 +84,11 @@ echo "==> Erstelle Services"
   --path "$COSMOS_PATH" \
   --owner "Collaboration Team"
 
+"$NOMOS_BIN" service add license-assignment \
+  --domain collaboration.blumer.cloud \
+  --path "$COSMOS_PATH" \
+  --owner "Collaboration Team"
+
 "$NOMOS_BIN" service add teams-workspace \
   --domain collaboration.blumer.cloud \
   --path "$COSMOS_PATH" \

@@ -18,6 +18,11 @@ required_inputs:
   - person_reference
 required_service_blueprints:
   - SB-IDENTITY-ACCOUNT-001
+required_services:
+  - service_ref: identity.blumer.cloud/user-account
+    service_blueprint_ref: SB-IDENTITY-ACCOUNT-001
+    purpose: Erstellt und verwaltet das Benutzerkonto.
+    required: true
 quality_criteria:
   - account_exists
 evidence_requirements:
@@ -32,6 +37,30 @@ evidence_requirements:
 	}
 	if len(bp.RequiredInputs) != 1 || len(bp.RequiredServiceBlueprints) != 1 {
 		t.Fatalf("expected required inputs and service blueprints: %#v", bp)
+	}
+	if len(bp.RequiredServices) != 1 || bp.RequiredServices[0].ServiceRef != "identity.blumer.cloud/user-account" || bp.RequiredServices[0].ServiceBlueprintRef != "SB-IDENTITY-ACCOUNT-001" || !bp.RequiredServices[0].Required {
+		t.Fatalf("expected required services mapping: %#v", bp.RequiredServices)
+	}
+}
+
+func TestServiceBlueprintNamespaceServiceRefYAMLParsing(t *testing.T) {
+	raw := []byte(`
+id: SB-MAILBOX-001
+type: service_blueprint
+name: Mailbox Service
+version: 0.1.0
+status: draft
+owner: Identity & Collaboration
+namespace_service_ref: collaboration.blumer.cloud/mailbox
+capabilities:
+  - create_mailbox
+`)
+	var bp Blueprint
+	if err := yaml.Unmarshal(raw, &bp); err != nil {
+		t.Fatalf("unmarshal blueprint: %v", err)
+	}
+	if bp.NamespaceServiceRef != "collaboration.blumer.cloud/mailbox" {
+		t.Fatalf("expected namespace service ref, got %#v", bp)
 	}
 }
 

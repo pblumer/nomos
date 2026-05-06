@@ -78,13 +78,21 @@ def _load_artifact_or_404(files: list[Path], item_id: str, detail: str) -> dict[
 
 
 def _artifact_summary(data: dict[str, object]) -> dict[str, object]:
-    return {
+    summary: dict[str, object] = {
         "id": str(data.get("id", "")),
         "type": str(data.get("type", "")),
         "name": str(data.get("name", "")),
         "version": str(data.get("version", "")),
         "status": str(data.get("status", "")),
     }
+    for field in (
+        "required_service_blueprints",
+        "required_services",
+        "namespace_service_ref",
+    ):
+        if field in data:
+            summary[field] = data[field]
+    return summary
 
 
 def _product_files() -> list[Path]:

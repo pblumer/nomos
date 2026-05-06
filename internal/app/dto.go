@@ -77,23 +77,32 @@ type NamespaceTreeNodeDTO struct {
 	Children    []NamespaceTreeNodeDTO `json:"children,omitempty"`
 }
 
+type RequiredServiceRefDTO struct {
+	ServiceRef          string `json:"service_ref"`
+	ServiceBlueprintRef string `json:"service_blueprint_ref"`
+	Purpose             string `json:"purpose,omitempty"`
+	Required            bool   `json:"required"`
+}
+
 type BlueprintDTO struct {
-	ID                        string       `json:"id"`
-	Type                      string       `json:"type"`
-	Name                      string       `json:"name"`
-	Version                   string       `json:"version"`
-	Status                    string       `json:"status"`
-	Owner                     string       `json:"owner"`
-	Summary                   string       `json:"summary"`
-	Path                      string       `json:"path"`
-	Variants                  []VariantDTO `json:"variants,omitempty"`
-	Capabilities              []string     `json:"capabilities,omitempty"`
-	TargetSystems             []string     `json:"target_systems,omitempty"`
-	RequiredInputs            []string     `json:"required_inputs"`
-	RequiredServiceBlueprints []string     `json:"required_service_blueprints,omitempty"`
-	Rules                     []string     `json:"rules,omitempty"`
-	QualityCriteria           []string     `json:"quality_criteria"`
-	EvidenceRequirements      []string     `json:"evidence_requirements"`
+	ID                        string                  `json:"id"`
+	Type                      string                  `json:"type"`
+	Name                      string                  `json:"name"`
+	Version                   string                  `json:"version"`
+	Status                    string                  `json:"status"`
+	Owner                     string                  `json:"owner"`
+	Summary                   string                  `json:"summary"`
+	Path                      string                  `json:"path"`
+	Variants                  []VariantDTO            `json:"variants,omitempty"`
+	Capabilities              []string                `json:"capabilities,omitempty"`
+	TargetSystems             []string                `json:"target_systems,omitempty"`
+	RequiredInputs            []string                `json:"required_inputs"`
+	RequiredServiceBlueprints []string                `json:"required_service_blueprints,omitempty"`
+	RequiredServices          []RequiredServiceRefDTO `json:"required_services,omitempty"`
+	NamespaceServiceRef       string                  `json:"namespace_service_ref,omitempty"`
+	Rules                     []string                `json:"rules,omitempty"`
+	QualityCriteria           []string                `json:"quality_criteria"`
+	EvidenceRequirements      []string                `json:"evidence_requirements"`
 }
 
 type VariantDTO struct {

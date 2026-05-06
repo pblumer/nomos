@@ -20,6 +20,19 @@ required_service_blueprints:
   - SB-IDENTITY-ACCOUNT-001
   - SB-MAILBOX-001
   - SB-LICENSE-ASSIGNMENT-001
+required_services:
+  - service_ref: identity.blumer.cloud/user-account
+    service_blueprint_ref: SB-IDENTITY-ACCOUNT-001
+    purpose: Erstellt und verwaltet das Benutzerkonto.
+    required: true
+  - service_ref: collaboration.blumer.cloud/mailbox
+    service_blueprint_ref: SB-MAILBOX-001
+    purpose: Erstellt und verwaltet die Mailbox.
+    required: true
+  - service_ref: collaboration.blumer.cloud/license-assignment
+    service_blueprint_ref: SB-LICENSE-ASSIGNMENT-001
+    purpose: Weist die fuer Konto und Mailbox benoetigte Lizenz zu.
+    required: true
 rules:
   - RULE-ACC-001
   - RULE-ACC-003
