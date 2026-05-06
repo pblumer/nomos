@@ -5,14 +5,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/nomos/nomos/internal/cosmosfs"
+	"github.com/nomos/nomos/internal/app"
 )
 
 type domainTreePageData struct {
 	Title              string
 	Subtitle           string
 	Cosmos             cosmosSummaryView
-	Domains            []domainTreeNodeView
+	NamespaceTree      app.NamespaceTreeDTO
 	SelectedKind       string
 	SelectedDomain     *domainDetailView
 	SelectedService    *serviceDetailView
@@ -21,115 +21,83 @@ type domainTreePageData struct {
 }
 
 type cosmosSummaryView struct {
-	Name         string
-	ID           string
-	Version      string
-	Status       string
-	Owner        string
-	Path         string
-	DomainCount  int
-	ServiceCount int
-	Link         string
-	Selected     bool
+	Name, ID, Version, Status, Owner, Path, Link string
+	DomainCount, ServiceCount                    int
+	Selected                                     bool
 }
-
 type domainTreeNodeView struct {
-	Name         string
-	Owner        string
-	Status       string
-	Path         string
-	ServiceCount int
-	Services     []serviceTreeNodeView
-	Link         string
-	Selected     bool
-	Expanded     bool
+	Name, Owner, Status, Path string
+	ServiceCount              int
+	Services                  []serviceTreeNodeView
+	Link                      string
+	Selected, Expanded        bool
 }
-
 type serviceTreeNodeView struct {
-	Name     string
-	Domain   string
-	Owner    string
-	Status   string
-	Path     string
-	Link     string
-	Selected bool
+	Name, Domain, Owner, Status, Path, Link string
+	Selected                                bool
 }
-
 type domainDetailView struct {
-	Name         string
-	Owner        string
-	Status       string
-	Path         string
-	ServiceCount int
-	Services     []serviceTreeNodeView
-	PageLink     string
+	Name, Canonical, DisplayName, DisplayPath, TreePath, Owner, Status, Path string
+	ServiceCount                                                             int
+	Services                                                                 []serviceTreeNodeView
+	PageLink                                                                 string
 }
+type serviceDetailView struct{ Name, Domain, Owner, Status, Path, PageLink string }
 
-type serviceDetailView struct {
-	Name     string
-	Domain   string
-	Owner    string
-	Status   string
-	Path     string
-	PageLink string
-}
-
-func buildDomainsExplorer(tree cosmosfs.Tree, selected string) domainTreePageData {
-	view := domainTreePageData{Title: "Domains Explorer", Subtitle: "Browse domains and services like a repository tree"}
-	serviceTotal := 0
-	for _, d := range tree.Domains {
-		serviceTotal += len(d.Services)
+func buildDomainsExplorer(path, selected string) (domainTreePageData, error) {
+	cosmos, err := app.GetCosmos(path)
+	if err != nil {
+		return domainTreePageData{}, err
 	}
-	view.Cosmos = cosmosSummaryView{Name: fallback(tree.Cosmos.Name, "Local Cosmos"), ID: fallback(tree.Cosmos.ID, "n/a"), Version: fallback(tree.Cosmos.Version, "n/a"), Status: fallback(tree.Cosmos.Status, "unknown"), Owner: fallback(tree.Cosmos.Owner, "unknown"), Path: tree.Path, DomainCount: len(tree.Domains), ServiceCount: serviceTotal, Link: "/domains?selected=cosmos"}
-
+	nsTree, err := app.BuildNamespaceTree(path)
+	if err != nil {
+		return domainTreePageData{}, err
+	}
+	view := domainTreePageData{Title: "Domains Explorer", Subtitle: "Browse domains and services like a repository tree", NamespaceTree: nsTree}
+	view.Cosmos = cosmosSummaryView{Name: fallback(cosmos.Name, "Local Cosmos"), ID: fallback(cosmos.ID, "n/a"), Version: fallback(cosmos.Version, "n/a"), Status: fallback(cosmos.Status, "unknown"), Owner: fallback(cosmos.Owner, "unknown"), Path: cosmos.Path, DomainCount: cosmos.DomainCount, ServiceCount: cosmos.ServiceCount, Link: "/domains?selected=cosmos"}
 	kind, domainName, serviceName := parseSelection(selected)
 	knownSelection := false
-	for _, d := range tree.Domains {
-		dv := domainTreeNodeView{Name: d.Name, Owner: fallback(d.Metadata.Owner, "unknown"), Status: fallback(d.Metadata.Status, "unknown"), Path: d.Path, ServiceCount: len(d.Services), Link: "/domains?selected=domain:" + d.Name, Expanded: true}
-		if kind == "domain" && domainName == d.Name {
-			dv.Selected = true
+	if kind == "domain" {
+		d, err := app.GetDomain(path, domainName)
+		if err == nil {
+			view.SelectedDomain = domainDetail(d)
 			knownSelection = true
 		}
-		for _, s := range d.Services {
-			sv := serviceTreeNodeView{Name: s.Name, Domain: d.Name, Owner: fallback(s.Metadata.Owner, "unknown"), Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path, Link: "/domains?selected=service:" + d.Name + "/" + s.Name}
-			if kind == "service" && domainName == d.Name && serviceName == s.Name {
-				sv.Selected = true
-				dv.Selected = true
-				knownSelection = true
-			}
-			dv.Services = append(dv.Services, sv)
+	}
+	if kind == "service" {
+		s, err := app.GetService(path, domainName, serviceName)
+		if err == nil {
+			sv := serviceDetail(s)
+			view.SelectedService = &sv
+			knownSelection = true
 		}
-		view.Domains = append(view.Domains, dv)
 	}
 	if kind == "cosmos" || !knownSelection {
 		view.Cosmos.Selected = true
 		kind = "cosmos"
+		view.SelectedCosmos = &view.Cosmos
 	}
 	view.SelectedKind = kind
 	view.SelectedDisplayKey = selected
-	if view.Cosmos.Selected {
-		view.SelectedCosmos = &view.Cosmos
-		return view
+	markSelection(&view.NamespaceTree.Root, kind, domainName, serviceName)
+	return view, nil
+}
+
+func domainDetail(d app.DomainDTO) *domainDetailView {
+	dd := &domainDetailView{Name: d.Name, Canonical: d.Canonical, DisplayName: d.DisplayName, DisplayPath: d.Namespace.DisplayPath, TreePath: d.Namespace.TreePath, Owner: d.Owner, Status: d.Status, Path: d.Path, ServiceCount: d.ServiceCount, PageLink: "/domains/" + d.Canonical}
+	for _, s := range d.Services {
+		dd.Services = append(dd.Services, serviceTreeNodeView{Name: s.Name, Domain: s.Domain, Owner: s.Owner, Status: s.Status, Path: s.Path, Link: "/domains?selected=service:" + s.Domain + "/" + s.Name})
 	}
-	for _, d := range view.Domains {
-		if kind == "domain" && d.Name == domainName {
-			dd := domainDetailView{Name: d.Name, Owner: d.Owner, Status: d.Status, Path: d.Path, ServiceCount: d.ServiceCount, Services: d.Services, PageLink: "/domains/" + d.Name}
-			view.SelectedDomain = &dd
-			return view
-		}
-		if kind == "service" && d.Name == domainName {
-			for _, s := range d.Services {
-				if s.Name == serviceName {
-					sd := serviceDetailView{Name: s.Name, Domain: d.Name, Owner: s.Owner, Status: s.Status, Path: s.Path, PageLink: fmt.Sprintf("/services/%s/%s", d.Name, s.Name)}
-					view.SelectedService = &sd
-					return view
-				}
-			}
-		}
+	return dd
+}
+func serviceDetail(s app.ServiceDTO) serviceDetailView {
+	return serviceDetailView{Name: s.Name, Domain: s.Domain, Owner: s.Owner, Status: s.Status, Path: s.Path, PageLink: fmt.Sprintf("/services/%s/%s", s.Domain, s.Name)}
+}
+
+func markSelection(n *app.NamespaceTreeNodeDTO, kind, domain, service string) {
+	for i := range n.Children {
+		markSelection(&n.Children[i], kind, domain, service)
 	}
-	view.Cosmos.Selected = true
-	view.SelectedCosmos = &view.Cosmos
-	return view
 }
 
 func parseSelection(value string) (kind, domain, service string) {
@@ -151,7 +119,6 @@ func parseSelection(value string) (kind, domain, service string) {
 	}
 	return "cosmos", "", ""
 }
-
 func fallback(v, d string) string {
 	if strings.TrimSpace(v) == "" {
 		return d

@@ -14,12 +14,10 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/nomos/nomos/internal/cosmosfs"
+	"github.com/nomos/nomos/internal/app"
 	"github.com/nomos/nomos/internal/fsx"
-	"github.com/nomos/nomos/internal/graph"
 	"github.com/nomos/nomos/internal/model"
 	"github.com/nomos/nomos/internal/server"
-	"github.com/nomos/nomos/internal/validate"
 	versionpkg "github.com/nomos/nomos/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -27,7 +25,7 @@ import (
 func Execute() { _ = newRoot().Execute() }
 func newRoot() *cobra.Command {
 	root := &cobra.Command{Use: "nomos", Short: "Nomos Cosmos CLI", Long: "Nomos verwaltet lokale Cosmos Repositories."}
-	root.AddCommand(versionCmd(), cosmosCmd(), domainCmd(), serviceCmd(), validateCmd(), graphCmd(), verifyCmd(), serveCmd())
+	root.AddCommand(versionCmd(), cosmosCmd(), domainCmd(), serviceCmd(), namespaceCmd(), validateCmd(), graphCmd(), verifyCmd(), serveCmd())
 	return root
 }
 func versionCmd() *cobra.Command {
@@ -101,21 +99,22 @@ func cosmosCmd() *cobra.Command {
 	c.AddCommand(init)
 	info := &cobra.Command{Use: "info", RunE: func(cmd *cobra.Command, args []string) error {
 		p, _ := cmd.Flags().GetString("path")
-		if p == "" {
-			p = "."
-		}
-		var co model.Cosmos
-		if err := fsx.ReadYAML(filepath.Join(p, "cosmos.yaml"), &co); err != nil {
-			return err
-		}
-		domains, err := scanDomains(p)
+		outFmt, _ := cmd.Flags().GetString("format")
+		co, err := app.GetCosmos(p)
 		if err != nil {
-			return err
+			return writeCLIError(cmd, outFmt, err)
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "id=%s name=%s version=%s status=%s owner=%s domains=%d\n", co.ID, co.Name, co.Version, co.Status, co.Owner, len(domains))
+		if err := validateFormat(outFmt); err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		if outFmt == "json" {
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(co)
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "id=%s name=%s version=%s status=%s owner=%s domains=%d services=%d\n", co.ID, co.Name, co.Version, co.Status, co.Owner, co.DomainCount, co.ServiceCount)
 		return nil
 	}}
 	info.Flags().String("path", ".", "")
+	info.Flags().String("format", "text", "Output format: text or json")
 	c.AddCommand(info)
 	doc := &cobra.Command{Use: "doctor", RunE: func(cmd *cobra.Command, args []string) error {
 		p, _ := cmd.Flags().GetString("path")
@@ -171,16 +170,46 @@ func domainCmd() *cobra.Command {
 	c.AddCommand(add)
 	list := &cobra.Command{Use: "list", RunE: func(cmd *cobra.Command, args []string) error {
 		p, _ := cmd.Flags().GetString("path")
-		ents, _ := os.ReadDir(filepath.Join(p, "domains"))
-		for _, e := range ents {
-			if e.IsDir() {
-				fmt.Fprintln(cmd.OutOrStdout(), e.Name())
-			}
+		outFmt, _ := cmd.Flags().GetString("format")
+		if err := validateFormat(outFmt); err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		domains, err := app.ListDomains(p)
+		if err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		if outFmt == "json" {
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(domains)
+		}
+		for _, d := range domains.Domains {
+			fmt.Fprintf(cmd.OutOrStdout(), "%-32s %-28s services=%d\n", d.Namespace.DisplayPath, d.Canonical, d.ServiceCount)
 		}
 		return nil
 	}}
 	list.Flags().String("path", ".", "Path to the Cosmos repository")
-	c.AddCommand(list)
+	list.Flags().String("format", "text", "Output format: text or json")
+	get := &cobra.Command{Use: "get <domain>", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		p, _ := cmd.Flags().GetString("path")
+		outFmt, _ := cmd.Flags().GetString("format")
+		if err := validateFormat(outFmt); err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		domain, err := app.GetDomain(p, args[0])
+		if err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		if outFmt == "json" {
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(domain)
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "%s\nCanonical namespace: %s\nTree path: %s\nOwner: %s\nStatus: %s\nServices: %d\n", domain.DisplayName, domain.Canonical, domain.Namespace.DisplayPath, domain.Owner, domain.Status, domain.ServiceCount)
+		for _, s := range domain.Services {
+			fmt.Fprintf(cmd.OutOrStdout(), "  - %s\n", s.Name)
+		}
+		return nil
+	}}
+	get.Flags().String("path", ".", "Path to the Cosmos repository")
+	get.Flags().String("format", "text", "Output format: text or json")
+	c.AddCommand(list, get)
 	return c
 }
 func serviceCmd() *cobra.Command {
@@ -214,7 +243,28 @@ func serviceCmd() *cobra.Command {
 	add.Flags().String("owner", "unknown", "")
 	add.Flags().BoolVar(&force, "force", false, "")
 	_ = add.MarkFlagRequired("domain")
-	c.AddCommand(add)
+	get := &cobra.Command{Use: "get <name>", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		p, _ := cmd.Flags().GetString("path")
+		dom, _ := cmd.Flags().GetString("domain")
+		outFmt, _ := cmd.Flags().GetString("format")
+		if err := validateFormat(outFmt); err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		svc, err := app.GetService(p, dom, args[0])
+		if err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		if outFmt == "json" {
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(svc)
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "%s\nDomain: %s\nOwner: %s\nStatus: %s\nPath: %s\n", svc.Name, svc.Domain, svc.Owner, svc.Status, svc.Path)
+		return nil
+	}}
+	get.Flags().String("domain", "", "Canonical domain namespace")
+	get.Flags().String("path", ".", "Path to the Cosmos repository")
+	get.Flags().String("format", "text", "Output format: text or json")
+	_ = get.MarkFlagRequired("domain")
+	c.AddCommand(add, get)
 	return c
 }
 
@@ -224,14 +274,16 @@ func validateCmd() *cobra.Command {
 		if p == "" {
 			p = "."
 		}
-		res, _ := validate.Validate(p)
 		outFmt, _ := cmd.Flags().GetString("format")
-		if outFmt != "text" && outFmt != "json" {
-			return fmt.Errorf("ungueltiges format: %s", outFmt)
+		if err := validateFormat(outFmt); err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		res, err := app.ValidateCosmos(p)
+		if err != nil {
+			return writeCLIError(cmd, outFmt, err)
 		}
 		if outFmt == "json" {
-			b, _ := json.MarshalIndent(res, "", "  ")
-			fmt.Fprintln(cmd.OutOrStdout(), string(b))
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(res)
 		} else {
 			fmt.Fprintln(cmd.OutOrStdout(), "Nomos Validierung")
 			for _, f := range res.Findings {
@@ -250,15 +302,68 @@ func validateCmd() *cobra.Command {
 func graphCmd() *cobra.Command {
 	c := &cobra.Command{Use: "graph", RunE: func(cmd *cobra.Command, args []string) error {
 		p, _ := cmd.Flags().GetString("path")
-		tree, err := cosmosfs.LoadTree(p)
-		if err != nil {
-			return err
+		outFmt, _ := cmd.Flags().GetString("format")
+		if err := validateFormat(outFmt); err != nil {
+			return writeCLIError(cmd, outFmt, err)
 		}
-		fmt.Fprint(cmd.OutOrStdout(), graph.Mermaid(tree))
+		g, err := app.BuildGraph(p)
+		if err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		if outFmt == "json" {
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(g)
+		}
+		fmt.Fprint(cmd.OutOrStdout(), g.Content)
 		return nil
 	}}
 	c.Flags().String("path", ".", "Path to the Cosmos repository")
+	c.Flags().String("format", "text", "Output format: text or json")
 	return c
+}
+
+func namespaceCmd() *cobra.Command {
+	c := &cobra.Command{Use: "namespace"}
+	tree := &cobra.Command{Use: "tree", RunE: func(cmd *cobra.Command, args []string) error {
+		p, _ := cmd.Flags().GetString("path")
+		outFmt, _ := cmd.Flags().GetString("format")
+		if err := validateFormat(outFmt); err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		ns, err := app.BuildNamespaceTree(p)
+		if err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		if outFmt == "json" {
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(ns)
+		}
+		printNamespaceNode(cmd, ns.Root, "")
+		return nil
+	}}
+	tree.Flags().String("path", ".", "Path to the Cosmos repository")
+	tree.Flags().String("format", "text", "Output format: text or json")
+	c.AddCommand(tree)
+	return c
+}
+
+func printNamespaceNode(cmd *cobra.Command, node app.NamespaceTreeNodeDTO, indent string) {
+	fmt.Fprintf(cmd.OutOrStdout(), "%s%s\n", indent, node.Label)
+	for _, child := range node.Children {
+		printNamespaceNode(cmd, child, indent+"  ")
+	}
+}
+
+func validateFormat(format string) error {
+	if format == "" || format == "text" || format == "json" {
+		return nil
+	}
+	return app.Error(app.CodeInvalidFormat, "Invalid format: "+format, 0, nil)
+}
+
+func writeCLIError(cmd *cobra.Command, format string, err error) error {
+	if format == "json" {
+		_ = json.NewEncoder(cmd.ErrOrStderr()).Encode(app.ErrorResponse(err))
+	}
+	return err
 }
 
 type cosmosTree struct {
