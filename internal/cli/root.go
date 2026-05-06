@@ -243,6 +243,29 @@ func serviceCmd() *cobra.Command {
 	add.Flags().String("owner", "unknown", "")
 	add.Flags().BoolVar(&force, "force", false, "")
 	_ = add.MarkFlagRequired("domain")
+	list := &cobra.Command{Use: "list", RunE: func(cmd *cobra.Command, args []string) error {
+		p, _ := cmd.Flags().GetString("path")
+		dom, _ := cmd.Flags().GetString("domain")
+		outFmt, _ := cmd.Flags().GetString("format")
+		if err := validateFormat(outFmt); err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		items, err := app.ListServices(p, dom)
+		if err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		if outFmt == "json" {
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(items)
+		}
+		for _, svc := range items.Services {
+			fmt.Fprintf(cmd.OutOrStdout(), "%-28s %-30s %-12s %s\n", svc.Name, svc.Domain, svc.Status, svc.Owner)
+		}
+		return nil
+	}}
+	list.Flags().String("domain", "", "Canonical domain namespace")
+	list.Flags().String("path", ".", "Path to the Cosmos repository")
+	list.Flags().String("format", "text", "Output format: text or json")
+	_ = list.MarkFlagRequired("domain")
 	get := &cobra.Command{Use: "get <name>", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		p, _ := cmd.Flags().GetString("path")
 		dom, _ := cmd.Flags().GetString("domain")
@@ -264,7 +287,7 @@ func serviceCmd() *cobra.Command {
 	get.Flags().String("path", ".", "Path to the Cosmos repository")
 	get.Flags().String("format", "text", "Output format: text or json")
 	_ = get.MarkFlagRequired("domain")
-	c.AddCommand(add, get)
+	c.AddCommand(add, list, get)
 	return c
 }
 

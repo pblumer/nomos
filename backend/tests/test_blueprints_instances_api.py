@@ -24,6 +24,12 @@ type: product_blueprint
 name: Benutzerkonto mit Mailbox
 version: 0.1.0
 status: draft
+required_service_blueprints:
+  - SB-IDENTITY-ACCOUNT-001
+required_services:
+  - service_ref: identity.blumer.cloud/user-account
+    service_blueprint_ref: SB-IDENTITY-ACCOUNT-001
+    required: true
 """,
     )
     _write_yaml(
@@ -46,10 +52,12 @@ findings: []
     assert blueprints.status_code == 200
     assert blueprints.json()["count"] == 1
     assert blueprints.json()["items"][0]["id"] == "PB-ACC-MBX-001"
+    assert blueprints.json()["items"][0]["required_services"][0]["service_ref"] == "identity.blumer.cloud/user-account"
 
     blueprint = client.get("/api/v1/blueprints/PB-ACC-MBX-001")
     assert blueprint.status_code == 200
     assert blueprint.json()["type"] == "product_blueprint"
+    assert blueprint.json()["required_services"][0]["service_blueprint_ref"] == "SB-IDENTITY-ACCOUNT-001"
 
     instances = client.get("/api/v1/instances")
     assert instances.status_code == 200

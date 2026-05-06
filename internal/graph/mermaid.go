@@ -22,7 +22,17 @@ func Mermaid(tree cosmosfs.Tree) string {
 	for _, bpn := range tree.Blueprints {
 		bp := bpn.Metadata
 		bpID := mermaidID("blueprint", bp.ID)
-		fmt.Fprintf(&b, "  %s --> %s[\"Blueprint: %s\"]\n", cosmosID, bpID, mermaidLabel(bp.Name))
+		fmt.Fprintf(&b, "  %s --> %s[\"Blueprint: %s\"]\n", cosmosID, bpID, mermaidLabel(firstNonEmpty(bp.ID, bp.Name)))
+		if len(bp.RequiredServices) > 0 {
+			for _, svc := range bp.RequiredServices {
+				serviceID := mermaidServiceRefID(svc.ServiceRef)
+				fmt.Fprintf(&b, "  %s -. requires .-> %s[\"Service: %s\"]\n", bpID, serviceID, mermaidLabel(svc.ServiceRef))
+				if svc.ServiceBlueprintRef != "" {
+					fmt.Fprintf(&b, "  %s -. uses .-> %s[\"Service Blueprint: %s\"]\n", serviceID, mermaidID("blueprint", svc.ServiceBlueprintRef), mermaidLabel(svc.ServiceBlueprintRef))
+				}
+			}
+			continue
+		}
 		for _, svc := range bp.RequiredServiceBlueprints {
 			fmt.Fprintf(&b, "  %s -. requires .-> %s[\"Service Blueprint: %s\"]\n", bpID, mermaidID("blueprint", svc), mermaidLabel(svc))
 		}
@@ -65,4 +75,21 @@ func mermaidLabel(label string) string {
 	label = strings.ReplaceAll(label, "\n", " ")
 	label = strings.ReplaceAll(label, "\r", " ")
 	return label
+}
+
+func mermaidServiceRefID(ref string) string {
+	domain, service, ok := strings.Cut(ref, "/")
+	if !ok {
+		return mermaidID("service", ref)
+	}
+	return mermaidID("service", domain, service)
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }

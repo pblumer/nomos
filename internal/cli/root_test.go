@@ -320,6 +320,37 @@ func TestGraphIncludesCosmosDomainsAndServices(t *testing.T) {
 	}
 }
 
+func TestGraphIncludesProductBlueprintRequiredServices(t *testing.T) {
+	p := t.TempDir()
+	_, _, _ = executeCommand(t, "cosmos", "init", p)
+	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p)
+	_, _, _ = executeCommand(t, "service", "add", "user-account", "--domain", "identity.blumer.cloud", "--path", p)
+	mustWriteCLI(t, filepath.Join(p, "catalog", "blueprints", "products", "account.yaml"), `id: PB-ACC-MBX-001
+type: product_blueprint
+name: Benutzerkonto mit Mailbox
+version: 0.1.0
+status: draft
+owner: Team
+required_inputs:
+  - person_reference
+required_service_blueprints:
+  - SB-IDENTITY-ACCOUNT-001
+required_services:
+  - service_ref: identity.blumer.cloud/user-account
+    service_blueprint_ref: SB-IDENTITY-ACCOUNT-001
+    required: true
+`)
+	out, _, err := executeCommand(t, "graph", "--path", p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"PB-ACC-MBX-001", "identity.blumer.cloud/user-account", "SB-IDENTITY-ACCOUNT-001", "requires", "uses"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in graph:\n%s", want, out)
+		}
+	}
+}
+
 func TestGraphOutputIsDeterministic(t *testing.T) {
 	p := t.TempDir()
 	_, _, _ = executeCommand(t, "cosmos", "init", p)
@@ -582,10 +613,40 @@ func TestCLIJSONErrorsAndInvalidFormats(t *testing.T) {
 	}
 }
 
+func TestServiceListCommand(t *testing.T) {
+	p := t.TempDir()
+	_, _, _ = executeCommand(t, "cosmos", "init", p)
+	_, _, _ = executeCommand(t, "domain", "add", "collaboration.blumer.cloud", "--path", p)
+	_, _, _ = executeCommand(t, "service", "add", "mailbox", "--domain", "collaboration.blumer.cloud", "--path", p)
+	_, _, _ = executeCommand(t, "service", "add", "license-assignment", "--domain", "collaboration.blumer.cloud", "--path", p)
+	out, _, err := executeCommand(t, "service", "list", "--domain", "collaboration.blumer.cloud", "--path", p)
+	if err != nil {
+		t.Fatalf("service list failed: %v", err)
+	}
+	if !strings.Contains(out, "mailbox") || !strings.Contains(out, "license-assignment") {
+		t.Fatalf("missing services in output: %s", out)
+	}
+}
+
 func TestBlueprintAndInstanceCommands(t *testing.T) {
 	p := t.TempDir()
 	_, _, _ = executeCommand(t, "cosmos", "init", p)
-	mustWriteCLI(t, filepath.Join(p, "catalog", "blueprints", "products", "account.yaml"), "id: PB-ACC-MBX-001\ntype: product_blueprint\nname: Benutzerkonto mit Mailbox\nversion: 0.1.0\nstatus: draft\nowner: Team\nrequired_inputs:\n  - person_reference\nrequired_service_blueprints:\n  - SB-1\n")
+	mustWriteCLI(t, filepath.Join(p, "catalog", "blueprints", "products", "account.yaml"), `id: PB-ACC-MBX-001
+type: product_blueprint
+name: Benutzerkonto mit Mailbox
+version: 0.1.0
+status: draft
+owner: Team
+required_inputs:
+  - person_reference
+required_service_blueprints:
+  - SB-1
+required_services:
+  - service_ref: identity.blumer.cloud/user-account
+    service_blueprint_ref: SB-1
+    purpose: Erstellt und verwaltet das Benutzerkonto.
+    required: true
+`)
 	mustWriteCLI(t, filepath.Join(p, "catalog", "instances", "products", "account-instance.yaml"), "id: PI-ACC-MBX-EXAMPLE-001\ntype: product_instance\nname: Beispielinstanz Benutzerkonto mit Mailbox\nblueprint_ref: PB-ACC-MBX-001\nblueprint_version: 0.1.0\ncompliance_status: compliant\nfindings: []\n")
 
 	out, _, err := executeCommand(t, "blueprint", "list", "--path", p)
@@ -594,6 +655,14 @@ func TestBlueprintAndInstanceCommands(t *testing.T) {
 	}
 	if !strings.Contains(out, "PB-ACC-MBX-001") {
 		t.Fatalf("missing blueprint in output: %s", out)
+	}
+
+	out, _, err = executeCommand(t, "blueprint", "show", "PB-ACC-MBX-001", "--path", p, "--format", "json")
+	if err != nil {
+		t.Fatalf("blueprint show json failed: %v", err)
+	}
+	if !strings.Contains(out, "required_services") || !strings.Contains(out, "identity.blumer.cloud/user-account") {
+		t.Fatalf("missing required_services in json output: %s", out)
 	}
 
 	out, _, err = executeCommand(t, "instance", "show", "PI-ACC-MBX-EXAMPLE-001", "--path", p)

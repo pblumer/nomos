@@ -4,6 +4,7 @@ name: License Assignment Service
 version: 0.1.0
 status: draft
 owner: Identity & Collaboration
+namespace_service_ref: collaboration.blumer.cloud/license-assignment
 summary: Blueprint fuer die Zuweisung erforderlicher Lizenzen.
 capabilities:
   - assign_license

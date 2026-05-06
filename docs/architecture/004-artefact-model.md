@@ -69,6 +69,12 @@ docs/
 ## Referenzierung
 Artefakte referenzieren einander über IDs und optional über versionierte Referenzen (z. B. `RULE-123@1.2.0`).
 
+Nomos unterscheidet bei provisionierbaren Artefakten drei Konzepte:
+
+- Namespace Service: ein konkreter logischer Service im Cosmos-Baum, zum Beispiel `identity.blumer.cloud/user-account`.
+- Service Blueprint: eine Vorlage fuer einen Namespace Service; `namespace_service_ref` zeigt auf diesen Service.
+- Product Blueprint: eine hoehere Vorlage, die konkrete Namespace Services benoetigt und jeden Eintrag in `required_services` einem Service Blueprint zuordnet. Das aeltere Feld `required_service_blueprints` bleibt fuer Kompatibilitaet erhalten.
+
 ## Ownership
 `owner` beschreibt fachliche Verantwortung. Kritische Artefakte erfordern zusätzliche Reviewer/Approver gemaess Governance.
 
