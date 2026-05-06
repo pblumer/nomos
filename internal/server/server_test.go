@@ -120,6 +120,46 @@ func TestWebShellPagesAndAPI(t *testing.T) { /* same as before */
 	}
 }
 
+func TestOpenAPIAndSwaggerRoutes(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	openapi := get(h, "/openapi.json")
+	if openapi.Code != http.StatusOK {
+		t.Fatalf("openapi status=%d body=%s", openapi.Code, openapi.Body.String())
+	}
+	if !strings.Contains(openapi.Header().Get("Content-Type"), "application/json") {
+		t.Fatalf("openapi content-type=%s", openapi.Header().Get("Content-Type"))
+	}
+	var spec map[string]any
+	if err := json.Unmarshal(openapi.Body.Bytes(), &spec); err != nil {
+		t.Fatalf("openapi json invalid: %v", err)
+	}
+	if spec["openapi"] != "3.1.0" {
+		t.Fatalf("unexpected openapi version: %v", spec["openapi"])
+	}
+	paths, ok := spec["paths"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing paths: %#v", spec["paths"])
+	}
+	for _, path := range []string{"/health", "/api/v1/cosmos", "/api/v1/domains", "/api/v1/blueprints", "/api/v1/instances/{instance}/compliance"} {
+		if _, ok := paths[path]; !ok {
+			t.Fatalf("missing openapi path %s", path)
+		}
+	}
+
+	swagger := get(h, "/swagger")
+	if swagger.Code != http.StatusOK {
+		t.Fatalf("swagger status=%d", swagger.Code)
+	}
+	hasAll(t, swagger.Body.String(), "SwaggerUIBundle", "/openapi.json", "Nomos API")
+
+	apiPage := get(h, "/api")
+	if apiPage.Code != http.StatusOK {
+		t.Fatalf("api page status=%d", apiPage.Code)
+	}
+	hasAll(t, apiPage.Body.String(), "Open Swagger UI", "GET /openapi.json", "GET /swagger")
+}
+
 func TestMissingCosmosStyledError(t *testing.T) {
 	h := NewHandler(t.TempDir())
 	rr := get(h, "/")
@@ -319,7 +359,9 @@ func TestAPIBlueprintsPOST(t *testing.T) {
 
 func TestAPIBlueprintsDELETE(t *testing.T) {
 	p := t.TempDir()
-	if err := os.WriteFile(filepath.Join(p, "cosmos.yaml"), []byte("id: c\nname: C\n"), 0o644); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(p, "cosmos.yaml"), []byte("id: c\nname: C\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	mustMkdir(t, filepath.Join(p, "catalog", "blueprints", "products"))
 	h := NewHandler(p)
 
