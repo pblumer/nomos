@@ -257,6 +257,24 @@ COSMOS_PATH=/tmp/nomos-demo NOMOS_BIN=./bin/nomos ./scripts/create-demo-cosmos.s
 
 ---
 
+## OpenAPI and Swagger documentation
+
+When `nomos serve` is running, the Go HTTP server exposes machine-readable and interactive API documentation:
+
+- `GET /openapi.json` returns the OpenAPI 3.1 document for the Nomos HTTP API.
+- `GET /swagger` opens Swagger UI backed by `/openapi.json`.
+- `GET /api/docs` is an alias for the Swagger UI.
+- The human API index at `/api` links to both the Swagger UI and the OpenAPI JSON document.
+
+Example:
+
+```bash
+./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080
+open http://127.0.0.1:8080/swagger
+```
+
+---
+
 ## CLI and REST API consistency
 
 The read-only CLI and REST API are adapters over the same internal application DTOs for Cosmos, domains, services, validation, graph output and namespace trees.
