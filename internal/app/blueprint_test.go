@@ -26,13 +26,13 @@ func TestCreateBlueprint_ProductBlueprint(t *testing.T) {
 	p := createTestCosmosWithCatalog(t)
 
 	bp := model.Blueprint{
-		ID:      "PB-TEST-001",
-		Type:    "product_blueprint",
-		Name:    "Test Product Blueprint",
-		Version: "0.1.0",
-		Status:  "draft",
-		Owner:   "Product Team",
-		Summary: "A test product blueprint for the test.",
+		ID:                        "PB-TEST-001",
+		Type:                      "product_blueprint",
+		Name:                      "Test Product Blueprint",
+		Version:                   "0.1.0",
+		Status:                    "draft",
+		Owner:                     "Product Team",
+		Summary:                   "A test product blueprint for the test.",
 		RequiredServiceBlueprints: []string{"SB-ACC-001"},
 		RequiredServices: []model.RequiredServiceRef{
 			{ServiceRef: "identity.blumer.cloud/user-account", ServiceBlueprintRef: "SB-ACC-001", Purpose: "Account creation", Required: true},
@@ -70,13 +70,13 @@ func TestCreateBlueprint_ServiceBlueprint(t *testing.T) {
 	p := createTestCosmosWithCatalog(t)
 
 	bp := model.Blueprint{
-		ID:      "SB-TEST-001",
-		Type:    "service_blueprint",
-		Name:    "Test Service Blueprint",
-		Version: "0.1.0",
-		Status:  "draft",
-		Owner:   "Platform Team",
-		Summary: "A test service blueprint.",
+		ID:                  "SB-TEST-001",
+		Type:                "service_blueprint",
+		Name:                "Test Service Blueprint",
+		Version:             "0.1.0",
+		Status:              "draft",
+		Owner:               "Platform Team",
+		Summary:             "A test service blueprint.",
 		NamespaceServiceRef: "identity.blumer.cloud/user-account",
 	}
 
