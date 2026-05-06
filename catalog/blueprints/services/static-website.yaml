@@ -1,0 +1,12 @@
+id: SVC-001
+name: Static Website
+type: service_blueprint
+category: hosting
+provider: aws
+parameters:
+  - key: region
+    type: string
+    default: eu-central-1
+  - key: bucket_name
+    type: string
+    required: true

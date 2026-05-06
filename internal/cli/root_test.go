@@ -723,3 +723,26 @@ func mustWriteCLI(t *testing.T, path, content string) {
 		t.Fatal(err)
 	}
 }
+
+func TestBlueprintDeleteCLI(t *testing.T) {
+	p := t.TempDir()
+	_, _, _ = executeCommand(t, "cosmos", "init", p)
+	_, _, _ = executeCommand(t, "blueprint", "create", "--path", p,
+		"--id", "PB-DEL-CLI-001",
+		"--type", "product_blueprint",
+		"--name", "To Delete",
+	)
+
+	out, _, err := executeCommand(t, "blueprint", "delete", "PB-DEL-CLI-001", "--path", p)
+	if err != nil {
+		t.Fatalf("blueprint delete failed: %v", err)
+	}
+	if !strings.Contains(out, "PB-DEL-CLI-001") {
+		t.Fatalf("expected deleted ID in output: %s", out)
+	}
+
+	_, _, err = executeCommand(t, "blueprint", "show", "PB-DEL-CLI-001", "--path", p)
+	if err == nil {
+		t.Fatal("expected error after delete")
+	}
+}

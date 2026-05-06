@@ -1,0 +1,9 @@
+id: PROD-001
+name: Website Hosting
+version: "1.0"
+type: product_blueprint
+service_refs:
+  - ref: SVC-001
+    required: true
+  - ref: SVC-002
+    required: false

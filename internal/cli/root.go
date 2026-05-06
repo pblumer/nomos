@@ -361,7 +361,17 @@ func blueprintCmd() *cobra.Command {
 	create.Flags().String("service-ref", "", "Namespace service reference")
 	create.Flags().String("service-blueprint-ref", "", "Service blueprint reference")
 
-	c.AddCommand(list, show, create)
+	delete := &cobra.Command{Use: "delete <id>", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		p, _ := cmd.Flags().GetString("path")
+		if err := app.DeleteBlueprint(p, args[0]); err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "Blueprint deleted: %s\n", args[0])
+		return nil
+	}}
+	delete.Flags().String("path", ".", "Path to the Cosmos repository")
+
+	c.AddCommand(list, show, create, delete)
 	return c
 }
 

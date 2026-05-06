@@ -314,3 +314,41 @@ func TestAPIBlueprintsPOST(t *testing.T) {
 		t.Fatalf("expected 409 for duplicate, got %d", rr.Code)
 	}
 }
+
+func TestAPIBlueprintsDELETE(t *testing.T) {
+	p := t.TempDir()
+	if err := os.WriteFile(filepath.Join(p, "cosmos.yaml"), []byte("id: c\nname: C\n"), 0o644); err != nil { t.Fatal(err) }
+	mustMkdir(t, filepath.Join(p, "catalog", "blueprints", "products"))
+	h := NewHandler(p)
+
+	// Create first
+	body := `{"id":"PB-DEL-002","type":"product_blueprint","name":"Delete Me","version":"0.1.0","status":"draft","owner":"Team"}`
+	rr := postJSON(h, "/api/v1/blueprints", body)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// Delete
+	del := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/blueprints/PB-DEL-002", nil)
+	h.ServeHTTP(del, req)
+	if del.Code != http.StatusOK {
+		t.Fatalf("expected 200 on delete, got %d: %s", del.Code, del.Body.String())
+	}
+	if !strings.Contains(del.Body.String(), `"deleted":"PB-DEL-002"`) {
+		t.Fatalf("unexpected delete response: %s", del.Body.String())
+	}
+
+	// Verify gone
+	if get(h, "/api/v1/blueprints/PB-DEL-002").Code != 404 {
+		t.Fatal("expected 404 after delete")
+	}
+
+	// Delete non-existent
+	del2 := httptest.NewRecorder()
+	req2 := httptest.NewRequest(http.MethodDelete, "/api/v1/blueprints/PB-NONEXISTENT", nil)
+	h.ServeHTTP(del2, req2)
+	if del2.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for non-existent, got %d", del2.Code)
+	}
+}

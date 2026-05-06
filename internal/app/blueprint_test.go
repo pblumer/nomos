@@ -140,3 +140,37 @@ func TestCreateBlueprint_InvalidType(t *testing.T) {
 		t.Fatal("expected error for invalid type")
 	}
 }
+
+func TestDeleteBlueprint_Success(t *testing.T) {
+	p := createTestCosmosWithCatalog(t)
+	bp := model.Blueprint{ID: "PB-DEL-001", Type: "product_blueprint", Name: "To Delete", Version: "0.1.0", Status: "draft", Owner: "Team"}
+	if err := CreateBlueprint(p, bp); err != nil {
+		t.Fatal(err)
+	}
+
+	err := DeleteBlueprint(p, "PB-DEL-001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	path := filepath.Join(p, "catalog", "blueprints", "products", "PB-DEL-001.yaml")
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("expected file to be deleted")
+	}
+
+	_, err = GetBlueprint(p, "PB-DEL-001")
+	if err == nil {
+		t.Fatal("expected blueprint not found after delete")
+	}
+}
+
+func TestDeleteBlueprint_NotFound(t *testing.T) {
+	p := createTestCosmosWithCatalog(t)
+	err := DeleteBlueprint(p, "PB-NONEXISTENT")
+	if err == nil {
+		t.Fatal("expected error for non-existent blueprint")
+	}
+	if ae, ok := AsAppError(err); !ok || ae.Code != CodeBlueprintNotFound {
+		t.Fatalf("expected BLUEPRINT_NOT_FOUND, got %v", err)
+	}
+}

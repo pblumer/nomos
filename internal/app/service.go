@@ -475,3 +475,14 @@ func CreateBlueprint(path string, bp model.Blueprint) error {
 	}
 	return nil
 }
+
+func DeleteBlueprint(path, id string) error {
+	bp, err := GetBlueprint(path, id)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(bp.Path); err != nil {
+		return Error(CodeInternalError, "Failed to delete blueprint: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return nil
+}

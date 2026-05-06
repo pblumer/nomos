@@ -197,6 +197,14 @@ func (h *handler) apiBlueprintRoutes(w http.ResponseWriter, r *http.Request) {
 	rest := strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, "/api/v1/blueprints/"), "/api/blueprints/")
 	parts := strings.Split(rest, "/")
 	if len(parts) == 1 && parts[0] != "" {
+		if r.Method == http.MethodDelete {
+			if err := app.DeleteBlueprint(h.cosmosPath, parts[0]); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"deleted": parts[0]})
+			return
+		}
 		dto, err := app.GetBlueprint(h.cosmosPath, parts[0])
 		if err != nil {
 			h.apiErr(w, err)

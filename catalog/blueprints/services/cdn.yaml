@@ -1,0 +1,9 @@
+id: SVC-002
+name: CDN
+type: service_blueprint
+category: networking
+provider: cloudflare
+parameters:
+  - key: domain
+    type: string
+    required: true

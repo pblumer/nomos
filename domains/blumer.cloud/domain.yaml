@@ -1,0 +1,9 @@
+id: domain-blumer-cloud
+type: domain
+name: blumer.cloud
+version: 0.1.0
+status: draft
+owner: unknown
+dns_name: blumer.cloud
+summary: Nomos Domain blumer.cloud.
+services: []
