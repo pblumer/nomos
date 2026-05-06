@@ -1,14 +1,5 @@
-{{define "index"}}{{template "layout" .}}{{end}}
-{{define "content_index"}}
-<section class="page-header"><h2>Governance Dashboard</h2><p>Overview of your Nomos cosmos</p><a class="button button-primary" href="/domains">View Domains</a></section>
-<section class="metric-grid">
-  <article class="metric-card"><p>Domains</p><h3>{{.DomainCount}}</h3></article>
-  <article class="metric-card"><p>Services</p><h3>{{.ServiceCount}}</h3></article>
-  <article class="metric-card"><p>Findings</p><h3>{{len .Validation.Findings}}</h3></article>
-  <article class="metric-card"><p>Status</p><h3><span class="badge">{{.Tree.Cosmos.Status}}</span></h3></article>
-</section>
-<section class="split-grid">
-  <article class="card"><h3>Cosmos Overview</h3><ul class="meta-list"><li><strong>{{.Tree.Cosmos.Name}}</strong></li><li><code>{{.Tree.Cosmos.ID}}</code> · v{{.Tree.Cosmos.Version}}</li><li>Owner: {{.Tree.Cosmos.Owner}}</li><li>Path: <code>{{.CosmosPath}}</code></li></ul></article>
-  <article class="card"><h3>Recent Domains</h3>{{range .Tree.Domains}}<div class="list-row">{{.Name}} <span class="badge badge-draft">{{.Status}}</span></div>{{else}}<p class="empty-state">No domains available</p>{{end}}</article>
-</section>
+{{define "index"}}{{template "layout" .}}{{end}}{{define "content_index"}}
+<section class="page-header"><div><h2>Governance Dashboard</h2><p>Overview of the selected Nomos Cosmos.</p></div><div class="button-row"><a class="button button-primary" href="/domains">View Domains</a><a class="button button-secondary" href="/validate">Run Validation</a></div></section>
+<section class="metric-grid"><article class="metric-card"><p>Domains</p><h3>{{.Cosmos.DomainCount}}</h3></article><article class="metric-card"><p>Services</p><h3>{{.Cosmos.ServiceCount}}</h3></article><article class="metric-card"><p>Blueprints</p><h3>{{.BlueprintCount}}</h3></article><article class="metric-card"><p>Instances</p><h3>{{.InstanceCount}}</h3></article><article class="metric-card"><p>Validation</p><h3><span class="badge">{{.Validation.Status}}</span></h3></article></section>
+<section class="split-grid"><article class="card"><h3>Cosmos Overview</h3><dl class="details-list"><dt>Name</dt><dd>{{.Cosmos.Name}}</dd><dt>ID</dt><dd><code>{{.Cosmos.ID}}</code></dd><dt>Version</dt><dd>{{.Cosmos.Version}}</dd><dt>Status</dt><dd><span class="badge">{{.Cosmos.Status}}</span></dd><dt>Owner</dt><dd>{{.Cosmos.Owner}}</dd><dt>Path</dt><dd><code>{{.Cosmos.Path}}</code></dd></dl></article><article class="card"><h3>Quick links</h3><div class="stack"><a href="/graph">View Graph</a><a href="/blueprints">View Blueprints</a><a href="/instances">View Instances</a><a href="/api/v1/cosmos">API JSON</a></div></article></section>
 {{end}}

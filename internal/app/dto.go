@@ -161,3 +161,30 @@ type ComplianceDTO struct {
 	Evidence   []EvidenceDTO       `json:"evidence,omitempty"`
 	Findings   []CatalogFindingDTO `json:"findings"`
 }
+
+type DoctorCheckDTO struct {
+	Name    string `json:"name"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+	Path    string `json:"path,omitempty"`
+}
+
+type DoctorDTO struct {
+	Status string           `json:"status"`
+	Checks []DoctorCheckDTO `json:"checks"`
+}
+
+type VerificationEvidenceDTO struct {
+	ID        string `json:"id"`
+	Type      string `json:"type"`
+	Domain    string `json:"domain"`
+	Record    string `json:"record"`
+	Status    string `json:"status"`
+	Timestamp string `json:"timestamp"`
+	Path      string `json:"path"`
+}
+
+type VerificationDTO struct {
+	Evidence []VerificationEvidenceDTO `json:"evidence"`
+	Count    int                       `json:"count"`
+}

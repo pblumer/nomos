@@ -1,34 +1,17 @@
 {{define "layout"}}
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{{.PageTitle}} · Nomos</title>
-    <link rel="stylesheet" href="/static/app.css" />
-    <script defer src="/static/app.js"></script>
-  </head>
-  <body>
-    <div class="app-shell">
-      <aside class="app-sidebar">
-        <div class="sidebar-brand">
-          <div class="brand-icon" aria-hidden="true">N</div>
-          <div><h1>Nomos</h1><p>Governance Platform</p></div>
-        </div>
-        <nav class="app-nav" aria-label="Primary">
-          <a class="nav-link {{if eq .ActiveNav "dashboard"}}is-active{{end}}" href="/"><span class="material-symbols-outlined" aria-hidden="true">dashboard</span>Dashboard</a>
-          <a class="nav-link {{if eq .ActiveNav "domains"}}is-active{{end}}" href="/domains"><span class="material-symbols-outlined" aria-hidden="true">dns</span>Domains</a>
-          <a class="nav-link {{if eq .ActiveNav "graph"}}is-active{{end}}" href="/graph"><span class="material-symbols-outlined" aria-hidden="true">hub</span>Graph</a>
-          <a class="nav-link {{if eq .ActiveNav "validate"}}is-active{{end}}" href="/validate"><span class="material-symbols-outlined" aria-hidden="true">task_alt</span>Validation</a>
-          <a class="nav-link" href="/api/v1/cosmos"><span class="material-symbols-outlined" aria-hidden="true">api</span>API</a>
-        </nav>
-      </aside>
-      <header class="app-topbar">
-        <form class="search-box" role="search"><span class="material-symbols-outlined" aria-hidden="true">search</span><input aria-label="Search cosmos, domains or services" placeholder="Search cosmos, domains or services..." /></form>
-        <div class="workspace-label">Workspace: {{.Tree.Cosmos.ID}}</div>
-      </header>
-      <main class="app-main">{{if eq .ContentTemplate "content_index"}}{{template "content_index" .}}{{else if eq .ContentTemplate "content_domains"}}{{template "content_domains" .}}{{else if eq .ContentTemplate "content_domain_detail"}}{{template "content_domain_detail" .}}{{else if eq .ContentTemplate "content_service_detail"}}{{template "content_service_detail" .}}{{else if eq .ContentTemplate "content_graph"}}{{template "content_graph" .}}{{else if eq .ContentTemplate "content_validate"}}{{template "content_validate" .}}{{else if eq .ContentTemplate "content_error"}}{{template "content_error" .}}{{end}}</main>
-    </div>
-  </body>
-</html>
-{{end}}
+<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{{.PageTitle}} · Nomos</title><link rel="stylesheet" href="/static/app.css"/><script defer src="/static/app.js"></script></head>
+<body><div class="app-shell"><aside class="app-sidebar"><div class="sidebar-brand"><div class="brand-icon">N</div><div><h1>Nomos</h1><p>Governance Platform</p></div></div><nav class="app-nav" aria-label="Primary">
+<a class="nav-link {{if eq .ActiveNav "dashboard"}}is-active{{end}}" href="/">Dashboard</a>
+<a class="nav-link {{if eq .ActiveNav "cosmos"}}is-active{{end}}" href="/cosmos">Cosmos</a>
+<a class="nav-link {{if eq .ActiveNav "domains"}}is-active{{end}}" href="/domains">Domains</a>
+<a class="nav-link {{if eq .ActiveNav "services"}}is-active{{end}}" href="/services">Services</a>
+<a class="nav-link {{if eq .ActiveNav "blueprints"}}is-active{{end}}" href="/blueprints">Blueprints</a>
+<a class="nav-link {{if eq .ActiveNav "instances"}}is-active{{end}}" href="/instances">Instances</a>
+<a class="nav-link {{if eq .ActiveNav "validate"}}is-active{{end}}" href="/validate">Validation</a>
+<a class="nav-link {{if eq .ActiveNav "graph"}}is-active{{end}}" href="/graph">Graph</a>
+<a class="nav-link {{if eq .ActiveNav "namespaces"}}is-active{{end}}" href="/namespaces">Namespace Tree</a>
+<a class="nav-link {{if eq .ActiveNav "verify"}}is-active{{end}}" href="/verify">Verification</a>
+<a class="nav-link {{if eq .ActiveNav "api"}}is-active{{end}}" href="/api">API</a>
+</nav></aside><header class="app-topbar"><div><strong>{{.PageTitle}}</strong><div class="muted path-label">{{.CosmosPath}}</div></div><div><span class="badge badge-{{.ShellCosmos.Status}}">{{if .ShellCosmos.Status}}{{.ShellCosmos.Status}}{{else}}unknown{{end}}</span></div></header><main class="app-main">
+{{if eq .ContentTemplate "content_index"}}{{template "content_index" .}}{{else if eq .ContentTemplate "content_cosmos"}}{{template "content_cosmos" .}}{{else if eq .ContentTemplate "content_domains"}}{{template "content_domains" .}}{{else if eq .ContentTemplate "content_domain_detail"}}{{template "content_domain_detail" .}}{{else if eq .ContentTemplate "content_services"}}{{template "content_services" .}}{{else if eq .ContentTemplate "content_service_detail"}}{{template "content_service_detail" .}}{{else if eq .ContentTemplate "content_namespaces"}}{{template "content_namespaces" .}}{{else if eq .ContentTemplate "content_graph"}}{{template "content_graph" .}}{{else if eq .ContentTemplate "content_validate"}}{{template "content_validate" .}}{{else if eq .ContentTemplate "content_verify"}}{{template "content_verify" .}}{{else if eq .ContentTemplate "content_blueprints"}}{{template "content_blueprints" .}}{{else if eq .ContentTemplate "content_blueprint_detail"}}{{template "content_blueprint_detail" .}}{{else if eq .ContentTemplate "content_instances"}}{{template "content_instances" .}}{{else if eq .ContentTemplate "content_instance_detail"}}{{template "content_instance_detail" .}}{{else if eq .ContentTemplate "content_api"}}{{template "content_api" .}}{{else if eq .ContentTemplate "content_error"}}{{template "content_error" .}}{{end}}
+</main></div></body></html>{{end}}

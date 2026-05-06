@@ -11,8 +11,10 @@
   {{if .Children}}<div class="explorer-node-children">{{range .Children}}{{template "namespace_node" .}}{{end}}</div>{{end}}
 </div>
 {{end}}
+
+{{define "domain_table_node"}}{{if eq .Kind "domain"}}{{if .Domain}}<tr><td><a href="/domains/{{.Domain.Canonical}}">{{.Domain.Canonical}}</a></td><td>{{.Domain.Owner}}</td><td><span class="badge">{{.Domain.Status}}</span></td><td>{{.Domain.ServiceCount}}</td><td><code>{{.Domain.Path}}</code></td></tr>{{end}}{{end}}{{range .Children}}{{template "domain_table_node" .}}{{end}}{{end}}
 {{define "content_domains"}}
-<section class="page-header"><div><h2>Domains Explorer</h2><p>Browse domains and services like a repository tree</p></div><a class="button button-secondary" href="/domains">Refresh</a></section>
+<section class="page-header"><div><h2>Domains Explorer</h2><p>Browse domains and services like a repository tree</p></div><div class="button-row"><a class="button button-secondary" href="/api/v1/domains">API JSON</a><a class="button button-secondary" href="/domains">Refresh</a></div></section><section class="card"><h3>Create domain</h3><form method="post" action="/domains" class="form-inline"><label>DNS/canonical name <input name="dns" required placeholder="example.com"></label><label>Owner <input name="owner" placeholder="unknown"></label><label class="check"><input type="checkbox" name="force"> Force</label><button class="button button-primary">Create</button></form><input class="filter-input" data-filter-target=".domain-table tbody tr,.explorer-node" placeholder="Filter domains or services..."></section>
 <section class="explorer-layout">
   <aside class="card explorer-panel explorer-tree">
     <a class="explorer-node-row {{if .Explorer.Cosmos.Selected}}is-selected{{end}}" href="{{.Explorer.Cosmos.Link}}"><span class="material-symbols-outlined explorer-node-icon">hub</span><span class="explorer-node-label">{{.Explorer.Cosmos.Name}}</span></a>
@@ -26,7 +28,7 @@
     {{else if .Explorer.SelectedDomain}}
     <h3>Domain Details</h3>
     <div class="details-grid"><p><strong>Display name</strong><br>{{.Explorer.SelectedDomain.DisplayName}}</p><p><strong>Canonical namespace</strong><br>{{.Explorer.SelectedDomain.Canonical}}</p><p><strong>Tree path</strong><br>{{.Explorer.SelectedDomain.DisplayPath}}</p><p><strong>Tree path key</strong><br>{{.Explorer.SelectedDomain.TreePath}}</p><p><strong>Owner</strong><br>{{.Explorer.SelectedDomain.Owner}}</p><p><strong>Status</strong><br>{{.Explorer.SelectedDomain.Status}}</p><p><strong>Path</strong><br><code>{{.Explorer.SelectedDomain.Path}}</code></p><p><strong>Service count</strong><br>{{.Explorer.SelectedDomain.ServiceCount}}</p></div>
-    <h4>Services</h4><ul class="details-list">{{range .Explorer.SelectedDomain.Services}}<li><a href="{{.Link}}">{{.Name}}</a></li>{{end}}</ul>
+    <h4>Services</h4><ul class="details-list">{{range .Explorer.SelectedDomain.Services}}<li><a href="{{.Link}}">{{.Name}}</a></li>{{else}}<li class="empty-state">No services</li>{{end}}</ul><p><a href="/api/v1/domains/{{.Explorer.SelectedDomain.Canonical}}">API JSON</a></p>
     <p><a class="button button-secondary" href="{{.Explorer.SelectedDomain.PageLink}}">Open domain page</a></p>
     {{else if .Explorer.SelectedService}}
     <h3>Service Details</h3>
@@ -34,5 +36,5 @@
     <p><a class="button button-secondary" href="{{.Explorer.SelectedService.PageLink}}">Open service page</a></p>
     {{end}}
   </section>
-</section>
+</section><section class="card"><h3>Table view</h3><table class="data-table domain-table"><thead><tr><th>Domain</th><th>Owner</th><th>Status</th><th>Services</th><th>Path</th></tr></thead><tbody>{{range .Explorer.NamespaceTree.Root.Children}}{{template "domain_table_node" .}}{{end}}</tbody></table></section>
 {{end}}

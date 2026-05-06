@@ -207,3 +207,71 @@ func TestBlueprintAndInstanceAPIRoutes(t *testing.T) {
 		hasAll(t, rr.Body.String(), "compliant")
 	}
 }
+
+func TestExtendedWebPages(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	pages := map[string][]string{
+		"/cosmos":                           {"Cosmos", "Doctor", "cosmos.yaml"},
+		"/services":                         {"Services", "Create service", "user-account"},
+		"/namespaces":                       {"Namespace Tree", "identity.blumer.cloud", "user-account"},
+		"/blueprints":                       {"Blueprints", "PB-ACC-MBX-001", "SB-1"},
+		"/blueprints/PB-ACC-MBX-001":        {"PB-ACC-MBX-001", "Required inputs", "identity.blumer.cloud/user-account"},
+		"/instances":                        {"Instances", "PI-ACC-MBX-EXAMPLE-001"},
+		"/instances/PI-ACC-MBX-EXAMPLE-001": {"Compliance", "compliant"},
+		"/verify":                           {"Verification", "Verify domain", "Evidence files"},
+		"/api":                              {"GET /health", "GET /api/v1/cosmos", "GET /api/v1/instances"},
+	}
+	for path, want := range pages {
+		rr := get(h, path)
+		if rr.Code != 200 {
+			t.Fatalf("%s status=%d body=%s", path, rr.Code, rr.Body.String())
+		}
+		hasAll(t, rr.Body.String(), want...)
+	}
+}
+
+func TestWebErrorPagesForMissingResources(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	paths := []string{"/domains/missing.example", "/services/identity.blumer.cloud/missing", "/blueprints/missing", "/instances/missing"}
+	for _, path := range paths {
+		rr := get(h, path)
+		if rr.Code != 404 {
+			t.Fatalf("%s status=%d", path, rr.Code)
+		}
+		hasAll(t, rr.Body.String(), "Nomos", "Status 404", "Back to dashboard")
+	}
+}
+
+func postForm(h http.Handler, path, body string) *httptest.ResponseRecorder {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	h.ServeHTTP(rr, req)
+	return rr
+}
+
+func TestCreateDomainAndService(t *testing.T) {
+	p := createTestCosmos(t)
+	h := NewHandler(p)
+	if rr := postForm(h, "/api/v1/domains", "dns=example.com&owner=Web"); rr.Code != http.StatusCreated {
+		t.Fatalf("domain create status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if rr := postForm(h, "/api/v1/domains", "dns=bad"); rr.Code != http.StatusBadRequest {
+		t.Fatalf("invalid domain status=%d", rr.Code)
+	}
+	if rr := postForm(h, "/api/v1/domains", "dns=example.com"); rr.Code != http.StatusConflict {
+		t.Fatalf("duplicate domain status=%d", rr.Code)
+	}
+	if rr := postForm(h, "/api/v1/domains", "dns=example.com&force=on&owner=Web"); rr.Code != http.StatusCreated {
+		t.Fatalf("force domain status=%d", rr.Code)
+	}
+	if rr := postForm(h, "/api/v1/domains/example.com/services", "name=web-ui&owner=Web"); rr.Code != http.StatusCreated {
+		t.Fatalf("service create status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if rr := postForm(h, "/api/v1/domains/example.com/services", "name=web-ui"); rr.Code != http.StatusConflict {
+		t.Fatalf("duplicate service status=%d", rr.Code)
+	}
+	if rr := get(h, "/services?domain=example.com"); rr.Code != 200 || !strings.Contains(rr.Body.String(), "web-ui") {
+		t.Fatalf("service page status=%d body=%s", rr.Code, rr.Body.String())
+	}
+}

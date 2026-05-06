@@ -1,13 +1,21 @@
 package app
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
+	"strings"
+	"time"
 
 	"github.com/nomos/nomos/internal/cosmosfs"
+	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/graph"
+	"github.com/nomos/nomos/internal/model"
 	"github.com/nomos/nomos/internal/namespace"
 	"github.com/nomos/nomos/internal/validate"
 )
@@ -274,4 +282,157 @@ func instanceDTO(i cosmosfs.InstanceNode) InstanceDTO {
 		findings = append(findings, CatalogFindingDTO{ID: f.ID, Severity: f.Severity, Category: f.Category, Summary: f.Summary, Code: f.Code, Message: f.Message, Path: f.Path})
 	}
 	return InstanceDTO{ID: i.Metadata.ID, Type: i.Metadata.Type, Name: i.Metadata.Name, BlueprintRef: i.Metadata.BlueprintRef, BlueprintVersion: i.Metadata.BlueprintVersion, Status: i.Metadata.Status, Owner: i.Metadata.Owner, Path: i.Path, Inputs: i.Metadata.Inputs, ObservedState: i.Metadata.ObservedState, ProvisionedServiceInstances: i.Metadata.ProvisionedServiceInstances, OwningProductInstance: i.Metadata.OwningProductInstance, ProviderRef: i.Metadata.ProviderRef, ComplianceStatus: i.Metadata.ComplianceStatus, Evidence: evidence, Findings: findings}
+}
+
+func DoctorCosmos(path string) (DoctorDTO, error) {
+	checks := []DoctorCheckDTO{}
+	add := func(name, status, message, p string) {
+		checks = append(checks, DoctorCheckDTO{Name: name, Status: status, Message: message, Path: p})
+	}
+	cosmosYAML := filepath.Join(path, "cosmos.yaml")
+	if _, err := os.Stat(cosmosYAML); err != nil {
+		add("cosmos.yaml", "error", "cosmos.yaml is missing", cosmosYAML)
+	} else {
+		add("cosmos.yaml", "ok", "cosmos.yaml exists", cosmosYAML)
+	}
+	gitDir := filepath.Join(path, ".git")
+	if _, err := os.Stat(gitDir); err != nil {
+		add("git repository", "warning", "Git repository is not initialized", gitDir)
+	} else {
+		add("git repository", "ok", "Git repository exists", gitDir)
+	}
+	nomosDir := filepath.Join(path, ".nomos")
+	if _, err := os.Stat(nomosDir); err != nil {
+		add(".nomos directory", "warning", ".nomos directory is not present yet", nomosDir)
+	} else {
+		add(".nomos directory", "ok", ".nomos directory exists", nomosDir)
+	}
+	status := "ok"
+	for _, c := range checks {
+		if c.Status == "error" {
+			status = "error"
+			break
+		}
+		if c.Status == "warning" && status == "ok" {
+			status = "warning"
+		}
+	}
+	return DoctorDTO{Status: status, Checks: checks}, nil
+}
+
+func AddDomain(path, dns, owner string, force bool) (DomainDTO, error) {
+	dns = namespace.Canonical(strings.TrimSpace(dns))
+	if dns == "" || !strings.Contains(dns, ".") || strings.ContainsAny(dns, `/\\`) {
+		return DomainDTO{}, Error(CodeInvalidNamespace, "Invalid domain name: "+dns, http.StatusBadRequest, nil)
+	}
+	if strings.TrimSpace(owner) == "" {
+		owner = "unknown"
+	}
+	ddir := filepath.Join(path, "domains", dns)
+	if _, err := os.Stat(ddir); err == nil && !force {
+		return DomainDTO{}, Error(CodeInvalidNamespace, "Domain already exists: "+dns, http.StatusConflict, nil)
+	}
+	if err := os.MkdirAll(filepath.Join(ddir, "services"), 0o755); err != nil {
+		return DomainDTO{}, err
+	}
+	d := model.Domain{ID: "domain-" + strings.ReplaceAll(dns, ".", "-"), Type: "domain", Name: dns, Version: "0.1.0", Status: "draft", Owner: owner, DNSName: dns, Summary: "Nomos Domain " + dns + "."}
+	if err := fsx.WriteYAML(filepath.Join(ddir, "domain.yaml"), d); err != nil {
+		return DomainDTO{}, err
+	}
+	if err := os.WriteFile(filepath.Join(ddir, "README.md"), []byte("# Domain\n"), 0o644); err != nil {
+		return DomainDTO{}, err
+	}
+	return GetDomain(path, dns)
+}
+
+func AddService(path, domainName, name, owner string, force bool) (ServiceDTO, error) {
+	d, err := GetDomain(path, domainName)
+	if err != nil {
+		return ServiceDTO{}, err
+	}
+	name = strings.TrimSpace(name)
+	if name == "" || strings.ContainsAny(name, `/\\`) || name == "." || name == ".." {
+		return ServiceDTO{}, Error(CodeInvalidNamespace, "Invalid service name: "+name, http.StatusBadRequest, nil)
+	}
+	if strings.TrimSpace(owner) == "" {
+		owner = "unknown"
+	}
+	sdir := filepath.Join(path, "domains", d.Canonical, "services", name)
+	if _, err := os.Stat(sdir); err == nil && !force {
+		return ServiceDTO{}, Error(CodeInvalidNamespace, "Service already exists: "+d.Canonical+"/"+name, http.StatusConflict, nil)
+	}
+	for _, dir := range []string{"capabilities", "requirements", "rules", "processes", "skills", "findings", "evidence"} {
+		if err := os.MkdirAll(filepath.Join(sdir, dir), 0o755); err != nil {
+			return ServiceDTO{}, err
+		}
+	}
+	s := model.Service{ID: "service-" + name, Type: "service", Name: name, Version: "0.1.0", Status: "draft", Owner: owner, Summary: "Nomos Service " + name + "."}
+	if err := fsx.WriteYAML(filepath.Join(sdir, "service.yaml"), s); err != nil {
+		return ServiceDTO{}, err
+	}
+	if err := os.WriteFile(filepath.Join(sdir, "README.md"), []byte("# Service\n"), 0o644); err != nil {
+		return ServiceDTO{}, err
+	}
+	return GetService(path, d.Canonical, name)
+}
+
+func ListVerificationEvidence(path string) (VerificationDTO, error) {
+	root := filepath.Join(path, ".nomos", "evidence")
+	out := VerificationDTO{Evidence: []VerificationEvidenceDTO{}}
+	ents, err := os.ReadDir(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return out, nil
+		}
+		return out, err
+	}
+	for _, e := range ents {
+		if e.IsDir() || !(strings.HasSuffix(e.Name(), ".yaml") || strings.HasSuffix(e.Name(), ".yml")) {
+			continue
+		}
+		var ev struct {
+			ID        string `yaml:"id"`
+			Type      string `yaml:"type"`
+			Domain    string `yaml:"domain"`
+			Record    string `yaml:"record"`
+			Status    string `yaml:"status"`
+			Timestamp string `yaml:"timestamp"`
+		}
+		full := filepath.Join(root, e.Name())
+		if err := fsx.ReadYAML(full, &ev); err != nil {
+			return out, err
+		}
+		out.Evidence = append(out.Evidence, VerificationEvidenceDTO{ID: ev.ID, Type: ev.Type, Domain: ev.Domain, Record: ev.Record, Status: ev.Status, Timestamp: ev.Timestamp, Path: full})
+	}
+	out.Count = len(out.Evidence)
+	return out, nil
+}
+
+func VerifyDomain(ctx context.Context, path, dns string) (VerificationEvidenceDTO, error) {
+	dns = namespace.Canonical(strings.TrimSpace(dns))
+	if dns == "" || !strings.Contains(dns, ".") {
+		return VerificationEvidenceDTO{}, Error(CodeInvalidNamespace, "Invalid domain name: "+dns, http.StatusBadRequest, nil)
+	}
+	rec := "_nomos." + dns
+	txt, lookupErr := net.DefaultResolver.LookupTXT(ctx, rec)
+	status := "failed"
+	exp := "nomos-domain=" + dns
+	for _, t := range txt {
+		if strings.Contains(t, exp) {
+			status = "verified"
+		}
+	}
+	if err := os.MkdirAll(filepath.Join(path, ".nomos", "evidence"), 0o755); err != nil {
+		return VerificationEvidenceDTO{}, err
+	}
+	now := time.Now().UTC()
+	ev := VerificationEvidenceDTO{ID: "evidence-" + now.Format("20060102-150405"), Type: "evidence", Domain: dns, Record: rec, Status: status, Timestamp: now.Format(time.RFC3339), Path: filepath.Join(path, ".nomos", "evidence", strings.ReplaceAll(dns, ".", "-")+"-dns.yaml")}
+	content := fmt.Sprintf("id: %s\ntype: evidence\nevidence_type: dns_verification\ndomain: %s\nrecord: %s\nstatus: %s\ntimestamp: %q\n", ev.ID, ev.Domain, ev.Record, ev.Status, ev.Timestamp)
+	if err := os.WriteFile(ev.Path, []byte(content), 0o644); err != nil {
+		return ev, err
+	}
+	if lookupErr != nil || status != "verified" {
+		return ev, Error(CodeValidationFailed, "DNS verification failed", http.StatusBadRequest, lookupErr)
+	}
+	return ev, nil
 }

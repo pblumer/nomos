@@ -261,3 +261,13 @@ Common JSON namespace metadata looks like:
 ```
 
 Shared read-side error codes include `COSMOS_MISSING`, `COSMOS_LOAD_FAILED`, `DOMAIN_NOT_FOUND`, `SERVICE_NOT_FOUND`, `VALIDATION_FAILED`, `INVALID_FORMAT`, `INVALID_NAMESPACE` and `INTERNAL_ERROR`.
+
+## Go-served Web UI
+
+Nomos now includes a server-rendered Go web UI for browsing and managing a local Cosmos repository without introducing a primary database or a separate frontend build chain. Start it with:
+
+```bash
+./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080
+```
+
+The UI exposes a dashboard, Cosmos doctor checks, domain and service explorers, namespace tree, Mermaid graph, validation findings, verification evidence, blueprint browsing, instance browsing, and an API index. Domain and service creation are supported through small forms and the matching API endpoints; verification writes the same `.nomos/evidence` files as the CLI. All data remains file-first and Git-first in the selected Cosmos path.

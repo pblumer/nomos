@@ -312,3 +312,41 @@ Services are not reversed. They are displayed below their canonical domain leaf 
 - `GET /api/v1/validate` returns the validation DTO.
 
 Shared error codes include `COSMOS_MISSING`, `COSMOS_LOAD_FAILED`, `DOMAIN_NOT_FOUND`, `SERVICE_NOT_FOUND`, `VALIDATION_FAILED`, `INVALID_FORMAT`, `INVALID_NAMESPACE` and `INTERNAL_ERROR`.
+
+## Web UI coverage
+
+The Go-served web UI is available through `nomos serve` and is intended to be the primary human-facing interface for the local Cosmos repository:
+
+```bash
+./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080
+```
+
+The UI is server-rendered from embedded Go templates and static assets. It reuses `internal/app` DTOs and application functions for reads, creation, validation, graph, namespace, blueprint, instance, doctor, and verification operations.
+
+| CLI command | API endpoint | Web page |
+|---|---|---|
+| `nomos cosmos info` | `/api/v1/cosmos` | `/cosmos` |
+| `nomos cosmos doctor` | TBD/app doctor endpoint | `/cosmos` |
+| `nomos domain list` | `/api/v1/domains` | `/domains` |
+| `nomos domain get` | `/api/v1/domains/{domain}` | `/domains/{domain}` |
+| `nomos domain add` | `POST /api/v1/domains` | `/domains` form |
+| `nomos service list` | `/api/v1/domains/{domain}/services` | `/services` |
+| `nomos service get` | `/api/v1/domains/{domain}/services/{service}` | `/services` detail |
+| `nomos service add` | `POST /api/v1/domains/{domain}/services` | `/services` form |
+| `nomos validate` | `/api/v1/validate` | `/validate` |
+| `nomos graph` | `/api/v1/graph` | `/graph` |
+| `nomos namespace tree` | `/api/v1/namespaces` | `/namespaces` |
+| `nomos verify domain` | TBD | `/verify` |
+| `nomos blueprint list` | `/api/v1/blueprints` | `/blueprints` |
+| `nomos blueprint show` | `/api/v1/blueprints/{id}` | `/blueprints/{id}` |
+| `nomos instance list` | `/api/v1/instances` | `/instances` |
+| `nomos instance show` | `/api/v1/instances/{id}` | `/instances/{id}` |
+| `nomos instance compliance` | `/api/v1/instances/{id}/compliance` | `/instances/{id}` |
+
+### Read-only and write operations
+
+Read-only pages: dashboard, Cosmos metadata/doctor, namespace tree, graph, validation, blueprints, instances, API index, and verification evidence listing.
+
+Write/create operations: domain creation and service creation are supported through UI forms and explicit POST endpoints. Domain verification can be triggered from `/verify`; it performs DNS TXT lookup and writes evidence in `.nomos/evidence` using the CLI-compatible format.
+
+Known limitations: the doctor function currently lives in the application layer rather than as a dedicated public API endpoint, and verification does not yet expose a stable read endpoint beyond the `/verify` page.

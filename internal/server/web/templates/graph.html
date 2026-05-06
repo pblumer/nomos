@@ -1,5 +1,1 @@
-{{define "graph"}}{{template "layout" .}}{{end}}
-{{define "content_graph"}}
-<section class="page-header"><h2>Cosmos Graph</h2><p>Mermaid representation of domains and services</p></section>
-<section class="card"><h3>Mermaid Source</h3><button class="button button-secondary" data-copy="#graph-src">Copy</button><pre id="graph-src" class="code-block">{{.Mermaid}}</pre></section>
-{{end}}
+{{define "graph"}}{{template "layout" .}}{{end}}{{define "content_graph"}}<section class="page-header"><div><h2>Cosmos Graph</h2><p>Mermaid representation of domains and services.</p></div><a class="button button-secondary" href="/api/v1/graph">Raw Mermaid</a></section><section class="card"><h3>Visual Mermaid</h3><pre class="mermaid">{{.Mermaid}}</pre></section><section class="card"><h3>Mermaid Source</h3><button class="button button-secondary" data-copy="#graph-src">Copy</button><pre id="graph-src" class="code-block">{{.Mermaid}}</pre></section><script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs'; mermaid.initialize({startOnLoad:true});</script>{{end}}
