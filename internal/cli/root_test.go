@@ -468,3 +468,116 @@ func TestRootCommandContainsExpectedSubcommands(t *testing.T) {
 		}
 	}
 }
+
+func createParityCosmos(t *testing.T) string {
+	t.Helper()
+	p := t.TempDir()
+	_, _, _ = executeCommand(t, "cosmos", "init", p)
+	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p, "--owner", "Identity Team")
+	_, _, _ = executeCommand(t, "domain", "add", "platform.blumer.cloud", "--path", p, "--owner", "Platform Team")
+	_, _, _ = executeCommand(t, "service", "add", "user-account", "--domain", "identity.blumer.cloud", "--path", p, "--owner", "Identity Team")
+	_, _, _ = executeCommand(t, "service", "add", "rule-validation-api", "--domain", "platform.blumer.cloud", "--path", p, "--owner", "Platform Team")
+	return p
+}
+
+func TestCLIRESTJSONParity(t *testing.T) {
+	p := createParityCosmos(t)
+	h := newServeMux(p)
+	cliCosmos, _, err := executeCommand(t, "cosmos", "info", "--path", p, "--format", "json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var c1, c2 map[string]any
+	if err := json.Unmarshal([]byte(cliCosmos), &c1); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(getCLIHTTP(t, h, "/api/v1/cosmos").Body.Bytes(), &c2); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"id", "name", "version", "status", "owner", "domainCount", "serviceCount"} {
+		if c1[key] != c2[key] {
+			t.Fatalf("cosmos %s mismatch: %v != %v", key, c1[key], c2[key])
+		}
+	}
+
+	cliDomains, _, err := executeCommand(t, "domain", "list", "--path", p, "--format", "json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var d1, d2 map[string][]map[string]any
+	if err := json.Unmarshal([]byte(cliDomains), &d1); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(getCLIHTTP(t, h, "/api/v1/domains").Body.Bytes(), &d2); err != nil {
+		t.Fatal(err)
+	}
+	if d1["domains"][0]["canonical"] != d2["domains"][0]["canonical"] {
+		t.Fatalf("domains mismatch: %v %v", d1, d2)
+	}
+	if d1["domains"][0]["namespace"].(map[string]any)["displayPath"] != "cloud / blumer / identity" {
+		t.Fatalf("missing namespace metadata: %v", d1)
+	}
+
+	cliDomain, _, err := executeCommand(t, "domain", "get", "identity.blumer.cloud", "--path", p, "--format", "json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gd1, gd2 map[string]any
+	_ = json.Unmarshal([]byte(cliDomain), &gd1)
+	_ = json.Unmarshal(getCLIHTTP(t, h, "/api/v1/domains/identity.blumer.cloud").Body.Bytes(), &gd2)
+	if gd1["canonical"] != gd2["canonical"] || gd1["serviceCount"] != gd2["serviceCount"] {
+		t.Fatalf("domain mismatch: %v %v", gd1, gd2)
+	}
+
+	cliService, _, err := executeCommand(t, "service", "get", "user-account", "--domain", "identity.blumer.cloud", "--path", p, "--format", "json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var s1, s2 map[string]any
+	_ = json.Unmarshal([]byte(cliService), &s1)
+	_ = json.Unmarshal(getCLIHTTP(t, h, "/api/v1/domains/identity.blumer.cloud/services/user-account").Body.Bytes(), &s2)
+	if s1["name"] != s2["name"] || s1["domain"] != s2["domain"] {
+		t.Fatalf("service mismatch: %v %v", s1, s2)
+	}
+
+	cliGraph, _, err := executeCommand(t, "graph", "--path", p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restGraph := getCLIHTTP(t, h, "/api/v1/graph").Body.String(); cliGraph != restGraph {
+		t.Fatalf("graph mismatch\n%s\n%s", cliGraph, restGraph)
+	}
+
+	cliValidate, _, err := executeCommand(t, "validate", "--path", p, "--format", "json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(cliValidate) != strings.TrimSpace(getCLIHTTP(t, h, "/api/v1/validate").Body.String()) {
+		t.Fatalf("validate mismatch: %s", cliValidate)
+	}
+}
+
+func getCLIHTTP(t *testing.T, h http.Handler, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, path, nil))
+	return rr
+}
+
+func TestCLIJSONErrorsAndInvalidFormats(t *testing.T) {
+	p := createParityCosmos(t)
+	out, errOut, err := executeCommand(t, "domain", "get", "does-not-exist.example", "--path", p, "--format", "json")
+	if err == nil || !strings.Contains(out+errOut+err.Error(), "DOMAIN_NOT_FOUND") {
+		t.Fatalf("expected DOMAIN_NOT_FOUND, got out=%s errOut=%s err=%v", out, errOut, err)
+	}
+	out, errOut, err = executeCommand(t, "service", "get", "does-not-exist", "--domain", "identity.blumer.cloud", "--path", p, "--format", "json")
+	if err == nil || !strings.Contains(out+errOut+err.Error(), "SERVICE_NOT_FOUND") {
+		t.Fatalf("expected SERVICE_NOT_FOUND, got out=%s errOut=%s err=%v", out, errOut, err)
+	}
+	for _, args := range [][]string{{"cosmos", "info", "--path", p, "--format", "xml"}, {"domain", "list", "--path", p, "--format", "xml"}, {"validate", "--path", p, "--format", "xml"}} {
+		_, _, err := executeCommand(t, args...)
+		if err == nil || !strings.Contains(err.Error(), "INVALID_FORMAT") {
+			t.Fatalf("expected invalid format for %v, got %v", args, err)
+		}
+	}
+}

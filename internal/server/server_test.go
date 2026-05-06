@@ -125,3 +125,50 @@ func TestMissingCosmosStyledError(t *testing.T) {
 		t.Fatal()
 	}
 }
+
+func TestNamespaceTreeAPIAndContentTypes(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	jsonEndpoints := []string{"/api/v1/cosmos", "/api/v1/domains", "/api/v1/namespaces", "/api/v1/validate"}
+	for _, endpoint := range jsonEndpoints {
+		rr := get(h, endpoint)
+		if rr.Code != 200 {
+			t.Fatalf("%s status=%d", endpoint, rr.Code)
+		}
+		if !strings.Contains(rr.Header().Get("Content-Type"), "application/json") {
+			t.Fatalf("%s content-type=%s", endpoint, rr.Header().Get("Content-Type"))
+		}
+	}
+	graph := get(h, "/api/v1/graph")
+	if graph.Code != 200 || !strings.Contains(graph.Header().Get("Content-Type"), "text/plain") {
+		t.Fatalf("graph status=%d content-type=%s", graph.Code, graph.Header().Get("Content-Type"))
+	}
+
+	rr := get(h, "/api/v1/namespaces")
+	body := rr.Body.String()
+	hasAll(t, body, "cloud", "blumer", "identity", "platform", "user-account", "identity.blumer.cloud", "treePath", "displayPath")
+}
+
+func TestRESTDetailRoutesAndErrors(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	if rr := get(h, "/api/v1/domains/identity.blumer.cloud"); rr.Code != 200 {
+		t.Fatalf("domain status=%d", rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "cloud / blumer / identity", "user-account")
+	}
+	if rr := get(h, "/api/v1/domains/identity.blumer.cloud/services"); rr.Code != 200 {
+		t.Fatalf("services status=%d", rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "user-account")
+	}
+	if rr := get(h, "/api/v1/domains/identity.blumer.cloud/services/user-account"); rr.Code != 200 {
+		t.Fatalf("service status=%d", rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "identity.blumer.cloud", "user-account")
+	}
+	if rr := get(h, "/api/v1/domains/does-not-exist.example"); rr.Code != 404 || !strings.Contains(rr.Body.String(), "DOMAIN_NOT_FOUND") {
+		t.Fatalf("expected domain 404, got %d %s", rr.Code, rr.Body.String())
+	}
+	if rr := get(h, "/api/v1/domains/identity.blumer.cloud/services/does-not-exist"); rr.Code != 404 || !strings.Contains(rr.Body.String(), "SERVICE_NOT_FOUND") {
+		t.Fatalf("expected service 404, got %d %s", rr.Code, rr.Body.String())
+	}
+}

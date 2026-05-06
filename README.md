@@ -222,3 +222,34 @@ COSMOS_PATH=/tmp/nomos-demo NOMOS_BIN=./bin/nomos ./scripts/create-demo-cosmos.s
 ```
 
 Open `http://127.0.0.1:8080`.
+
+## CLI/REST parity and namespace display
+
+Nomos keeps canonical DNS-like domain names for storage, CLI arguments and REST routes, for example `identity.blumer.cloud` remains stored under `domains/identity.blumer.cloud/` and is addressed via `GET /api/v1/domains/identity.blumer.cloud`.
+
+For presentation, the shared namespace utilities also expose tree-oriented metadata: `identity.blumer.cloud` becomes `cloud / blumer / identity` with the tree key `cloud/blumer/identity` and leaf label `identity`. The Go Web UI `/domains` page uses this tree display while still showing the canonical namespace in the details pane.
+
+The read-only CLI and REST API now share the same DTOs and application use cases:
+
+| CLI command | REST endpoint |
+| --- | --- |
+| `nomos cosmos info --format json` | `GET /api/v1/cosmos` |
+| `nomos domain list --format json` | `GET /api/v1/domains` |
+| `nomos domain get <domain> --format json` | `GET /api/v1/domains/{domain}` |
+| `nomos service get <service> --domain <domain> --format json` | `GET /api/v1/domains/{domain}/services/{service}` |
+| `nomos graph` | `GET /api/v1/graph` |
+| `nomos validate --format json` | `GET /api/v1/validate` |
+| `nomos namespace tree --format json` | `GET /api/v1/namespaces` |
+
+Common JSON namespace metadata looks like:
+
+```json
+{
+  "canonical": "identity.blumer.cloud",
+  "treePath": "cloud/blumer/identity",
+  "displayPath": "cloud / blumer / identity",
+  "leaf": "identity"
+}
+```
+
+Shared read-side error codes include `COSMOS_MISSING`, `COSMOS_LOAD_FAILED`, `DOMAIN_NOT_FOUND`, `SERVICE_NOT_FOUND`, `VALIDATION_FAILED`, `INVALID_FORMAT`, `INVALID_NAMESPACE` and `INTERNAL_ERROR`.

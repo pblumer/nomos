@@ -242,3 +242,73 @@ make build
 COSMOS_PATH=/tmp/nomos-demo NOMOS_BIN=./bin/nomos ./scripts/create-demo-cosmos.sh
 ./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080
 ```
+
+---
+
+## CLI and REST API consistency
+
+The read-only CLI and REST API are adapters over the same internal application DTOs for Cosmos, domains, services, validation, graph output and namespace trees.
+
+| CLI command | REST endpoint |
+| --- | --- |
+| `nomos cosmos info --format json` | `GET /api/v1/cosmos` |
+| `nomos domain list --format json` | `GET /api/v1/domains` |
+| `nomos domain get <domain> --format json` | `GET /api/v1/domains/{domain}` |
+| `nomos service get <service> --domain <domain> --format json` | `GET /api/v1/domains/{domain}/services/{service}` |
+| `nomos graph` | `GET /api/v1/graph` |
+| `nomos graph --format json` | `GET /api/v1/graph?format=json` |
+| `nomos validate --format json` | `GET /api/v1/validate` |
+| `nomos namespace tree --format json` | `GET /api/v1/namespaces` |
+
+`--format` supports `text` and `json` where available. Invalid values return the shared `INVALID_FORMAT` error code.
+
+## Canonical namespaces and tree display
+
+Nomos keeps DNS-like domain identifiers as the canonical technical namespace:
+
+```text
+identity.blumer.cloud
+```
+
+The canonical name remains the filesystem and route identifier:
+
+```text
+domains/identity.blumer.cloud/
+domains/identity.blumer.cloud/services/user-account/
+GET /api/v1/domains/identity.blumer.cloud
+```
+
+For human presentation, explorer UIs and client navigation metadata reverse only the domain namespace into tree order:
+
+```text
+cloud / blumer / identity
+```
+
+Example namespace JSON metadata:
+
+```json
+{
+  "canonical": "identity.blumer.cloud",
+  "parts": ["identity", "blumer", "cloud"],
+  "treeParts": ["cloud", "blumer", "identity"],
+  "treePath": "cloud/blumer/identity",
+  "displayPath": "cloud / blumer / identity",
+  "leaf": "identity"
+}
+```
+
+Services are not reversed. They are displayed below their canonical domain leaf in namespace tree output.
+
+## Read-only API endpoints
+
+- `GET /api/v1/cosmos` returns Cosmos summary metadata and deterministic domain/service counts.
+- `GET /api/v1/domains` returns sorted domains with namespace metadata.
+- `GET /api/v1/domains/{domain}` returns one domain plus sorted services.
+- `GET /api/v1/domains/{domain}/services` returns the services for one canonical domain.
+- `GET /api/v1/domains/{domain}/services/{service}` returns one service.
+- `GET /api/v1/namespaces` returns the tree-oriented namespace representation rooted at the local Cosmos.
+- `GET /api/v1/graph` returns Mermaid as `text/plain` by default.
+- `GET /api/v1/graph?format=json` returns `{ "format": "mermaid", "content": "..." }`.
+- `GET /api/v1/validate` returns the validation DTO.
+
+Shared error codes include `COSMOS_MISSING`, `COSMOS_LOAD_FAILED`, `DOMAIN_NOT_FOUND`, `SERVICE_NOT_FOUND`, `VALIDATION_FAILED`, `INVALID_FORMAT`, `INVALID_NAMESPACE` and `INTERNAL_ERROR`.
