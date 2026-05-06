@@ -203,13 +203,12 @@ Recommended SemVer evolution:
 
 Pages: `/`, `/domains`, `/graph`, `/validate`.
 
-`/domains` is now an explorer-style tree view (Cosmos → Namespaces → Domains → Services) with a detail pane and contextual creation actions. For normal domain creation, select a parent node and enter only the new segment. Nomos composes the canonical namespace. Advanced mode allows full canonical input.
+`/domains` is now an explorer-style tree view (Cosmos → Domains → Services) with a detail pane and contextual creation actions. For normal domain creation, select a parent node and enter only the new segment. Nomos composes the canonical namespace. Advanced mode allows full canonical input.
 
 Example: selected parent `blumer.cloud`, new segment `test2`, created domain `test2.blumer.cloud`. The displayed tree path is `cloud / blumer / test2`.
 
 Selection can be deep-linked with query parameters:
 - `/domains`
-- `/domains?selected=namespace:cloud/blumer`
 - `/domains?selected=domain:identity.blumer.cloud`
 - `/domains?selected=service:identity.blumer.cloud/user-account`
 API: `/health`, `/api/v1/cosmos`, `/api/v1/domains`, `/api/v1/graph`, `/api/v1/validate`.

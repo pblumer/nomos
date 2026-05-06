@@ -22,7 +22,7 @@ type handler struct {
 }
 
 func NewHandler(cosmosPath string) http.Handler {
-	t := template.Must(template.New("web").Funcs(template.FuncMap{"dict": templateDict}).ParseFS(webFS, "web/templates/*.html"))
+	t := template.Must(template.New("web").ParseFS(webFS, "web/templates/*.html"))
 	staticFS := must(fs.Sub(webFS, "web/static"))
 	h := &handler{cosmosPath: cosmosPath, tmpl: t}
 	mux := http.NewServeMux()
@@ -52,16 +52,6 @@ func must[T any](v T, err error) T {
 		panic(err)
 	}
 	return v
-}
-
-func templateDict(values ...any) map[string]any {
-	out := map[string]any{}
-	for i := 0; i+1 < len(values); i += 2 {
-		if key, ok := values[i].(string); ok {
-			out[key] = values[i+1]
-		}
-	}
-	return out
 }
 
 func (h *handler) health(w http.ResponseWriter, r *http.Request) {
@@ -344,41 +334,24 @@ func (h *handler) routes(w http.ResponseWriter, r *http.Request) {
 }
 func (h *handler) formPost(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
+	if h.contextualFormPost(w, r) {
+		return
+	}
 	switch r.URL.Path {
-	case "/domains", "/domains/create", "/domains/create-top-level", "/domains/create-advanced":
-		canonical := first(r.FormValue("canonical"), r.FormValue("dns"), r.FormValue("domain"))
-		_, err := app.AddDomain(h.cosmosPath, canonical, r.FormValue("owner"), r.FormValue("force") != "")
+	case "/domains":
+		_, err := app.AddDomain(h.cosmosPath, r.FormValue("dns"), r.FormValue("owner"), r.FormValue("force") != "")
 		if err != nil {
-			h.renderDomainsPage(w, r, statusOf(err), domainFormState{Mode: first(r.FormValue("mode"), "top-level"), Error: err.Error(), Canonical: canonical, Owner: r.FormValue("owner"), Force: r.FormValue("force") != ""})
+			h.errorPage(w, r, statusOf(err), "Create domain failed", err.Error())
 			return
 		}
-		http.Redirect(w, r, "/domains?selected=domain:"+canonical, 303)
-	case "/domains/create-child":
-		parent := r.FormValue("parent")
-		segment := r.FormValue("segment")
-		dto, err := app.AddChildDomain(h.cosmosPath, parent, segment, r.FormValue("owner"), r.FormValue("force") != "")
+		http.Redirect(w, r, "/domains?selected=domain:"+r.FormValue("dns"), 303)
+	case "/services":
+		_, err := app.AddService(h.cosmosPath, r.FormValue("domain"), r.FormValue("name"), r.FormValue("owner"), r.FormValue("force") != "")
 		if err != nil {
-			h.renderDomainsPage(w, r, statusOf(err), domainFormState{Mode: "child", Error: err.Error(), Parent: parent, Segment: segment, Owner: r.FormValue("owner"), Force: r.FormValue("force") != ""})
-			return
-		}
-		http.Redirect(w, r, "/domains?selected=domain:"+dto.Canonical, 303)
-	case "/services", "/services/create":
-		domain := r.FormValue("domain")
-		name := r.FormValue("name")
-		_, err := app.AddService(h.cosmosPath, domain, name, r.FormValue("owner"), r.FormValue("force") != "")
-		if err != nil {
-			if r.URL.Path == "/services/create" {
-				h.renderDomainsPage(w, r, statusOf(err), domainFormState{Mode: "service", Error: err.Error(), Parent: domain, ServiceName: name, Owner: r.FormValue("owner"), Force: r.FormValue("force") != ""})
-				return
-			}
 			h.errorPage(w, r, statusOf(err), "Create service failed", err.Error())
 			return
 		}
-		if r.URL.Path == "/services/create" {
-			http.Redirect(w, r, "/domains?selected=service:"+domain+"/"+name, 303)
-			return
-		}
-		http.Redirect(w, r, "/services?domain="+domain+"&service="+name, 303)
+		http.Redirect(w, r, "/services?domain="+r.FormValue("domain")+"&service="+r.FormValue("name"), 303)
 	case "/verify":
 		_, err := app.VerifyDomain(r.Context(), h.cosmosPath, r.FormValue("domain"))
 		if err != nil {
@@ -415,21 +388,6 @@ func (h *handler) domainsPage(w http.ResponseWriter, r *http.Request) {
 	h.renderDomainsPage(w, r, http.StatusOK, domainFormState{})
 }
 
-func (h *handler) renderDomainsPage(w http.ResponseWriter, r *http.Request, status int, form domainFormState) {
-	ex, err := buildDomainsExplorer(h.cosmosPath, r.URL.Query().Get("selected"))
-	if err != nil {
-		h.errorPage(w, r, statusOf(err), "Domains unavailable", err.Error())
-		return
-	}
-	if form.Owner == "" {
-		form.Owner = "unknown"
-	}
-	ex.Form = form
-	if status != http.StatusOK {
-		w.WriteHeader(status)
-	}
-	h.page(w, "domains", map[string]any{"ActiveNav": "domains", "PageTitle": "Domains", "Explorer": ex})
-}
 func (h *handler) domainPage(w http.ResponseWriter, r *http.Request, domain string) {
 	d, err := app.GetDomain(h.cosmosPath, domain)
 	if err != nil {
