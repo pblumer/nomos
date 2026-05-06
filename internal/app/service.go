@@ -167,8 +167,7 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 			}
 		}
 		if idx == -1 {
-			treePath := strings.Join(d.Namespace.TreeParts[:i+1], "/")
-			child := NamespaceTreeNodeDTO{Label: label, Kind: kind, TreePath: treePath, DisplayPath: strings.ReplaceAll(treePath, "/", " / ")}
+			child := NamespaceTreeNodeDTO{Label: label, Kind: kind}
 			if kind == "domain" {
 				child.Canonical = d.Canonical
 				child.DisplayPath = d.Namespace.DisplayPath
@@ -323,7 +322,7 @@ func DoctorCosmos(path string) (DoctorDTO, error) {
 
 func AddDomain(path, dns, owner string, force bool) (DomainDTO, error) {
 	dns = namespace.Canonical(strings.TrimSpace(dns))
-	if dns == "" || !strings.Contains(dns, ".") || strings.ContainsAny(dns, `/\`) {
+	if dns == "" || !strings.Contains(dns, ".") || strings.ContainsAny(dns, `/\\`) {
 		return DomainDTO{}, Error(CodeInvalidNamespace, "Invalid domain name: "+dns, http.StatusBadRequest, nil)
 	}
 	if strings.TrimSpace(owner) == "" {
@@ -344,31 +343,6 @@ func AddDomain(path, dns, owner string, force bool) (DomainDTO, error) {
 		return DomainDTO{}, err
 	}
 	return GetDomain(path, dns)
-}
-
-func AddChildDomain(path, parentCanonicalName, segment, owner string, force bool) (DomainDTO, error) {
-	parent := namespace.Canonical(strings.TrimSpace(parentCanonicalName))
-	segment = strings.TrimSpace(segment)
-	if parent == "" || strings.ContainsAny(parent, `/\\`) || strings.Contains(parent, " ") || strings.HasPrefix(parent, ".") || strings.HasSuffix(parent, ".") {
-		return DomainDTO{}, Error(CodeInvalidNamespace, "Invalid parent domain: "+parent, http.StatusBadRequest, nil)
-	}
-	if !validDomainSegment(segment) {
-		return DomainDTO{}, Error(CodeInvalidNamespace, "Invalid segment. Use only the new segment, for example: test2", http.StatusBadRequest, nil)
-	}
-	return AddDomain(path, segment+"."+parent, owner, force)
-}
-
-func validDomainSegment(segment string) bool {
-	if segment == "" || strings.ContainsAny(segment, `. /\\`) || strings.HasPrefix(segment, "-") || strings.HasSuffix(segment, "-") {
-		return false
-	}
-	for _, r := range segment {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
-			continue
-		}
-		return false
-	}
-	return true
 }
 
 func AddService(path, domainName, name, owner string, force bool) (ServiceDTO, error) {

@@ -12,7 +12,7 @@ type domainTreePageData struct {
 	Title              string
 	Subtitle           string
 	Cosmos             cosmosSummaryView
-	NamespaceTree      app.NamespaceTreeDTO
+	NamespaceTree      namespaceTreeView
 	SelectedKind       string
 	SelectedDomain     *domainDetailView
 	SelectedService    *serviceDetailView
@@ -25,6 +25,15 @@ type domainTreePageData struct {
 type domainFormState struct {
 	Mode, Error, Parent, Segment, Owner, Canonical, ServiceName string
 	Force                                                       bool
+}
+
+type namespaceTreeView struct{ Root namespaceNodeView }
+type namespaceNodeView struct {
+	Label, Kind, Canonical, DisplayPath, TreePath string
+	Domain                                        *app.DomainDTO
+	Service                                       *app.ServiceDTO
+	Children                                      []namespaceNodeView
+	Selected                                      bool
 }
 
 type cosmosSummaryView struct {
@@ -57,13 +66,13 @@ func buildDomainsExplorer(path, selected string) (domainTreePageData, error) {
 	if err != nil {
 		return domainTreePageData{}, err
 	}
-	nsTree, err := app.BuildNamespaceTree(path)
+	appTree, err := app.BuildNamespaceTree(path)
 	if err != nil {
 		return domainTreePageData{}, err
 	}
-	view := domainTreePageData{Title: "Domains Explorer", Subtitle: "Browse domains and services like a repository tree", NamespaceTree: nsTree}
-	view.Cosmos = cosmosSummaryView{Name: fallback(cosmos.Name, "Local Cosmos"), ID: fallback(cosmos.ID, "n/a"), Version: fallback(cosmos.Version, "n/a"), Status: fallback(cosmos.Status, "unknown"), Owner: fallback(cosmos.Owner, "unknown"), Path: cosmos.Path, DomainCount: cosmos.DomainCount, ServiceCount: cosmos.ServiceCount, Link: "/domains?selected=cosmos"}
 	kind, domainName, serviceName := parseSelection(selected)
+	view := domainTreePageData{Title: "Domains Explorer", Subtitle: "Browse domains and services like a repository tree", NamespaceTree: namespaceTreeView{Root: namespaceNodeFromDTO(appTree.Root, "", kind, domainName, serviceName)}}
+	view.Cosmos = cosmosSummaryView{Name: fallback(cosmos.Name, "Local Cosmos"), ID: fallback(cosmos.ID, "n/a"), Version: fallback(cosmos.Version, "n/a"), Status: fallback(cosmos.Status, "unknown"), Owner: fallback(cosmos.Owner, "unknown"), Path: cosmos.Path, DomainCount: cosmos.DomainCount, ServiceCount: cosmos.ServiceCount, Link: "/domains?selected=cosmos"}
 	knownSelection := false
 	if kind == "domain" {
 		d, err := app.GetDomain(path, domainName)
@@ -93,8 +102,43 @@ func buildDomainsExplorer(path, selected string) (domainTreePageData, error) {
 	}
 	view.SelectedKind = kind
 	view.SelectedDisplayKey = selected
-	markSelection(&view.NamespaceTree.Root, kind, domainName, serviceName)
 	return view, nil
+}
+
+func namespaceNodeFromDTO(n app.NamespaceTreeNodeDTO, parentTreePath, selectedKind, selectedDomain, selectedService string) namespaceNodeView {
+	v := namespaceNodeView{Label: n.Label, Kind: n.Kind, Canonical: n.Canonical, DisplayPath: n.DisplayPath, TreePath: n.TreePath, Domain: n.Domain, Service: n.Service}
+	if n.Kind == "namespace" {
+		v.TreePath = joinTreePath(parentTreePath, n.Label)
+		v.DisplayPath = strings.ReplaceAll(v.TreePath, "/", " / ")
+		v.Canonical = canonicalFromTreePath(v.TreePath)
+	}
+	switch selectedKind {
+	case "domain":
+		v.Selected = v.Kind == "domain" && v.Canonical == selectedDomain
+	case "service":
+		v.Selected = v.Kind == "service" && v.Canonical == selectedDomain+"/"+selectedService
+	case "namespace":
+		v.Selected = v.Kind == "namespace" && v.TreePath == selectedDomain
+	}
+	childParent := v.TreePath
+	for _, child := range n.Children {
+		v.Children = append(v.Children, namespaceNodeFromDTO(child, childParent, selectedKind, selectedDomain, selectedService))
+	}
+	return v
+}
+
+func joinTreePath(parent, label string) string {
+	if parent == "" {
+		return label
+	}
+	return parent + "/" + label
+}
+func canonicalFromTreePath(treePath string) string {
+	parts := strings.Split(treePath, "/")
+	for i, j := 0, len(parts)-1; i < j; i, j = i+1, j-1 {
+		parts[i], parts[j] = parts[j], parts[i]
+	}
+	return strings.Join(parts, ".")
 }
 
 func domainDetail(d app.DomainDTO) *domainDetailView {
@@ -108,31 +152,11 @@ func serviceDetail(s app.ServiceDTO) serviceDetailView {
 	return serviceDetailView{Name: s.Name, Domain: s.Domain, Owner: s.Owner, Status: s.Status, Path: s.Path, PageLink: fmt.Sprintf("/services/%s/%s", s.Domain, s.Name)}
 }
 
-func markSelection(n *app.NamespaceTreeNodeDTO, kind, domain, service string) {
-	n.Selected = false
-	switch kind {
-	case "domain":
-		n.Selected = n.Kind == "domain" && n.Canonical == domain
-	case "service":
-		n.Selected = n.Kind == "service" && n.Canonical == domain+"/"+service
-	case "namespace":
-		n.Selected = n.Kind == "namespace" && n.TreePath == domain
-	}
-	for i := range n.Children {
-		markSelection(&n.Children[i], kind, domain, service)
-	}
-}
-
-func findNamespace(n *app.NamespaceTreeNodeDTO, treePath string) *namespaceDetailView {
+func findNamespace(n *namespaceNodeView, treePath string) *namespaceDetailView {
 	for i := range n.Children {
 		c := &n.Children[i]
 		if c.Kind == "namespace" && c.TreePath == treePath {
-			parts := strings.Split(treePath, "/")
-			for i, j := 0, len(parts)-1; i < j; i, j = i+1, j-1 {
-				parts[i], parts[j] = parts[j], parts[i]
-			}
-			canonical := strings.Join(parts, ".")
-			return &namespaceDetailView{Label: c.Label, Canonical: canonical, DisplayPath: strings.ReplaceAll(treePath, "/", " / "), TreePath: treePath}
+			return &namespaceDetailView{Label: c.Label, Canonical: c.Canonical, DisplayPath: c.DisplayPath, TreePath: c.TreePath}
 		}
 		if found := findNamespace(c, treePath); found != nil {
 			return found

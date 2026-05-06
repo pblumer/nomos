@@ -75,7 +75,6 @@ type NamespaceTreeNodeDTO struct {
 	Domain      *DomainDTO             `json:"domain,omitempty"`
 	Service     *ServiceDTO            `json:"service,omitempty"`
 	Children    []NamespaceTreeNodeDTO `json:"children,omitempty"`
-	Selected    bool                   `json:"selected,omitempty"`
 }
 
 type RequiredServiceRefDTO struct {
