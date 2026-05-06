@@ -436,3 +436,42 @@ func VerifyDomain(ctx context.Context, path, dns string) (VerificationEvidenceDT
 	}
 	return ev, nil
 }
+
+func CreateBlueprint(path string, bp model.Blueprint) error {
+	if _, err := os.Stat(filepath.Join(path, "cosmos.yaml")); err != nil {
+		return Error(CodeCosmosMissing, "cosmos.yaml not found", http.StatusNotFound, err)
+	}
+	if strings.TrimSpace(bp.ID) == "" {
+		return Error(CodeInvalidInput, "Blueprint ID is required", http.StatusBadRequest, nil)
+	}
+	if bp.Type != "product_blueprint" && bp.Type != "service_blueprint" {
+		return Error(CodeInvalidInput, "Blueprint type must be product_blueprint or service_blueprint", http.StatusBadRequest, nil)
+	}
+
+	existing, err := ListBlueprints(path)
+	if err != nil {
+		return err
+	}
+	for _, b := range existing.Blueprints {
+		if b.ID == bp.ID {
+			return Error(CodeBlueprintAlreadyExists, "Blueprint already exists: "+bp.ID, http.StatusConflict, nil)
+		}
+	}
+
+	var subdir string
+	if bp.Type == "product_blueprint" {
+		subdir = "products"
+	} else {
+		subdir = "services"
+	}
+	dir := filepath.Join(path, "catalog", "blueprints", subdir)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return Error(CodeInternalError, "Failed to create blueprint directory: "+err.Error(), http.StatusInternalServerError, err)
+	}
+
+	filePath := filepath.Join(dir, bp.ID+".yaml")
+	if err := fsx.WriteYAML(filePath, bp); err != nil {
+		return Error(CodeInternalError, "Failed to write blueprint: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return nil
+}

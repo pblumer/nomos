@@ -13,10 +13,12 @@ const (
 	CodeServiceNotFound   = "SERVICE_NOT_FOUND"
 	CodeBlueprintNotFound = "BLUEPRINT_NOT_FOUND"
 	CodeInstanceNotFound  = "INSTANCE_NOT_FOUND"
-	CodeValidationFailed  = "VALIDATION_FAILED"
-	CodeInvalidFormat     = "INVALID_FORMAT"
-	CodeInvalidNamespace  = "INVALID_NAMESPACE"
-	CodeInternalError     = "INTERNAL_ERROR"
+	CodeValidationFailed      = "VALIDATION_FAILED"
+	CodeInvalidFormat         = "INVALID_FORMAT"
+	CodeInvalidNamespace      = "INVALID_NAMESPACE"
+	CodeInternalError         = "INTERNAL_ERROR"
+	CodeInvalidInput          = "INVALID_INPUT"
+	CodeBlueprintAlreadyExists = "BLUEPRINT_ALREADY_EXISTS"
 )
 
 type AppError struct {

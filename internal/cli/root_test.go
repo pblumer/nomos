@@ -674,6 +674,46 @@ required_services:
 	}
 }
 
+func TestBlueprintCreateCLI(t *testing.T) {
+	p := t.TempDir()
+	_, _, _ = executeCommand(t, "cosmos", "init", p)
+
+	out, _, err := executeCommand(t, "blueprint", "create", "--path", p,
+		"--id", "PB-CLI-001",
+		"--type", "product_blueprint",
+		"--name", "CLI Product",
+		"--version", "0.2.0",
+		"--status", "draft",
+		"--owner", "CLI Team",
+		"--summary", "Created via CLI",
+		"--service-ref", "identity.blumer.cloud/user-account",
+		"--service-blueprint-ref", "SB-ACC-001",
+	)
+	if err != nil {
+		t.Fatalf("blueprint create failed: %v\nstdout: %s", err, out)
+	}
+	if !strings.Contains(out, "PB-CLI-001") {
+		t.Fatalf("expected blueprint ID in output: %s", out)
+	}
+
+	out, _, err = executeCommand(t, "blueprint", "show", "PB-CLI-001", "--path", p)
+	if err != nil {
+		t.Fatalf("blueprint show after create failed: %v", err)
+	}
+	if !strings.Contains(out, "CLI Product") {
+		t.Fatalf("expected blueprint name in show output: %s", out)
+	}
+
+	_, _, err = executeCommand(t, "blueprint", "create", "--path", p,
+		"--id", "PB-CLI-001",
+		"--type", "product_blueprint",
+		"--name", "Duplicate",
+	)
+	if err == nil {
+		t.Fatal("expected duplicate ID error")
+	}
+}
+
 func mustWriteCLI(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

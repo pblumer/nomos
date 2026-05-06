@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/nomos/nomos/internal/app"
+	"github.com/nomos/nomos/internal/model"
 	versionpkg "github.com/nomos/nomos/internal/version"
 )
 
@@ -170,6 +171,19 @@ func (h *handler) apiValidate(w http.ResponseWriter, r *http.Request) {
 func (h *handler) apiBlueprints(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/api/v1/blueprints" && r.URL.Path != "/api/blueprints" {
 		http.NotFound(w, r)
+		return
+	}
+	if r.Method == http.MethodPost {
+		var bp model.Blueprint
+		if err := json.NewDecoder(r.Body).Decode(&bp); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+			return
+		}
+		if err := app.CreateBlueprint(h.cosmosPath, bp); err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, bp)
 		return
 	}
 	dto, err := app.ListBlueprints(h.cosmosPath)

@@ -311,7 +311,57 @@ func blueprintCmd() *cobra.Command {
 	}}
 	show.Flags().String("path", ".", "Path to the Cosmos repository")
 	show.Flags().String("format", "text", "Output format: text or json")
-	c.AddCommand(list, show)
+
+	create := &cobra.Command{Use: "create", RunE: func(cmd *cobra.Command, args []string) error {
+		p, _ := cmd.Flags().GetString("path")
+		id, _ := cmd.Flags().GetString("id")
+		bpType, _ := cmd.Flags().GetString("type")
+		name, _ := cmd.Flags().GetString("name")
+		version, _ := cmd.Flags().GetString("version")
+		status, _ := cmd.Flags().GetString("status")
+		owner, _ := cmd.Flags().GetString("owner")
+		summary, _ := cmd.Flags().GetString("summary")
+		serviceRef, _ := cmd.Flags().GetString("service-ref")
+		serviceBlueprintRef, _ := cmd.Flags().GetString("service-blueprint-ref")
+
+		if id == "" || name == "" {
+			return fmt.Errorf("--id and --name are required")
+		}
+
+		bp := model.Blueprint{
+			ID:      id,
+			Type:    bpType,
+			Name:    name,
+			Version: version,
+			Status:  status,
+			Owner:   owner,
+			Summary: summary,
+		}
+		if serviceRef != "" && serviceBlueprintRef != "" {
+			bp.RequiredServices = []model.RequiredServiceRef{
+				{ServiceRef: serviceRef, ServiceBlueprintRef: serviceBlueprintRef, Required: true},
+			}
+			bp.RequiredServiceBlueprints = []string{serviceBlueprintRef}
+		}
+
+		if err := app.CreateBlueprint(p, bp); err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "Blueprint created: %s\n", id)
+		return nil
+	}}
+	create.Flags().String("path", ".", "Path to the Cosmos repository")
+	create.Flags().String("id", "", "Blueprint ID (required)")
+	create.Flags().String("type", "product_blueprint", "Blueprint type: product_blueprint or service_blueprint")
+	create.Flags().String("name", "", "Blueprint name (required)")
+	create.Flags().String("version", "0.1.0", "Version")
+	create.Flags().String("status", "draft", "Status")
+	create.Flags().String("owner", "", "Owner")
+	create.Flags().String("summary", "", "Summary")
+	create.Flags().String("service-ref", "", "Namespace service reference")
+	create.Flags().String("service-blueprint-ref", "", "Service blueprint reference")
+
+	c.AddCommand(list, show, create)
 	return c
 }
 

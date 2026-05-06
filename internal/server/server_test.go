@@ -249,6 +249,19 @@ func postForm(h http.Handler, path, body string) *httptest.ResponseRecorder {
 	h.ServeHTTP(rr, req)
 	return rr
 }
+func postJSON(h http.Handler, path, body string) *httptest.ResponseRecorder {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(rr, req)
+	return rr
+}
+func mustMkdir(t *testing.T, path string) {
+	t.Helper()
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestCreateDomainAndService(t *testing.T) {
 	p := createTestCosmos(t)
@@ -273,5 +286,31 @@ func TestCreateDomainAndService(t *testing.T) {
 	}
 	if rr := get(h, "/services?domain=example.com"); rr.Code != 200 || !strings.Contains(rr.Body.String(), "web-ui") {
 		t.Fatalf("service page status=%d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestAPIBlueprintsPOST(t *testing.T) {
+	p := t.TempDir()
+	if err := os.WriteFile(filepath.Join(p, "cosmos.yaml"), []byte("id: c\nname: C\n"), 0o644); err != nil { t.Fatal(err) }
+	mustMkdir(t, filepath.Join(p, "catalog", "blueprints", "products"))
+	mustMkdir(t, filepath.Join(p, "catalog", "blueprints", "services"))
+	h := NewHandler(p)
+
+	body := `{"id":"PB-API-001","type":"product_blueprint","name":"API Blueprint","version":"0.1.0","status":"draft","owner":"API Team","summary":"Created via API"}`
+	rr := postJSON(h, "/api/v1/blueprints", body)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// Verify via GET
+	rr = get(h, "/api/v1/blueprints/PB-API-001")
+	if rr.Code != 200 || !strings.Contains(rr.Body.String(), "API Blueprint") {
+		t.Fatalf("blueprint get after post failed: %d %s", rr.Code, rr.Body.String())
+	}
+
+	// Duplicate should fail
+	rr = postJSON(h, "/api/v1/blueprints", body)
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("expected 409 for duplicate, got %d", rr.Code)
 	}
 }
