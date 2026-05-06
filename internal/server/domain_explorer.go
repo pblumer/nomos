@@ -16,8 +16,15 @@ type domainTreePageData struct {
 	SelectedKind       string
 	SelectedDomain     *domainDetailView
 	SelectedService    *serviceDetailView
+	SelectedNamespace  *namespaceDetailView
 	SelectedCosmos     *cosmosSummaryView
 	SelectedDisplayKey string
+	Form               domainFormState
+}
+
+type domainFormState struct {
+	Mode, Error, Parent, Segment, Owner, Canonical, ServiceName string
+	Force                                                       bool
 }
 
 type cosmosSummaryView struct {
@@ -25,6 +32,7 @@ type cosmosSummaryView struct {
 	DomainCount, ServiceCount                    int
 	Selected                                     bool
 }
+type namespaceDetailView struct{ Label, Canonical, DisplayPath, TreePath string }
 type domainTreeNodeView struct {
 	Name, Owner, Status, Path string
 	ServiceCount              int
@@ -72,6 +80,12 @@ func buildDomainsExplorer(path, selected string) (domainTreePageData, error) {
 			knownSelection = true
 		}
 	}
+	if kind == "namespace" {
+		if ns := findNamespace(&view.NamespaceTree.Root, domainName); ns != nil {
+			view.SelectedNamespace = ns
+			knownSelection = true
+		}
+	}
 	if kind == "cosmos" || !knownSelection {
 		view.Cosmos.Selected = true
 		kind = "cosmos"
@@ -95,9 +109,36 @@ func serviceDetail(s app.ServiceDTO) serviceDetailView {
 }
 
 func markSelection(n *app.NamespaceTreeNodeDTO, kind, domain, service string) {
+	n.Selected = false
+	switch kind {
+	case "domain":
+		n.Selected = n.Kind == "domain" && n.Canonical == domain
+	case "service":
+		n.Selected = n.Kind == "service" && n.Canonical == domain+"/"+service
+	case "namespace":
+		n.Selected = n.Kind == "namespace" && n.TreePath == domain
+	}
 	for i := range n.Children {
 		markSelection(&n.Children[i], kind, domain, service)
 	}
+}
+
+func findNamespace(n *app.NamespaceTreeNodeDTO, treePath string) *namespaceDetailView {
+	for i := range n.Children {
+		c := &n.Children[i]
+		if c.Kind == "namespace" && c.TreePath == treePath {
+			parts := strings.Split(treePath, "/")
+			for i, j := 0, len(parts)-1; i < j; i, j = i+1, j-1 {
+				parts[i], parts[j] = parts[j], parts[i]
+			}
+			canonical := strings.Join(parts, ".")
+			return &namespaceDetailView{Label: c.Label, Canonical: canonical, DisplayPath: strings.ReplaceAll(treePath, "/", " / "), TreePath: treePath}
+		}
+		if found := findNamespace(c, treePath); found != nil {
+			return found
+		}
+	}
+	return nil
 }
 
 func parseSelection(value string) (kind, domain, service string) {
@@ -108,6 +149,12 @@ func parseSelection(value string) (kind, domain, service string) {
 		d := strings.TrimPrefix(value, "domain:")
 		if d != "" && !strings.Contains(d, "/") {
 			return "domain", d, ""
+		}
+	}
+	if strings.HasPrefix(value, "namespace:") {
+		n := strings.Trim(strings.TrimPrefix(value, "namespace:"), "/")
+		if n != "" && filepath.Clean(n) == n {
+			return "namespace", n, ""
 		}
 	}
 	if strings.HasPrefix(value, "service:") {

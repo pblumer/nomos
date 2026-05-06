@@ -72,6 +72,16 @@ Prüft Basiszustand:
 
 ## `nomos domain`
 
+The CLI keeps the existing explicit canonical-name workflow. In the web UI, normal domain creation is more guided: select a parent node and enter only the new segment. Nomos composes the canonical namespace. Advanced mode allows full canonical input.
+
+Example web flow:
+
+```text
+Selected parent: blumer.cloud
+New segment: test2
+Created domain: test2.blumer.cloud
+```
+
 ### `nomos domain add <dns>`
 Erzeugt eine Domain unter `domains/<dns>/`.
 
@@ -96,6 +106,8 @@ Flag: `--path` (Default: `.`).
 ---
 
 ## `nomos service`
+
+The CLI keeps the explicit `--domain` flag. In the web UI, service creation is contextual: select a domain, choose **Add service**, enter the service name, and review the resulting `domain / services / name` preview.
 
 ### `nomos service add <name> --domain <dns>`
 Erzeugt einen Service unter `domains/<dns>/services/<name>/`.

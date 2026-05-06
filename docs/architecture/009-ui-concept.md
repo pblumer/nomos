@@ -75,4 +75,20 @@ The global navigation contains Dashboard, Cosmos, Domains, Services, Blueprints,
 
 - Doctor checks are application-layer page data and do not yet have a dedicated `/api/v1/doctor` endpoint.
 - Verification evidence is visible on `/verify`; a stable read API for all evidence can be added later.
-- The UI remains deliberately lightweight and uses only small progressive-enhancement JavaScript for copy and filter interactions.
+- The UI remains deliberately lightweight and uses only small progressive-enhancement JavaScript for copy, filter, and form preview interactions.
+
+### Domain and service creation UX
+
+The Domains page follows a repository/namespace-explorer model: select a node, inspect its details, create below it, preview the result, and confirm safely. The structure is not typed manually during normal work; it is composed from a selected parent plus a new segment.
+
+For normal domain creation, select a parent node and enter only the new segment. Nomos composes the canonical namespace. Advanced mode allows full canonical input.
+
+Example:
+
+```text
+Selected parent: blumer.cloud
+New segment: test2
+Created domain: test2.blumer.cloud
+```
+
+The page distinguishes namespace grouping nodes from persisted domain artifacts with visible badges. Domain artifacts expose contextual actions such as **Add child domain**, **Add service**, **Open domain page**, and **Copy canonical name**. Namespace grouping nodes explain that they are grouping nodes and allow child-domain creation below that namespace. Top-level domain creation is a separate action on the page/root panel.
