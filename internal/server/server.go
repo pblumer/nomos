@@ -44,6 +44,11 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/blueprints/", h.apiBlueprintRoutes)
 	mux.HandleFunc("/api/instances", h.apiInstances)
 	mux.HandleFunc("/api/instances/", h.apiInstanceRoutes)
+	mux.HandleFunc("/domains/create", h.createTopLevelDomainPage)
+	mux.HandleFunc("/domains/create-top-level", h.createTopLevelDomainPage)
+	mux.HandleFunc("/domains/create-advanced", h.createTopLevelDomainPage)
+	mux.HandleFunc("/domains/create-child", h.createChildDomainPage)
+	mux.HandleFunc("/services/create", h.createServicePage)
 	mux.HandleFunc("/", h.routes)
 	return mux
 }
@@ -334,9 +339,6 @@ func (h *handler) routes(w http.ResponseWriter, r *http.Request) {
 }
 func (h *handler) formPost(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
-	if h.contextualFormPost(w, r) {
-		return
-	}
 	switch r.URL.Path {
 	case "/domains":
 		_, err := app.AddDomain(h.cosmosPath, r.FormValue("dns"), r.FormValue("owner"), r.FormValue("force") != "")
@@ -385,9 +387,13 @@ func (h *handler) cosmosPage(w http.ResponseWriter, r *http.Request) {
 	h.page(w, "cosmos", map[string]any{"ActiveNav": "cosmos", "PageTitle": "Cosmos", "Cosmos": co, "Doctor": doc})
 }
 func (h *handler) domainsPage(w http.ResponseWriter, r *http.Request) {
-	h.renderDomainsPage(w, r, http.StatusOK, domainFormState{})
+	ex, err := buildDomainsExplorer(h.cosmosPath, r.URL.Query().Get("selected"))
+	if err != nil {
+		h.errorPage(w, r, statusOf(err), "Domains unavailable", err.Error())
+		return
+	}
+	h.page(w, "domains", map[string]any{"ActiveNav": "domains", "PageTitle": "Domains", "Explorer": ex})
 }
-
 func (h *handler) domainPage(w http.ResponseWriter, r *http.Request, domain string) {
 	d, err := app.GetDomain(h.cosmosPath, domain)
 	if err != nil {

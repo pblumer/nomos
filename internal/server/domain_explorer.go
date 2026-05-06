@@ -18,12 +18,6 @@ type domainTreePageData struct {
 	SelectedService    *serviceDetailView
 	SelectedCosmos     *cosmosSummaryView
 	SelectedDisplayKey string
-	Form               domainFormState
-}
-
-type domainFormState struct {
-	Mode, Error, Parent, Segment, Owner, Canonical, ServiceName string
-	Force                                                       bool
 }
 
 type cosmosSummaryView struct {
