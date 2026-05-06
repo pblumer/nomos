@@ -130,3 +130,14 @@ func TestAddChildDomainRejectsFullOrInvalidSegment(t *testing.T) {
 		}
 	}
 }
+
+func TestAddDomainPreservesFullCanonicalInputBehavior(t *testing.T) {
+	p := createAppTestCosmos(t)
+	d, err := AddDomain(p, "Team.Example", "Legacy", false)
+	if err != nil {
+		t.Fatalf("AddDomain should preserve full canonical input behavior: %v", err)
+	}
+	if d.Canonical != "Team.Example" {
+		t.Fatalf("got %q", d.Canonical)
+	}
+}

@@ -323,7 +323,7 @@ func DoctorCosmos(path string) (DoctorDTO, error) {
 
 func AddDomain(path, dns, owner string, force bool) (DomainDTO, error) {
 	dns = namespace.Canonical(strings.TrimSpace(dns))
-	if !validCanonicalDomain(dns) {
+	if dns == "" || !strings.Contains(dns, ".") || strings.ContainsAny(dns, `/\`) {
 		return DomainDTO{}, Error(CodeInvalidNamespace, "Invalid domain name: "+dns, http.StatusBadRequest, nil)
 	}
 	if strings.TrimSpace(owner) == "" {
@@ -356,18 +356,6 @@ func AddChildDomain(path, parentCanonicalName, segment, owner string, force bool
 		return DomainDTO{}, Error(CodeInvalidNamespace, "Invalid segment. Use only the new segment, for example: test2", http.StatusBadRequest, nil)
 	}
 	return AddDomain(path, segment+"."+parent, owner, force)
-}
-
-func validCanonicalDomain(name string) bool {
-	if name == "" || !strings.Contains(name, ".") || strings.ContainsAny(name, `/\\`) || strings.Contains(name, " ") || strings.HasPrefix(name, ".") || strings.HasSuffix(name, ".") {
-		return false
-	}
-	for _, part := range strings.Split(name, ".") {
-		if !validDomainSegment(part) {
-			return false
-		}
-	}
-	return true
 }
 
 func validDomainSegment(segment string) bool {
