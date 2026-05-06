@@ -203,7 +203,10 @@ Recommended SemVer evolution:
 
 Pages: `/`, `/domains`, `/graph`, `/validate`.
 
-`/domains` is now an explorer-style tree view (Cosmos → Domains → Services) with a detail pane.
+`/domains` is now an explorer-style tree view (Cosmos → Domains → Services) with a detail pane and contextual creation actions. For normal domain creation, select a parent node and enter only the new segment. Nomos composes the canonical namespace. Advanced mode allows full canonical input.
+
+Example: selected parent `blumer.cloud`, new segment `test2`, created domain `test2.blumer.cloud`. The displayed tree path is `cloud / blumer / test2`.
+
 Selection can be deep-linked with query parameters:
 - `/domains`
 - `/domains?selected=domain:identity.blumer.cloud`
@@ -270,4 +273,4 @@ Nomos now includes a server-rendered Go web UI for browsing and managing a local
 ./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080
 ```
 
-The UI exposes a dashboard, Cosmos doctor checks, domain and service explorers, namespace tree, Mermaid graph, validation findings, verification evidence, blueprint browsing, instance browsing, and an API index. Domain and service creation are supported through small forms and the matching API endpoints; verification writes the same `.nomos/evidence` files as the CLI. All data remains file-first and Git-first in the selected Cosmos path.
+The UI exposes a dashboard, Cosmos doctor checks, domain and service explorers, namespace tree, Mermaid graph, validation findings, verification evidence, blueprint browsing, instance browsing, and an API index. Domain and service creation are supported through contextual forms and the matching API endpoints; verification writes the same `.nomos/evidence` files as the CLI. On `/domains`, normal creation is guided by the selected tree node: select a parent domain or namespace, choose **Add child domain**, enter only a segment such as `test2`, and review the live canonical preview before submitting. Creating a new top-level domain remains available from the page header/root panel, while **Advanced: create by canonical name** remains available for power users who intentionally want to type the full canonical namespace. All data remains file-first and Git-first in the selected Cosmos path.

@@ -291,7 +291,9 @@ func TestCreateDomainAndService(t *testing.T) {
 
 func TestAPIBlueprintsPOST(t *testing.T) {
 	p := t.TempDir()
-	if err := os.WriteFile(filepath.Join(p, "cosmos.yaml"), []byte("id: c\nname: C\n"), 0o644); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(p, "cosmos.yaml"), []byte("id: c\nname: C\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	mustMkdir(t, filepath.Join(p, "catalog", "blueprints", "products"))
 	mustMkdir(t, filepath.Join(p, "catalog", "blueprints", "services"))
 	h := NewHandler(p)

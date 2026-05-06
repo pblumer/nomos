@@ -44,6 +44,11 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/blueprints/", h.apiBlueprintRoutes)
 	mux.HandleFunc("/api/instances", h.apiInstances)
 	mux.HandleFunc("/api/instances/", h.apiInstanceRoutes)
+	mux.HandleFunc("/domains/create", h.createTopLevelDomainPage)
+	mux.HandleFunc("/domains/create-top-level", h.createTopLevelDomainPage)
+	mux.HandleFunc("/domains/create-advanced", h.createTopLevelDomainPage)
+	mux.HandleFunc("/domains/create-child", h.createChildDomainPage)
+	mux.HandleFunc("/services/create", h.createServicePage)
 	mux.HandleFunc("/", h.routes)
 	return mux
 }
