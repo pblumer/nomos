@@ -121,15 +121,28 @@ func cosmosCmd() *cobra.Command {
 		if p == "" {
 			p = "."
 		}
-		if _, e := os.Stat(filepath.Join(p, "cosmos.yaml")); e != nil {
-			fmt.Fprintln(cmd.OutOrStdout(), "ERROR cosmos.yaml fehlt")
-			return fmt.Errorf("cosmos.yaml fehlt")
+		doc, err := app.DoctorCosmos(p)
+		if err != nil {
+			return err
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), "OK cosmos.yaml gefunden")
-		if _, e := os.Stat(filepath.Join(p, ".git")); e != nil {
-			fmt.Fprintln(cmd.OutOrStdout(), "WARNING Git Repository nicht initialisiert")
-		} else {
-			fmt.Fprintln(cmd.OutOrStdout(), "OK Git Repository gefunden")
+		for _, check := range doc.Checks {
+			switch check.Name {
+			case "cosmos.yaml":
+				if check.Status == "ok" {
+					fmt.Fprintln(cmd.OutOrStdout(), "OK cosmos.yaml gefunden")
+				} else {
+					fmt.Fprintln(cmd.OutOrStdout(), "ERROR cosmos.yaml fehlt")
+				}
+			case "git repository":
+				if check.Status == "ok" {
+					fmt.Fprintln(cmd.OutOrStdout(), "OK Git Repository gefunden")
+				} else {
+					fmt.Fprintln(cmd.OutOrStdout(), "WARNING Git Repository nicht initialisiert")
+				}
+			}
+		}
+		if doc.Status == "error" {
+			return fmt.Errorf("cosmos doctor failed")
 		}
 		return nil
 	}}
@@ -142,27 +155,10 @@ func domainCmd() *cobra.Command {
 	c := &cobra.Command{Use: "domain"}
 	var force bool
 	add := &cobra.Command{Use: "add <dns>", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
-		dns := args[0]
-		if !strings.Contains(dns, ".") {
-			return fmt.Errorf("ungueltiger DNS Name")
-		}
 		p, _ := cmd.Flags().GetString("path")
 		owner, _ := cmd.Flags().GetString("owner")
-		ddir := filepath.Join(p, "domains", dns)
-		if _, e := os.Stat(ddir); e == nil && !force {
-			return fmt.Errorf("Domain existiert bereits")
-		}
-		if err := os.MkdirAll(filepath.Join(ddir, "services"), 0o755); err != nil {
-			return err
-		}
-		d := model.Domain{ID: "domain-" + strings.ReplaceAll(dns, ".", "-"), Type: "domain", Name: dns, Version: "0.1.0", Status: "draft", Owner: owner, DNSName: dns, Summary: "Nomos Domaene " + dns + "."}
-		if err := fsx.WriteYAML(filepath.Join(ddir, "domain.yaml"), d); err != nil {
-			return err
-		}
-		if err := os.WriteFile(filepath.Join(ddir, "README.md"), []byte("# Domain\n"), 0o644); err != nil {
-			return err
-		}
-		return nil
+		_, err := app.AddDomain(p, args[0], owner, force)
+		return err
 	}}
 	add.Flags().String("path", ".", "")
 	add.Flags().String("owner", "unknown", "")
@@ -216,27 +212,11 @@ func serviceCmd() *cobra.Command {
 	c := &cobra.Command{Use: "service"}
 	var force bool
 	add := &cobra.Command{Use: "add <name>", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
-		name := args[0]
 		dom, _ := cmd.Flags().GetString("domain")
 		p, _ := cmd.Flags().GetString("path")
 		owner, _ := cmd.Flags().GetString("owner")
-		sdir := filepath.Join(p, "domains", dom, "services", name)
-		if _, e := os.Stat(sdir); e == nil && !force {
-			return fmt.Errorf("Service existiert bereits")
-		}
-		for _, d := range []string{"capabilities", "requirements", "rules", "processes", "skills", "findings", "evidence"} {
-			if err := os.MkdirAll(filepath.Join(sdir, d), 0o755); err != nil {
-				return err
-			}
-		}
-		s := model.Service{ID: "service-" + name, Type: "service", Name: name, Version: "0.1.0", Status: "draft", Owner: owner, Summary: "Nomos Service " + name + "."}
-		if err := fsx.WriteYAML(filepath.Join(sdir, "service.yaml"), s); err != nil {
-			return err
-		}
-		if err := os.WriteFile(filepath.Join(sdir, "README.md"), []byte("# Service\n"), 0o644); err != nil {
-			return err
-		}
-		return nil
+		_, err := app.AddService(p, dom, args[0], owner, force)
+		return err
 	}}
 	add.Flags().String("domain", "", "")
 	add.Flags().String("path", ".", "")

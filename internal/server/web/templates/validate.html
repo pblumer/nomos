@@ -1,7 +1,1 @@
-{{define "validate"}}{{template "layout" .}}{{end}}
-{{define "content_validate"}}
-<section class="page-header"><h2>Validation</h2><p>Structural validation results for the current Cosmos</p></section>
-<section class="card"><h3>Status</h3><span class="badge">{{.Validation.Status}}</span></section>
-{{if eq (len .Validation.Findings) 0}}<div class="alert alert-success">No validation findings.</div>{{else}}
-<section class="card"><h3>Findings</h3><div class="table-wrap"><table class="data-table"><thead><tr><th>Severity</th><th>Code</th><th>Message</th><th>Path</th></tr></thead><tbody>{{range .Validation.Findings}}<tr><td><span class="badge">{{.Severity}}</span></td><td>{{.Code}}</td><td>{{.Message}}</td><td><code>{{.Path}}</code></td></tr>{{end}}</tbody></table></div></section>{{end}}
-{{end}}
+{{define "validate"}}{{template "layout" .}}{{end}}{{define "content_validate"}}<section class="page-header"><div><h2>Validation</h2><p>Findings grouped by severity.</p></div><div class="button-row"><a class="button button-primary" href="/validate">Refresh</a><a class="button button-secondary" href="/api/v1/validate">Raw JSON</a></div></section><section class="card"><h3>Overall status <span class="badge">{{.Validation.Status}}</span></h3>{{if eq (len .Validation.Findings) 0}}<p class="empty-state">No findings</p>{{else}}<table class="data-table"><thead><tr><th>Severity</th><th>Code</th><th>Message</th><th>Path</th></tr></thead><tbody>{{range .Validation.Findings}}<tr><td><span class="badge badge-{{.Severity}}">{{.Severity}}</span></td><td>{{.Code}}</td><td>{{.Message}}</td><td><code>{{.Path}}</code></td></tr>{{end}}</tbody></table>{{end}}</section>{{end}}

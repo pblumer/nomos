@@ -1,4 +1,1 @@
-{{define "error"}}{{template "layout" .}}{{end}}
-{{define "content_error"}}
-<section class="card"><h2>Error</h2><p>Cosmos could not be loaded.</p><pre class="code-block">{{.Error}}</pre><a class="button button-primary" href="/">Back to dashboard</a></section>
-{{end}}
+{{define "error"}}{{template "layout" .}}{{end}}{{define "content_error"}}<section class="card error-card"><h2>{{.ErrorTitle}}</h2><p>Status {{.StatusCode}}</p><pre class="code-block">{{.Error}}</pre><a class="button button-primary" href="/">Back to dashboard</a></section>{{end}}

@@ -1,8 +1,2 @@
-{{define "domain_detail"}}{{template "layout" .}}{{end}}
-{{define "content_domain_detail"}}
-<section class="page-header"><h2>{{.Domain}}</h2><p>Domain details and services</p></section>
-{{range .Tree.Domains}}{{if eq .Name $.Domain}}
-<section class="split-grid"><article class="card"><h3>Domain Metadata</h3><p>Owner: {{.Owner}}</p><p>Status: <span class="badge">{{.Status}}</span></p><p>Path: <code>{{.Path}}</code></p></article>
-<article class="card"><h3>Services</h3><div class="table-wrap"><table class="data-table"><thead><tr><th>Service</th><th>Owner</th><th>Status</th><th>Actions</th></tr></thead><tbody>{{range .Services}}<tr><td>{{.Name}}</td><td>{{.Owner}}</td><td><span class="badge">{{.Status}}</span></td><td><a class="button button-secondary" href="/services/{{$.Domain}}/{{.Name}}">View Details</a></td></tr>{{end}}</tbody></table></div></article></section>
-{{end}}{{end}}
-{{end}}
+{{define "domain_detail"}}{{template "layout" .}}{{end}}{{define "content_domain_detail"}}
+<section class="page-header"><div><h2>{{.DomainDTO.Canonical}}</h2><p>{{.DomainDTO.Namespace.DisplayPath}}</p></div><a class="button button-secondary" href="/api/v1/domains/{{.DomainDTO.Canonical}}">API JSON</a></section><section class="split-grid"><article class="card"><h3>Domain Metadata</h3><dl class="details-list"><dt>Owner</dt><dd>{{.DomainDTO.Owner}}</dd><dt>Status</dt><dd><span class="badge">{{.DomainDTO.Status}}</span></dd><dt>Path</dt><dd><code>{{.DomainDTO.Path}}</code></dd><dt>Services</dt><dd>{{.DomainDTO.ServiceCount}}</dd></dl></article><article class="card"><h3>Services</h3><div class="stack">{{range .DomainDTO.Services}}<a href="/services/{{.Domain}}/{{.Name}}">{{.Name}}</a>{{else}}<p class="empty-state">No services</p>{{end}}</div></article></section>{{end}}
