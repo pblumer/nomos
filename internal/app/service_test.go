@@ -103,3 +103,63 @@ func TestAppNotFoundErrors(t *testing.T) {
 		t.Fatalf("expected service error, got %v", err)
 	}
 }
+
+func TestDeleteDomain(t *testing.T) {
+	p := createAppTestCosmos(t)
+	err := DeleteDomain(p, "identity.blumer.cloud")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(p, "domains", "identity.blumer.cloud")); !os.IsNotExist(err) {
+		t.Fatal("expected domain directory to be removed")
+	}
+	if _, err := GetDomain(p, "identity.blumer.cloud"); err == nil {
+		t.Fatal("expected domain not found after delete")
+	}
+
+	// Remaining domain should still exist
+	if _, err := GetDomain(p, "platform.blumer.cloud"); err != nil {
+		t.Fatalf("unexpected error for remaining domain: %v", err)
+	}
+}
+
+func TestDeleteDomain_NotFound(t *testing.T) {
+	p := createAppTestCosmos(t)
+	err := DeleteDomain(p, "does-not-exist.example")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if ae, ok := AsAppError(err); !ok || ae.Code != CodeDomainNotFound {
+		t.Fatalf("expected DOMAIN_NOT_FOUND, got %v", err)
+	}
+}
+
+func TestDeleteService(t *testing.T) {
+	p := createAppTestCosmos(t)
+	err := DeleteService(p, "identity.blumer.cloud", "user-account")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(p, "domains", "identity.blumer.cloud", "services", "user-account")); !os.IsNotExist(err) {
+		t.Fatal("expected service directory to be removed")
+	}
+	if _, err := GetService(p, "identity.blumer.cloud", "user-account"); err == nil {
+		t.Fatal("expected service not found after delete")
+	}
+
+	// Remaining services should still exist
+	if _, err := GetService(p, "identity.blumer.cloud", "privileged-account"); err != nil {
+		t.Fatalf("unexpected error for remaining service: %v", err)
+	}
+}
+
+func TestDeleteService_NotFound(t *testing.T) {
+	p := createAppTestCosmos(t)
+	err := DeleteService(p, "identity.blumer.cloud", "does-not-exist")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if ae, ok := AsAppError(err); !ok || ae.Code != CodeServiceNotFound {
+		t.Fatalf("expected SERVICE_NOT_FOUND, got %v", err)
+	}
+}

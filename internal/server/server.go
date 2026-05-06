@@ -92,18 +92,38 @@ func (h *handler) apiDomains(w http.ResponseWriter, r *http.Request) {
 func (h *handler) apiDomainRoutes(w http.ResponseWriter, r *http.Request) {
 	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/domains/")
 	parts := strings.Split(rest, "/")
-	if len(parts) == 1 && parts[0] != "" && r.Method == http.MethodGet {
-		dto, err := app.GetDomain(h.cosmosPath, parts[0])
-		if err != nil {
-			h.apiErr(w, err)
+	if len(parts) == 1 && parts[0] != "" {
+		if r.Method == http.MethodDelete {
+			if err := app.DeleteDomain(h.cosmosPath, parts[0]); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"deleted": parts[0]})
 			return
 		}
-		writeJSON(w, 200, dto)
+		if r.Method == http.MethodGet {
+			dto, err := app.GetDomain(h.cosmosPath, parts[0])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, 200, dto)
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 	if len(parts) == 2 && parts[1] == "services" {
 		if r.Method == http.MethodPost {
 			h.createService(w, r, parts[0])
+			return
+		}
+		if r.Method == http.MethodDelete {
+			if err := app.DeleteDomain(h.cosmosPath, parts[0]); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"deleted": parts[0]})
 			return
 		}
 		dto, err := app.ListServices(h.cosmosPath, parts[0])
@@ -115,6 +135,14 @@ func (h *handler) apiDomainRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(parts) == 3 && parts[1] == "services" && parts[2] != "" {
+		if r.Method == http.MethodDelete {
+			if err := app.DeleteService(h.cosmosPath, parts[0], parts[2]); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"deleted": parts[0] + "/" + parts[2]})
+			return
+		}
 		dto, err := app.GetService(h.cosmosPath, parts[0], parts[2])
 		if err != nil {
 			h.apiErr(w, err)

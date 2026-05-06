@@ -746,3 +746,53 @@ func TestBlueprintDeleteCLI(t *testing.T) {
 		t.Fatal("expected error after delete")
 	}
 }
+
+func TestDomainDeleteCLI(t *testing.T) {
+	p := t.TempDir()
+	_, _, _ = executeCommand(t, "cosmos", "init", p)
+	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p, "--owner", "Identity Team")
+	_, _, _ = executeCommand(t, "service", "add", "user-account", "--domain", "identity.blumer.cloud", "--path", p)
+
+	out, _, err := executeCommand(t, "domain", "delete", "identity.blumer.cloud", "--path", p)
+	if err != nil {
+		t.Fatalf("domain delete failed: %v", err)
+	}
+	if !strings.Contains(out, "identity.blumer.cloud") {
+		t.Fatalf("expected deleted domain in output: %s", out)
+	}
+
+	_, _, err = executeCommand(t, "domain", "get", "identity.blumer.cloud", "--path", p)
+	if err == nil {
+		t.Fatal("expected error after delete")
+	}
+}
+
+func TestServiceDeleteCLI(t *testing.T) {
+	p := t.TempDir()
+	_, _, _ = executeCommand(t, "cosmos", "init", p)
+	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p)
+	_, _, _ = executeCommand(t, "service", "add", "user-account", "--domain", "identity.blumer.cloud", "--path", p)
+	_, _, _ = executeCommand(t, "service", "add", "privileged-account", "--domain", "identity.blumer.cloud", "--path", p)
+
+	out, _, err := executeCommand(t, "service", "delete", "user-account", "--domain", "identity.blumer.cloud", "--path", p)
+	if err != nil {
+		t.Fatalf("service delete failed: %v", err)
+	}
+	if !strings.Contains(out, "user-account") {
+		t.Fatalf("expected deleted service in output: %s", out)
+	}
+
+	_, _, err = executeCommand(t, "service", "get", "user-account", "--domain", "identity.blumer.cloud", "--path", p)
+	if err == nil {
+		t.Fatal("expected error after delete")
+	}
+
+	// Remaining service still exists
+	out, _, err = executeCommand(t, "service", "get", "privileged-account", "--domain", "identity.blumer.cloud", "--path", p)
+	if err != nil {
+		t.Fatalf("remaining service should still exist: %v", err)
+	}
+	if !strings.Contains(out, "privileged-account") {
+		t.Fatalf("expected remaining service in output: %s", out)
+	}
+}

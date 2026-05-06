@@ -205,7 +205,16 @@ func domainCmd() *cobra.Command {
 	}}
 	get.Flags().String("path", ".", "Path to the Cosmos repository")
 	get.Flags().String("format", "text", "Output format: text or json")
-	c.AddCommand(list, get)
+	del := &cobra.Command{Use: "delete <dns>", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		p, _ := cmd.Flags().GetString("path")
+		if err := app.DeleteDomain(p, args[0]); err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "Domain deleted: %s\n", args[0])
+		return nil
+	}}
+	del.Flags().String("path", ".", "Path to the Cosmos repository")
+	c.AddCommand(list, get, del)
 	return c
 }
 func serviceCmd() *cobra.Command {
@@ -267,7 +276,19 @@ func serviceCmd() *cobra.Command {
 	get.Flags().String("path", ".", "Path to the Cosmos repository")
 	get.Flags().String("format", "text", "Output format: text or json")
 	_ = get.MarkFlagRequired("domain")
-	c.AddCommand(add, list, get)
+	del := &cobra.Command{Use: "delete <name>", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		p, _ := cmd.Flags().GetString("path")
+		dom, _ := cmd.Flags().GetString("domain")
+		if err := app.DeleteService(p, dom, args[0]); err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "Service deleted: %s/%s\n", dom, args[0])
+		return nil
+	}}
+	del.Flags().String("domain", "", "Canonical domain namespace")
+	del.Flags().String("path", ".", "Path to the Cosmos repository")
+	_ = del.MarkFlagRequired("domain")
+	c.AddCommand(add, list, get, del)
 	return c
 }
 

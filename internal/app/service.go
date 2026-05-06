@@ -345,6 +345,35 @@ func AddDomain(path, dns, owner string, force bool) (DomainDTO, error) {
 	return GetDomain(path, dns)
 }
 
+func DeleteDomain(path, domainName string) error {
+	canonical := namespace.Canonical(strings.TrimSpace(domainName))
+	if canonical == "" || !strings.Contains(canonical, ".") || strings.ContainsAny(canonical, `/\\`) {
+		return Error(CodeInvalidNamespace, "Invalid domain name: "+domainName, http.StatusBadRequest, nil)
+	}
+	_, err := GetDomain(path, canonical)
+	if err != nil {
+		return err
+	}
+	dir := filepath.Join(path, "domains", canonical)
+	if err := os.RemoveAll(dir); err != nil {
+		return Error(CodeInternalError, "Failed to delete domain: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return nil
+}
+
+func DeleteService(path, domainName, serviceName string) error {
+	canonical := namespace.Canonical(strings.TrimSpace(domainName))
+	_, err := GetService(path, canonical, serviceName)
+	if err != nil {
+		return err
+	}
+	dir := filepath.Join(path, "domains", canonical, "services", serviceName)
+	if err := os.RemoveAll(dir); err != nil {
+		return Error(CodeInternalError, "Failed to delete service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return nil
+}
+
 func AddService(path, domainName, name, owner string, force bool) (ServiceDTO, error) {
 	d, err := GetDomain(path, domainName)
 	if err != nil {

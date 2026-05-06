@@ -352,3 +352,44 @@ func TestAPIBlueprintsDELETE(t *testing.T) {
 		t.Fatalf("expected 404 for non-existent, got %d", del2.Code)
 	}
 }
+
+func TestAPIDomainAndServiceDELETE(t *testing.T) {
+	p := createTestCosmos(t)
+	h := NewHandler(p)
+
+	// Delete service
+	del := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/domains/identity.blumer.cloud/services/user-account", nil)
+	h.ServeHTTP(del, req)
+	if del.Code != http.StatusOK {
+		t.Fatalf("expected 200 on service delete, got %d: %s", del.Code, del.Body.String())
+	}
+	if !strings.Contains(del.Body.String(), `"deleted":"identity.blumer.cloud/user-account"`) {
+		t.Fatalf("unexpected delete response: %s", del.Body.String())
+	}
+	if get(h, "/api/v1/domains/identity.blumer.cloud/services/user-account").Code != 404 {
+		t.Fatal("expected 404 after service delete")
+	}
+
+	// Delete domain
+	del2 := httptest.NewRecorder()
+	req2 := httptest.NewRequest(http.MethodDelete, "/api/v1/domains/platform.blumer.cloud", nil)
+	h.ServeHTTP(del2, req2)
+	if del2.Code != http.StatusOK {
+		t.Fatalf("expected 200 on domain delete, got %d: %s", del2.Code, del.Body.String())
+	}
+	if !strings.Contains(del2.Body.String(), `"deleted":"platform.blumer.cloud"`) {
+		t.Fatalf("unexpected delete response: %s", del2.Body.String())
+	}
+	if get(h, "/api/v1/domains/platform.blumer.cloud").Code != 404 {
+		t.Fatal("expected 404 after domain delete")
+	}
+
+	// Delete non-existent domain
+	del3 := httptest.NewRecorder()
+	req3 := httptest.NewRequest(http.MethodDelete, "/api/v1/domains/does-not-exist.example", nil)
+	h.ServeHTTP(del3, req3)
+	if del3.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for non-existent domain, got %d", del3.Code)
+	}
+}
