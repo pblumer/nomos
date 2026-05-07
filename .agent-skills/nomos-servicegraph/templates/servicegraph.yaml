@@ -1,0 +1,75 @@
+id: SG-EXAMPLE-001
+type: servicegraph
+name: Example Service Graph
+version: "0.1.0"
+status: draft
+owner: Team Name
+summary: >
+  Description of what this service composition achieves.
+related_product: PROD-EXAMPLE-001
+
+variants:
+  - id: EX-V-001
+    name: Standard
+    context: default variant
+
+nodes:
+  - id: EX-N-001
+    type: service
+    name: Main Service
+    mandatory: true
+    reusable: false
+    owner: Service Owner
+  - id: EX-N-010
+    type: precondition
+    name: Precondition A
+    mandatory: true
+    reusable: true
+  - id: EX-N-020
+    type: activity
+    name: Core Activity
+    mandatory: true
+    reusable: true
+    owner: Operations
+  - id: EX-N-030
+    type: validation
+    name: Validate Result
+    mandatory: true
+    reusable: true
+
+edges:
+  - id: EX-R-001
+    source: EX-N-001
+    target: EX-N-010
+    type: composed_of
+    binding: hard
+  - id: EX-R-002
+    source: EX-N-001
+    target: EX-N-020
+    type: composed_of
+    binding: hard
+  - id: EX-R-003
+    source: EX-N-001
+    target: EX-N-030
+    type: composed_of
+    binding: hard
+  - id: EX-R-004
+    source: EX-N-010
+    target: EX-N-020
+    type: depends_on
+    binding: hard
+    description: Activity needs precondition fulfilled
+  - id: EX-R-005
+    source: EX-N-020
+    target: EX-N-030
+    type: depends_on
+    binding: hard
+    description: Validate after activity
+
+rules:
+  - id: EX-G-001
+    name: Precondition must be met
+    type: activation
+    scope: EX-N-020
+    binding: must
+    expression: precondition fulfilled
