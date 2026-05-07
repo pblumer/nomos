@@ -604,36 +604,45 @@ func loadCosmosTree(p string) (cosmosTree, error) {
 
 func scanDomains(p string) ([]domainNode, error) {
 	var domains []domainNode
-	ents, err := os.ReadDir(storage.DomainsDirForRead(p))
-	if err != nil {
+	root := storage.DomainsDirForRead(p)
+	if _, err := os.Stat(root); err != nil {
 		if os.IsNotExist(err) {
 			return domains, nil
 		}
 		return nil, err
 	}
-	for _, e := range ents {
-		if !e.IsDir() {
-			continue
+	if err := filepath.WalkDir(root, func(current string, dentry os.DirEntry, err error) error {
+		if err != nil {
+			return err
 		}
-		domainDir := filepath.Join(storage.DomainsDirForRead(p), e.Name())
-		domainYAML := filepath.Join(domainDir, "domain.yaml")
+		if !dentry.IsDir() {
+			return nil
+		}
+		if dentry.Name() == "services" {
+			return filepath.SkipDir
+		}
+		domainYAML := filepath.Join(current, "domain.yaml")
 		if _, err := os.Stat(domainYAML); err != nil {
-			continue
+			return nil
 		}
 		var d model.Domain
 		if err := fsx.ReadYAML(domainYAML, &d); err != nil {
-			return nil, err
+			return err
 		}
-		name := firstNonEmpty(d.Name, d.DNSName, e.Name())
-		services, err := scanServices(domainDir)
+		name := firstNonEmpty(d.CanonicalName, d.Name, d.DNSName, filepath.Base(current))
+		services, err := scanServices(current)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		domains = append(domains, domainNode{Name: name, Services: services})
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	sort.Slice(domains, func(i, j int) bool { return domains[i].Name < domains[j].Name })
 	return domains, nil
 }
+
 func scanServices(domainDir string) ([]serviceNode, error) {
 	var services []serviceNode
 	ents, err := os.ReadDir(filepath.Join(domainDir, "services"))

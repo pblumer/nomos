@@ -1,8 +1,8 @@
 {{define "cosmos"}}{{template "layout" .}}{{end}}
 
 {{define "cosmos_page_node"}}
-<li class="cosmos-node" data-kind="{{.Kind}}" data-id="{{if .Canonical}}{{.Canonical}}{{else}}{{.Label}}{{end}}"{{if .Service}} data-domain="{{.Service.Domain}}"{{else if eq .Kind "service-parent"}} data-domain="{{.Canonical}}"{{end}}>
-  <div class="cosmos-node-row" data-kind="{{.Kind}}" data-id="{{if .Canonical}}{{.Canonical}}{{else}}{{.Label}}{{end}}"{{if .Service}} data-domain="{{.Service.Domain}}"{{else if eq .Kind "service-parent"}} data-domain="{{.Canonical}}"{{end}}>
+<li class="cosmos-node" data-kind="{{.Kind}}" data-id="{{if .Canonical}}{{.Canonical}}{{else}}{{.Label}}{{end}}" data-canonical="{{.Canonical}}" data-tree-path="{{.TreePath}}" data-git-path="{{.GitPath}}"{{if .Service}} data-domain="{{.Service.Domain}}"{{else if eq .Kind "service-parent"}} data-domain="{{.Canonical}}"{{end}}>
+  <div class="cosmos-node-row" data-kind="{{.Kind}}" data-id="{{if .Canonical}}{{.Canonical}}{{else}}{{.Label}}{{end}}" data-canonical="{{.Canonical}}" data-tree-path="{{.TreePath}}" data-git-path="{{.GitPath}}"{{if .Service}} data-domain="{{.Service.Domain}}"{{else if eq .Kind "service-parent"}} data-domain="{{.Canonical}}"{{end}}>
     {{if .Children}}<span class="tree-toggle material-symbols-outlined">expand_more</span>{{else}}<span class="tree-toggle-spacer"></span>{{end}}
     <span class="material-symbols-outlined cosmos-node-icon">{{if eq .Kind "cosmos"}}account_tree{{else if eq .Kind "domain"}}dns{{else if eq .Kind "service-parent"}}folder_managed{{else if eq .Kind "service"}}settings{{else if eq .Kind "namespace"}}public{{else if eq .Kind "namespace-parent"}}public{{else if eq .Kind "domain-parent"}}public{{else if eq .Kind "blueprint-parent"}}description{{else if eq .Kind "blueprint"}}assignment{{else}}folder{{end}}</span>
     <span class="cosmos-node-label">{{.Label}}</span>
@@ -102,6 +102,7 @@
 <div id="create-modal" class="modal-overlay">
   <div class="modal">
     <h3 id="create-title">Create</h3>
+    <div id="create-error" class="alert alert-error modal-error" role="alert"></div>
     <div id="create-fields"></div>
     <div class="modal-actions">
       <button class="button button-secondary" id="create-cancel">Cancel</button>
@@ -118,6 +119,8 @@
   const createModal = document.getElementById('create-modal');
   const createTitle = document.getElementById('create-title');
   const createFields = document.getElementById('create-fields');
+  const createError = document.getElementById('create-error');
+  const createConfirm = document.getElementById('create-confirm');
 
   let ctxTarget = null;
   let createAction = null;
@@ -158,6 +161,31 @@
   });
 
   initTree();
+  const selectedParam = new URLSearchParams(window.location.search).get('selected');
+  if (selectedParam && selectedParam.startsWith('domain:')) {
+    const canonical = selectedParam.slice('domain:'.length);
+    const selectedRow = Array.from(tree.querySelectorAll('.cosmos-node-row[data-kind="domain"]')).find(row => row.dataset.canonical === canonical || row.dataset.id === canonical);
+    if (selectedRow) {
+      selectedRow.classList.add('is-selected');
+      expandAncestors(selectedRow);
+      loadDetail(selectedRow.dataset.kind, selectedRow.dataset.id, selectedRow.dataset);
+    }
+  }
+
+  function expandAncestors(row) {
+    let li = row.closest('.cosmos-node');
+    while (li) {
+      const parentUl = li.parentElement?.closest('.cosmos-children');
+      if (parentUl) {
+        parentUl.style.display = '';
+        parentUl.classList.remove('is-collapsed');
+        const parentRow = parentUl.previousElementSibling;
+        const toggle = parentRow && parentRow.querySelector('.tree-toggle');
+        if (toggle) toggle.textContent = 'expand_more';
+      }
+      li = parentUl?.closest('.cosmos-node');
+    }
+  }
 
   /* ── Helpers ── */
   // Reconstruct namespace path by walking up the DOM tree (e.g. "cloud" or "blumer.cloud")
@@ -250,7 +278,7 @@
     const label = target.querySelector('.cosmos-node-label').textContent;
     if (!confirm('Delete ' + kind + ' "' + label + '"?')) return;
     let url;
-    if (kind === 'domain') url = '/api/v1/domains/' + encodeURIComponent(id);
+    if (kind === 'domain') url = '/api/v1/domains/' + encodeURIComponent(dataset.canonical || id);
     else if (kind === 'service') url = '/api/v1/domains/' + encodeURIComponent(target.dataset.domain) + '/services/' + encodeURIComponent(id.split('/').pop());
     else if (kind === 'blueprint') url = '/api/v1/blueprints/' + encodeURIComponent(id);
     else return;
@@ -264,6 +292,10 @@
   function openCreate(action, target) {
     createAction = action;
     createFields.innerHTML = '';
+    createError.textContent = '';
+    createError.classList.remove('is-visible');
+    createConfirm.disabled = false;
+    createConfirm.textContent = 'Create';
     createModal.classList.add('is-visible');
 
     if (action === 'add-domain') {
@@ -293,22 +325,31 @@
         createFields.dataset.nsPath = '';
       }
     } else if (action === 'add-subdomain') {
-      const parentDomain = target.dataset.id;
+      const parentDomain = target.dataset.canonical || target.dataset.id;
+      const parentTreePath = target.dataset.treePath || '';
+      const parentGitPath = target.dataset.gitPath || '';
       createTitle.textContent = 'Add child domain under ' + parentDomain;
       createFields.innerHTML =
         '<label>Child label</label>' +
         '<div class="input-with-hint"><input type="text" id="create-segment" placeholder="e.g. identity" autofocus />' +
-        '<span class="form-help">Preview: <strong><span id="preview-domain"></span></strong></span></div>' +
+        '<span class="form-help">Preview canonical: <strong><span id="preview-domain"></span></strong></span>' +
+        '<span class="form-help">Preview Git path: <code><span id="preview-git-path"></span></code></span></div>' +
         '<label>Owner</label>' +
         '<input type="text" id="create-owner" placeholder="Owner team" />';
       createFields.dataset.parent = parentDomain;
+      createFields.dataset.parentTreePath = parentTreePath;
+      createFields.dataset.parentGitPath = parentGitPath;
       // Preview
       const segInput = document.getElementById('create-segment');
       const preview = document.getElementById('preview-domain');
-      preview.textContent = '___.' + parentDomain;
-      segInput.addEventListener('input', () => {
-        preview.textContent = (segInput.value || '___') + '.' + parentDomain;
-      });
+      const previewGitPath = document.getElementById('preview-git-path');
+      const updateChildPreview = () => {
+        const label = segInput.value.trim() || '___';
+        preview.textContent = label + '.' + parentDomain;
+        previewGitPath.textContent = ((parentTreePath || '').replace(/\/$/, '') + '/' + label).replace(/^$/, '/' + label);
+      };
+      updateChildPreview();
+      segInput.addEventListener('input', updateChildPreview);
     } else if (action === 'add-service') {
       const domainId = target.dataset.kind === 'service-parent' ? target.dataset.domain : target.dataset.id;
       createTitle.textContent = 'Add Service to ' + domainId;
@@ -398,10 +439,9 @@
       const owner = document.getElementById('create-owner').value.trim() || 'unknown';
       const parent = createFields.dataset.parent;
       if (!segment) { alert('Segment required'); return; }
-      url = '/api/v1/domains';
-      const fullDomain = segment + '.' + parent;
-      opts.body = new URLSearchParams({dns: fullDomain, owner: owner});
-      opts = {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: new URLSearchParams({segment, owner})};
+      if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(segment)) { showCreateError('Enter one lowercase label only, for example: products'); return; }
+      url = '/api/v1/domains/' + encodeURIComponent(parent) + '/children';
+      opts = {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({label: segment, owner})};
     } else if (createAction === 'add-service') {
       const name = document.getElementById('create-svcname').value.trim();
       const owner = document.getElementById('create-owner').value.trim() || 'unknown';
@@ -420,11 +460,26 @@
     } else { createModal.classList.remove('is-visible'); return; }
 
     try {
+      createConfirm.disabled = true;
+      createConfirm.textContent = 'Creating…';
       const res = await fetch(url, opts);
-      if (res.ok) location.reload();
-      else { const d = await res.json(); alert(d.error?.message || 'Create failed'); }
-    } catch (err) { alert(err.message); }
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        createModal.classList.remove('is-visible');
+        if (data.canonical) location.href = '/cosmos?selected=domain:' + encodeURIComponent(data.canonical);
+        else location.reload();
+      } else {
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') console.error('Create request failed', {url, opts, data});
+        showCreateError(data.error?.message || 'Create failed');
+      }
+    } catch (err) { showCreateError(err.message); }
+    finally { createConfirm.disabled = false; createConfirm.textContent = 'Create'; }
   });
+
+  function showCreateError(message) {
+    createError.textContent = message;
+    createError.classList.add('is-visible');
+  }
 
   async function doVerify(target) {
     const canonical = target.dataset.id;
@@ -456,7 +511,7 @@
     }
     try {
       let url = '';
-      if (kind === 'domain') url = '/api/v1/domains/' + encodeURIComponent(id);
+      if (kind === 'domain') url = '/api/v1/domains/' + encodeURIComponent(dataset.canonical || id);
       else if (kind === 'service') url = '/api/v1/domains/' + encodeURIComponent(dataset.domain) + '/services/' + encodeURIComponent(id.split('/').pop());
       else if (kind === 'blueprint') url = '/api/v1/blueprints/' + encodeURIComponent(id);
       if (!url) return;
