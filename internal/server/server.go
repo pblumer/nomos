@@ -728,7 +728,7 @@ func (h *handler) validatePage(w http.ResponseWriter, r *http.Request) {
 	}
 	h.page(w, "validate", map[string]any{
 		"ActiveNav": "validate", "PageTitle": "Validation",
-		"Validation":   val,
+		"Validation":    val,
 		"ErrorFindings": errFindings,
 		"WarnFindings":  warnFindings,
 		"InfoFindings":  infoFindings,
@@ -736,9 +736,9 @@ func (h *handler) validatePage(w http.ResponseWriter, r *http.Request) {
 }
 
 type requirementRow struct {
-	RequirementID  string
-	BlueprintID    string
-	BlueprintType  string
+	RequirementID   string
+	BlueprintID     string
+	BlueprintType   string
 	BlueprintStatus string
 }
 
