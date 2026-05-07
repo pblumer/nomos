@@ -11,12 +11,12 @@ import (
 )
 
 type Tree struct {
-	Path       string
-	Cosmos     model.Cosmos
-	Domains    []DomainNode
-	Blueprints []BlueprintNode
-	Instances      []InstanceNode
-	Servicegraphs  []ServicegraphNode
+	Path          string
+	Cosmos        model.Cosmos
+	Domains       []DomainNode
+	Blueprints    []BlueprintNode
+	Instances     []InstanceNode
+	Servicegraphs []ServicegraphNode
 }
 type DomainNode struct {
 	Path     string

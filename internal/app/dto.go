@@ -12,24 +12,32 @@ type CosmosDTO struct {
 }
 
 type NamespaceDTO struct {
-	Canonical   string   `json:"canonical"`
-	Parts       []string `json:"parts"`
-	TreeParts   []string `json:"treeParts"`
-	TreePath    string   `json:"treePath"`
-	DisplayPath string   `json:"displayPath"`
-	Leaf        string   `json:"leaf"`
+	Canonical       string   `json:"canonical"`
+	Namespace       string   `json:"namespace"`
+	Labels          []string `json:"labels"`
+	Label           string   `json:"label"`
+	ParentCanonical string   `json:"parentCanonical"`
+	Parts           []string `json:"parts"`
+	TreeParts       []string `json:"treeParts"`
+	TreePath        string   `json:"treePath"`
+	DisplayPath     string   `json:"displayPath"`
+	Leaf            string   `json:"leaf"`
 }
 
 type DomainDTO struct {
-	Name         string       `json:"name"`
-	Canonical    string       `json:"canonical"`
-	Namespace    NamespaceDTO `json:"namespace"`
-	DisplayName  string       `json:"displayName"`
-	Owner        string       `json:"owner"`
-	Status       string       `json:"status"`
-	Path         string       `json:"path"`
-	ServiceCount int          `json:"serviceCount"`
-	Services     []ServiceDTO `json:"services,omitempty"`
+	Name               string       `json:"name"`
+	Canonical          string       `json:"canonical"`
+	Namespace          NamespaceDTO `json:"namespace"`
+	Label              string       `json:"label"`
+	NamespaceName      string       `json:"namespaceName"`
+	ParentCanonical    string       `json:"parentCanonical"`
+	VerificationStatus string       `json:"verificationStatus"`
+	DisplayName        string       `json:"displayName"`
+	Owner              string       `json:"owner"`
+	Status             string       `json:"status"`
+	Path               string       `json:"path"`
+	ServiceCount       int          `json:"serviceCount"`
+	Services           []ServiceDTO `json:"services,omitempty"`
 }
 
 type ServiceDTO struct {

@@ -7,16 +7,20 @@ import (
 	"github.com/nomos/nomos/internal/namespace"
 )
 
+func AddDomainInNamespace(path, namespaceName, label, owner string, force bool) (DomainDTO, error) {
+	canonical, err := namespace.ComposeCanonical(namespaceName, label)
+	if err != nil {
+		return DomainDTO{}, Error(CodeInvalidNamespace, err.Error(), http.StatusBadRequest, err)
+	}
+	return AddDomain(path, canonical, owner, force)
+}
+
 func AddChildDomain(path, parentCanonicalName, segment, owner string, force bool) (DomainDTO, error) {
-	parent := namespace.Canonical(strings.TrimSpace(parentCanonicalName))
-	segment = strings.TrimSpace(segment)
-	if parent == "" || strings.ContainsAny(parent, `/\\`) || strings.Contains(parent, " ") || strings.HasPrefix(parent, ".") || strings.HasSuffix(parent, ".") {
-		return DomainDTO{}, Error(CodeInvalidNamespace, "Invalid parent domain: "+parent, http.StatusBadRequest, nil)
+	canonical, err := namespace.ComposeChildCanonical(parentCanonicalName, segment)
+	if err != nil {
+		return DomainDTO{}, Error(CodeInvalidNamespace, "Invalid segment. Use only one new label, for example: identity", http.StatusBadRequest, err)
 	}
-	if !validDomainSegment(segment) {
-		return DomainDTO{}, Error(CodeInvalidNamespace, "Invalid segment. Use only the new segment, for example: test2", http.StatusBadRequest, nil)
-	}
-	return AddDomain(path, segment+"."+parent, owner, force)
+	return AddDomain(path, canonical, owner, force)
 }
 
 func validDomainSegment(segment string) bool {

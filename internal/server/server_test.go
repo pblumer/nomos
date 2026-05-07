@@ -19,14 +19,32 @@ func createTestCosmos(t *testing.T) string {
 	}
 	must(os.MkdirAll(filepath.Join(p, "domains/identity.blumer.cloud/services/user-account"), 0o755))
 	must(os.MkdirAll(filepath.Join(p, "domains/platform.blumer.cloud/services/rule-validation-api"), 0o755))
+	must(os.MkdirAll(filepath.Join(p, "domains/blumer.com/services"), 0o755))
+	must(os.MkdirAll(filepath.Join(p, "domains/identity.blumer.com/services/user-account"), 0o755))
+	must(os.MkdirAll(filepath.Join(p, "domains/governance.blumer.com/services/provisioning-rules"), 0o755))
+	must(os.MkdirAll(filepath.Join(p, "domains/blumer.cloud/services"), 0o755))
+	must(os.MkdirAll(filepath.Join(p, "domains/home.blumer.cloud/services/home-dashboard"), 0o755))
+	must(os.MkdirAll(filepath.Join(p, "domains/zytlog.blumer.cloud/services/zytlog-api"), 0o755))
+	must(os.MkdirAll(filepath.Join(p, "domains/beispiel.ch/services"), 0o755))
 	must(os.MkdirAll(filepath.Join(p, "catalog/blueprints/products"), 0o755))
 	must(os.MkdirAll(filepath.Join(p, "catalog/blueprints/services"), 0o755))
 	must(os.MkdirAll(filepath.Join(p, "catalog/instances/products"), 0o755))
 	must(os.WriteFile(filepath.Join(p, "cosmos.yaml"), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: unknown\n"), 0o644))
 	must(os.WriteFile(filepath.Join(p, "domains/identity.blumer.cloud/domain.yaml"), []byte("name: identity.blumer.cloud\n"), 0o644))
 	must(os.WriteFile(filepath.Join(p, "domains/platform.blumer.cloud/domain.yaml"), []byte("name: platform.blumer.cloud\n"), 0o644))
+	must(os.WriteFile(filepath.Join(p, "domains/blumer.com/domain.yaml"), []byte("name: blumer.com\n"), 0o644))
+	must(os.WriteFile(filepath.Join(p, "domains/identity.blumer.com/domain.yaml"), []byte("name: identity.blumer.com\n"), 0o644))
+	must(os.WriteFile(filepath.Join(p, "domains/governance.blumer.com/domain.yaml"), []byte("name: governance.blumer.com\n"), 0o644))
+	must(os.WriteFile(filepath.Join(p, "domains/blumer.cloud/domain.yaml"), []byte("name: blumer.cloud\n"), 0o644))
+	must(os.WriteFile(filepath.Join(p, "domains/home.blumer.cloud/domain.yaml"), []byte("name: home.blumer.cloud\n"), 0o644))
+	must(os.WriteFile(filepath.Join(p, "domains/zytlog.blumer.cloud/domain.yaml"), []byte("name: zytlog.blumer.cloud\n"), 0o644))
+	must(os.WriteFile(filepath.Join(p, "domains/beispiel.ch/domain.yaml"), []byte("name: beispiel.ch\n"), 0o644))
 	must(os.WriteFile(filepath.Join(p, "domains/identity.blumer.cloud/services/user-account/service.yaml"), []byte("name: user-account\n"), 0o644))
 	must(os.WriteFile(filepath.Join(p, "domains/platform.blumer.cloud/services/rule-validation-api/service.yaml"), []byte("name: rule-validation-api\n"), 0o644))
+	must(os.WriteFile(filepath.Join(p, "domains/identity.blumer.com/services/user-account/service.yaml"), []byte("name: user-account\n"), 0o644))
+	must(os.WriteFile(filepath.Join(p, "domains/governance.blumer.com/services/provisioning-rules/service.yaml"), []byte("name: provisioning-rules\n"), 0o644))
+	must(os.WriteFile(filepath.Join(p, "domains/home.blumer.cloud/services/home-dashboard/service.yaml"), []byte("name: home-dashboard\n"), 0o644))
+	must(os.WriteFile(filepath.Join(p, "domains/zytlog.blumer.cloud/services/zytlog-api/service.yaml"), []byte("name: zytlog-api\n"), 0o644))
 	must(os.WriteFile(filepath.Join(p, "catalog/blueprints/products/account.yaml"), []byte("id: PB-ACC-MBX-001\ntype: product_blueprint\nname: Benutzerkonto mit Mailbox\nversion: 0.1.0\nstatus: draft\nowner: Team\nrequired_inputs:\n  - person_reference\nrequired_service_blueprints:\n  - SB-1\nrequired_services:\n  - service_ref: identity.blumer.cloud/user-account\n    service_blueprint_ref: SB-1\n    required: true\n"), 0o644))
 	must(os.WriteFile(filepath.Join(p, "catalog/blueprints/services/account-service.yaml"), []byte("id: SB-1\ntype: service_blueprint\nname: Account Service\nversion: 0.1.0\nstatus: draft\nowner: Team\nnamespace_service_ref: identity.blumer.cloud/user-account\ncapabilities:\n  - create_account\n"), 0o644))
 	must(os.WriteFile(filepath.Join(p, "catalog/instances/products/account-instance.yaml"), []byte("id: PI-ACC-MBX-EXAMPLE-001\ntype: product_instance\nname: Beispielinstanz Benutzerkonto mit Mailbox\nblueprint_ref: PB-ACC-MBX-001\nblueprint_version: 0.1.0\ncompliance_status: compliant\nfindings: []\n"), 0o644))
@@ -56,7 +74,7 @@ func TestWebShellPagesAndAPI(t *testing.T) { /* same as before */
 	if rr := get(h, "/domains"); rr.Code != 200 {
 		t.Fatal(rr.Code)
 	} else {
-		hasAll(t, rr.Body.String(), "Domains Explorer", "Browse domains and services like a repository tree", "identity.blumer.cloud", "user-account", "explorer-layout", "explorer-tree", "details-panel", "Domain count", "Service count")
+		hasAll(t, rr.Body.String(), "Domains Explorer", "Namespaces are top-level zones", "identity.blumer.cloud", "user-account", "explorer-layout", "explorer-tree", "details-panel", "Domain count", "Service count")
 	}
 	if rr := get(h, "/domains?selected=domain:identity.blumer.cloud"); rr.Code != 200 {
 		t.Fatal(rr.Code)
@@ -72,6 +90,15 @@ func TestWebShellPagesAndAPI(t *testing.T) { /* same as before */
 		t.Fatal(rr.Code)
 	} else {
 		hasAll(t, rr.Body.String(), "Cosmos Summary", "Local Cosmos")
+	}
+	if rr := get(h, "/cosmos"); rr.Code != 200 {
+		t.Fatal(rr.Code)
+	} else {
+		body := rr.Body.String()
+		hasAll(t, body, "Namespaces", "com", "blumer")
+		if strings.Contains(body, ">Domains</span>") {
+			t.Fatalf("cosmos hierarchy should not render Domains as the main DNS label")
+		}
 	}
 	if rr := get(h, "/domains/identity.blumer.cloud"); rr.Code != 200 {
 		t.Fatal(rr.Code)
@@ -191,7 +218,7 @@ func TestNamespaceTreeAPIAndContentTypes(t *testing.T) {
 
 	rr := get(h, "/api/v1/namespaces")
 	body := rr.Body.String()
-	hasAll(t, body, "cloud", "blumer", "identity", "platform", "user-account", "identity.blumer.cloud", "treePath", "displayPath")
+	hasAll(t, body, "Namespaces", "com", "cloud", "blumer", "identity", "home", "identity.blumer.com", "identity.blumer.cloud", "treePath", "displayPath")
 }
 
 func TestRESTDetailRoutesAndErrors(t *testing.T) {
@@ -252,7 +279,7 @@ func TestExtendedWebPages(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	pages := map[string][]string{
 		"/cosmos":                           {"Cosmos"},
-		"/services":                         {"Services", "Create service", "user-account"},
+		"/services":                         {"Services", "Create service", "provisioning-rules"},
 		"/namespaces":                       {"Namespace Tree", "identity.blumer.cloud", "user-account"},
 		"/blueprints":                       {"Blueprints", "PB-ACC-MBX-001", "SB-1"},
 		"/blueprints/PB-ACC-MBX-001":        {"PB-ACC-MBX-001", "Required inputs", "identity.blumer.cloud/user-account"},
@@ -317,6 +344,15 @@ func TestCreateDomainAndService(t *testing.T) {
 	}
 	if rr := postForm(h, "/api/v1/domains", "dns=example.com&force=on&owner=Web"); rr.Code != http.StatusCreated {
 		t.Fatalf("force domain status=%d", rr.Code)
+	}
+	if rr := postForm(h, "/api/v1/domains", "namespace=net&label=example&owner=Web"); rr.Code != http.StatusCreated || !strings.Contains(rr.Body.String(), "example.net") {
+		t.Fatalf("namespace domain create status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if rr := postForm(h, "/api/v1/domains/blumer.com/children", "label=identity-api&owner=Web"); rr.Code != http.StatusCreated || !strings.Contains(rr.Body.String(), "identity-api.blumer.com") {
+		t.Fatalf("child domain create status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if rr := postForm(h, "/api/v1/namespaces/cloud/domains", "label=api-blumer&owner=Web"); rr.Code != http.StatusCreated || !strings.Contains(rr.Body.String(), "api-blumer.cloud") {
+		t.Fatalf("namespace route create status=%d body=%s", rr.Code, rr.Body.String())
 	}
 	if rr := postForm(h, "/api/v1/domains/example.com/services", "name=web-ui&owner=Web"); rr.Code != http.StatusCreated {
 		t.Fatalf("service create status=%d body=%s", rr.Code, rr.Body.String())

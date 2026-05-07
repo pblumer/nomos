@@ -2,11 +2,22 @@ package app
 
 import "testing"
 
+func TestAddDomainInNamespaceComposesCanonicalName(t *testing.T) {
+	p := createAppTestCosmos(t)
+	d, err := AddDomainInNamespace(p, "com", "blumer", "UX", false)
+	if err != nil {
+		t.Fatalf("AddDomainInNamespace: %v", err)
+	}
+	if d.Canonical != "blumer.com" || d.Label != "blumer" || d.Namespace.Namespace != "com" {
+		t.Fatalf("unexpected domain: %+v", d)
+	}
+}
+
 func TestAddChildDomainComposesCanonicalName(t *testing.T) {
 	cases := []struct{ parent, segment, want string }{
-		{"blumer.cloud", "test2", "test2.blumer.cloud"},
+		{"blumer.com", "identity", "identity.blumer.com"},
 		{"cloud", "blumer", "blumer.cloud"},
-		{"identity.blumer.cloud", "iam", "iam.identity.blumer.cloud"},
+		{"blumer.cloud", "home", "home.blumer.cloud"},
 	}
 	for _, tc := range cases {
 		p := createAppTestCosmos(t)
@@ -21,7 +32,7 @@ func TestAddChildDomainComposesCanonicalName(t *testing.T) {
 }
 
 func TestAddChildDomainRejectsFullOrInvalidSegment(t *testing.T) {
-	invalid := []string{"test2.blumer.cloud", "test 2", "/test2", ".test2", "test2."}
+	invalid := []string{"test2.blumer.cloud", "test 2", "/test2", ".test2", "test2.", "-test2", "test2-"}
 	for _, segment := range invalid {
 		if _, err := AddChildDomain(createAppTestCosmos(t), "blumer.cloud", segment, "UX", false); err == nil {
 			t.Fatalf("expected invalid segment %q to fail", segment)

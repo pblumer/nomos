@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesLicenseAssignment(t *testing.T) {
+func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesDNSLikeDemo(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")
 	}
@@ -31,9 +31,12 @@ func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesLicenseAssignment
 		t.Fatalf("create demo cosmos: %v\n%s", err, out)
 	}
 	for _, rel := range []string{
-		"domains/identity.blumer.cloud/services/user-account/service.yaml",
-		"domains/collaboration.blumer.cloud/services/mailbox/service.yaml",
-		"domains/collaboration.blumer.cloud/services/license-assignment/service.yaml",
+		"domains/blumer.com/domain.yaml",
+		"domains/identity.blumer.com/services/user-account/service.yaml",
+		"domains/governance.blumer.com/services/provisioning-rules/service.yaml",
+		"domains/home.blumer.cloud/services/home-dashboard/service.yaml",
+		"domains/zytlog.blumer.cloud/services/zytlog-api/service.yaml",
+		"domains/beispiel.ch/domain.yaml",
 		"catalog/blueprints/products/benutzerkonto-mit-mailbox.yaml",
 	} {
 		if _, err := os.Stat(filepath.Join(target, rel)); err != nil {

@@ -110,13 +110,15 @@ func BuildNamespaceTree(path string) (NamespaceTreeDTO, error) {
 		return NamespaceTreeDTO{}, err
 	}
 	root := NamespaceTreeNodeDTO{Label: fallback(cosmos.Name, "Local Cosmos"), Kind: "cosmos"}
+	namespaces := NamespaceTreeNodeDTO{Label: "Namespaces", Kind: "namespace-parent"}
 	for _, d := range domains.Domains {
 		full, err := GetDomain(path, d.Canonical)
 		if err != nil {
 			return NamespaceTreeDTO{}, err
 		}
-		insertDomain(&root, full)
+		insertDomain(&namespaces, full)
 	}
+	root.Children = append(root.Children, namespaces)
 	sortTree(&root)
 	return NamespaceTreeDTO{Root: root}, nil
 }
@@ -124,7 +126,7 @@ func BuildNamespaceTree(path string) (NamespaceTreeDTO, error) {
 func domainDTO(d cosmosfs.DomainNode, includeServices bool) DomainDTO {
 	canonical := namespace.Canonical(d.Name)
 	v := namespace.View(canonical)
-	dto := DomainDTO{Name: canonical, Canonical: canonical, Namespace: NamespaceDTO(v), DisplayName: v.Leaf, Owner: fallback(d.Metadata.Owner, "unknown"), Status: fallback(d.Metadata.Status, "unknown"), Path: d.Path, ServiceCount: len(d.Services)}
+	dto := DomainDTO{Name: canonical, Canonical: canonical, Namespace: namespaceDTO(v), Label: v.Label, NamespaceName: v.Namespace, ParentCanonical: v.ParentCanonical, VerificationStatus: verificationStatus(fallback(d.Metadata.Status, "unknown")), DisplayName: v.Label, Owner: fallback(d.Metadata.Owner, "unknown"), Status: fallback(d.Metadata.Status, "unknown"), Path: d.Path, ServiceCount: len(d.Services)}
 	if includeServices {
 		dto.Services = make([]ServiceDTO, 0, len(d.Services))
 		for _, s := range d.Services {
@@ -152,38 +154,90 @@ func load(path string) (cosmosfs.Tree, error) {
 	return cosmosfs.Tree{}, Error(code, err.Error(), status, err)
 }
 
+func namespaceDTO(v namespace.NamespaceView) NamespaceDTO {
+	return NamespaceDTO{
+		Canonical:       v.Canonical,
+		Namespace:       v.Namespace,
+		Labels:          v.Labels,
+		Label:           v.Label,
+		ParentCanonical: v.ParentCanonical,
+		Parts:           v.Parts,
+		TreeParts:       v.TreeParts,
+		TreePath:        v.TreePath,
+		DisplayPath:     v.DisplayPath,
+		Leaf:            v.Leaf,
+	}
+}
+
+func verificationStatus(status string) string {
+	switch strings.ToLower(status) {
+	case "verified", "active", "ok", "compliant":
+		return "verified"
+	case "failed", "error", "blocking":
+		return "failed"
+	case "pending", "warning":
+		return "pending"
+	default:
+		return status
+	}
+}
+
 func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 	node := root
-	for i, label := range d.Namespace.TreeParts {
-		kind := "namespace"
-		if i == len(d.Namespace.TreeParts)-1 {
-			kind = "domain"
+	parts := d.Namespace.TreeParts
+	for i, label := range parts {
+		kind := "domain"
+		if i == 0 {
+			kind = "namespace"
 		}
-		idx := -1
-		for j := range node.Children {
-			if node.Children[j].Label == label && node.Children[j].Kind == kind {
-				idx = j
-				break
-			}
-		}
+		idx := findTreeChild(node, label, kind)
 		if idx == -1 {
 			child := NamespaceTreeNodeDTO{Label: label, Kind: kind}
-			if kind == "domain" {
-				child.Canonical = d.Canonical
-				child.DisplayPath = d.Namespace.DisplayPath
-				child.TreePath = d.Namespace.TreePath
-				dd := d
-				child.Domain = &dd
+			if kind == "namespace" {
+				child.DisplayPath = label
+				child.TreePath = label
+			} else {
+				canonical, err := namespace.ComposeCanonical(parts[0], parts[1:i+1]...)
+				if err == nil {
+					child.Canonical = canonical
+					v := namespace.View(canonical)
+					child.DisplayPath = v.DisplayPath
+					child.TreePath = v.TreePath
+				}
 			}
 			node.Children = append(node.Children, child)
 			idx = len(node.Children) - 1
 		}
+		if kind == "domain" && i == len(parts)-1 {
+			node.Children[idx].Canonical = d.Canonical
+			node.Children[idx].DisplayPath = d.Namespace.DisplayPath
+			node.Children[idx].TreePath = d.Namespace.TreePath
+			dd := d
+			node.Children[idx].Domain = &dd
+		}
 		node = &node.Children[idx]
 	}
-	for _, svc := range d.Services {
-		s := svc
-		node.Children = append(node.Children, NamespaceTreeNodeDTO{Label: svc.Name, Kind: "service", Canonical: d.Canonical + "/" + svc.Name, Service: &s})
+	if len(d.Services) > 0 {
+		idx := findTreeChild(node, "Services", "service-parent")
+		if idx == -1 {
+			node.Children = append(node.Children, NamespaceTreeNodeDTO{Label: "Services", Kind: "service-parent", Canonical: d.Canonical, DisplayPath: d.Namespace.DisplayPath + " / Services", TreePath: d.Namespace.TreePath + "/services"})
+			idx = len(node.Children) - 1
+		}
+		serviceParent := &node.Children[idx]
+		for _, svc := range d.Services {
+			s := svc
+			serviceParent.Children = append(serviceParent.Children, NamespaceTreeNodeDTO{Label: svc.Name, Kind: "service", Canonical: d.Canonical + "/" + svc.Name, Service: &s})
+		}
 	}
+}
+
+func findTreeChild(node *NamespaceTreeNodeDTO, label, kind string) int {
+	for j := range node.Children {
+		if node.Children[j].Label == label && node.Children[j].Kind == kind {
+			return j
+		}
+	}
+	return -1
 }
 
 func sortTree(n *NamespaceTreeNodeDTO) {

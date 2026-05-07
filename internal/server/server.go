@@ -37,6 +37,7 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/v1/domains/", h.apiDomainRoutes)
 	mux.HandleFunc("/api/v1/services/", h.apiLegacyService)
 	mux.HandleFunc("/api/v1/namespaces", h.apiNamespaces)
+	mux.HandleFunc("/api/v1/namespaces/", h.apiNamespaceRoutes)
 	mux.HandleFunc("/api/v1/graph", h.apiGraph)
 	mux.HandleFunc("/api/v1/validate", h.apiValidate)
 	mux.HandleFunc("/api/v1/blueprints", h.apiBlueprints)
@@ -124,6 +125,21 @@ func (h *handler) apiDomainRoutes(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	if len(parts) == 2 && parts[1] == "children" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		_ = r.ParseForm()
+		label := first(r.FormValue("label"), r.FormValue("segment"))
+		dto, err := app.AddChildDomain(h.cosmosPath, parts[0], label, r.FormValue("owner"), r.FormValue("force") != "")
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, dto)
+		return
+	}
 	if len(parts) == 2 && parts[1] == "services" {
 		if r.Method == http.MethodPost {
 			h.createService(w, r, parts[0])
@@ -179,12 +195,41 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, dto)
 }
 func (h *handler) apiNamespaces(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/namespaces" {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
 	dto, err := app.BuildNamespaceTree(h.cosmosPath)
 	if err != nil {
 		h.apiErr(w, err)
 		return
 	}
 	writeJSON(w, 200, dto)
+}
+
+func (h *handler) apiNamespaceRoutes(w http.ResponseWriter, r *http.Request) {
+	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/namespaces/")
+	parts := strings.Split(rest, "/")
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "domains" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		_ = r.ParseForm()
+		label := first(r.FormValue("label"), r.FormValue("segment"))
+		dto, err := app.AddDomainInNamespace(h.cosmosPath, parts[0], label, r.FormValue("owner"), r.FormValue("force") != "")
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, dto)
+		return
+	}
+	http.NotFound(w, r)
 }
 func (h *handler) apiGraph(w http.ResponseWriter, r *http.Request) {
 	dto, err := app.BuildGraph(h.cosmosPath)
@@ -309,7 +354,15 @@ func (h *handler) apiVerifyDomain(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) createDomain(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
-	dto, err := app.AddDomain(h.cosmosPath, first(r.FormValue("dns"), r.FormValue("domain")), r.FormValue("owner"), r.FormValue("force") != "")
+	var (
+		dto app.DomainDTO
+		err error
+	)
+	if ns, label := r.FormValue("namespace"), first(r.FormValue("label"), r.FormValue("segment")); ns != "" || label != "" {
+		dto, err = app.AddDomainInNamespace(h.cosmosPath, ns, label, r.FormValue("owner"), r.FormValue("force") != "")
+	} else {
+		dto, err = app.AddDomain(h.cosmosPath, first(r.FormValue("dns"), r.FormValue("domain")), r.FormValue("owner"), r.FormValue("force") != "")
+	}
 	if err != nil {
 		h.apiErr(w, err)
 		return
@@ -459,6 +512,12 @@ func (h *handler) servicesPage(w http.ResponseWriter, r *http.Request) {
 	selected := first(r.URL.Query().Get("domain"))
 	if selected == "" && len(domains.Domains) > 0 {
 		selected = domains.Domains[0].Canonical
+		for _, d := range domains.Domains {
+			if d.ServiceCount > 0 {
+				selected = d.Canonical
+				break
+			}
+		}
 	}
 	var services app.ServicesDTO
 	if selected != "" {
