@@ -3,12 +3,13 @@
 {{define "cosmos_page_node"}}
 <li class="cosmos-node" data-kind="{{.Kind}}" data-id="{{if .Canonical}}{{.Canonical}}{{else}}{{.Label}}{{end}}"{{if .Service}} data-domain="{{.Service.Domain}}"{{end}}>
   <div class="cosmos-node-row" data-kind="{{.Kind}}" data-id="{{if .Canonical}}{{.Canonical}}{{else}}{{.Label}}{{end}}"{{if .Service}} data-domain="{{.Service.Domain}}"{{end}}>
-    <span class="material-symbols-outlined cosmos-node-icon">{{if eq .Kind "cosmos"}}account_tree{{else if eq .Kind "domain"}}dns{{else if eq .Kind "service"}}settings{{else if eq .Kind "namespace"}}folder{{end}}</span>
+    {{if .Children}}<span class="tree-toggle material-symbols-outlined">expand_more</span>{{else}}<span class="tree-toggle-spacer"></span>{{end}}
+    <span class="material-symbols-outlined cosmos-node-icon">{{if eq .Kind "cosmos"}}account_tree{{else if eq .Kind "domain"}}dns{{else if eq .Kind "service"}}settings{{else if eq .Kind "namespace"}}folder{{else if eq .Kind "domain-parent"}}public{{else if eq .Kind "blueprint-parent"}}description{{else if eq .Kind "blueprint"}}assignment{{else}}folder{{end}}</span>
     <span class="cosmos-node-label">{{.Label}}</span>
-    <span class="node-kind">{{if eq .Kind "domain"}}{{.Domain.ServiceCount}} services{{else}}{{.Kind}}{{end}}</span>
+    <span class="node-kind">{{if eq .Kind "domain"}}{{.Domain.ServiceCount}} svc{{else}}{{.Kind}}{{end}}</span>
   </div>
   {{if .Children}}
-  <ul class="cosmos-children">
+  <ul class="cosmos-children is-collapsed">
     {{range .Children}}{{template "cosmos_page_node" .}}{{end}}
   </ul>
   {{end}}
@@ -17,36 +18,39 @@
 
 {{define "content_cosmos"}}
 <section class="page-header">
-  <div><h2>Cosmos Explorer</h2><p>Right-click any node to create, rename or delete. Blueprints are managed separately in the catalog.</p></div>
+  <div><h2>Cosmos Explorer</h2><p>Right-click any node to create or delete. Click to view details.</p></div>
   <div class="stack"><span class="badge badge-{{.Cosmos.Status}}">{{.Cosmos.Status}}</span><a class="button button-secondary" href="/api/v1/cosmos">API JSON</a></div>
 </section>
 
 <div class="explorer-layout">
   <article class="card explorer-panel" id="cosmos-tree-panel">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
-      <h3 style="margin:0">{{.Cosmos.Name}}</h3>
+    <div class="tree-header">
+      <h3>{{.Cosmos.Name}}</h3>
       <span class="muted">{{.Cosmos.DomainCount}} domains · {{.Cosmos.ServiceCount}} services</span>
     </div>
     <ul class="cosmos-tree" id="cosmos-tree">
       <li class="cosmos-node" data-kind="cosmos" data-id="{{.Cosmos.ID}}">
         <div class="cosmos-node-row is-root" data-kind="cosmos" data-id="{{.Cosmos.ID}}">
+          <span class="tree-toggle material-symbols-outlined">expand_more</span>
           <span class="material-symbols-outlined cosmos-node-icon">account_tree</span>
           <span class="cosmos-node-label">{{.Cosmos.Name}}</span>
           <span class="node-kind">cosmos</span>
         </div>
         <ul class="cosmos-children">
-          <!-- Blueprints Catalog -->
+          <!-- Blueprint Catalog -->
           <li class="cosmos-node" data-kind="blueprint-parent" data-id="blueprints">
             <div class="cosmos-node-row" data-kind="blueprint-parent" data-id="blueprints">
+              <span class="tree-toggle material-symbols-outlined">expand_more</span>
               <span class="material-symbols-outlined cosmos-node-icon">description</span>
               <span class="cosmos-node-label">Blueprint Catalog</span>
               <span class="node-kind">{{len .Blueprints}} blueprints</span>
             </div>
             {{if .Blueprints}}
-            <ul class="cosmos-children">
+            <ul class="cosmos-children is-collapsed">
               {{range .Blueprints}}
               <li class="cosmos-node" data-kind="blueprint" data-id="{{.ID}}" data-type="{{.Type}}">
                 <div class="cosmos-node-row" data-kind="blueprint" data-id="{{.ID}}" data-type="{{.Type}}">
+                  <span class="tree-toggle-spacer"></span>
                   <span class="material-symbols-outlined cosmos-node-icon">assignment</span>
                   <span class="cosmos-node-label">{{.ID}}</span>
                   <span class="node-kind">{{.Type}}</span>
@@ -59,6 +63,7 @@
           <!-- DNS Hierarchy -->
           <li class="cosmos-node" data-kind="domain-parent" data-id="domains">
             <div class="cosmos-node-row" data-kind="domain-parent" data-id="domains">
+              <span class="tree-toggle material-symbols-outlined">expand_more</span>
               <span class="material-symbols-outlined cosmos-node-icon">public</span>
               <span class="cosmos-node-label">Domains</span>
               <span class="node-kind">{{.Cosmos.DomainCount}} domains</span>
@@ -75,33 +80,22 @@
   </article>
 
   <aside class="card explorer-panel details-panel" id="detail-panel">
-    <div class="empty-state">Right-click a node in the tree, or click to view details.</div>
+    <div class="empty-state">Click a node to view details, or right-click for actions.</div>
   </aside>
 </div>
 
 <!-- Context Menu -->
-<div id="ctx-menu" class="ctx-menu" style="display:none">
-  <div class="ctx-item" data-action="create-domain"><span class="material-symbols-outlined">add</span> Add Domain</div>
-  <div class="ctx-item" data-action="create-blueprint"><span class="material-symbols-outlined">add</span> Add Blueprint</div>
+<div id="ctx-menu" class="ctx-menu">
+  <div class="ctx-item" data-action="add-tld"><span class="material-symbols-outlined">add</span> Add TLD</div>
+  <div class="ctx-item" data-action="add-subdomain"><span class="material-symbols-outlined">add</span> Add Subdomain</div>
+  <div class="ctx-item" data-action="add-service"><span class="material-symbols-outlined">add</span> Add Service</div>
+  <div class="ctx-item" data-action="add-blueprint"><span class="material-symbols-outlined">add</span> Add Blueprint</div>
   <hr class="ctx-divider">
-  <div class="ctx-item" data-action="rename"><span class="material-symbols-outlined">edit</span> Rename</div>
   <div class="ctx-item ctx-danger" data-action="delete"><span class="material-symbols-outlined">delete</span> Delete</div>
 </div>
 
-<!-- Rename Modal -->
-<div id="rename-modal" class="modal-overlay" style="display:none">
-  <div class="modal">
-    <h3>Rename</h3>
-    <input type="text" id="rename-input" placeholder="New name..." />
-    <div class="modal-actions">
-      <button class="button button-secondary" id="rename-cancel">Cancel</button>
-      <button class="button button-primary" id="rename-confirm">Rename</button>
-    </div>
-  </div>
-</div>
-
-<!-- Create Modal -->
-<div id="create-modal" class="modal-overlay" style="display:none">
+<!-- Unified Create/Action Modal -->
+<div id="create-modal" class="modal-overlay">
   <div class="modal">
     <h3 id="create-title">Create</h3>
     <div id="create-fields"></div>
@@ -117,46 +111,88 @@
   const tree = document.getElementById('cosmos-tree');
   const ctxMenu = document.getElementById('ctx-menu');
   const detailPanel = document.getElementById('detail-panel');
-  const renameModal = document.getElementById('rename-modal');
-  const renameInput = document.getElementById('rename-input');
   const createModal = document.getElementById('create-modal');
   const createTitle = document.getElementById('create-title');
   const createFields = document.getElementById('create-fields');
 
   let ctxTarget = null;
-  let currentKind = null;
+  let createAction = null;
 
-  function hideCtx() { ctxMenu.style.display = 'none'; }
+  /* ── Tree collapse/expand ── */
+  function initTree() {
+    // First-level children of root are expanded; deeper levels start collapsed
+    tree.querySelectorAll('.cosmos-children.is-collapsed').forEach(ul => {
+      ul.style.display = 'none';
+    });
+    // Update toggle icons for collapsed nodes
+    tree.querySelectorAll('.cosmos-children.is-collapsed').forEach(ul => {
+      const toggle = ul.previousElementSibling && ul.previousElementSibling.querySelector('.tree-toggle');
+      if (toggle) toggle.textContent = 'chevron_right';
+    });
+  }
+
+  tree.addEventListener('click', e => {
+    const toggle = e.target.closest('.tree-toggle');
+    if (toggle) {
+      e.stopPropagation();
+      const row = toggle.closest('.cosmos-node-row');
+      const li = row.closest('.cosmos-node');
+      const childUl = li.querySelector(':scope > .cosmos-children');
+      if (!childUl) return;
+      const collapsed = childUl.style.display === 'none';
+      childUl.style.display = collapsed ? '' : 'none';
+      childUl.classList.toggle('is-collapsed', !collapsed);
+      toggle.textContent = collapsed ? 'expand_more' : 'chevron_right';
+      return;
+    }
+
+    const row = e.target.closest('.cosmos-node-row');
+    if (!row) return;
+    document.querySelectorAll('.cosmos-node-row.is-selected').forEach(el => el.classList.remove('is-selected'));
+    row.classList.add('is-selected');
+    loadDetail(row.dataset.kind, row.dataset.id, row.dataset);
+  });
+
+  initTree();
+
+  /* ── Context Menu ── */
+  function hideCtx() { ctxMenu.classList.remove('is-visible'); }
   function showCtx(e, target) {
     ctxTarget = target;
-    currentKind = target.dataset.kind;
-    ctxMenu.querySelectorAll('.ctx-item').forEach(it => it.style.display = 'none');
-    ctxMenu.querySelectorAll('.ctx-divider').forEach(it => it.style.display = 'none');
+    const kind = target.dataset.kind;
 
-    const map = {
-      'cosmos': ['create-domain'],
-      'domain-parent': ['create-domain'],
-      'namespace': ['create-domain'],
-      'domain': ['rename','delete'],
-      'service': ['rename','delete'],
-      'blueprint-parent': ['create-blueprint'],
-      'blueprint': ['delete']
+    // Determine which actions to show
+    const actionMap = {
+      'cosmos':           ['add-tld'],
+      'domain-parent':    ['add-tld'],
+      'namespace':        ['add-tld'],
+      'domain':           ['add-subdomain', 'add-service', 'delete'],
+      'service':          ['delete'],
+      'blueprint-parent': ['add-blueprint'],
+      'blueprint':        ['delete']
     };
-    const actions = map[currentKind] || [];
-    let lastVisible = null;
+    const allowed = actionMap[kind] || [];
+
     ctxMenu.querySelectorAll('.ctx-item').forEach(it => {
-      if (actions.includes(it.dataset.action)) {
-        it.style.display = 'flex'; lastVisible = it;
-      }
+      it.style.display = allowed.includes(it.dataset.action) ? 'flex' : 'none';
     });
-    const div = ctxMenu.querySelector('.ctx-divider');
-    if (div && lastVisible && actions.some(a => ['rename','delete'].includes(a))) {
-      div.style.display = 'block';
-    }
-    const rect = tree.getBoundingClientRect();
-    ctxMenu.style.left = Math.min(e.clientX, rect.right - 180) + 'px';
-    ctxMenu.style.top = Math.min(e.clientY, rect.bottom - 120) + 'px';
-    ctxMenu.style.display = 'block';
+    // Show divider only if there are both create and delete actions
+    const divider = ctxMenu.querySelector('.ctx-divider');
+    const hasCreate = allowed.some(a => a.startsWith('add-'));
+    const hasDelete = allowed.includes('delete');
+    divider.style.display = (hasCreate && hasDelete) ? 'block' : 'none';
+
+    // Position with fixed coordinates
+    ctxMenu.style.left = e.clientX + 'px';
+    ctxMenu.style.top = e.clientY + 'px';
+    ctxMenu.classList.add('is-visible');
+
+    // Adjust if overflows viewport
+    requestAnimationFrame(() => {
+      const rect = ctxMenu.getBoundingClientRect();
+      if (rect.right > window.innerWidth) ctxMenu.style.left = (e.clientX - rect.width) + 'px';
+      if (rect.bottom > window.innerHeight) ctxMenu.style.top = (e.clientY - rect.height) + 'px';
+    });
   }
 
   tree.addEventListener('contextmenu', e => {
@@ -166,107 +202,173 @@
     showCtx(e, row);
   });
   document.addEventListener('click', () => hideCtx());
-
-  tree.addEventListener('click', e => {
-    const row = e.target.closest('.cosmos-node-row');
-    if (!row) return;
-    document.querySelectorAll('.cosmos-node-row.is-selected').forEach(el => el.classList.remove('is-selected'));
-    row.classList.add('is-selected');
-    loadDetail(row.dataset.kind, row.dataset.id, row.dataset);
+  document.addEventListener('contextmenu', e => {
+    if (!e.target.closest('#cosmos-tree')) hideCtx();
   });
 
+  /* ── Context Menu Actions ── */
+  ctxMenu.addEventListener('click', e => {
+    const item = e.target.closest('.ctx-item');
+    if (!item) return;
+    e.stopPropagation();
+    hideCtx();
+    const action = item.dataset.action;
+    if (action === 'delete') doDelete(ctxTarget);
+    else openCreate(action, ctxTarget);
+  });
+
+  /* ── Delete ── */
+  function doDelete(target) {
+    const kind = target.dataset.kind, id = target.dataset.id;
+    const label = target.querySelector('.cosmos-node-label').textContent;
+    if (!confirm('Delete ' + kind + ' "' + label + '"?')) return;
+    let url;
+    if (kind === 'domain') url = '/api/v1/domains/' + encodeURIComponent(id);
+    else if (kind === 'service') url = '/api/v1/domains/' + encodeURIComponent(target.dataset.domain) + '/services/' + encodeURIComponent(id.split('/').pop());
+    else if (kind === 'blueprint') url = '/api/v1/blueprints/' + encodeURIComponent(id);
+    else return;
+    fetch(url, {method:'DELETE'}).then(r => {
+      if (r.ok) location.reload();
+      else r.json().then(d => alert(d.error?.message || 'Delete failed'));
+    }).catch(e => alert(e.message));
+  }
+
+  /* ── Create Modal ── */
+  function openCreate(action, target) {
+    createAction = action;
+    createFields.innerHTML = '';
+    createModal.classList.add('is-visible');
+
+    if (action === 'add-tld') {
+      createTitle.textContent = 'Add Top-Level Domain';
+      createFields.innerHTML =
+        '<label>Full domain name (TLD)</label>' +
+        '<input type="text" id="create-dns" placeholder="e.g. blumer.cloud" autofocus />' +
+        '<label>Owner</label>' +
+        '<input type="text" id="create-owner" placeholder="Owner team" />';
+    } else if (action === 'add-subdomain') {
+      const parentDomain = target.dataset.id;
+      createTitle.textContent = 'Add Subdomain of ' + parentDomain;
+      createFields.innerHTML =
+        '<label>Subdomain segment</label>' +
+        '<div class="input-with-hint"><input type="text" id="create-segment" placeholder="e.g. identity" autofocus />' +
+        '<span class="form-help">Will create: <strong><span id="preview-domain"></span></strong></span></div>' +
+        '<label>Owner</label>' +
+        '<input type="text" id="create-owner" placeholder="Owner team" />';
+      createFields.dataset.parent = parentDomain;
+      // Preview
+      const segInput = document.getElementById('create-segment');
+      const preview = document.getElementById('preview-domain');
+      preview.textContent = '___.' + parentDomain;
+      segInput.addEventListener('input', () => {
+        preview.textContent = (segInput.value || '___') + '.' + parentDomain;
+      });
+    } else if (action === 'add-service') {
+      const domainId = target.dataset.id;
+      createTitle.textContent = 'Add Service to ' + domainId;
+      createFields.innerHTML =
+        '<label>Service name</label>' +
+        '<input type="text" id="create-svcname" placeholder="e.g. auth-api" autofocus />' +
+        '<label>Owner</label>' +
+        '<input type="text" id="create-owner" placeholder="Owner team" />';
+      createFields.dataset.domain = domainId;
+    } else if (action === 'add-blueprint') {
+      createTitle.textContent = 'Add Blueprint';
+      createFields.innerHTML =
+        '<label>ID</label><input type="text" id="create-bp-id" placeholder="PB-..." autofocus />' +
+        '<label>Type</label><select id="create-bp-type"><option value="product_blueprint">product_blueprint</option><option value="service_blueprint">service_blueprint</option></select>' +
+        '<label>Name</label><input type="text" id="create-bp-name" placeholder="Blueprint name" />' +
+        '<label>Owner</label><input type="text" id="create-owner" placeholder="Owner team" />';
+    }
+
+    // Focus first input
+    requestAnimationFrame(() => {
+      const first = createFields.querySelector('input,select');
+      if (first) first.focus();
+    });
+  }
+
+  document.getElementById('create-cancel').addEventListener('click', () => {
+    createModal.classList.remove('is-visible');
+  });
+  createModal.addEventListener('click', e => {
+    if (e.target === createModal) createModal.classList.remove('is-visible');
+  });
+
+  document.getElementById('create-confirm').addEventListener('click', async () => {
+    let url, opts;
+    if (createAction === 'add-tld') {
+      const dns = document.getElementById('create-dns').value.trim();
+      const owner = document.getElementById('create-owner').value.trim() || 'unknown';
+      if (!dns) { alert('Domain name required'); return; }
+      url = '/api/v1/domains';
+      opts = {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: new URLSearchParams({dns, owner})};
+    } else if (createAction === 'add-subdomain') {
+      const segment = document.getElementById('create-segment').value.trim();
+      const owner = document.getElementById('create-owner').value.trim() || 'unknown';
+      const parent = createFields.dataset.parent;
+      if (!segment) { alert('Segment required'); return; }
+      url = '/api/v1/domains/' + encodeURIComponent(parent) + '/children';
+      opts = {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: new URLSearchParams({segment, owner})};
+    } else if (createAction === 'add-service') {
+      const name = document.getElementById('create-svcname').value.trim();
+      const owner = document.getElementById('create-owner').value.trim() || 'unknown';
+      const domain = createFields.dataset.domain;
+      if (!name) { alert('Service name required'); return; }
+      url = '/api/v1/domains/' + encodeURIComponent(domain) + '/services';
+      opts = {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: new URLSearchParams({name, owner})};
+    } else if (createAction === 'add-blueprint') {
+      const id = document.getElementById('create-bp-id').value.trim();
+      const type = document.getElementById('create-bp-type').value;
+      const name = document.getElementById('create-bp-name').value.trim() || id;
+      const owner = document.getElementById('create-owner').value.trim() || 'unknown';
+      if (!id) { alert('Blueprint ID required'); return; }
+      url = '/api/v1/blueprints';
+      opts = {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id, type, name, version:'0.1.0', status:'draft', owner})};
+    } else { createModal.classList.remove('is-visible'); return; }
+
+    try {
+      const res = await fetch(url, opts);
+      if (res.ok) location.reload();
+      else { const d = await res.json(); alert(d.error?.message || 'Create failed'); }
+    } catch (err) { alert(err.message); }
+  });
+
+  /* ── Detail Panel ── */
   async function loadDetail(kind, id, dataset) {
     if (kind === 'cosmos') {
-      detailPanel.innerHTML = `<h3>{{.Cosmos.Name}}</h3><dl class="details-list"><dt>ID</dt><dd>{{.Cosmos.ID}}</dd><dt>Version</dt><dd>{{.Cosmos.Version}}</dd><dt>Status</dt><dd><span class="badge badge-{{.Cosmos.Status}}">{{.Cosmos.Status}}</span></dd><dt>Domains</dt><dd>{{.Cosmos.DomainCount}}</dd><dt>Services</dt><dd>{{.Cosmos.ServiceCount}}</dd></dl>`;
+      detailPanel.innerHTML = '<h3>{{.Cosmos.Name}}</h3><dl class="details-list"><dt>ID</dt><dd>{{.Cosmos.ID}}</dd><dt>Version</dt><dd>{{.Cosmos.Version}}</dd><dt>Status</dt><dd><span class="badge badge-{{.Cosmos.Status}}">{{.Cosmos.Status}}</span></dd><dt>Domains</dt><dd>{{.Cosmos.DomainCount}}</dd><dt>Services</dt><dd>{{.Cosmos.ServiceCount}}</dd></dl>';
       return;
     }
     if (kind === 'domain-parent' || kind === 'blueprint-parent') {
-      detailPanel.innerHTML = '<h3>' + (kind === 'blueprint-parent' ? 'Blueprint Catalog' : 'Domains') + '</h3><p class="muted">Right-click to add a new item.</p>';
+      detailPanel.innerHTML = '<h3>' + (kind === 'blueprint-parent' ? 'Blueprint Catalog' : 'Domains') + '</h3><p class="muted">Right-click to add items.</p>';
       return;
     }
-    if (kind === 'namespace') { detailPanel.innerHTML = '<h3>' + id + '</h3><p class="muted">Namespace container.</p>'; return; }
+    if (kind === 'namespace') {
+      detailPanel.innerHTML = '<h3>' + id + '</h3><p class="muted">Namespace container.</p>';
+      return;
+    }
     try {
       let url = '';
       if (kind === 'domain') url = '/api/v1/domains/' + encodeURIComponent(id);
       else if (kind === 'service') url = '/api/v1/domains/' + encodeURIComponent(dataset.domain) + '/services/' + encodeURIComponent(id.split('/').pop());
       else if (kind === 'blueprint') url = '/api/v1/blueprints/' + encodeURIComponent(id);
       if (!url) return;
-      const res = await fetch(url), data = await res.json();
+      const res = await fetch(url);
+      const data = await res.json();
       if (!res.ok) { detailPanel.innerHTML = '<div class="alert alert-error">' + (data.error?.message || 'Error') + '</div>'; return; }
       detailPanel.innerHTML = renderDetail(kind, data);
     } catch (err) { detailPanel.innerHTML = '<div class="alert alert-error">' + err.message + '</div>'; }
   }
 
   function renderDetail(kind, d) {
-    if (kind === 'domain') return `<h3>${d.canonical}</h3><dl class="details-list"><dt>Display Name</dt><dd>${d.displayName}</dd><dt>Namespace</dt><dd>${d.namespace.displayPath}</dd><dt>Owner</dt><dd>${d.owner}</dd><dt>Status</dt><dd><span class="badge badge-${d.status}">${d.status}</span></dd><dt>Services</dt><dd>${d.serviceCount}</dd><dt>Path</dt><dd><code>${d.path}</code></dd></dl>`;
-    if (kind === 'service') return `<h3>${d.name}</h3><dl class="details-list"><dt>Domain</dt><dd>${d.domain}</dd><dt>Owner</dt><dd>${d.owner}</dd><dt>Status</dt><dd><span class="badge badge-${d.status}">${d.status}</span></dd><dt>Path</dt><dd><code>${d.path}</code></dd></dl>`;
-    if (kind === 'blueprint') return `<h3>${d.id}</h3><dl class="details-list"><dt>Type</dt><dd><span class="badge">${d.type}</span></dd><dt>Name</dt><dd>${d.name}</dd><dt>Version</dt><dd>${d.version}</dd><dt>Status</dt><dd><span class="badge badge-${d.status}">${d.status}</span></dd><dt>Owner</dt><dd>${d.owner}</dd><dt>Summary</dt><dd>${d.summary || '-'}</dd></dl>`;
+    if (kind === 'domain') return '<h3>' + esc(d.canonical) + '</h3><dl class="details-list"><dt>Display Name</dt><dd>' + esc(d.displayName) + '</dd><dt>Namespace</dt><dd>' + esc(d.namespace?.displayPath || '') + '</dd><dt>Owner</dt><dd>' + esc(d.owner) + '</dd><dt>Status</dt><dd><span class="badge badge-' + d.status + '">' + esc(d.status) + '</span></dd><dt>Services</dt><dd>' + d.serviceCount + '</dd><dt>Path</dt><dd><code>' + esc(d.path) + '</code></dd></dl>';
+    if (kind === 'service') return '<h3>' + esc(d.name) + '</h3><dl class="details-list"><dt>Domain</dt><dd>' + esc(d.domain) + '</dd><dt>Owner</dt><dd>' + esc(d.owner) + '</dd><dt>Status</dt><dd><span class="badge badge-' + d.status + '">' + esc(d.status) + '</span></dd><dt>Path</dt><dd><code>' + esc(d.path) + '</code></dd></dl>';
+    if (kind === 'blueprint') return '<h3>' + esc(d.id) + '</h3><dl class="details-list"><dt>Type</dt><dd><span class="badge">' + esc(d.type) + '</span></dd><dt>Name</dt><dd>' + esc(d.name) + '</dd><dt>Version</dt><dd>' + esc(d.version) + '</dd><dt>Status</dt><dd><span class="badge badge-' + d.status + '">' + esc(d.status) + '</span></dd><dt>Owner</dt><dd>' + esc(d.owner) + '</dd><dt>Summary</dt><dd>' + esc(d.summary || '-') + '</dd></dl>';
     return '';
   }
 
-  ctxMenu.addEventListener('click', e => {
-    const item = e.target.closest('.ctx-item'); if (!item) return;
-    hideCtx();
-    if (item.dataset.action === 'rename') openRename(ctxTarget);
-    else if (item.dataset.action === 'delete') doDelete(ctxTarget);
-    else if (item.dataset.action.startsWith('create-')) openCreate(item.dataset.action, ctxTarget);
-  });
-
-  function openRename(target) {
-    currentKind = target.dataset.kind;
-    renameInput.value = target.querySelector('.cosmos-node-label').textContent;
-    renameModal.style.display = 'flex'; renameInput.focus();
-  }
-  document.getElementById('rename-cancel').addEventListener('click', () => { renameModal.style.display = 'none'; });
-  document.getElementById('rename-confirm').addEventListener('click', async () => {
-    const newName = renameInput.value.trim(); if (!newName) return;
-    const id = ctxTarget.dataset.id;
-    let url, body;
-    if (currentKind === 'domain') { url = '/api/v1/domains/' + encodeURIComponent(id); body = {name: newName}; }
-    else if (currentKind === 'service') { url = '/api/v1/domains/' + encodeURIComponent(ctxTarget.dataset.domain) + '/services/' + encodeURIComponent(id.split('/').pop()); body = {name: newName}; }
-    else { renameModal.style.display = 'none'; return; }
-    const res = await fetch(url, {method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)});
-    if (res.ok) location.reload();
-    else { const data = await res.json(); alert(data.error?.message || 'Rename failed'); }
-  });
-
-  function doDelete(target) {
-    const kind = target.dataset.kind, id = target.dataset.id;
-    if (!confirm('Delete ' + kind + ' ' + id + '?')) return;
-    let url;
-    if (kind === 'domain') url = '/api/v1/domains/' + encodeURIComponent(id);
-    else if (kind === 'service') url = '/api/v1/domains/' + encodeURIComponent(target.dataset.domain) + '/services/' + encodeURIComponent(id.split('/').pop());
-    else if (kind === 'blueprint') url = '/api/v1/blueprints/' + encodeURIComponent(id);
-    else return;
-    fetch(url, {method: 'DELETE'}).then(r => { if (r.ok) location.reload(); else r.json().then(d => alert(d.error?.message || 'Delete failed')); }).catch(e => alert(e.message));
-  }
-
-  function openCreate(action, target) {
-    createModal.style.display = 'flex'; createFields.innerHTML = '';
-    if (action === 'create-domain') {
-      createTitle.textContent = 'Add Domain';
-      createFields.innerHTML = '<label>Domain name</label><input type="text" id="create-input" placeholder="e.g. identity.blumer.cloud" /><label>Owner</label><input type="text" id="create-owner" placeholder="Owner team" />';
-    } else if (action === 'create-blueprint') {
-      createTitle.textContent = 'Add Blueprint';
-      createFields.innerHTML = '<label>ID</label><input type="text" id="create-input" placeholder="PB-..." /><label>Type</label><select id="create-type"><option value="product_blueprint">product_blueprint</option><option value="service_blueprint">service_blueprint</option></select><label>Name</label><input type="text" id="create-name" placeholder="Name" /><label>Owner</label><input type="text" id="create-owner" placeholder="Owner team" />';
-    } else { createModal.style.display = 'none'; return; }
-  }
-  document.getElementById('create-cancel').addEventListener('click', () => { createModal.style.display = 'none'; });
-  document.getElementById('create-confirm').addEventListener('click', async () => {
-    const title = createTitle.textContent;
-    let url, body;
-    if (title === 'Add Domain') {
-      url = '/api/v1/domains'; body = new URLSearchParams({dns: document.getElementById('create-input').value, owner: document.getElementById('create-owner').value || 'unknown'});
-    } else if (title === 'Add Blueprint') {
-      url = '/api/v1/blueprints'; body = JSON.stringify({id: document.getElementById('create-input').value, type: document.getElementById('create-type').value, name: document.getElementById('create-name').value || document.getElementById('create-input').value, version: '0.1.0', status: 'draft', owner: document.getElementById('create-owner').value || 'unknown'});
-    } else { createModal.style.display = 'none'; return; }
-    const opts = {method: 'POST'};
-    if (title === 'Add Blueprint') { opts.headers = {'Content-Type':'application/json'}; opts.body = body; }
-    else { opts.headers = {'Content-Type':'application/x-www-form-urlencoded'}; opts.body = body; }
-    const res = await fetch(url, opts);
-    if (res.ok) location.reload();
-    else { const data = await res.json(); alert(data.error?.message || 'Create failed'); }
-  });
+  function esc(s) { const el = document.createElement('span'); el.textContent = s; return el.innerHTML; }
 })();
 </script>
 {{end}}
