@@ -82,7 +82,20 @@
   <div class="ctx-item" data-action="add-service"><span class="material-symbols-outlined">settings</span> Add Service</div>
   <div class="ctx-item" data-action="add-blueprint"><span class="material-symbols-outlined">add</span> Add Blueprint</div>
   <hr class="ctx-divider">
+  <div class="ctx-item" data-action="rename"><span class="material-symbols-outlined">edit</span> Rename</div>
   <div class="ctx-item ctx-danger" data-action="delete"><span class="material-symbols-outlined">delete</span> Delete</div>
+</div>
+
+<!-- Rename Modal -->
+<div id="rename-modal" class="modal-overlay">
+  <div class="modal">
+    <h3 id="rename-title">Rename</h3>
+    <input type="text" id="rename-input" placeholder="New name..." />
+    <div class="modal-actions">
+      <button class="button button-secondary" id="rename-cancel">Cancel</button>
+      <button class="button button-primary" id="rename-confirm">Rename</button>
+    </div>
+  </div>
 </div>
 
 <!-- Unified Create/Action Modal -->
@@ -177,11 +190,11 @@
       'namespace-parent': [],
       'domain-parent':    ['add-domain'],
       'namespace':        ['add-domain'],
-      'domain':           ['add-subdomain', 'add-service', 'verify-domain', 'delete'],
+      'domain':           ['add-subdomain', 'add-service', 'verify-domain', 'rename', 'delete'],
       'service-parent':   ['add-service'],
-      'service':          ['delete'],
+      'service':          ['rename', 'delete'],
       'blueprint-parent': ['add-blueprint'],
-      'blueprint':        ['delete']
+      'blueprint':        ['rename', 'delete']
     };
     const allowed = actionMap[kind] || [];
 
@@ -227,6 +240,7 @@
     const action = item.dataset.action;
     if (action === 'delete') doDelete(ctxTarget);
     else if (action === 'verify-domain') doVerify(ctxTarget);
+    else if (action === 'rename') openRename(ctxTarget);
     else openCreate(action, ctxTarget);
   });
 
@@ -320,6 +334,41 @@
     });
   }
 
+
+  /* ── Rename ── */
+  const renameModal = document.getElementById('rename-modal');
+  const renameInput = document.getElementById('rename-input');
+  const renameTitle = document.getElementById('rename-title');
+  let renameKind = null;
+
+  function openRename(target) {
+    renameKind = target.dataset.kind;
+    renameInput.value = target.querySelector('.cosmos-node-label').textContent;
+    renameTitle.textContent = 'Rename ' + renameKind;
+    renameModal.classList.add('is-visible');
+    renameInput.focus();
+  }
+  document.getElementById('rename-cancel').addEventListener('click', () => { renameModal.classList.remove('is-visible'); });
+  renameModal.addEventListener('click', e => { if (e.target === renameModal) renameModal.classList.remove('is-visible'); });
+  document.getElementById('rename-confirm').addEventListener('click', async () => {
+    const newName = renameInput.value.trim(); if (!newName) return;
+    const id = ctxTarget.dataset.id;
+    let url, body;
+    if (renameKind === 'domain') { url = '/api/v1/domains/' + encodeURIComponent(id); body = {name: newName}; }
+    else if (renameKind === 'service') { url = '/api/v1/domains/' + encodeURIComponent(ctxTarget.dataset.domain) + '/services/' + encodeURIComponent(id.split('/').pop()); body = {name: newName}; }
+    else if (renameKind === 'blueprint') {
+      alert('Blueprint rename not yet supported via API');
+      renameModal.classList.remove('is-visible');
+      return;
+    }
+    else { renameModal.classList.remove('is-visible'); return; }
+    try {
+      const res = await fetch(url, {method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      if (res.ok) location.reload();
+      else { const d = await res.json(); alert(d.error?.message || 'Rename failed'); }
+    } catch(e) { alert(e.message); }
+  });
+
   document.getElementById('create-cancel').addEventListener('click', () => {
     createModal.classList.remove('is-visible');
   });
@@ -349,7 +398,9 @@
       const owner = document.getElementById('create-owner').value.trim() || 'unknown';
       const parent = createFields.dataset.parent;
       if (!segment) { alert('Segment required'); return; }
-      url = '/api/v1/domains/' + encodeURIComponent(parent) + '/children';
+      url = '/api/v1/domains';
+      const fullDomain = segment + '.' + parent;
+      opts.body = new URLSearchParams({dns: fullDomain, owner: owner});
       opts = {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: new URLSearchParams({segment, owner})};
     } else if (createAction === 'add-service') {
       const name = document.getElementById('create-svcname').value.trim();

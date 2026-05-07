@@ -1,7 +1,0 @@
-id: service-user-account-creation
-type: service
-name: user-account-creation
-version: 0.1.0
-status: draft
-owner: unknown
-summary: Nomos Service user-account-creation.

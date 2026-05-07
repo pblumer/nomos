@@ -113,6 +113,39 @@ func (h *handler) apiDomainRoutes(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusOK, map[string]string{"deleted": parts[0]})
 			return
 		}
+		if r.Method == http.MethodPut {
+			var req struct{ Name string `json:"name"` }
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			if err := app.RenameDomain(h.cosmosPath, parts[0], req.Name); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"renamed": req.Name})
+			return
+		}
+		if r.Method == http.MethodPost {
+			var req struct{ Segment string `json:"segment"` }
+			if ct := r.Header.Get("Content-Type"); strings.Contains(ct, "application/json") {
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+					writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+					return
+				}
+			} else {
+				_ = r.ParseForm()
+				req.Segment = r.FormValue("segment")
+			}
+			_, err := app.AddChildDomain(h.cosmosPath, parts[0], req.Segment, r.FormValue("owner"), false)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			dto, _ := app.GetDomain(h.cosmosPath, req.Segment+"."+parts[0])
+			writeJSON(w, http.StatusCreated, dto)
+			return
+		}
 		if r.Method == http.MethodGet {
 			dto, err := app.GetDomain(h.cosmosPath, parts[0])
 			if err != nil {
@@ -168,6 +201,19 @@ func (h *handler) apiDomainRoutes(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			writeJSON(w, http.StatusOK, map[string]string{"deleted": parts[0] + "/" + parts[2]})
+			return
+		}
+		if r.Method == http.MethodPut {
+			var req struct{ Name string `json:"name"` }
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			if err := app.RenameService(h.cosmosPath, parts[0], parts[2], req.Name); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"renamed": req.Name})
 			return
 		}
 		dto, err := app.GetService(h.cosmosPath, parts[0], parts[2])

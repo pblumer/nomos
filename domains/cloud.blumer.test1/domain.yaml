@@ -1,9 +1,0 @@
-id: domain-cloud-blumer-test1
-type: domain
-name: cloud.blumer.test1
-version: 0.1.0
-status: draft
-owner: unknown
-dns_name: cloud.blumer.test1
-summary: Nomos Domain cloud.blumer.test1.
-services: []
