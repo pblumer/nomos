@@ -90,7 +90,7 @@ func ValidateCosmos(path string) (ValidationResultDTO, error) {
 	res, err := validate.Validate(path)
 	out := ValidationResultDTO{Status: res.Status, Findings: []FindingDTO{}}
 	for _, f := range res.Findings {
-		out.Findings = append(out.Findings, FindingDTO{Code: f.Code, Severity: f.Severity, Message: f.Message, Path: f.Path})
+		out.Findings = append(out.Findings, FindingDTO{Code: f.Code, Severity: f.Severity, Message: f.Message, Path: f.Path, ArtifactType: f.ArtifactType, ArtifactID: f.ArtifactID, Suggestion: f.Suggestion})
 	}
 	if err != nil {
 		return out, Error(CodeValidationFailed, "Validation failed", http.StatusInternalServerError, err)
@@ -653,4 +653,174 @@ func DeleteBlueprint(path, id string) error {
 		return Error(CodeInternalError, "Failed to delete blueprint: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	return nil
+}
+
+func PublishBlueprint(path, id string) (BlueprintDTO, error) {
+	bp, err := GetBlueprint(path, id)
+	if err != nil {
+		return BlueprintDTO{}, err
+	}
+	var raw model.Blueprint
+	if err := fsx.ReadYAML(bp.Path, &raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to read blueprint: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	raw.Status = "published"
+	if err := fsx.WriteYAML(bp.Path, raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to write blueprint: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetBlueprint(path, id)
+}
+
+func ValidateBlueprint(path, id string) (ValidationResultDTO, error) {
+	bp, err := GetBlueprint(path, id)
+	if err != nil {
+		return ValidationResultDTO{}, err
+	}
+	full, err := ValidateCosmos(path)
+	if err != nil {
+		return full, err
+	}
+	filtered := ValidationResultDTO{Status: "ok", Findings: []FindingDTO{}}
+	for _, f := range full.Findings {
+		if strings.Contains(f.Path, bp.ID) || f.ArtifactID == bp.ID {
+			filtered.Findings = append(filtered.Findings, f)
+		}
+	}
+	for _, f := range filtered.Findings {
+		if f.Severity == "error" {
+			filtered.Status = "failed"
+			break
+		}
+	}
+	return filtered, nil
+}
+
+func CreateInstance(path string, inst model.Instance) error {
+	if _, err := os.Stat(storage.CosmosFile(path)); err != nil {
+		return Error(CodeCosmosMissing, ".nomos/cosmos.yaml not found", http.StatusNotFound, err)
+	}
+	if strings.TrimSpace(inst.ID) == "" {
+		return Error(CodeInvalidInput, "Instance ID is required", http.StatusBadRequest, nil)
+	}
+	if inst.Type != "product_instance" && inst.Type != "service_instance" {
+		return Error(CodeInvalidInput, "Instance type must be product_instance or service_instance", http.StatusBadRequest, nil)
+	}
+	if strings.TrimSpace(inst.BlueprintRef) == "" {
+		return Error(CodeInvalidInput, "blueprint_ref is required", http.StatusBadRequest, nil)
+	}
+
+	existing, err := ListInstances(path)
+	if err != nil {
+		return err
+	}
+	for _, i := range existing.Instances {
+		if i.ID == inst.ID {
+			return Error(CodeInstanceAlreadyExists, "Instance already exists: "+inst.ID, http.StatusConflict, nil)
+		}
+	}
+
+	var subdir string
+	if inst.Type == "product_instance" {
+		subdir = "products"
+	} else {
+		subdir = "services"
+	}
+	dir := filepath.Join(storage.CatalogDir(path), "instances", subdir)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return Error(CodeInternalError, "Failed to create instance directory: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	filePath := filepath.Join(dir, inst.ID+".yaml")
+	return fsx.WriteYAML(filePath, inst)
+}
+
+func DeleteInstance(path, id string) error {
+	inst, err := GetInstance(path, id)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(inst.Path); err != nil {
+		return Error(CodeInternalError, "Failed to delete instance: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return nil
+}
+
+func PatchBlueprint(path, id string, fields map[string]string) (BlueprintDTO, error) {
+	bp, err := GetBlueprint(path, id)
+	if err != nil {
+		return BlueprintDTO{}, err
+	}
+	var raw model.Blueprint
+	if err := fsx.ReadYAML(bp.Path, &raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to read blueprint: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	for k, v := range fields {
+		switch k {
+		case "name":
+			raw.Name = v
+		case "status":
+			raw.Status = v
+		case "version":
+			raw.Version = v
+		case "owner":
+			raw.Owner = v
+		case "summary":
+			raw.Summary = v
+		}
+	}
+	if err := fsx.WriteYAML(bp.Path, raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to write blueprint: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetBlueprint(path, id)
+}
+
+func PatchInstance(path, id string, fields map[string]string) (InstanceDTO, error) {
+	inst, err := GetInstance(path, id)
+	if err != nil {
+		return InstanceDTO{}, err
+	}
+	var raw model.Instance
+	if err := fsx.ReadYAML(inst.Path, &raw); err != nil {
+		return InstanceDTO{}, Error(CodeInternalError, "Failed to read instance: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	for k, v := range fields {
+		switch k {
+		case "name":
+			raw.Name = v
+		case "status":
+			raw.Status = v
+		case "owner":
+			raw.Owner = v
+		case "compliance_status":
+			raw.ComplianceStatus = v
+		case "provider_ref":
+			raw.ProviderRef = v
+		}
+	}
+	if err := fsx.WriteYAML(inst.Path, raw); err != nil {
+		return InstanceDTO{}, Error(CodeInternalError, "Failed to write instance: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetInstance(path, id)
+}
+
+func VerifyInstance(path, id string) (InstanceDTO, error) {
+	inst, err := GetInstance(path, id)
+	if err != nil {
+		return InstanceDTO{}, err
+	}
+	var raw model.Instance
+	if err := fsx.ReadYAML(inst.Path, &raw); err != nil {
+		return InstanceDTO{}, Error(CodeInternalError, "Failed to read instance: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	now := time.Now().UTC()
+	ev := model.Evidence{
+		ID:      "evidence-verify-" + now.Format("20060102-150405"),
+		Type:    "manual_verification",
+		Summary: "Manual verification completed at " + now.Format(time.RFC3339),
+	}
+	raw.Evidence = append(raw.Evidence, ev)
+	raw.ComplianceStatus = "compliant"
+	if err := fsx.WriteYAML(inst.Path, raw); err != nil {
+		return InstanceDTO{}, Error(CodeInternalError, "Failed to write instance: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetInstance(path, id)
 }

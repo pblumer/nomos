@@ -1,0 +1,25 @@
+{{define "requirements"}}{{template "layout" .}}{{end}}{{define "content_requirements"}}
+<section class="page-header">
+  <div><h2>Requirements</h2><p>Evidence requirements declared across all blueprints.</p></div>
+  <div class="button-row"><a class="button button-secondary" href="/api/v1/blueprints">Blueprint JSON</a></div>
+</section>
+{{if eq (len .RequirementRows) 0}}
+<section class="card"><p class="empty-state">No evidence requirements declared in any blueprint.</p></section>
+{{else}}
+<section class="card">
+  <table class="data-table">
+    <thead><tr><th>Requirement ID</th><th>Referenced in Blueprint</th><th>Blueprint Type</th><th>Blueprint Status</th></tr></thead>
+    <tbody>
+    {{range .RequirementRows}}
+    <tr>
+      <td><code>{{.RequirementID}}</code></td>
+      <td><a href="/blueprints/{{.BlueprintID}}">{{.BlueprintID}}</a></td>
+      <td>{{.BlueprintType}}</td>
+      <td><span class="badge badge-{{.BlueprintStatus}}">{{.BlueprintStatus}}</span></td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+</section>
+{{end}}
+{{end}}

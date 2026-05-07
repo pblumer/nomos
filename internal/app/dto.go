@@ -68,10 +68,13 @@ type ValidationResultDTO struct {
 	Findings []FindingDTO `json:"findings"`
 }
 type FindingDTO struct {
-	Code     string `json:"code"`
-	Severity string `json:"severity"`
-	Message  string `json:"message"`
-	Path     string `json:"path,omitempty"`
+	Code         string `json:"code"`
+	Severity     string `json:"severity"`
+	Message      string `json:"message"`
+	Path         string `json:"path,omitempty"`
+	ArtifactType string `json:"artifact_type,omitempty"`
+	ArtifactID   string `json:"artifact_id,omitempty"`
+	Suggestion   string `json:"suggestion,omitempty"`
 }
 type GraphDTO struct {
 	Format  string `json:"format"`

@@ -16,17 +16,42 @@ go run ./cmd/nomos version
 
 ## Command-Übersicht
 
-- `nomos version`
-- `nomos cosmos init <path>`
-- `nomos cosmos info [--path <dir>]`
-- `nomos cosmos doctor [--path <dir>]`
-- `nomos domain add <dns> [--path <dir>] [--owner <owner>] [--force]`
-- `nomos domain list [--path <dir>]`
-- `nomos service add <name> --domain <dns> [--path <dir>] [--owner <owner>] [--force]`
-- `nomos validate [--path <dir>] [--format <text|json>]`
-- `nomos graph [--path <dir>]`
-- `nomos verify domain <dns> [--path <dir>]`
-- `nomos serve [--path <dir>] [--listen <host:port>]`
+| Command | Beschreibung |
+|---------|-------------|
+| `nomos version [--short] [--format text\|json]` | CLI-Version anzeigen |
+| `nomos cosmos init <path> [--git] [--force]` | Neues Cosmos-Repository initialisieren |
+| `nomos cosmos info [--path] [--format]` | Cosmos-Metadaten anzeigen |
+| `nomos cosmos doctor [--path]` | Basis-Gesundheitsprüfung |
+| `nomos domain add <dns> [--path] [--owner] [--force]` | Domain anlegen |
+| `nomos domain list [--path] [--format]` | Alle Domains auflisten |
+| `nomos domain get <dns> [--path] [--format]` | Domain-Detail |
+| `nomos domain delete <dns> [--path]` | Domain löschen |
+| `nomos service add <name> --domain <dns> [--path] [--owner] [--force]` | Service anlegen |
+| `nomos service list --domain <dns> [--path] [--format]` | Services einer Domain auflisten |
+| `nomos service get <name> --domain <dns> [--path] [--format]` | Service-Detail |
+| `nomos service delete <name> --domain <dns> [--path]` | Service löschen |
+| `nomos blueprint list [--path] [--format]` | Alle Blueprints auflisten |
+| `nomos blueprint show <id> [--path] [--format]` | Blueprint-Detail |
+| `nomos blueprint create --id <id> --name <name> [--type] [--version] [--status] [--owner] [--summary] [--service-ref] [--service-blueprint-ref] [--path]` | Blueprint erstellen |
+| `nomos blueprint delete <id> [--path]` | Blueprint löschen |
+| `nomos blueprint validate <id> [--path] [--format]` | Blueprint validieren (nur Findings zu diesem Blueprint) |
+| `nomos blueprint publish <id> [--path] [--format]` | Blueprint publizieren (status: draft → published) |
+| `nomos instance list [--path] [--format] [--filter key=val,…]` | Instances auflisten (optional filtern) |
+| `nomos instance show <id> [--path] [--format]` | Instance-Detail |
+| `nomos instance create --id <id> --blueprint-ref <id> [--type] [--blueprint-version] [--name] [--owner] [--path] [--format]` | Instance erstellen |
+| `nomos instance verify <id> [--path] [--format]` | Manual-Verification Evidence schreiben, compliance_status → compliant |
+| `nomos servicegraph list [--path] [--format]` | Servicegraphs auflisten |
+| `nomos servicegraph get <id> [--path] [--format]` | Servicegraph-Detail |
+| `nomos servicegraph create <file.yaml> [--path]` | Servicegraph aus YAML-Datei erstellen |
+| `nomos servicegraph delete <id> [--path]` | Servicegraph löschen |
+| `nomos servicegraph validate <id> [--path]` | Servicegraph validieren |
+| `nomos servicegraph mermaid <id> [--path]` | Mermaid-Diagramm ausgeben |
+| `nomos servicegraph execution <id> [--path] [--format]` | Topologische Ausführungsreihenfolge ausgeben |
+| `nomos namespace tree [--path] [--format]` | Namespace-Baum ausgeben |
+| `nomos validate [--path] [--format]` | Vollständige Cosmos-Validierung |
+| `nomos graph [--path] [--format]` | Mermaid-Graph des gesamten Cosmos |
+| `nomos verify domain <dns> [--path]` | DNS-TXT-Verifikation durchführen |
+| `nomos serve [--path] [--listen]` | Web-Server starten |
 
 ---
 
@@ -152,23 +177,44 @@ Erzeugt einen Service unter `.nomos/domains/<dns>/services/<name>/`.
 
 ## `nomos validate`
 
-Führt eine minimale Validierung aus.
+Führt eine vollständige, deterministische Validierung des gesamten Cosmos aus.
 
-Aktuell wird geprüft:
-- Existenz von `.nomos/cosmos.yaml`
+**Geprüft wird:**
+1. Existenz von `.nomos/cosmos.yaml`
+2. Blueprint-Pflichtfelder und typ-spezifische Regeln (product/service)
+3. Instance-Pflichtfelder und erlaubte `compliance_status`-Werte
+4. Servicegraph-Struktur (Node/Edge-Typen, Zyklen, Scope-Referenzen)
+5. Cross-Artifact-Referenzen:
+   - `namespace_service_ref` → Service existiert im Cosmos
+   - `required_services[].service_blueprint_ref` → Service Blueprint existiert
+   - `blueprint_ref` in Instances → Blueprint existiert
+   - Instance-Type passt zum Blueprint-Type
+   - `required_inputs` der Instance vollständig belegt
+   - `evidence_requirements` der Instance abgedeckt
 
 **Ausgabe:**
-- Text (Standard)
-- JSON mit `--format json`
+- Text (Standard): gruppiert nach Severity mit Suggestions
+- JSON mit `--format json`: strukturierte Finding-Objekte mit `code`, `severity`, `message`, `path`, `artifact_type`, `artifact_id`, `suggestion`
 
 **Exit-Codes:**
-- `0`: keine Findings
-- `1`: mindestens ein Finding mit Fehler
 
-Beispiel:
+| Code | Bedeutung |
+|------|-----------|
+| `0` | Keine Findings **oder** nur Warnings/Info |
+| `1` | Mindestens ein Finding mit `severity: error` |
 
 ```bash
-go run ./cmd/nomos validate --path . --format json
+# Standard-Ausgabe (Warnings sind OK, nur Errors blockieren)
+nomos validate --path .
+
+# JSON für CI / Scripting
+nomos validate --path . --format json
+
+# Nur Errors in CI
+nomos validate --path . --format json | jq '.findings[] | select(.severity == "error")'
+
+# Einzelnen Blueprint validieren
+nomos blueprint validate <id> --path .
 ```
 
 ---
@@ -187,6 +233,98 @@ graph TD
   cosmos_local_cosmos["Cosmos: Local Cosmos"]
   cosmos_local_cosmos --> domain_identity_blumer_cloud["Domain: identity.blumer.cloud"]
   domain_identity_blumer_cloud --> service_identity_blumer_cloud_user_account["Service: user-account"]
+```
+
+---
+
+## `nomos blueprint`
+
+### `nomos blueprint validate <id>`
+Validiert einen einzelnen Blueprint. Gibt nur Findings aus, die sich auf diesen Blueprint beziehen (aus dem Full-Cosmos-Validate gefiltert).
+
+**Exit-Codes:** 0 = keine Errors, 1 = Error-Findings vorhanden.
+
+### `nomos blueprint publish <id>`
+Setzt den `status` eines Blueprints von `draft` auf `published`.
+
+```bash
+nomos blueprint publish PB-ACC-001 --path .
+nomos blueprint publish PB-ACC-001 --path . --format json
+```
+
+---
+
+## `nomos instance`
+
+### `nomos instance create`
+Erstellt eine neue Instance aus einem Blueprint.
+
+**Pflichtflags:** `--id`, `--blueprint-ref`
+
+```bash
+nomos instance create \
+  --id PI-001 \
+  --blueprint-ref PB-ACC-MBX-001 \
+  --type product_instance \
+  --blueprint-version 0.1.0 \
+  --owner "Platform Team" \
+  --path .
+```
+
+### `nomos instance verify <id>`
+Schreibt einen Manual-Verification Evidence-Eintrag in die Instance-YAML und setzt `compliance_status: compliant`.
+
+```bash
+nomos instance verify PI-001 --path .
+nomos instance verify PI-001 --path . --format json
+```
+
+### `nomos instance list --filter`
+Filtert Instances nach `key=value`-Paaren (kommagetrennt).
+
+Unterstützte Filterkeys: `status`, `compliance_status`, `blueprint_ref`, `type`.
+
+```bash
+nomos instance list --path . --filter status=active
+nomos instance list --path . --filter compliance_status=compliant,type=product_instance
+```
+
+---
+
+## `nomos servicegraph`
+
+### `nomos servicegraph list`
+Listet alle Servicegraphs im Catalog auf.
+
+### `nomos servicegraph get <id>`
+Zeigt Detailinfos zu einem Servicegraph (Nodes, Edges, Rules, Varianten).
+
+### `nomos servicegraph create <file.yaml>`
+Erstellt einen neuen Servicegraph aus einer YAML-Datei.
+
+```bash
+nomos servicegraph create ./my-graph.yaml --path .
+```
+
+### `nomos servicegraph delete <id>`
+Löscht einen Servicegraph.
+
+### `nomos servicegraph validate <id>`
+Validiert die Struktur eines Servicegraphs (Typen, Zyklen, Scope-Referenzen).
+
+### `nomos servicegraph mermaid <id>`
+Gibt ein Mermaid-Flowchart-Diagramm des Servicegraphs auf stdout aus.
+
+```bash
+nomos servicegraph mermaid SG-001 --path . | pbcopy
+```
+
+### `nomos servicegraph execution <id>`
+Gibt die topologisch sortierte Ausführungsreihenfolge als Gruppen aus (parallele Gruppen auf gleicher Ebene).
+
+```bash
+nomos servicegraph execution SG-001 --path .
+nomos servicegraph execution SG-001 --path . --format json
 ```
 
 ---
@@ -296,16 +434,42 @@ open http://127.0.0.1:8080/swagger
 
 The read-only CLI and REST API are adapters over the same internal application DTOs for Cosmos, domains, services, validation, graph output and namespace trees.
 
-| CLI command | REST endpoint |
-| --- | --- |
-| `nomos cosmos info --format json` | `GET /api/v1/cosmos` |
-| `nomos domain list --format json` | `GET /api/v1/domains` |
-| `nomos domain get <domain> --format json` | `GET /api/v1/domains/{domain}` |
-| `nomos service get <service> --domain <domain> --format json` | `GET /api/v1/domains/{domain}/services/{service}` |
-| `nomos graph` | `GET /api/v1/graph` |
-| `nomos graph --format json` | `GET /api/v1/graph?format=json` |
-| `nomos validate --format json` | `GET /api/v1/validate` |
-| `nomos namespace tree --format json` | `GET /api/v1/namespaces` |
+| CLI command | REST endpoint | Web page |
+| --- | --- | --- |
+| `nomos cosmos info --format json` | `GET /api/v1/cosmos` | `/cosmos` |
+| `nomos domain list --format json` | `GET /api/v1/domains` | `/domains` |
+| `nomos domain get <domain> --format json` | `GET /api/v1/domains/{domain}` | `/domains/{domain}` |
+| `nomos domain add <dns>` | `POST /api/v1/domains` | `/domains` form |
+| `nomos domain delete <dns>` | `DELETE /api/v1/domains/{domain}` | — |
+| `nomos service list --domain <d>` | `GET /api/v1/domains/{domain}/services` | `/services` |
+| `nomos service get <name> --domain <d>` | `GET /api/v1/domains/{domain}/services/{service}` | `/services` detail |
+| `nomos service add <name> --domain <d>` | `POST /api/v1/domains/{domain}/services` | `/services` form |
+| `nomos service delete <name> --domain <d>` | `DELETE /api/v1/domains/{domain}/services/{svc}` | — |
+| `nomos blueprint list` | `GET /api/v1/blueprints` | `/blueprints` |
+| `nomos blueprint show <id>` | `GET /api/v1/blueprints/{id}` | `/blueprints/{id}` |
+| `nomos blueprint create` | `POST /api/v1/blueprints` | — |
+| `nomos blueprint delete <id>` | `DELETE /api/v1/blueprints/{id}` | — |
+| `nomos blueprint validate <id>` | `GET /api/v1/blueprints/{id}/validate` | — |
+| `nomos blueprint publish <id>` | `POST /api/v1/blueprints/{id}/publish` | — |
+| *(field update)* | `PATCH /api/v1/blueprints/{id}` | — |
+| `nomos instance list` | `GET /api/v1/instances` | `/instances` |
+| `nomos instance show <id>` | `GET /api/v1/instances/{id}` | `/instances/{id}` |
+| `nomos instance create` | `POST /api/v1/instances` | — |
+| `nomos instance verify <id>` | `POST /api/v1/instances/{id}/verify` | — |
+| `nomos instance delete <id>` | `DELETE /api/v1/instances/{id}` | — |
+| *(field update)* | `PATCH /api/v1/instances/{id}` | — |
+| `nomos servicegraph list` | `GET /api/v1/servicegraphs` | — |
+| `nomos servicegraph get <id>` | `GET /api/v1/servicegraphs/{id}` | — |
+| `nomos servicegraph create <file>` | `POST /api/v1/servicegraphs` | — |
+| `nomos servicegraph delete <id>` | `DELETE /api/v1/servicegraphs/{id}` | — |
+| `nomos servicegraph mermaid <id>` | `GET /api/v1/servicegraphs/{id}/mermaid` | — |
+| `nomos servicegraph execution <id>` | `GET /api/v1/servicegraphs/{id}/execution` | — |
+| `nomos graph` | `GET /api/v1/graph` | `/graph` |
+| `nomos validate --format json` | `GET /api/v1/validate` | `/validate` |
+| `nomos namespace tree --format json` | `GET /api/v1/namespaces` | `/namespaces` |
+| `nomos verify domain <dns>` | `POST /api/v1/verify/domain/{dns}` | `/verify` |
+| — | — | `/requirements` |
+| — | — | `/rules` |
 
 `--format` supports `text` and `json` where available. Invalid values return the shared `INVALID_FORMAT` error code.
 

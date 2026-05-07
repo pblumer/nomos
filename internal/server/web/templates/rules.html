@@ -1,0 +1,43 @@
+{{define "rules"}}{{template "layout" .}}{{end}}{{define "content_rules"}}
+<section class="page-header">
+  <div><h2>Rules</h2><p>Business rules and quality criteria referenced across all blueprints.</p></div>
+  <div class="button-row"><a class="button button-secondary" href="/api/v1/blueprints">Blueprint JSON</a></div>
+</section>
+{{if eq (len .RuleRows) 0}}
+<section class="card"><p class="empty-state">No rules or quality criteria declared in any blueprint.</p></section>
+{{else}}
+<section class="card">
+  <h3>Business Rules</h3>
+  <table class="data-table">
+    <thead><tr><th>Rule ID</th><th>Referenced in Blueprint</th><th>Blueprint Type</th><th>Blueprint Status</th></tr></thead>
+    <tbody>
+    {{range .RuleRows}}
+    <tr>
+      <td><code>{{.RuleID}}</code></td>
+      <td><a href="/blueprints/{{.BlueprintID}}">{{.BlueprintID}}</a></td>
+      <td>{{.BlueprintType}}</td>
+      <td><span class="badge badge-{{.BlueprintStatus}}">{{.BlueprintStatus}}</span></td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+</section>
+{{end}}
+{{if .QualityCriteriaRows}}
+<section class="card">
+  <h3>Quality Criteria</h3>
+  <table class="data-table">
+    <thead><tr><th>Criterion</th><th>Referenced in Blueprint</th><th>Blueprint Type</th></tr></thead>
+    <tbody>
+    {{range .QualityCriteriaRows}}
+    <tr>
+      <td><code>{{.RuleID}}</code></td>
+      <td><a href="/blueprints/{{.BlueprintID}}">{{.BlueprintID}}</a></td>
+      <td>{{.BlueprintType}}</td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+</section>
+{{end}}
+{{end}}
