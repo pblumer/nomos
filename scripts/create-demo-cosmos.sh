@@ -37,115 +37,58 @@ echo "==> Erstelle neuen Demo-Cosmos"
 "$NOMOS_BIN" cosmos init "$COSMOS_PATH" --git
 
 echo ""
-echo "==> Erstelle Domänen"
+echo "==> Erstelle DNS-ähnliche Domänen"
 
-"$NOMOS_BIN" domain add identity.blumer.cloud \
+"$NOMOS_BIN" domain add blumer.com \
+  --path "$COSMOS_PATH" \
+  --owner "Blumer Web Team"
+
+"$NOMOS_BIN" domain add identity.blumer.com \
   --path "$COSMOS_PATH" \
   --owner "Identity Team"
 
-"$NOMOS_BIN" domain add collaboration.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Collaboration Team"
-
-"$NOMOS_BIN" domain add governance.blumer.cloud \
+"$NOMOS_BIN" domain add governance.blumer.com \
   --path "$COSMOS_PATH" \
   --owner "Governance Team"
 
-"$NOMOS_BIN" domain add platform.blumer.cloud \
+"$NOMOS_BIN" domain add blumer.cloud \
   --path "$COSMOS_PATH" \
-  --owner "Platform Team"
+  --owner "Cloud Team"
 
-"$NOMOS_BIN" domain add assurance.blumer.cloud \
+"$NOMOS_BIN" domain add home.blumer.cloud \
   --path "$COSMOS_PATH" \
-  --owner "Assurance Team"
+  --owner "Home Team"
+
+"$NOMOS_BIN" domain add zytlog.blumer.cloud \
+  --path "$COSMOS_PATH" \
+  --owner "Zytlog Team"
+
+"$NOMOS_BIN" domain add beispiel.ch \
+  --path "$COSMOS_PATH" \
+  --owner "Swiss Example Team"
 
 echo ""
 echo "==> Erstelle Services"
 
-# Identity Domain
 "$NOMOS_BIN" service add user-account \
-  --domain identity.blumer.cloud \
+  --domain identity.blumer.com \
   --path "$COSMOS_PATH" \
   --owner "Identity Team"
 
-"$NOMOS_BIN" service add privileged-account \
-  --domain identity.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Identity Team"
-
-"$NOMOS_BIN" service add external-user-account \
-  --domain identity.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Identity Team"
-
-# Collaboration Domain
-"$NOMOS_BIN" service add mailbox \
-  --domain collaboration.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Collaboration Team"
-
-"$NOMOS_BIN" service add license-assignment \
-  --domain collaboration.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Collaboration Team"
-
-"$NOMOS_BIN" service add teams-workspace \
-  --domain collaboration.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Collaboration Team"
-
-"$NOMOS_BIN" service add shared-mailbox \
-  --domain collaboration.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Collaboration Team"
-
-# Governance Domain
 "$NOMOS_BIN" service add provisioning-rules \
-  --domain governance.blumer.cloud \
+  --domain governance.blumer.com \
   --path "$COSMOS_PATH" \
   --owner "Governance Team"
 
-"$NOMOS_BIN" service add approval-policy \
-  --domain governance.blumer.cloud \
+"$NOMOS_BIN" service add home-dashboard \
+  --domain home.blumer.cloud \
   --path "$COSMOS_PATH" \
-  --owner "Governance Team"
+  --owner "Home Team"
 
-"$NOMOS_BIN" service add naming-policy \
-  --domain governance.blumer.cloud \
+"$NOMOS_BIN" service add zytlog-api \
+  --domain zytlog.blumer.cloud \
   --path "$COSMOS_PATH" \
-  --owner "Governance Team"
-
-# Platform Domain
-"$NOMOS_BIN" service add rule-validation-api \
-  --domain platform.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Platform Team"
-
-"$NOMOS_BIN" service add decision-api \
-  --domain platform.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Platform Team"
-
-"$NOMOS_BIN" service add skill-registry \
-  --domain platform.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Platform Team"
-
-# Assurance Domain
-"$NOMOS_BIN" service add findings \
-  --domain assurance.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Assurance Team"
-
-"$NOMOS_BIN" service add evidence \
-  --domain assurance.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Assurance Team"
-
-"$NOMOS_BIN" service add audit-log \
-  --domain assurance.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Assurance Team"
+  --owner "Zytlog Team"
 
 echo ""
 echo "==> Kopiere Blueprint- und Instance-Beispielkatalog"

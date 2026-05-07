@@ -12,9 +12,22 @@ func TestDomainsPageRendersContextualCreateUI(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status=%d", rr.Code)
 	}
-	hasAll(t, rr.Body.String(), "Add child domain", "Add service", "Create child domain", "Parent domain", "New segment", "Resulting canonical name", "identity.blumer.cloud", "Hint: Enter only the new segment")
+	hasAll(t, rr.Body.String(), "Add child domain", "Add service", "Create child domain", "Parent domain", "Child label", "Resulting canonical name", "identity.blumer.cloud", "Hint: Enter only the new child label")
 	if strings.Contains(rr.Body.String(), "DNS/canonical name") {
 		t.Fatalf("global technical create form should not be primary")
+	}
+}
+
+func TestDomainsPagePromotesNamespaceLabelCreation(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	rr := get(h, "/domains?selected=cosmos")
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status=%d", rr.Code)
+	}
+	body := rr.Body.String()
+	hasAll(t, body, "Namespace", "Domain label", "Preview:", "Advanced: create by canonical name")
+	if strings.Contains(body, "Canonical domain name") {
+		t.Fatalf("page should not promote full domain name as primary creation path")
 	}
 }
 

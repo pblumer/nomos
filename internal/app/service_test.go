@@ -79,11 +79,49 @@ func TestBuildNamespaceTree(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := strings.Join(flattenLabels(tree.Root), "|")
-	for _, want := range []string{"Local Cosmos", "cloud", "blumer", "identity", "platform", "user-account", "rule-validation-api"} {
+	for _, want := range []string{"Local Cosmos", "Namespaces", "cloud", "blumer", "identity", "platform", "Services", "user-account", "rule-validation-api"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("missing %s in %s", want, body)
 		}
 	}
+}
+
+func TestBuildNamespaceTreeGroupsDomainsUnderNamespaceNodes(t *testing.T) {
+	p := createAppTestCosmos(t)
+	if _, err := AddDomain(p, "blumer.com", "Web", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AddDomain(p, "identity.blumer.com", "Identity", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AddDomain(p, "blumer.cloud", "Cloud", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AddDomain(p, "home.blumer.cloud", "Home", false); err != nil {
+		t.Fatal(err)
+	}
+	tree, err := BuildNamespaceTree(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasTreePath(tree.Root, []string{"Namespaces", "com", "blumer", "identity"}, "identity.blumer.com") {
+		t.Fatalf("missing com/blumer/identity tree: %+v", tree.Root)
+	}
+	if !hasTreePath(tree.Root, []string{"Namespaces", "cloud", "blumer", "home"}, "home.blumer.cloud") {
+		t.Fatalf("missing cloud/blumer/home tree: %+v", tree.Root)
+	}
+}
+
+func hasTreePath(n NamespaceTreeNodeDTO, labels []string, canonical string) bool {
+	if len(labels) == 0 {
+		return n.Canonical == canonical
+	}
+	for _, child := range n.Children {
+		if child.Label == labels[0] {
+			return hasTreePath(child, labels[1:], canonical)
+		}
+	}
+	return false
 }
 
 func flattenLabels(n NamespaceTreeNodeDTO) []string {

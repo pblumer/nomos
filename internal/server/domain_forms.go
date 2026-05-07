@@ -7,8 +7,8 @@ import (
 )
 
 type domainFormState struct {
-	Mode, Error, Parent, Segment, Owner, Canonical, ServiceName string
-	Force                                                       bool
+	Mode, Error, Parent, Segment, Owner, Canonical, ServiceName, Namespace, Label string
+	Force                                                                         bool
 }
 
 func (h *handler) createTopLevelDomainPage(w http.ResponseWriter, r *http.Request) {
@@ -17,10 +17,19 @@ func (h *handler) createTopLevelDomainPage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	_ = r.ParseForm()
+	namespaceName := r.FormValue("namespace")
+	label := first(r.FormValue("label"), r.FormValue("segment"))
 	canonical := first(r.FormValue("canonical"), r.FormValue("dns"), r.FormValue("domain"))
-	_, err := app.AddDomain(h.cosmosPath, canonical, r.FormValue("owner"), r.FormValue("force") != "")
+	var err error
+	if namespaceName != "" || label != "" {
+		var dto app.DomainDTO
+		dto, err = app.AddDomainInNamespace(h.cosmosPath, namespaceName, label, r.FormValue("owner"), r.FormValue("force") != "")
+		canonical = dto.Canonical
+	} else {
+		_, err = app.AddDomain(h.cosmosPath, canonical, r.FormValue("owner"), r.FormValue("force") != "")
+	}
 	if err != nil {
-		h.renderDomainsPage(w, r, statusOf(err), domainFormState{Mode: first(r.FormValue("mode"), "top-level"), Error: err.Error(), Canonical: canonical, Owner: r.FormValue("owner"), Force: r.FormValue("force") != ""})
+		h.renderDomainsPage(w, r, statusOf(err), domainFormState{Mode: first(r.FormValue("mode"), "top-level"), Error: err.Error(), Canonical: canonical, Namespace: namespaceName, Label: label, Owner: r.FormValue("owner"), Force: r.FormValue("force") != ""})
 		return
 	}
 	http.Redirect(w, r, "/domains?selected=domain:"+canonical, http.StatusSeeOther)

@@ -63,3 +63,13 @@
 .modal input:focus,.modal select:focus{outline:2px solid var(--color-primary);outline-offset:-1px;border-color:var(--color-primary)}
 .modal-actions{display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.2rem}
 .input-with-hint{position:relative}
+.cosmos-node-row[data-kind="namespace"],.explorer-node.is-namespace>.explorer-node-row{color:#075985}
+.cosmos-node-row[data-kind="domain"] .cosmos-node-icon{color:#2563eb}
+.cosmos-node-row[data-kind="service-parent"]{color:#64748b;font-style:italic}
+.cosmos-node-row[data-kind="service"] .cosmos-node-icon,.explorer-service .explorer-node-icon{color:#7c3aed}
+.cosmos-node-row[data-kind="namespace"] .node-kind,.badge-namespace{background:#e0f2fe;color:#075985}
+.cosmos-node-row[data-kind="service-parent"] .node-kind,.badge-service-parent{background:#f1f5f9;color:#64748b}
+.cosmos-node-row[data-kind="service"] .node-kind,.badge-service{background:#ede9fe;color:#5b21b6}
+.badge-draft{background:#f1f5f9;color:#475569}.badge-pending{background:#fef3c7;color:#92400e}.badge-verified{background:#dcfce7;color:#166534}.badge-failed{background:#fee2e2;color:#991b1b}
+.verification-badge{display:inline-flex;align-items:center;gap:.25rem;border-radius:999px;padding:.15rem .5rem;font-size:.78rem;font-weight:700}
+.namespace-create-form .form-help{grid-column:1/-1}
