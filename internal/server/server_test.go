@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/nomos/nomos/internal/storage"
 )
 
 func createTestCosmos(t *testing.T) string {
@@ -17,37 +19,37 @@ func createTestCosmos(t *testing.T) string {
 			t.Fatal(e)
 		}
 	}
-	must(os.MkdirAll(filepath.Join(p, "domains/identity.blumer.cloud/services/user-account"), 0o755))
-	must(os.MkdirAll(filepath.Join(p, "domains/platform.blumer.cloud/services/rule-validation-api"), 0o755))
-	must(os.MkdirAll(filepath.Join(p, "domains/blumer.com/services"), 0o755))
-	must(os.MkdirAll(filepath.Join(p, "domains/identity.blumer.com/services/user-account"), 0o755))
-	must(os.MkdirAll(filepath.Join(p, "domains/governance.blumer.com/services/provisioning-rules"), 0o755))
-	must(os.MkdirAll(filepath.Join(p, "domains/blumer.cloud/services"), 0o755))
-	must(os.MkdirAll(filepath.Join(p, "domains/home.blumer.cloud/services/home-dashboard"), 0o755))
-	must(os.MkdirAll(filepath.Join(p, "domains/zytlog.blumer.cloud/services/zytlog-api"), 0o755))
-	must(os.MkdirAll(filepath.Join(p, "domains/beispiel.ch/services"), 0o755))
-	must(os.MkdirAll(filepath.Join(p, "catalog/blueprints/products"), 0o755))
-	must(os.MkdirAll(filepath.Join(p, "catalog/blueprints/services"), 0o755))
-	must(os.MkdirAll(filepath.Join(p, "catalog/instances/products"), 0o755))
-	must(os.WriteFile(filepath.Join(p, "cosmos.yaml"), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: unknown\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/identity.blumer.cloud/domain.yaml"), []byte("name: identity.blumer.cloud\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/platform.blumer.cloud/domain.yaml"), []byte("name: platform.blumer.cloud\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/blumer.com/domain.yaml"), []byte("name: blumer.com\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/identity.blumer.com/domain.yaml"), []byte("name: identity.blumer.com\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/governance.blumer.com/domain.yaml"), []byte("name: governance.blumer.com\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/blumer.cloud/domain.yaml"), []byte("name: blumer.cloud\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/home.blumer.cloud/domain.yaml"), []byte("name: home.blumer.cloud\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/zytlog.blumer.cloud/domain.yaml"), []byte("name: zytlog.blumer.cloud\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/beispiel.ch/domain.yaml"), []byte("name: beispiel.ch\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/identity.blumer.cloud/services/user-account/service.yaml"), []byte("name: user-account\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/platform.blumer.cloud/services/rule-validation-api/service.yaml"), []byte("name: rule-validation-api\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/identity.blumer.com/services/user-account/service.yaml"), []byte("name: user-account\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/governance.blumer.com/services/provisioning-rules/service.yaml"), []byte("name: provisioning-rules\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/home.blumer.cloud/services/home-dashboard/service.yaml"), []byte("name: home-dashboard\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/zytlog.blumer.cloud/services/zytlog-api/service.yaml"), []byte("name: zytlog-api\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "catalog/blueprints/products/account.yaml"), []byte("id: PB-ACC-MBX-001\ntype: product_blueprint\nname: Benutzerkonto mit Mailbox\nversion: 0.1.0\nstatus: draft\nowner: Team\nrequired_inputs:\n  - person_reference\nrequired_service_blueprints:\n  - SB-1\nrequired_services:\n  - service_ref: identity.blumer.cloud/user-account\n    service_blueprint_ref: SB-1\n    required: true\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "catalog/blueprints/services/account-service.yaml"), []byte("id: SB-1\ntype: service_blueprint\nname: Account Service\nversion: 0.1.0\nstatus: draft\nowner: Team\nnamespace_service_ref: identity.blumer.cloud/user-account\ncapabilities:\n  - create_account\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "catalog/instances/products/account-instance.yaml"), []byte("id: PI-ACC-MBX-EXAMPLE-001\ntype: product_instance\nname: Beispielinstanz Benutzerkonto mit Mailbox\nblueprint_ref: PB-ACC-MBX-001\nblueprint_version: 0.1.0\ncompliance_status: compliant\nfindings: []\n"), 0o644))
+	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/services/user-account"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/services/rule-validation-api"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "blumer.com/services"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "identity.blumer.com/services/user-account"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "governance.blumer.com/services/provisioning-rules"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "blumer.cloud/services"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "home.blumer.cloud/services/home-dashboard"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "zytlog.blumer.cloud/services/zytlog-api"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "beispiel.ch/services"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.CatalogDir(p), "blueprints/products"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.CatalogDir(p), "blueprints/services"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.CatalogDir(p), "instances/products"), 0o755))
+	must(os.WriteFile(storage.CosmosFile(p), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: unknown\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud", "domain.yaml"), []byte("name: identity.blumer.cloud\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/domain.yaml"), []byte("name: platform.blumer.cloud\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "blumer.com/domain.yaml"), []byte("name: blumer.com\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.com/domain.yaml"), []byte("name: identity.blumer.com\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "governance.blumer.com/domain.yaml"), []byte("name: governance.blumer.com\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "blumer.cloud/domain.yaml"), []byte("name: blumer.cloud\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "home.blumer.cloud/domain.yaml"), []byte("name: home.blumer.cloud\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "zytlog.blumer.cloud/domain.yaml"), []byte("name: zytlog.blumer.cloud\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "beispiel.ch/domain.yaml"), []byte("name: beispiel.ch\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/services/user-account/service.yaml"), []byte("name: user-account\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/services/rule-validation-api/service.yaml"), []byte("name: rule-validation-api\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.com/services/user-account/service.yaml"), []byte("name: user-account\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "governance.blumer.com/services/provisioning-rules/service.yaml"), []byte("name: provisioning-rules\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "home.blumer.cloud/services/home-dashboard/service.yaml"), []byte("name: home-dashboard\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "zytlog.blumer.cloud/services/zytlog-api/service.yaml"), []byte("name: zytlog-api\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "blueprints/products/account.yaml"), []byte("id: PB-ACC-MBX-001\ntype: product_blueprint\nname: Benutzerkonto mit Mailbox\nversion: 0.1.0\nstatus: draft\nowner: Team\nrequired_inputs:\n  - person_reference\nrequired_service_blueprints:\n  - SB-1\nrequired_services:\n  - service_ref: identity.blumer.cloud/user-account\n    service_blueprint_ref: SB-1\n    required: true\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "blueprints/services/account-service.yaml"), []byte("id: SB-1\ntype: service_blueprint\nname: Account Service\nversion: 0.1.0\nstatus: draft\nowner: Team\nnamespace_service_ref: identity.blumer.cloud/user-account\ncapabilities:\n  - create_account\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "instances/products/account-instance.yaml"), []byte("id: PI-ACC-MBX-EXAMPLE-001\ntype: product_instance\nname: Beispielinstanz Benutzerkonto mit Mailbox\nblueprint_ref: PB-ACC-MBX-001\nblueprint_version: 0.1.0\ncompliance_status: compliant\nfindings: []\n"), 0o644))
 	return p
 }
 func get(h http.Handler, path string) *httptest.ResponseRecorder {
@@ -367,11 +369,12 @@ func TestCreateDomainAndService(t *testing.T) {
 
 func TestAPIBlueprintsPOST(t *testing.T) {
 	p := t.TempDir()
-	if err := os.WriteFile(filepath.Join(p, "cosmos.yaml"), []byte("id: c\nname: C\n"), 0o644); err != nil {
+	mustMkdir(t, storage.NomosDir(p))
+	if err := os.WriteFile(storage.CosmosFile(p), []byte("id: c\nname: C\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	mustMkdir(t, filepath.Join(p, "catalog", "blueprints", "products"))
-	mustMkdir(t, filepath.Join(p, "catalog", "blueprints", "services"))
+	mustMkdir(t, filepath.Join(storage.CatalogDir(p), "blueprints", "products"))
+	mustMkdir(t, filepath.Join(storage.CatalogDir(p), "blueprints", "services"))
 	h := NewHandler(p)
 
 	body := `{"id":"PB-API-001","type":"product_blueprint","name":"API Blueprint","version":"0.1.0","status":"draft","owner":"API Team","summary":"Created via API"}`
@@ -395,10 +398,11 @@ func TestAPIBlueprintsPOST(t *testing.T) {
 
 func TestAPIBlueprintsDELETE(t *testing.T) {
 	p := t.TempDir()
-	if err := os.WriteFile(filepath.Join(p, "cosmos.yaml"), []byte("id: c\nname: C\n"), 0o644); err != nil {
+	mustMkdir(t, storage.NomosDir(p))
+	if err := os.WriteFile(storage.CosmosFile(p), []byte("id: c\nname: C\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	mustMkdir(t, filepath.Join(p, "catalog", "blueprints", "products"))
+	mustMkdir(t, filepath.Join(storage.CatalogDir(p), "blueprints", "products"))
 	h := NewHandler(p)
 
 	// Create first

@@ -31,13 +31,13 @@ func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesDNSLikeDemo(t *te
 		t.Fatalf("create demo cosmos: %v\n%s", err, out)
 	}
 	for _, rel := range []string{
-		"domains/blumer.com/domain.yaml",
-		"domains/identity.blumer.com/services/user-account/service.yaml",
-		"domains/governance.blumer.com/services/provisioning-rules/service.yaml",
-		"domains/home.blumer.cloud/services/home-dashboard/service.yaml",
-		"domains/zytlog.blumer.cloud/services/zytlog-api/service.yaml",
-		"domains/beispiel.ch/domain.yaml",
-		"catalog/blueprints/products/benutzerkonto-mit-mailbox.yaml",
+		filepath.Join(".nomos", "domains", "blumer.com", "domain.yaml"),
+		filepath.Join(".nomos", "domains", "identity.blumer.com", "services", "user-account", "service.yaml"),
+		filepath.Join(".nomos", "domains", "governance.blumer.com", "services", "provisioning-rules", "service.yaml"),
+		filepath.Join(".nomos", "domains", "home.blumer.cloud", "services", "home-dashboard", "service.yaml"),
+		filepath.Join(".nomos", "domains", "zytlog.blumer.cloud", "services", "zytlog-api", "service.yaml"),
+		filepath.Join(".nomos", "domains", "beispiel.ch", "domain.yaml"),
+		filepath.Join(".nomos", "catalog", "blueprints", "products", "benutzerkonto-mit-mailbox.yaml"),
 	} {
 		if _, err := os.Stat(filepath.Join(target, rel)); err != nil {
 			t.Fatalf("missing %s in explicit target: %v", rel, err)

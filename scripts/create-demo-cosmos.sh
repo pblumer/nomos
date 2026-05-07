@@ -92,9 +92,9 @@ echo "==> Erstelle Services"
 
 echo ""
 echo "==> Kopiere Blueprint- und Instance-Beispielkatalog"
-mkdir -p "$COSMOS_PATH/catalog"
-cp -R catalog/blueprints "$COSMOS_PATH/catalog/"
-cp -R catalog/instances "$COSMOS_PATH/catalog/"
+mkdir -p "$COSMOS_PATH/.nomos/catalog"
+cp -R examples/demo-cosmos/.nomos/catalog/blueprints "$COSMOS_PATH/.nomos/catalog/"
+cp -R examples/demo-cosmos/.nomos/catalog/instances "$COSMOS_PATH/.nomos/catalog/"
 
 echo ""
 echo "==> Cosmos Info"

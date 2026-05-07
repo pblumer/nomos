@@ -18,6 +18,7 @@ import (
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/model"
 	"github.com/nomos/nomos/internal/server"
+	"github.com/nomos/nomos/internal/storage"
 	versionpkg "github.com/nomos/nomos/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -57,6 +58,34 @@ func versionCmd() *cobra.Command {
 	return c
 }
 
+func appendGitignore(p string) error {
+	path := filepath.Join(p, ".gitignore")
+	block := "# Nomos local generated data\n.nomos/cache/\n.nomos/index/\n"
+	data, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	content := string(data)
+	changed := false
+	for _, line := range []string{"# Nomos local generated data", ".nomos/cache/", ".nomos/index/"} {
+		if !strings.Contains(content, line) {
+			changed = true
+			break
+		}
+	}
+	if !changed {
+		return nil
+	}
+	if content != "" && !strings.HasSuffix(content, "\n") {
+		content += "\n"
+	}
+	if content != "" {
+		content += "\n"
+	}
+	content += block
+	return os.WriteFile(path, []byte(content), 0o644)
+}
+
 func cosmosCmd() *cobra.Command {
 	c := &cobra.Command{Use: "cosmos"}
 	var force, git bool
@@ -68,16 +97,19 @@ func cosmosCmd() *cobra.Command {
 				return fmt.Errorf("Zielpfad ist nicht leer")
 			}
 		}
-		for _, d := range []string{"domains", ".nomos/cache", ".nomos/index", ".nomos/evidence"} {
-			if err := os.MkdirAll(filepath.Join(p, d), 0o755); err != nil {
+		for _, d := range []string{storage.DomainsDir(p), storage.CatalogDir(p), storage.EvidenceDir(p), storage.IndexDir(p), storage.CacheDir(p)} {
+			if err := os.MkdirAll(d, 0o755); err != nil {
 				return err
 			}
 		}
 		co := model.Cosmos{ID: "cosmos-local", Type: "cosmos", Name: "Local Cosmos", Version: "0.1.0", Status: "draft", Owner: "unknown", Summary: "Lokaler Nomos Cosmos.", Domains: []string{}}
-		if err := fsx.WriteYAML(filepath.Join(p, "cosmos.yaml"), co); err != nil {
+		if err := fsx.WriteYAML(storage.CosmosFile(p), co); err != nil {
 			return err
 		}
 		if err := os.WriteFile(filepath.Join(p, "README.md"), []byte("# Cosmos\n"), 0o644); err != nil {
+			return err
+		}
+		if err := appendGitignore(p); err != nil {
 			return err
 		}
 		if git {
@@ -100,6 +132,7 @@ func cosmosCmd() *cobra.Command {
 	info := &cobra.Command{Use: "info", RunE: func(cmd *cobra.Command, args []string) error {
 		p, _ := cmd.Flags().GetString("path")
 		outFmt, _ := cmd.Flags().GetString("format")
+		warnLegacyLayout(cmd, p)
 		co, err := app.GetCosmos(p)
 		if err != nil {
 			return writeCLIError(cmd, outFmt, err)
@@ -127,11 +160,11 @@ func cosmosCmd() *cobra.Command {
 		}
 		for _, check := range doc.Checks {
 			switch check.Name {
-			case "cosmos.yaml":
+			case ".nomos/cosmos.yaml":
 				if check.Status == "ok" {
-					fmt.Fprintln(cmd.OutOrStdout(), "OK cosmos.yaml gefunden")
+					fmt.Fprintln(cmd.OutOrStdout(), "OK .nomos/cosmos.yaml gefunden")
 				} else {
-					fmt.Fprintln(cmd.OutOrStdout(), "ERROR cosmos.yaml fehlt")
+					fmt.Fprintln(cmd.OutOrStdout(), "ERROR .nomos/cosmos.yaml fehlt")
 				}
 			case "git repository":
 				if check.Status == "ok" {
@@ -170,6 +203,7 @@ func domainCmd() *cobra.Command {
 		if err := validateFormat(outFmt); err != nil {
 			return writeCLIError(cmd, outFmt, err)
 		}
+		warnLegacyLayout(cmd, p)
 		domains, err := app.ListDomains(p)
 		if err != nil {
 			return writeCLIError(cmd, outFmt, err)
@@ -450,6 +484,7 @@ func validateCmd() *cobra.Command {
 		if err := validateFormat(outFmt); err != nil {
 			return writeCLIError(cmd, outFmt, err)
 		}
+		warnLegacyLayout(cmd, p)
 		res, err := app.ValidateCosmos(p)
 		if err != nil {
 			return writeCLIError(cmd, outFmt, err)
@@ -524,6 +559,12 @@ func printNamespaceNode(cmd *cobra.Command, node app.NamespaceTreeNodeDTO, inden
 	}
 }
 
+func warnLegacyLayout(cmd *cobra.Command, p string) {
+	if storage.LegacyLayoutDetected(p) {
+		fmt.Fprintf(cmd.ErrOrStderr(), "WARNING legacy Nomos layout detected. Please run `nomos cosmos migrate --path %s` to move data into .nomos/.\n", p)
+	}
+}
+
 func validateFormat(format string) error {
 	if format == "" || format == "text" || format == "json" {
 		return nil
@@ -550,7 +591,8 @@ type serviceNode struct{ Name string }
 
 func loadCosmosTree(p string) (cosmosTree, error) {
 	var co model.Cosmos
-	if err := fsx.ReadYAML(filepath.Join(p, "cosmos.yaml"), &co); err != nil {
+	cosmosFile, _ := storage.CosmosFileForRead(p)
+	if err := fsx.ReadYAML(cosmosFile, &co); err != nil {
 		return cosmosTree{}, err
 	}
 	domains, err := scanDomains(p)
@@ -562,7 +604,7 @@ func loadCosmosTree(p string) (cosmosTree, error) {
 
 func scanDomains(p string) ([]domainNode, error) {
 	var domains []domainNode
-	ents, err := os.ReadDir(filepath.Join(p, "domains"))
+	ents, err := os.ReadDir(storage.DomainsDirForRead(p))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return domains, nil
@@ -573,7 +615,7 @@ func scanDomains(p string) ([]domainNode, error) {
 		if !e.IsDir() {
 			continue
 		}
-		domainDir := filepath.Join(p, "domains", e.Name())
+		domainDir := filepath.Join(storage.DomainsDirForRead(p), e.Name())
 		domainYAML := filepath.Join(domainDir, "domain.yaml")
 		if _, err := os.Stat(domainYAML); err != nil {
 			continue
@@ -654,7 +696,7 @@ func verifyCmd() *cobra.Command {
 		rec := "_nomos." + dns
 		txt, err := net.DefaultResolver.LookupTXT(cmd.Context(), rec)
 		p, _ := cmd.Flags().GetString("path")
-		os.MkdirAll(filepath.Join(p, ".nomos/evidence"), 0o755)
+		os.MkdirAll(storage.EvidenceDir(p), 0o755)
 		status := "failed"
 		exp := "nomos-domain=" + dns
 		for _, t := range txt {
@@ -663,7 +705,7 @@ func verifyCmd() *cobra.Command {
 			}
 		}
 		ev := fmt.Sprintf("id: evidence-%s\ntype: evidence\nevidence_type: dns_verification\ndomain: %s\nrecord: %s\nstatus: %s\ntimestamp: \"%s\"\n", time.Now().UTC().Format("20060102-150405"), dns, rec, status, time.Now().UTC().Format(time.RFC3339))
-		_ = os.WriteFile(filepath.Join(p, ".nomos/evidence", strings.ReplaceAll(dns, ".", "-")+"-dns.yaml"), []byte(ev), 0o644)
+		_ = os.WriteFile(filepath.Join(storage.EvidenceDir(p), strings.ReplaceAll(dns, ".", "-")+"-dns.yaml"), []byte(ev), 0o644)
 		if err != nil || status != "verified" {
 			return fmt.Errorf("DNS Verifikation fehlgeschlagen")
 		}

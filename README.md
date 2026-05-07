@@ -133,18 +133,36 @@ Die Dokumentation beschreibt eine phasenweise Umsetzung:
 
 ## Repository-Struktur (aktuell)
 
-```text
-/docs
-  /architecture   Architektur, Scope, Domain-/Artefaktmodell, Governance, KI-, API- und UI-Konzept, Roadmap
-  /adr            Architecture Decision Records
-  /concepts       Fachkonzept- und Metamodell-Dokumente
+Das Nomos-Source-Repository ist **kein konkretes Cosmos-Repository**. Es enthält Anwendungscode, Dokumentation, Tests, Templates, Skripte und Beispiele; mutable Cosmos-Daten liegen in einem separaten Workspace unter `.nomos/`.
 
-/internal         Go-Implementierung (u. a. CLI, Modelle, Helper)
-/cmd              Startpunkte der Binaries
-/deploy           Entwicklungs- und Deployment-Artefakte
-/frontend         Frontend-Bausteine
-/backend          Backend-Bausteine
+```text
+nomos/
+  cmd/
+  internal/
+  docs/
+  examples/
+  scripts/
+  deploy/
+  frontend/
+  backend/
 ```
+
+Ein Cosmos-Workspace sieht dagegen so aus:
+
+```text
+my-cosmos/
+  .nomos/
+    cosmos.yaml
+    domains/
+    catalog/
+    servicegraphs/
+    evidence/
+    index/
+    cache/
+  README.md
+```
+
+Für ein dediziertes Cosmos-Repository sollte nur generierter lokaler Zustand ignoriert werden (`.nomos/cache/`, `.nomos/index/`). Wenn Nomos nur lokal innerhalb eines anderen Repositories verwendet wird, kann stattdessen die gesamte `.nomos/` ignoriert werden.
 
 ## Referenzprodukt
 
@@ -233,7 +251,7 @@ The demo Product Blueprint `PB-ACC-MBX-001` (`Benutzerkonto mit Mailbox`) keeps 
 
 ## CLI/REST parity and namespace display
 
-Nomos keeps canonical DNS-like domain names for storage, CLI arguments and REST routes, for example `identity.blumer.cloud` remains stored under `domains/identity.blumer.cloud/` and is addressed via `GET /api/v1/domains/identity.blumer.cloud`.
+Nomos keeps canonical DNS-like domain names for storage, CLI arguments and REST routes, for example `identity.blumer.cloud` remains stored under `.nomos/domains/identity.blumer.cloud/` and is addressed via `GET /api/v1/domains/identity.blumer.cloud`.
 
 For presentation, the shared namespace utilities also expose tree-oriented metadata: `identity.blumer.cloud` becomes `cloud / blumer / identity` with the tree key `cloud/blumer/identity` and leaf label `identity`. The Go Web UI `/domains` page uses this tree display while still showing the canonical namespace in the details pane.
 

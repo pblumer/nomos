@@ -10,6 +10,7 @@ import (
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/graph"
 	"github.com/nomos/nomos/internal/model"
+	"github.com/nomos/nomos/internal/storage"
 )
 
 func ListServicegraphs(path string) (ServicegraphsDTO, error) {
@@ -39,8 +40,8 @@ func GetServicegraph(path, id string) (ServicegraphDTO, error) {
 }
 
 func CreateServicegraph(path string, sg model.Servicegraph) error {
-	if _, err := os.Stat(filepath.Join(path, "cosmos.yaml")); err != nil {
-		return Error(CodeCosmosMissing, "cosmos.yaml not found", http.StatusNotFound, err)
+	if _, err := os.Stat(storage.CosmosFile(path)); err != nil {
+		return Error(CodeCosmosMissing, ".nomos/cosmos.yaml not found", http.StatusNotFound, err)
 	}
 	if strings.TrimSpace(sg.ID) == "" {
 		return Error(CodeInvalidInput, "Servicegraph ID is required", http.StatusBadRequest, nil)
@@ -59,7 +60,7 @@ func CreateServicegraph(path string, sg model.Servicegraph) error {
 		}
 	}
 
-	dir := filepath.Join(path, "catalog", "servicegraphs")
+	dir := storage.CatalogServicegraphsDir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return Error(CodeInternalError, "Failed to create servicegraph directory: "+err.Error(), http.StatusInternalServerError, err)
 	}

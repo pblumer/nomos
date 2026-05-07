@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/nomos/nomos/internal/storage"
 )
 
 func createAppTestCosmos(t *testing.T) string {
@@ -15,15 +17,15 @@ func createAppTestCosmos(t *testing.T) string {
 			t.Fatal(err)
 		}
 	}
-	must(os.MkdirAll(filepath.Join(p, "domains/identity.blumer.cloud/services/user-account"), 0o755))
-	must(os.MkdirAll(filepath.Join(p, "domains/identity.blumer.cloud/services/privileged-account"), 0o755))
-	must(os.MkdirAll(filepath.Join(p, "domains/platform.blumer.cloud/services/rule-validation-api"), 0o755))
-	must(os.WriteFile(filepath.Join(p, "cosmos.yaml"), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: Platform Team\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/identity.blumer.cloud/domain.yaml"), []byte("name: identity.blumer.cloud\nowner: Identity Team\nstatus: draft\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/platform.blumer.cloud/domain.yaml"), []byte("name: platform.blumer.cloud\nowner: Platform Team\nstatus: draft\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/identity.blumer.cloud/services/user-account/service.yaml"), []byte("name: user-account\nowner: Identity Team\nstatus: draft\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/identity.blumer.cloud/services/privileged-account/service.yaml"), []byte("name: privileged-account\nowner: Identity Team\nstatus: draft\n"), 0o644))
-	must(os.WriteFile(filepath.Join(p, "domains/platform.blumer.cloud/services/rule-validation-api/service.yaml"), []byte("name: rule-validation-api\nowner: Platform Team\nstatus: draft\n"), 0o644))
+	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/services/user-account"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/services/privileged-account"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/services/rule-validation-api"), 0o755))
+	must(os.WriteFile(storage.CosmosFile(p), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: Platform Team\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud", "domain.yaml"), []byte("name: identity.blumer.cloud\nowner: Identity Team\nstatus: draft\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/domain.yaml"), []byte("name: platform.blumer.cloud\nowner: Platform Team\nstatus: draft\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/services/user-account/service.yaml"), []byte("name: user-account\nowner: Identity Team\nstatus: draft\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/services/privileged-account/service.yaml"), []byte("name: privileged-account\nowner: Identity Team\nstatus: draft\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/services/rule-validation-api/service.yaml"), []byte("name: rule-validation-api\nowner: Platform Team\nstatus: draft\n"), 0o644))
 	return p
 }
 
@@ -148,7 +150,7 @@ func TestDeleteDomain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(p, "domains", "identity.blumer.cloud")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud")); !os.IsNotExist(err) {
 		t.Fatal("expected domain directory to be removed")
 	}
 	if _, err := GetDomain(p, "identity.blumer.cloud"); err == nil {
@@ -178,7 +180,7 @@ func TestDeleteService(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(p, "domains", "identity.blumer.cloud", "services", "user-account")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud", "services", "user-account")); !os.IsNotExist(err) {
 		t.Fatal("expected service directory to be removed")
 	}
 	if _, err := GetService(p, "identity.blumer.cloud", "user-account"); err == nil {

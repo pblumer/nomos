@@ -8,6 +8,7 @@ import (
 
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/model"
+	"github.com/nomos/nomos/internal/storage"
 )
 
 type Tree struct {
@@ -44,11 +45,12 @@ type ServicegraphNode struct {
 
 func LoadTree(path string) (Tree, error) {
 	var co model.Cosmos
-	if err := fsx.ReadYAML(filepath.Join(path, "cosmos.yaml"), &co); err != nil {
+	cosmosFile, _ := storage.CosmosFileForRead(path)
+	if err := fsx.ReadYAML(cosmosFile, &co); err != nil {
 		return Tree{}, err
 	}
 	tree := Tree{Path: path, Cosmos: co}
-	ents, err := os.ReadDir(filepath.Join(path, "domains"))
+	ents, err := os.ReadDir(storage.DomainsDirForRead(path))
 	if err != nil && !os.IsNotExist(err) {
 		return Tree{}, err
 	}
@@ -56,7 +58,7 @@ func LoadTree(path string) (Tree, error) {
 		if !e.IsDir() {
 			continue
 		}
-		dir := filepath.Join(path, "domains", e.Name())
+		dir := filepath.Join(storage.DomainsDirForRead(path), e.Name())
 		if _, err := os.Stat(filepath.Join(dir, "domain.yaml")); err != nil {
 			continue
 		}
@@ -114,7 +116,7 @@ func firstNonEmpty(values ...string) string {
 }
 
 func scanBlueprints(path string) ([]BlueprintNode, error) {
-	return scanBlueprintArtifacts(filepath.Join(path, "catalog", "blueprints"))
+	return scanBlueprintArtifacts(filepath.Join(storage.CatalogDirForRead(path), "blueprints"))
 }
 
 func scanBlueprintArtifacts(root string) ([]BlueprintNode, error) {
@@ -149,7 +151,7 @@ func scanBlueprintArtifacts(root string) ([]BlueprintNode, error) {
 }
 
 func scanInstances(path string) ([]InstanceNode, error) {
-	return scanInstanceArtifacts(filepath.Join(path, "catalog", "instances"))
+	return scanInstanceArtifacts(filepath.Join(storage.CatalogDirForRead(path), "instances"))
 }
 
 func scanInstanceArtifacts(root string) ([]InstanceNode, error) {
@@ -184,7 +186,7 @@ func scanInstanceArtifacts(root string) ([]InstanceNode, error) {
 }
 
 func scanServicegraphs(path string) ([]ServicegraphNode, error) {
-	root := filepath.Join(path, "catalog", "servicegraphs")
+	root := storage.CatalogServicegraphsDirForRead(path)
 	var nodes []ServicegraphNode
 	if _, err := os.Stat(root); err != nil {
 		if os.IsNotExist(err) {

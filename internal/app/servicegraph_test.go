@@ -2,17 +2,20 @@ package app
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/nomos/nomos/internal/model"
+	"github.com/nomos/nomos/internal/storage"
 )
 
 func setupSGCosmos(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "cosmos.yaml"), []byte("id: test\ntype: cosmos\nname: Test\nversion: 0.1.0\nstatus: active\nowner: test\nsummary: test\ndomains: []\n"), 0644)
-	os.MkdirAll(filepath.Join(dir, "domains"), 0755)
+	if err := os.MkdirAll(storage.NomosDir(dir), 0755); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(storage.CosmosFile(dir), []byte("id: test\ntype: cosmos\nname: Test\nversion: 0.1.0\nstatus: active\nowner: test\nsummary: test\ndomains: []\n"), 0644)
+	os.MkdirAll(storage.DomainsDir(dir), 0755)
 	return dir
 }
 

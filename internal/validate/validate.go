@@ -8,6 +8,7 @@ import (
 
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/model"
+	"github.com/nomos/nomos/internal/storage"
 
 	"github.com/nomos/nomos/internal/graph"
 )
@@ -33,8 +34,8 @@ var allowedComplianceStatuses = map[string]bool{
 
 func Validate(path string) (Result, error) {
 	res := Result{Status: "ok", Findings: []Finding{}}
-	if _, err := os.Stat(filepath.Join(path, "cosmos.yaml")); err != nil {
-		res.add("COSMOS_MISSING", "error", "cosmos.yaml fehlt", "cosmos.yaml")
+	if _, err := os.Stat(storage.CosmosFile(path)); err != nil {
+		res.add("COSMOS_MISSING", "error", ".nomos/cosmos.yaml fehlt", filepath.Join(".nomos", "cosmos.yaml"))
 	}
 	if err := validateCatalogArtifacts(path, &res); err != nil {
 		return res, err
@@ -49,7 +50,7 @@ func Validate(path string) (Result, error) {
 }
 
 func validateCatalogArtifacts(root string, res *Result) error {
-	catalogDir := filepath.Join(root, "catalog")
+	catalogDir := storage.CatalogDirForRead(root)
 	if _, err := os.Stat(catalogDir); err != nil {
 		if os.IsNotExist(err) {
 			return nil

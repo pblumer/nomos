@@ -12,6 +12,7 @@ import (
 
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/model"
+	"github.com/nomos/nomos/internal/storage"
 )
 
 func executeCommand(t *testing.T, args ...string) (string, string, error) {
@@ -114,13 +115,25 @@ func TestCosmosInitCreatesExpectedStructure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("init failed: %v", err)
 	}
-	for _, rel := range []string{"cosmos.yaml", "README.md", "domains", ".nomos/cache", ".nomos/index", ".nomos/evidence"} {
+	for _, rel := range []string{filepath.Join(".nomos", "cosmos.yaml"), "README.md", filepath.Join(".nomos", "domains"), filepath.Join(".nomos", "catalog"), filepath.Join(".nomos", "cache"), filepath.Join(".nomos", "index"), filepath.Join(".nomos", "evidence"), ".gitignore"} {
 		if _, err := os.Stat(filepath.Join(p, rel)); err != nil {
 			t.Fatalf("missing %s: %v", rel, err)
 		}
 	}
+	for _, rel := range []string{"cosmos.yaml", "domains", "catalog"} {
+		if _, err := os.Stat(filepath.Join(p, rel)); !os.IsNotExist(err) {
+			t.Fatalf("root-level %s should not exist", rel)
+		}
+	}
+	gitignore, err := os.ReadFile(filepath.Join(p, ".gitignore"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(gitignore), ".nomos/cache/") || !strings.Contains(string(gitignore), ".nomos/index/") || strings.Contains(string(gitignore), "\n.nomos/\n") {
+		t.Fatalf("unexpected .gitignore: %s", gitignore)
+	}
 	var c model.Cosmos
-	if err := fsx.ReadYAML(filepath.Join(p, "cosmos.yaml"), &c); err != nil {
+	if err := fsx.ReadYAML(storage.CosmosFile(p), &c); err != nil {
 		t.Fatal(err)
 	}
 	if c.ID != "cosmos-local" || c.Type != "cosmos" || c.Version != "0.1.0" || c.Status != "draft" {
@@ -163,6 +176,23 @@ func TestCosmosInfoReadsCosmosYaml(t *testing.T) {
 	}
 }
 
+func TestCosmosInfoWarnsOnLegacyLayout(t *testing.T) {
+	p := t.TempDir()
+	if err := os.WriteFile(filepath.Join(p, "cosmos.yaml"), []byte("id: legacy\ntype: cosmos\nname: Legacy\nversion: 0.1.0\nstatus: draft\nowner: Team\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, errOut, err := executeCommand(t, "cosmos", "info", "--path", p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "id=legacy") {
+		t.Fatalf("expected legacy cosmos to be read, got %q", out)
+	}
+	if !strings.Contains(errOut, "WARNING legacy Nomos layout detected") {
+		t.Fatalf("expected legacy warning, got %q", errOut)
+	}
+}
+
 func TestCosmosDoctorFailsWhenCosmosYamlMissing(t *testing.T) {
 	p := t.TempDir()
 	out, errOut, err := executeCommand(t, "cosmos", "doctor", "--path", p)
@@ -181,13 +211,16 @@ func TestDomainAddCreatesDomainArtifact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, rel := range []string{"domains/identity.blumer.cloud/domain.yaml", "domains/identity.blumer.cloud/README.md"} {
+	for _, rel := range []string{filepath.Join(".nomos", "domains", "identity.blumer.cloud", "domain.yaml"), filepath.Join(".nomos", "domains", "identity.blumer.cloud", "README.md")} {
 		if _, err := os.Stat(filepath.Join(p, rel)); err != nil {
 			t.Fatalf("missing %s", rel)
 		}
 	}
+	if _, err := os.Stat(filepath.Join(p, "domains", "identity.blumer.cloud")); !os.IsNotExist(err) {
+		t.Fatalf("root-level domain directory should not exist")
+	}
 	var d model.Domain
-	if err := fsx.ReadYAML(filepath.Join(p, "domains/identity.blumer.cloud/domain.yaml"), &d); err != nil {
+	if err := fsx.ReadYAML(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud", "domain.yaml"), &d); err != nil {
 		t.Fatal(err)
 	}
 	if d.Type != "domain" || d.Name != "identity.blumer.cloud" || d.Owner != "Identity Team" || d.DNSName != "identity.blumer.cloud" {
@@ -224,7 +257,7 @@ func TestServiceAddCreatesServiceArtifact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	base := "domains/identity.blumer.cloud/services/user-account"
+	base := filepath.Join(".nomos", "domains", "identity.blumer.cloud", "services", "user-account")
 	for _, rel := range []string{base + "/service.yaml", base + "/README.md", base + "/capabilities", base + "/requirements", base + "/rules", base + "/processes", base + "/skills", base + "/findings", base + "/evidence"} {
 		if _, err := os.Stat(filepath.Join(p, rel)); err != nil {
 			t.Fatalf("missing %s", rel)
@@ -325,7 +358,7 @@ func TestGraphIncludesProductBlueprintRequiredServices(t *testing.T) {
 	_, _, _ = executeCommand(t, "cosmos", "init", p)
 	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p)
 	_, _, _ = executeCommand(t, "service", "add", "user-account", "--domain", "identity.blumer.cloud", "--path", p)
-	mustWriteCLI(t, filepath.Join(p, "catalog", "blueprints", "products", "account.yaml"), `id: PB-ACC-MBX-001
+	mustWriteCLI(t, filepath.Join(storage.CatalogDir(p), "blueprints", "products", "account.yaml"), `id: PB-ACC-MBX-001
 type: product_blueprint
 name: Benutzerkonto mit Mailbox
 version: 0.1.0
@@ -449,7 +482,7 @@ func TestCosmosInfoReportsZeroWhenNoDomains(t *testing.T) {
 func TestCosmosInfoIgnoresIncompleteDomainDirectories(t *testing.T) {
 	p := t.TempDir()
 	_, _, _ = executeCommand(t, "cosmos", "init", p)
-	if err := os.MkdirAll(filepath.Join(p, "domains", "incomplete.example.com"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(storage.DomainsDir(p), "incomplete.example.com"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p)
@@ -631,7 +664,7 @@ func TestServiceListCommand(t *testing.T) {
 func TestBlueprintAndInstanceCommands(t *testing.T) {
 	p := t.TempDir()
 	_, _, _ = executeCommand(t, "cosmos", "init", p)
-	mustWriteCLI(t, filepath.Join(p, "catalog", "blueprints", "products", "account.yaml"), `id: PB-ACC-MBX-001
+	mustWriteCLI(t, filepath.Join(storage.CatalogDir(p), "blueprints", "products", "account.yaml"), `id: PB-ACC-MBX-001
 type: product_blueprint
 name: Benutzerkonto mit Mailbox
 version: 0.1.0
@@ -647,7 +680,7 @@ required_services:
     purpose: Erstellt und verwaltet das Benutzerkonto.
     required: true
 `)
-	mustWriteCLI(t, filepath.Join(p, "catalog", "instances", "products", "account-instance.yaml"), "id: PI-ACC-MBX-EXAMPLE-001\ntype: product_instance\nname: Beispielinstanz Benutzerkonto mit Mailbox\nblueprint_ref: PB-ACC-MBX-001\nblueprint_version: 0.1.0\ncompliance_status: compliant\nfindings: []\n")
+	mustWriteCLI(t, filepath.Join(storage.CatalogDir(p), "instances", "products", "account-instance.yaml"), "id: PI-ACC-MBX-EXAMPLE-001\ntype: product_instance\nname: Beispielinstanz Benutzerkonto mit Mailbox\nblueprint_ref: PB-ACC-MBX-001\nblueprint_version: 0.1.0\ncompliance_status: compliant\nfindings: []\n")
 
 	out, _, err := executeCommand(t, "blueprint", "list", "--path", p)
 	if err != nil {

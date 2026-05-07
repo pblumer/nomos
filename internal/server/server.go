@@ -114,7 +114,9 @@ func (h *handler) apiDomainRoutes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if r.Method == http.MethodPut {
-			var req struct{ Name string `json:"name"` }
+			var req struct {
+				Name string `json:"name"`
+			}
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 				return
@@ -127,7 +129,9 @@ func (h *handler) apiDomainRoutes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if r.Method == http.MethodPost {
-			var req struct{ Segment string `json:"segment"` }
+			var req struct {
+				Segment string `json:"segment"`
+			}
 			if ct := r.Header.Get("Content-Type"); strings.Contains(ct, "application/json") {
 				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 					writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
@@ -204,7 +208,9 @@ func (h *handler) apiDomainRoutes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if r.Method == http.MethodPut {
-			var req struct{ Name string `json:"name"` }
+			var req struct {
+				Name string `json:"name"`
+			}
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 				return

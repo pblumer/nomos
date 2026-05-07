@@ -17,6 +17,7 @@ import (
 	"github.com/nomos/nomos/internal/graph"
 	"github.com/nomos/nomos/internal/model"
 	"github.com/nomos/nomos/internal/namespace"
+	"github.com/nomos/nomos/internal/storage"
 	"github.com/nomos/nomos/internal/validate"
 )
 
@@ -343,11 +344,11 @@ func DoctorCosmos(path string) (DoctorDTO, error) {
 	add := func(name, status, message, p string) {
 		checks = append(checks, DoctorCheckDTO{Name: name, Status: status, Message: message, Path: p})
 	}
-	cosmosYAML := filepath.Join(path, "cosmos.yaml")
+	cosmosYAML := storage.CosmosFile(path)
 	if _, err := os.Stat(cosmosYAML); err != nil {
-		add("cosmos.yaml", "error", "cosmos.yaml is missing", cosmosYAML)
+		add(".nomos/cosmos.yaml", "error", ".nomos/cosmos.yaml is missing", cosmosYAML)
 	} else {
-		add("cosmos.yaml", "ok", "cosmos.yaml exists", cosmosYAML)
+		add(".nomos/cosmos.yaml", "ok", ".nomos/cosmos.yaml exists", cosmosYAML)
 	}
 	gitDir := filepath.Join(path, ".git")
 	if _, err := os.Stat(gitDir); err != nil {
@@ -355,7 +356,7 @@ func DoctorCosmos(path string) (DoctorDTO, error) {
 	} else {
 		add("git repository", "ok", "Git repository exists", gitDir)
 	}
-	nomosDir := filepath.Join(path, ".nomos")
+	nomosDir := storage.NomosDir(path)
 	if _, err := os.Stat(nomosDir); err != nil {
 		add(".nomos directory", "warning", ".nomos directory is not present yet", nomosDir)
 	} else {
@@ -382,7 +383,7 @@ func AddDomain(path, dns, owner string, force bool) (DomainDTO, error) {
 	if strings.TrimSpace(owner) == "" {
 		owner = "unknown"
 	}
-	ddir := filepath.Join(path, "domains", dns)
+	ddir := filepath.Join(storage.DomainsDir(path), dns)
 	if _, err := os.Stat(ddir); err == nil && !force {
 		return DomainDTO{}, Error(CodeInvalidNamespace, "Domain already exists: "+dns, http.StatusConflict, nil)
 	}
@@ -408,7 +409,7 @@ func DeleteDomain(path, domainName string) error {
 	if err != nil {
 		return err
 	}
-	dir := filepath.Join(path, "domains", canonical)
+	dir := filepath.Join(storage.DomainsDir(path), canonical)
 	if err := os.RemoveAll(dir); err != nil {
 		return Error(CodeInternalError, "Failed to delete domain: "+err.Error(), http.StatusInternalServerError, err)
 	}
@@ -421,7 +422,7 @@ func DeleteService(path, domainName, serviceName string) error {
 	if err != nil {
 		return err
 	}
-	dir := filepath.Join(path, "domains", canonical, "services", serviceName)
+	dir := filepath.Join(storage.DomainsDir(path), canonical, "services", serviceName)
 	if err := os.RemoveAll(dir); err != nil {
 		return Error(CodeInternalError, "Failed to delete service: "+err.Error(), http.StatusInternalServerError, err)
 	}
@@ -438,14 +439,14 @@ func RenameDomain(path, oldName, newName string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := os.Stat(filepath.Join(path, "domains", newCanon)); err == nil {
+	if _, err := os.Stat(filepath.Join(storage.DomainsDir(path), newCanon)); err == nil {
 		return Error(CodeInvalidNamespace, "Domain already exists: "+newCanon, http.StatusConflict, nil)
 	}
-	if err := os.Rename(filepath.Join(path, "domains", oldCanon), filepath.Join(path, "domains", newCanon)); err != nil {
+	if err := os.Rename(filepath.Join(storage.DomainsDir(path), oldCanon), filepath.Join(storage.DomainsDir(path), newCanon)); err != nil {
 		return Error(CodeInternalError, "Failed to rename domain: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	var d model.Domain
-	f := filepath.Join(path, "domains", newCanon, "domain.yaml")
+	f := filepath.Join(storage.DomainsDir(path), newCanon, "domain.yaml")
 	if err := fsx.ReadYAML(f, &d); err != nil {
 		return Error(CodeInternalError, "read domain.yaml: "+err.Error(), http.StatusInternalServerError, err)
 	}
@@ -463,8 +464,8 @@ func RenameService(path, domainName, oldName, newName string) error {
 	if strings.TrimSpace(newName) == "" || strings.ContainsAny(newName, `/\\`) || newName == "." || newName == ".." {
 		return Error(CodeInvalidNamespace, "Invalid service name: "+newName, http.StatusBadRequest, nil)
 	}
-	oldDir := filepath.Join(path, "domains", canonical, "services", oldName)
-	newDir := filepath.Join(path, "domains", canonical, "services", newName)
+	oldDir := filepath.Join(storage.DomainsDir(path), canonical, "services", oldName)
+	newDir := filepath.Join(storage.DomainsDir(path), canonical, "services", newName)
 	if _, err := os.Stat(newDir); err == nil {
 		return Error(CodeInvalidNamespace, "Service already exists: "+newName, http.StatusConflict, nil)
 	}
@@ -492,7 +493,7 @@ func AddService(path, domainName, name, owner string, force bool) (ServiceDTO, e
 	if strings.TrimSpace(owner) == "" {
 		owner = "unknown"
 	}
-	sdir := filepath.Join(path, "domains", d.Canonical, "services", name)
+	sdir := filepath.Join(storage.DomainsDir(path), d.Canonical, "services", name)
 	if _, err := os.Stat(sdir); err == nil && !force {
 		return ServiceDTO{}, Error(CodeInvalidNamespace, "Service already exists: "+d.Canonical+"/"+name, http.StatusConflict, nil)
 	}
@@ -512,7 +513,7 @@ func AddService(path, domainName, name, owner string, force bool) (ServiceDTO, e
 }
 
 func ListVerificationEvidence(path string) (VerificationDTO, error) {
-	root := filepath.Join(path, ".nomos", "evidence")
+	root := storage.EvidenceDir(path)
 	out := VerificationDTO{Evidence: []VerificationEvidenceDTO{}}
 	ents, err := os.ReadDir(root)
 	if err != nil {
@@ -557,11 +558,11 @@ func VerifyDomain(ctx context.Context, path, dns string) (VerificationEvidenceDT
 			status = "verified"
 		}
 	}
-	if err := os.MkdirAll(filepath.Join(path, ".nomos", "evidence"), 0o755); err != nil {
+	if err := os.MkdirAll(storage.EvidenceDir(path), 0o755); err != nil {
 		return VerificationEvidenceDTO{}, err
 	}
 	now := time.Now().UTC()
-	ev := VerificationEvidenceDTO{ID: "evidence-" + now.Format("20060102-150405"), Type: "evidence", Domain: dns, Record: rec, Status: status, Timestamp: now.Format(time.RFC3339), Path: filepath.Join(path, ".nomos", "evidence", strings.ReplaceAll(dns, ".", "-")+"-dns.yaml")}
+	ev := VerificationEvidenceDTO{ID: "evidence-" + now.Format("20060102-150405"), Type: "evidence", Domain: dns, Record: rec, Status: status, Timestamp: now.Format(time.RFC3339), Path: filepath.Join(storage.EvidenceDir(path), strings.ReplaceAll(dns, ".", "-")+"-dns.yaml")}
 	content := fmt.Sprintf("id: %s\ntype: evidence\nevidence_type: dns_verification\ndomain: %s\nrecord: %s\nstatus: %s\ntimestamp: %q\n", ev.ID, ev.Domain, ev.Record, ev.Status, ev.Timestamp)
 	if err := os.WriteFile(ev.Path, []byte(content), 0o644); err != nil {
 		return ev, err
@@ -573,8 +574,8 @@ func VerifyDomain(ctx context.Context, path, dns string) (VerificationEvidenceDT
 }
 
 func CreateBlueprint(path string, bp model.Blueprint) error {
-	if _, err := os.Stat(filepath.Join(path, "cosmos.yaml")); err != nil {
-		return Error(CodeCosmosMissing, "cosmos.yaml not found", http.StatusNotFound, err)
+	if _, err := os.Stat(storage.CosmosFile(path)); err != nil {
+		return Error(CodeCosmosMissing, ".nomos/cosmos.yaml not found", http.StatusNotFound, err)
 	}
 	if strings.TrimSpace(bp.ID) == "" {
 		return Error(CodeInvalidInput, "Blueprint ID is required", http.StatusBadRequest, nil)
@@ -599,7 +600,7 @@ func CreateBlueprint(path string, bp model.Blueprint) error {
 	} else {
 		subdir = "services"
 	}
-	dir := filepath.Join(path, "catalog", "blueprints", subdir)
+	dir := filepath.Join(storage.CatalogDir(path), "blueprints", subdir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return Error(CodeInternalError, "Failed to create blueprint directory: "+err.Error(), http.StatusInternalServerError, err)
 	}

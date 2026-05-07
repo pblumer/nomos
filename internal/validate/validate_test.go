@@ -4,12 +4,14 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/nomos/nomos/internal/storage"
 )
 
 func TestValidateProductBlueprintMissingRequiredFields(t *testing.T) {
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "cosmos.yaml"), "id: test\ntype: cosmos\n")
-	mustWrite(t, filepath.Join(dir, "catalog", "blueprints", "products", "broken.yaml"), `
+	mustWrite(t, storage.CosmosFile(dir), "id: test\ntype: cosmos\n")
+	mustWrite(t, filepath.Join(storage.CatalogDir(dir), "blueprints", "products", "broken.yaml"), `
 type: product_blueprint
 name: Broken
 version: 0.1.0
@@ -32,8 +34,8 @@ required_service_blueprints: []
 
 func TestValidateInstanceComplianceStatus(t *testing.T) {
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "cosmos.yaml"), "id: test\ntype: cosmos\n")
-	mustWrite(t, filepath.Join(dir, "catalog", "instances", "services", "broken.yaml"), `
+	mustWrite(t, storage.CosmosFile(dir), "id: test\ntype: cosmos\n")
+	mustWrite(t, filepath.Join(storage.CatalogDir(dir), "instances", "services", "broken.yaml"), `
 id: SI-1
 type: service_instance
 blueprint_ref: SB-1
@@ -50,8 +52,8 @@ findings: []
 
 func TestValidateLegacyProductIsBackwardCompatible(t *testing.T) {
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "cosmos.yaml"), "id: test\ntype: cosmos\n")
-	mustWrite(t, filepath.Join(dir, "catalog", "products", "legacy.yaml"), `
+	mustWrite(t, storage.CosmosFile(dir), "id: test\ntype: cosmos\n")
+	mustWrite(t, filepath.Join(storage.CatalogDir(dir), "products", "legacy.yaml"), `
 id: PROD-1
 type: product
 name: Legacy Product
@@ -67,8 +69,8 @@ name: Legacy Product
 
 func TestValidateProductBlueprintRequiredServices(t *testing.T) {
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "cosmos.yaml"), "id: test\ntype: cosmos\n")
-	mustWrite(t, filepath.Join(dir, "catalog", "blueprints", "products", "broken-required-services.yaml"), `
+	mustWrite(t, storage.CosmosFile(dir), "id: test\ntype: cosmos\n")
+	mustWrite(t, filepath.Join(storage.CatalogDir(dir), "blueprints", "products", "broken-required-services.yaml"), `
 id: PB-1
 type: product_blueprint
 name: Broken Required Services
@@ -100,8 +102,8 @@ required_services:
 
 func TestValidateProductBlueprintRequiredServicesRecommendedWarning(t *testing.T) {
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "cosmos.yaml"), "id: test\ntype: cosmos\n")
-	mustWrite(t, filepath.Join(dir, "catalog", "blueprints", "products", "legacy-blueprint.yaml"), `
+	mustWrite(t, storage.CosmosFile(dir), "id: test\ntype: cosmos\n")
+	mustWrite(t, filepath.Join(storage.CatalogDir(dir), "blueprints", "products", "legacy-blueprint.yaml"), `
 id: PB-LEGACY
 type: product_blueprint
 name: Legacy Blueprint
@@ -125,8 +127,8 @@ required_service_blueprints:
 
 func TestValidateServiceBlueprintNamespaceServiceRefShapeWarning(t *testing.T) {
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "cosmos.yaml"), "id: test\ntype: cosmos\n")
-	mustWrite(t, filepath.Join(dir, "catalog", "blueprints", "services", "mailbox.yaml"), `
+	mustWrite(t, storage.CosmosFile(dir), "id: test\ntype: cosmos\n")
+	mustWrite(t, filepath.Join(storage.CatalogDir(dir), "blueprints", "services", "mailbox.yaml"), `
 id: SB-MAILBOX-001
 type: service_blueprint
 name: Mailbox Service
