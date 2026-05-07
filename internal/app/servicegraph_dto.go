@@ -3,22 +3,22 @@ package app
 import "github.com/nomos/nomos/internal/model"
 
 type ServicegraphDTO struct {
-	ID             string              `json:"id"`
-	Type           string              `json:"type"`
-	Name           string              `json:"name"`
-	Version        string              `json:"version"`
-	Status         string              `json:"status"`
-	Owner          string              `json:"owner"`
-	Summary        string              `json:"summary"`
-	RelatedProduct string              `json:"related_product"`
-	Path           string              `json:"path"`
-	NodeCount      int                 `json:"node_count"`
-	EdgeCount      int                 `json:"edge_count"`
-	RuleCount      int                 `json:"rule_count"`
-	Variants       []GraphVariantDTO   `json:"variants,omitempty"`
-	Nodes          []model.GraphNode   `json:"nodes"`
-	Edges          []model.GraphEdge   `json:"edges"`
-	Rules          []model.GraphRule   `json:"rules,omitempty"`
+	ID             string            `json:"id"`
+	Type           string            `json:"type"`
+	Name           string            `json:"name"`
+	Version        string            `json:"version"`
+	Status         string            `json:"status"`
+	Owner          string            `json:"owner"`
+	Summary        string            `json:"summary"`
+	RelatedProduct string            `json:"related_product"`
+	Path           string            `json:"path"`
+	NodeCount      int               `json:"node_count"`
+	EdgeCount      int               `json:"edge_count"`
+	RuleCount      int               `json:"rule_count"`
+	Variants       []GraphVariantDTO `json:"variants,omitempty"`
+	Nodes          []model.GraphNode `json:"nodes"`
+	Edges          []model.GraphEdge `json:"edges"`
+	Rules          []model.GraphRule `json:"rules,omitempty"`
 }
 
 type ServicegraphsDTO struct {

@@ -84,14 +84,14 @@ func TestValidateServicegraphNodeEdgeErrors(t *testing.T) {
 		codes[f.Code]++
 	}
 	assertions := map[string]bool{
-		"SG_NODE_TYPE_INVALID":  codes["SG_NODE_TYPE_INVALID"] > 0,
-		"SG_NODE_ID_DUPLICATE":  codes["SG_NODE_ID_DUPLICATE"] > 0,
-		"SG_EDGE_TARGET_MISSING": codes["SG_EDGE_TARGET_MISSING"] > 0,
-		"SG_EDGE_TYPE_INVALID":  codes["SG_EDGE_TYPE_INVALID"] > 0,
+		"SG_NODE_TYPE_INVALID":    codes["SG_NODE_TYPE_INVALID"] > 0,
+		"SG_NODE_ID_DUPLICATE":    codes["SG_NODE_ID_DUPLICATE"] > 0,
+		"SG_EDGE_TARGET_MISSING":  codes["SG_EDGE_TARGET_MISSING"] > 0,
+		"SG_EDGE_TYPE_INVALID":    codes["SG_EDGE_TYPE_INVALID"] > 0,
 		"SG_EDGE_BINDING_INVALID": codes["SG_EDGE_BINDING_INVALID"] > 0,
-		"SG_EDGE_ID_DUPLICATE":  codes["SG_EDGE_ID_DUPLICATE"] > 0,
-		"SG_NO_SERVICE_NODE":    codes["SG_NO_SERVICE_NODE"] > 0,
-		"SG_NO_COMPOSED_OF":     codes["SG_NO_COMPOSED_OF"] > 0,
+		"SG_EDGE_ID_DUPLICATE":    codes["SG_EDGE_ID_DUPLICATE"] > 0,
+		"SG_NO_SERVICE_NODE":      codes["SG_NO_SERVICE_NODE"] > 0,
+		"SG_NO_COMPOSED_OF":       codes["SG_NO_COMPOSED_OF"] > 0,
 	}
 	for code, ok := range assertions {
 		if !ok {

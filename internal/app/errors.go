@@ -6,21 +6,21 @@ import (
 )
 
 const (
-	CodeCosmosNotFound         = "COSMOS_NOT_FOUND"
-	CodeCosmosMissing          = "COSMOS_MISSING"
-	CodeCosmosLoadFailed       = "COSMOS_LOAD_FAILED"
-	CodeDomainNotFound         = "DOMAIN_NOT_FOUND"
-	CodeServiceNotFound        = "SERVICE_NOT_FOUND"
-	CodeBlueprintNotFound      = "BLUEPRINT_NOT_FOUND"
+	CodeCosmosNotFound    = "COSMOS_NOT_FOUND"
+	CodeCosmosMissing     = "COSMOS_MISSING"
+	CodeCosmosLoadFailed  = "COSMOS_LOAD_FAILED"
+	CodeDomainNotFound    = "DOMAIN_NOT_FOUND"
+	CodeServiceNotFound   = "SERVICE_NOT_FOUND"
+	CodeBlueprintNotFound = "BLUEPRINT_NOT_FOUND"
 	CodeInstanceNotFound
 	CodeServicegraphNotFound
-	CodeServicegraphAlreadyExists       = "INSTANCE_NOT_FOUND"
-	CodeValidationFailed       = "VALIDATION_FAILED"
-	CodeInvalidFormat          = "INVALID_FORMAT"
-	CodeInvalidNamespace       = "INVALID_NAMESPACE"
-	CodeInternalError          = "INTERNAL_ERROR"
-	CodeInvalidInput           = "INVALID_INPUT"
-	CodeBlueprintAlreadyExists = "BLUEPRINT_ALREADY_EXISTS"
+	CodeServicegraphAlreadyExists = "INSTANCE_NOT_FOUND"
+	CodeValidationFailed          = "VALIDATION_FAILED"
+	CodeInvalidFormat             = "INVALID_FORMAT"
+	CodeInvalidNamespace          = "INVALID_NAMESPACE"
+	CodeInternalError             = "INTERNAL_ERROR"
+	CodeInvalidInput              = "INVALID_INPUT"
+	CodeBlueprintAlreadyExists    = "BLUEPRINT_ALREADY_EXISTS"
 )
 
 type AppError struct {
