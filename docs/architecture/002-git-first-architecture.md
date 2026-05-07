@@ -4,7 +4,7 @@
 Beschreibung, warum Git im MVP 0.1 die Quelle der Wahrheit für fachliche Artefakte ist.
 
 ## Kernprinzip
-Git Repository = autoritative Quelle der Wahrheit für Produkt-, Anforderungs-, Regel- und Validierungsartefakte.
+Git Repository = autoritative Quelle der Wahrheit für Produkt-, Anforderungs-, Regel- und Validierungsartefakte. Für Cosmos-Workspaces liegt diese Quelle unter `.nomos/`; das Nomos-Source-Repository selbst bleibt Anwendungscode, Dokumentation, Tests und Beispiele.
 
 ## Welche Artefakte in Git liegen
 - Produkt
@@ -87,3 +87,8 @@ sequenceDiagram
     U->>G: Review/Freigabe
     G-->>G: Merge in Hauptbranch
 ```
+
+
+## `.nomos/` als Git-first Storage Root
+
+Ein dediziertes Cosmos-Repository kann `.nomos/cosmos.yaml`, `.nomos/domains/`, `.nomos/catalog/` und `.nomos/servicegraphs/` versionieren. Generierte lokale Daten (`.nomos/cache/`, `.nomos/index/`) sollten ignoriert werden. Wird Nomos nur experimentell in einem fremden Projekt genutzt, kann das Projekt `.nomos/` vollständig ignorieren.

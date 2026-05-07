@@ -30,15 +30,32 @@ go run ./cmd/nomos version
 
 ---
 
+## Storage model
+
+Nomos source repositories and Cosmos workspaces are intentionally separate. All mutable Nomos/Cosmos data in a workspace is stored below `.nomos/`, similar to `.git/`.
+
+Dedicated Cosmos repository `.gitignore` recommendation:
+
+```gitignore
+.nomos/cache/
+.nomos/index/
+```
+
+Local-only Nomos data inside another repository can ignore everything:
+
+```gitignore
+.nomos/
+```
+
 ## `nomos cosmos`
 
 ### `nomos cosmos init <path>`
 Erzeugt eine neue lokale Cosmos-Struktur.
 
 **Erstellt u. a. folgende Pfade:**
-- `<path>/cosmos.yaml`
+- `<path>/.nomos/cosmos.yaml`
 - `<path>/README.md`
-- `<path>/domains/`
+- `<path>/.nomos/domains/`
 - `<path>/.nomos/cache/`
 - `<path>/.nomos/index/`
 - `<path>/.nomos/evidence/`
@@ -53,19 +70,19 @@ go run ./cmd/nomos cosmos init ./my-cosmos --force
 ```
 
 ### `nomos cosmos info`
-Liest `cosmos.yaml` und gibt Kernfelder aus (`id`, `name`, `version`, `status`, `owner`, `domains`).
-Die Domain-Anzahl wird aus dem Dateisystem ermittelt (`domains/*/domain.yaml`) und nicht aus einem statischen Feld in `cosmos.yaml`.
+Liest `.nomos/cosmos.yaml` und gibt Kernfelder aus (`id`, `name`, `version`, `status`, `owner`, `domains`).
+Die Domain-Anzahl wird aus dem Dateisystem ermittelt (`.nomos/domains/*/domain.yaml`) und nicht aus einem statischen Feld in `.nomos/cosmos.yaml`.
 
 **Flag:**
 - `--path` (Default: `.`)
 
 ### `nomos cosmos doctor`
 Prüft Basiszustand:
-- ob `cosmos.yaml` existiert
+- ob `.nomos/cosmos.yaml` existiert
 - ob ein `.git`-Ordner vorhanden ist
 
 **Ausgabeverhalten:**
-- Fehler bei fehlender `cosmos.yaml` (Exit-Code 1)
+- Fehler bei fehlender `.nomos/cosmos.yaml` (Exit-Code 1)
 - Warnung, wenn Git nicht initialisiert ist
 
 ---
@@ -83,15 +100,15 @@ Created domain: test2.blumer.cloud
 ```
 
 ### `nomos domain add <dns>`
-Erzeugt eine Domain unter `domains/<dns>/`.
+Erzeugt eine Domain unter `.nomos/domains/<dns>/`.
 
 **Validierung:**
 - DNS-Name muss mindestens einen Punkt enthalten (`.`), sonst Fehler.
 
 **Erstellt:**
-- `domains/<dns>/domain.yaml`
-- `domains/<dns>/README.md`
-- `domains/<dns>/services/`
+- `.nomos/domains/<dns>/domain.yaml`
+- `.nomos/domains/<dns>/README.md`
+- `.nomos/domains/<dns>/services/`
 
 **Flags:**
 - `--path` (Default: `.`)
@@ -99,7 +116,7 @@ Erzeugt eine Domain unter `domains/<dns>/`.
 - `--force` (überschreibt vorhandene Domain-Struktur)
 
 ### `nomos domain list`
-Listet alle Unterordner unter `domains/`.
+Listet alle Unterordner unter `.nomos/domains/`.
 
 Flag: `--path` (Default: `.`).
 
@@ -110,7 +127,7 @@ Flag: `--path` (Default: `.`).
 The CLI keeps the explicit `--domain` flag. In the web UI, service creation is contextual: select a domain, choose **Add service**, enter the service name, and review the resulting `domain / services / name` preview.
 
 ### `nomos service add <name> --domain <dns>`
-Erzeugt einen Service unter `domains/<dns>/services/<name>/`.
+Erzeugt einen Service unter `.nomos/domains/<dns>/services/<name>/`.
 
 **Erstellt Unterordner:**
 - `capabilities/`
@@ -138,7 +155,7 @@ Erzeugt einen Service unter `domains/<dns>/services/<name>/`.
 Führt eine minimale Validierung aus.
 
 Aktuell wird geprüft:
-- Existenz von `cosmos.yaml`
+- Existenz von `.nomos/cosmos.yaml`
 
 **Ausgabe:**
 - Text (Standard)
@@ -160,8 +177,8 @@ go run ./cmd/nomos validate --path . --format json
 
 Liest die Cosmos-Struktur aus dem Dateisystem und gibt eine Mermaid-Graph-Definition auf stdout aus:
 - Cosmos-Knoten
-- Domain-Knoten aus `domains/*/domain.yaml`
-- Service-Knoten aus `domains/<domain>/services/*/service.yaml`
+- Domain-Knoten aus `.nomos/domains/*/domain.yaml`
+- Service-Knoten aus `.nomos/domains/<domain>/services/*/service.yaml`
 
 Beispielausgabe:
 
@@ -303,8 +320,8 @@ identity.blumer.cloud
 The canonical name remains the filesystem and route identifier:
 
 ```text
-domains/identity.blumer.cloud/
-domains/identity.blumer.cloud/services/user-account/
+.nomos/domains/identity.blumer.cloud/
+.nomos/domains/identity.blumer.cloud/services/user-account/
 GET /api/v1/domains/identity.blumer.cloud
 ```
 

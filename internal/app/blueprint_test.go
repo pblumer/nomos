@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/nomos/nomos/internal/model"
+	"github.com/nomos/nomos/internal/storage"
 )
 
 func createTestCosmosWithCatalog(t *testing.T) string {
@@ -16,9 +17,9 @@ func createTestCosmosWithCatalog(t *testing.T) string {
 			t.Fatal(err)
 		}
 	}
-	must(os.MkdirAll(filepath.Join(p, "catalog", "blueprints", "products"), 0o755))
-	must(os.MkdirAll(filepath.Join(p, "catalog", "blueprints", "services"), 0o755))
-	must(os.WriteFile(filepath.Join(p, "cosmos.yaml"), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: Platform Team\n"), 0o644))
+	must(os.MkdirAll(filepath.Join(storage.CatalogDir(p), "blueprints", "products"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.CatalogDir(p), "blueprints", "services"), 0o755))
+	must(os.WriteFile(storage.CosmosFile(p), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: Platform Team\n"), 0o644))
 	return p
 }
 
@@ -45,7 +46,7 @@ func TestCreateBlueprint_ProductBlueprint(t *testing.T) {
 	}
 
 	// Verify file was written
-	path := filepath.Join(p, "catalog", "blueprints", "products", "PB-TEST-001.yaml")
+	path := filepath.Join(storage.CatalogDir(p), "blueprints", "products", "PB-TEST-001.yaml")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		t.Fatalf("expected blueprint file to exist at %s", path)
 	}
@@ -85,7 +86,7 @@ func TestCreateBlueprint_ServiceBlueprint(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	path := filepath.Join(p, "catalog", "blueprints", "services", "SB-TEST-001.yaml")
+	path := filepath.Join(storage.CatalogDir(p), "blueprints", "services", "SB-TEST-001.yaml")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		t.Fatalf("expected blueprint file to exist at %s", path)
 	}
@@ -153,7 +154,7 @@ func TestDeleteBlueprint_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	path := filepath.Join(p, "catalog", "blueprints", "products", "PB-DEL-001.yaml")
+	path := filepath.Join(storage.CatalogDir(p), "blueprints", "products", "PB-DEL-001.yaml")
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Fatalf("expected file to be deleted")
 	}

@@ -6,13 +6,17 @@ import (
 	"testing"
 
 	"github.com/nomos/nomos/internal/model"
+	"github.com/nomos/nomos/internal/storage"
 )
 
 func setupSGTestCosmos(t *testing.T, sgFile string) string {
 	t.Helper()
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "cosmos.yaml"), []byte("id: test\ntype: cosmos\nname: Test\nversion: 0.1.0\nstatus: active\nowner: test\nsummary: test\n"), 0644)
-	sgDir := filepath.Join(dir, "catalog", "servicegraphs")
+	if err := os.MkdirAll(storage.NomosDir(dir), 0755); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(storage.CosmosFile(dir), []byte("id: test\ntype: cosmos\nname: Test\nversion: 0.1.0\nstatus: active\nowner: test\nsummary: test\n"), 0644)
+	sgDir := filepath.Join(storage.CatalogDir(dir), "servicegraphs")
 	os.MkdirAll(sgDir, 0755)
 	data, err := os.ReadFile(sgFile)
 	if err != nil {

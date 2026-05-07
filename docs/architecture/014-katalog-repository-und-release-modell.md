@@ -7,10 +7,12 @@ Dieses Dokument beschreibt den Betrieb mit getrenntem Katalog-Repository (Varian
 - Repo 1: `pblumer/nomos` fuer Anwendungscode (Backend, Frontend, Deploy).
 - Repo 2: `pblumer/nomos-catalog` fuer fachliche Artefakte.
 
-Das Katalog-Repository enthaelt:
-- `products/`
-- `requirements/`
-- `rules/`
+Ein Cosmos- oder Katalog-Repository enthaelt die fachlichen Artefakte unter `.nomos/catalog/`, zum Beispiel:
+- `.nomos/catalog/products/`
+- `.nomos/catalog/requirements/`
+- `.nomos/catalog/rules/`
+- `.nomos/catalog/blueprints/`
+- `.nomos/catalog/instances/`
 
 Produkte referenzieren nur IDs:
 - `requirement_ids`
@@ -27,9 +29,9 @@ Produkte referenzieren nur IDs:
    - `~/nomos`
    - `~/nomos-catalog`
 2. In `nomos/deploy/.env` die Pfade setzen:
-   - `NOMOS_PRODUCTS_DIR=../nomos-catalog/products`
-   - `NOMOS_REQUIREMENTS_DIR=../nomos-catalog/requirements`
-   - `NOMOS_RULES_DIR=../nomos-catalog/rules`
+   - `NOMOS_PRODUCTS_DIR=../nomos-catalog/.nomos/catalog/products`
+   - `NOMOS_REQUIREMENTS_DIR=../nomos-catalog/.nomos/catalog/requirements`
+   - `NOMOS_RULES_DIR=../nomos-catalog/.nomos/catalog/rules`
 
 ## Release per Tag (empfohlen)
 Im Repo `nomos-catalog`:
