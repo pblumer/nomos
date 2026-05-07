@@ -1,0 +1,41 @@
+id: SG-TEST-001
+type: servicegraph
+name: Test Graph
+version: "0.1.0"
+status: draft
+owner: test-team
+summary: A valid test servicegraph
+related_product: PROD-TEST-001
+nodes:
+  - id: N-001
+    type: service
+    name: Main Service
+    mandatory: true
+    reusable: false
+  - id: N-002
+    type: activity
+    name: Step A
+    mandatory: true
+    reusable: true
+  - id: N-003
+    type: validation
+    name: Validate
+    mandatory: true
+    reusable: true
+edges:
+  - id: E-001
+    source: N-001
+    target: N-002
+    type: composed_of
+    binding: hard
+  - id: E-002
+    source: N-002
+    target: N-003
+    type: depends_on
+    binding: hard
+rules:
+  - id: G-001
+    name: Always active
+    type: activation
+    scope: N-002
+    binding: must

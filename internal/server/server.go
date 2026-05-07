@@ -44,6 +44,8 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/v1/instances", h.apiInstances)
 	mux.HandleFunc("/api/v1/instances/", h.apiInstanceRoutes)
 	mux.HandleFunc("/api/v1/verify/domain/", h.apiVerifyDomain)
+	mux.HandleFunc("/api/v1/servicegraphs", h.apiServicegraphs)
+	mux.HandleFunc("/api/v1/servicegraphs/", h.apiServicegraphRoutes)
 	mux.HandleFunc("/api/blueprints", h.apiBlueprints)
 	mux.HandleFunc("/api/blueprints/", h.apiBlueprintRoutes)
 	mux.HandleFunc("/api/instances", h.apiInstances)
@@ -424,7 +426,13 @@ func (h *handler) cosmosPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	doc, _ := app.DoctorCosmos(h.cosmosPath)
-	h.page(w, "cosmos", map[string]any{"ActiveNav": "cosmos", "PageTitle": "Cosmos", "Cosmos": co, "Doctor": doc})
+	ns, _ := app.BuildNamespaceTree(h.cosmosPath)
+	bp, _ := app.ListBlueprints(h.cosmosPath)
+	h.page(w, "cosmos", map[string]any{
+		"ActiveNav": "cosmos", "PageTitle": "Cosmos",
+		"Cosmos": co, "Doctor": doc,
+		"NamespaceTree": ns, "Blueprints": bp.Blueprints,
+	})
 }
 func (h *handler) domainsPage(w http.ResponseWriter, r *http.Request) {
 	ex, err := buildDomainsExplorer(h.cosmosPath, r.URL.Query().Get("selected"))

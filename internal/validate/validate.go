@@ -8,6 +8,8 @@ import (
 
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/model"
+
+	"github.com/nomos/nomos/internal/graph"
 )
 
 type Finding struct {
@@ -81,6 +83,12 @@ func validateCatalogArtifacts(root string, res *Result) error {
 				return err
 			}
 			validateInstance(inst, rel, res)
+		case "servicegraph":
+			var sg model.Servicegraph
+			if err := fsx.ReadYAML(path, &sg); err != nil {
+				return err
+			}
+			validateServicegraph(sg, rel, res)
 		case "product":
 			// Backward-compatible product artifacts keep their existing loose validation.
 		}
@@ -133,6 +141,117 @@ func validateInstance(inst model.Instance, path string, res *Result) {
 	status := strings.TrimSpace(inst.ComplianceStatus)
 	if !allowedComplianceStatuses[status] {
 		res.add("INSTANCE_COMPLIANCE_STATUS_INVALID", "error", "compliance_status ist ungueltig: "+status, path)
+	}
+}
+
+var allowedNodeTypes = map[string]bool{
+	"service": true, "sub_service": true, "activity": true, "precondition": true,
+	"decision": true, "validation": true, "manual": true, "compensation": true,
+	"state": true, "reference": true,
+}
+var allowedEdgeTypes = map[string]bool{
+	"composed_of": true, "depends_on": true, "enables": true, "blocks": true,
+	"validates": true, "compensates": true, "alternative_to": true,
+	"requires_condition": true, "produces_state": true, "consumes_state": true,
+}
+var allowedEdgeBindings = map[string]bool{"hard": true, "soft": true}
+
+func validateServicegraph(sg model.Servicegraph, path string, res *Result) {
+	for _, field := range []struct{ name, value string }{{"id", sg.ID}, {"type", sg.Type}, {"name", sg.Name}, {"version", sg.Version}, {"status", sg.Status}, {"owner", sg.Owner}} {
+		if strings.TrimSpace(field.value) == "" {
+			res.add("SG_REQUIRED_FIELD", "error", "Servicegraph Pflichtfeld fehlt: "+field.name, path)
+		}
+	}
+	if sg.Type != "servicegraph" {
+		res.add("SG_TYPE_INVALID", "error", "type muss servicegraph sein", path)
+	}
+	if len(sg.Nodes) == 0 {
+		res.add("SG_NO_NODES", "error", "Servicegraph hat keine Knoten", path)
+	}
+	if len(sg.Edges) == 0 {
+		res.add("SG_NO_EDGES", "error", "Servicegraph hat keine Kanten", path)
+	}
+
+	nodeIDs := make(map[string]bool)
+	hasServiceNode := false
+	for _, n := range sg.Nodes {
+		if nodeIDs[n.ID] {
+			res.add("SG_NODE_ID_DUPLICATE", "error", "Doppelte Knoten-ID: "+n.ID, path)
+		}
+		nodeIDs[n.ID] = true
+		if !allowedNodeTypes[n.Type] {
+			res.add("SG_NODE_TYPE_INVALID", "error", "Ungueltiger Knotentyp: "+n.Type+" bei "+n.ID, path)
+		}
+		if n.Type == "service" {
+			hasServiceNode = true
+		}
+	}
+	if !hasServiceNode && len(sg.Nodes) > 0 {
+		res.add("SG_NO_SERVICE_NODE", "warning", "Kein Knoten mit type=service vorhanden", path)
+	}
+
+	edgeIDs := make(map[string]bool)
+	hasComposedOf := false
+	// Track produces_state targets and consumes_state sources for balance check
+	producedStates := make(map[string]bool)
+	consumedStateSources := make(map[string]bool)
+	for _, e := range sg.Edges {
+		if edgeIDs[e.ID] {
+			res.add("SG_EDGE_ID_DUPLICATE", "error", "Doppelte Kanten-ID: "+e.ID, path)
+		}
+		edgeIDs[e.ID] = true
+		if !allowedEdgeTypes[e.Type] {
+			res.add("SG_EDGE_TYPE_INVALID", "error", "Ungueltiger Kantentyp: "+e.Type+" bei "+e.ID, path)
+		}
+		if !allowedEdgeBindings[e.Binding] {
+			res.add("SG_EDGE_BINDING_INVALID", "error", "Ungueltige Verbindlichkeit: "+e.Binding+" bei "+e.ID, path)
+		}
+		if !nodeIDs[e.Source] {
+			res.add("SG_EDGE_SOURCE_MISSING", "error", "Quell-Knoten nicht gefunden: "+e.Source+" bei "+e.ID, path)
+		}
+		if !nodeIDs[e.Target] {
+			res.add("SG_EDGE_TARGET_MISSING", "error", "Ziel-Knoten nicht gefunden: "+e.Target+" bei "+e.ID, path)
+		}
+		if e.Type == "composed_of" {
+			hasComposedOf = true
+		}
+		if e.Type == "produces_state" {
+			producedStates[e.Target] = true
+		}
+		if e.Type == "consumes_state" {
+			// Source of consumes_state is the state node being consumed
+			consumedStateSources[e.Source] = true
+		}
+	}
+	if !hasComposedOf && len(sg.Edges) > 0 {
+		res.add("SG_NO_COMPOSED_OF", "warning", "Keine composed_of Beziehung vorhanden", path)
+	}
+
+	// State balance check: every state node consumed must also be produced
+	for stateNode := range consumedStateSources {
+		if !producedStates[stateNode] {
+			res.add("SG_STATE_UNBALANCED", "warning", "consumes_state Ziel ohne produces_state: "+stateNode, path)
+		}
+	}
+
+	// Cycle detection via topological sort
+	if len(sg.Nodes) > 0 && len(sg.Edges) > 0 {
+		if _, err := graph.TopologicalOrder(sg); err != nil {
+			res.add("SG_CYCLE_DETECTED", "error", "Zyklus in harten depends_on Kanten erkannt", path)
+		}
+	}
+
+	// Rule scope check
+	for _, rule := range sg.Rules {
+		if rule.Scope != "model" && rule.Scope != "" {
+			scopes := strings.Split(rule.Scope, ",")
+			for _, s := range scopes {
+				s = strings.TrimSpace(s)
+				if s != "" && !nodeIDs[s] {
+					res.add("SG_RULE_SCOPE_MISSING", "warning", "Regel "+rule.ID+" referenziert unbekannten Knoten: "+s, path)
+				}
+			}
+		}
 	}
 }
 

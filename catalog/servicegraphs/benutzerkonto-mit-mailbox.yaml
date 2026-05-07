@@ -1,0 +1,288 @@
+id: SG-ACC-001
+type: servicegraph
+name: Benutzerkonto mit Exchange-Mailbox bereitstellen
+version: "0.2.0"
+status: draft
+owner: Identity & Collaboration
+summary: >
+  Graphbasiertes Modell fuer die Bereitstellung eines
+  Benutzerkontos inkl. Exchange-Mailbox.
+related_product: PROD-ACC-MBX-001
+
+variants:
+  - id: ACC-V-001
+    name: U-Account
+    context: interner Mitarbeitender
+  - id: ACC-V-002
+    name: X-Account
+    context: externer Mitarbeitender
+
+nodes:
+  - id: ACC-N-001
+    type: service
+    name: Benutzerkonto mit Exchange-Mailbox bereitstellen
+    mandatory: true
+    reusable: false
+    owner: Serviceverantwortung
+  - id: ACC-N-010
+    type: decision
+    name: Kontotyp bestimmen
+    mandatory: true
+    reusable: true
+    owner: Fachverantwortung
+  - id: ACC-N-020
+    type: precondition
+    name: Person bekannt
+    mandatory: true
+    reusable: true
+    owner: Quellsystemverantwortung
+  - id: ACC-N-030
+    type: precondition
+    name: Organisation bekannt
+    mandatory: true
+    reusable: true
+    owner: Fachverantwortung
+  - id: ACC-N-040
+    type: activity
+    name: Benutzerkonto anlegen
+    mandatory: true
+    reusable: true
+    owner: Betriebsverantwortung
+    skill_ref: SKILL-ACC-005
+  - id: ACC-N-050
+    type: activity
+    name: Basisattribute setzen
+    mandatory: true
+    reusable: true
+    owner: Betriebsverantwortung
+  - id: ACC-N-060
+    type: activity
+    name: Mailbox bereitstellen
+    mandatory: true
+    reusable: true
+    owner: Betriebsverantwortung
+    skill_ref: SKILL-ACC-006
+  - id: ACC-N-070
+    type: validation
+    name: Benutzerkonto validieren
+    mandatory: true
+    reusable: true
+    owner: Betriebsverantwortung
+  - id: ACC-N-080
+    type: validation
+    name: Mailbox validieren
+    mandatory: true
+    reusable: true
+    owner: Betriebsverantwortung
+  - id: ACC-N-090
+    type: manual
+    name: Stammdaten klaeren
+    mandatory: false
+    reusable: false
+    owner: Operative Bearbeitung
+  - id: ACC-N-100
+    type: state
+    name: Konto vorhanden
+    mandatory: true
+    reusable: true
+  - id: ACC-N-110
+    type: state
+    name: Grundauspraegung vollstaendig
+    mandatory: true
+    reusable: true
+  - id: ACC-N-120
+    type: state
+    name: Mailbox vorhanden
+    mandatory: true
+    reusable: true
+  - id: ACC-N-130
+    type: compensation
+    name: Mailbox kompensieren
+    mandatory: false
+    reusable: true
+    owner: Betriebsverantwortung
+  - id: ACC-N-140
+    type: compensation
+    name: Konto kompensieren
+    mandatory: false
+    reusable: true
+    owner: Betriebsverantwortung
+
+edges:
+  - id: ACC-R-001
+    source: ACC-N-001
+    target: ACC-N-010
+    type: composed_of
+    binding: hard
+    description: Service enthaelt Kontotypbestimmung
+  - id: ACC-R-002
+    source: ACC-N-001
+    target: ACC-N-020
+    type: composed_of
+    binding: hard
+  - id: ACC-R-003
+    source: ACC-N-001
+    target: ACC-N-030
+    type: composed_of
+    binding: hard
+  - id: ACC-R-004
+    source: ACC-N-001
+    target: ACC-N-040
+    type: composed_of
+    binding: hard
+  - id: ACC-R-005
+    source: ACC-N-001
+    target: ACC-N-050
+    type: composed_of
+    binding: hard
+  - id: ACC-R-006
+    source: ACC-N-001
+    target: ACC-N-060
+    type: composed_of
+    binding: hard
+  - id: ACC-R-007
+    source: ACC-N-001
+    target: ACC-N-070
+    type: composed_of
+    binding: hard
+  - id: ACC-R-008
+    source: ACC-N-001
+    target: ACC-N-080
+    type: composed_of
+    binding: hard
+  - id: ACC-R-009
+    source: ACC-N-020
+    target: ACC-N-040
+    type: depends_on
+    binding: hard
+    description: Kontoanlage braucht bekannte Person
+  - id: ACC-R-010
+    source: ACC-N-010
+    target: ACC-N-040
+    type: depends_on
+    binding: hard
+    description: Kontoanlage braucht bestimmten Kontotyp
+  - id: ACC-R-011
+    source: ACC-N-030
+    target: ACC-N-050
+    type: depends_on
+    binding: hard
+  - id: ACC-R-012
+    source: ACC-N-040
+    target: ACC-N-050
+    type: depends_on
+    binding: hard
+  - id: ACC-R-013
+    source: ACC-N-040
+    target: ACC-N-070
+    type: validates
+    binding: hard
+  - id: ACC-R-014
+    source: ACC-N-050
+    target: ACC-N-070
+    type: depends_on
+    binding: hard
+  - id: ACC-R-015
+    source: ACC-N-040
+    target: ACC-N-100
+    type: produces_state
+    binding: hard
+  - id: ACC-R-016
+    source: ACC-N-050
+    target: ACC-N-110
+    type: produces_state
+    binding: hard
+  - id: ACC-R-017
+    source: ACC-N-100
+    target: ACC-N-060
+    type: consumes_state
+    binding: hard
+  - id: ACC-R-018
+    source: ACC-N-110
+    target: ACC-N-060
+    type: consumes_state
+    binding: hard
+  - id: ACC-R-019
+    source: ACC-N-060
+    target: ACC-N-080
+    type: validates
+    binding: hard
+  - id: ACC-R-020
+    source: ACC-N-060
+    target: ACC-N-120
+    type: produces_state
+    binding: hard
+  - id: ACC-R-021
+    source: ACC-N-090
+    target: ACC-N-040
+    type: enables
+    binding: soft
+    condition: nach Klaerung
+  - id: ACC-R-022
+    source: ACC-N-130
+    target: ACC-N-060
+    type: compensates
+    binding: soft
+    condition: bei definiertem Fehlerfall
+  - id: ACC-R-023
+    source: ACC-N-140
+    target: ACC-N-040
+    type: compensates
+    binding: soft
+    condition: nur falls fachlich verlangt
+
+rules:
+  - id: ACC-G-001
+    name: Kontotyp muss bestimmt sein
+    type: activation
+    scope: ACC-N-040
+    binding: must
+    expression: "kontotyp IN ['U', 'X']"
+  - id: ACC-G-002
+    name: Person muss bekannt sein
+    type: activation
+    scope: ACC-N-040
+    binding: must
+    expression: personenkontext vorhanden
+  - id: ACC-G-003
+    name: Mailbox nur bei vorhandenem Konto
+    type: activation
+    scope: ACC-N-060
+    binding: must
+    expression: Zustand Konto vorhanden
+  - id: ACC-G-004
+    name: Mailbox nur bei vollstaendiger Grundauspraegung
+    type: activation
+    scope: ACC-N-060
+    binding: must
+    expression: Zustand Grundauspraegung vollstaendig
+  - id: ACC-G-005
+    name: U- und X-Account sind Varianten
+    type: variant
+    scope: model
+    binding: must
+    expression: exklusiv entweder U oder X
+  - id: ACC-G-006
+    name: Kontovalidierung ist blockierend
+    type: validation
+    scope: ACC-N-070
+    binding: must
+    expression: Validierung = erfolgreich
+  - id: ACC-G-007
+    name: Mailboxvalidierung ist blockierend
+    type: validation
+    scope: ACC-N-080
+    binding: must
+    expression: Validierung = erfolgreich
+  - id: ACC-G-008
+    name: Harte Abhaengigkeiten muessen azyklisch sein
+    type: consistency
+    scope: model
+    binding: must
+    expression: azyklischer Abhaengigkeitsgraph
+  - id: ACC-G-009
+    name: Konto wird nicht automatisch kompensiert
+    type: compensation
+    scope: ACC-N-140
+    binding: should
+    expression: nur bei expliziter fachlicher Regel kompensieren

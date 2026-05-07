@@ -1,0 +1,9 @@
+id: domain-cloud-blumer-test
+type: domain
+name: cloud.blumer.test
+version: 0.1.0
+status: draft
+owner: Patrick
+dns_name: cloud.blumer.test
+summary: Nomos Domain cloud.blumer.test.
+services: []

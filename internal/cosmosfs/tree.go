@@ -15,7 +15,8 @@ type Tree struct {
 	Cosmos     model.Cosmos
 	Domains    []DomainNode
 	Blueprints []BlueprintNode
-	Instances  []InstanceNode
+	Instances      []InstanceNode
+	Servicegraphs  []ServicegraphNode
 }
 type DomainNode struct {
 	Path     string
@@ -35,6 +36,10 @@ type BlueprintNode struct {
 type InstanceNode struct {
 	Path     string
 	Metadata model.Instance
+}
+type ServicegraphNode struct {
+	Path     string
+	Metadata model.Servicegraph
 }
 
 func LoadTree(path string) (Tree, error) {
@@ -92,6 +97,11 @@ func LoadTree(path string) (Tree, error) {
 	}
 	tree.Blueprints = blueprints
 	tree.Instances = instances
+	servicegraphs, err := scanServicegraphs(path)
+	if err != nil {
+		return Tree{}, err
+	}
+	tree.Servicegraphs = servicegraphs
 	return tree, nil
 }
 func firstNonEmpty(values ...string) string {
@@ -168,6 +178,36 @@ func scanInstanceArtifacts(root string) ([]InstanceNode, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	sort.Slice(nodes, func(i, j int) bool { return nodes[i].Metadata.ID < nodes[j].Metadata.ID })
+	return nodes, nil
+}
+
+func scanServicegraphs(path string) ([]ServicegraphNode, error) {
+	root := filepath.Join(path, "catalog", "servicegraphs")
+	var nodes []ServicegraphNode
+	if _, err := os.Stat(root); err != nil {
+		if os.IsNotExist(err) {
+			return nodes, nil
+		}
+		return nil, err
+	}
+	ents, err := os.ReadDir(root)
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range ents {
+		if e.IsDir() || !isYAML(e.Name()) {
+			continue
+		}
+		full := filepath.Join(root, e.Name())
+		var sg model.Servicegraph
+		if err := fsx.ReadYAML(full, &sg); err != nil {
+			return nil, err
+		}
+		if sg.Type == "servicegraph" {
+			nodes = append(nodes, ServicegraphNode{Path: full, Metadata: sg})
+		}
 	}
 	sort.Slice(nodes, func(i, j int) bool { return nodes[i].Metadata.ID < nodes[j].Metadata.ID })
 	return nodes, nil

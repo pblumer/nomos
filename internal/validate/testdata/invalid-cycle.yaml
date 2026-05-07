@@ -1,0 +1,40 @@
+id: SG-CYC-001
+type: servicegraph
+name: Cyclic Graph
+version: "0.1.0"
+status: draft
+owner: test-team
+summary: Has a cycle
+related_product: PROD-TEST-001
+nodes:
+  - id: N-001
+    type: service
+    name: Service
+    mandatory: true
+    reusable: false
+  - id: N-002
+    type: activity
+    name: A
+    mandatory: true
+    reusable: false
+  - id: N-003
+    type: activity
+    name: B
+    mandatory: true
+    reusable: false
+edges:
+  - id: E-001
+    source: N-001
+    target: N-002
+    type: composed_of
+    binding: hard
+  - id: E-002
+    source: N-002
+    target: N-003
+    type: depends_on
+    binding: hard
+  - id: E-003
+    source: N-003
+    target: N-002
+    type: depends_on
+    binding: hard
