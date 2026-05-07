@@ -86,9 +86,9 @@
 
 <!-- Context Menu -->
 <div id="ctx-menu" class="ctx-menu">
-  <div class="ctx-item" data-action="add-tld"><span class="material-symbols-outlined">add</span> Add TLD</div>
+  <div class="ctx-item" data-action="add-domain"><span class="material-symbols-outlined">add</span> Add Domain</div>
   <div class="ctx-item" data-action="add-subdomain"><span class="material-symbols-outlined">add</span> Add Subdomain</div>
-  <div class="ctx-item" data-action="add-service"><span class="material-symbols-outlined">add</span> Add Service</div>
+  <div class="ctx-item" data-action="add-service"><span class="material-symbols-outlined">settings</span> Add Service</div>
   <div class="ctx-item" data-action="add-blueprint"><span class="material-symbols-outlined">add</span> Add Blueprint</div>
   <hr class="ctx-divider">
   <div class="ctx-item ctx-danger" data-action="delete"><span class="material-symbols-outlined">delete</span> Delete</div>
@@ -155,6 +155,25 @@
 
   initTree();
 
+  /* ── Helpers ── */
+  // Reconstruct namespace path by walking up the DOM tree (e.g. "cloud" or "blumer.cloud")
+  function getNamespacePath(row) {
+    let parts = [];
+    let el = row.closest('.cosmos-node');
+    while (el) {
+      const r = el.querySelector(':scope > .cosmos-node-row');
+      if (!r) break;
+      const kind = r.dataset.kind;
+      if (kind === 'namespace' || kind === 'domain') {
+        parts.push(r.querySelector('.cosmos-node-label').textContent.trim());
+      } else {
+        break; // stop at domain-parent or cosmos
+      }
+      el = el.parentElement?.closest('.cosmos-node');
+    }
+    return parts.join('.');
+  }
+
   /* ── Context Menu ── */
   function hideCtx() { ctxMenu.classList.remove('is-visible'); }
   function showCtx(e, target) {
@@ -163,9 +182,9 @@
 
     // Determine which actions to show
     const actionMap = {
-      'cosmos':           ['add-tld'],
-      'domain-parent':    ['add-tld'],
-      'namespace':        ['add-tld'],
+      'cosmos':           ['add-domain'],
+      'domain-parent':    ['add-domain'],
+      'namespace':        ['add-domain'],
       'domain':           ['add-subdomain', 'add-service', 'delete'],
       'service':          ['delete'],
       'blueprint-parent': ['add-blueprint'],
@@ -239,13 +258,32 @@
     createFields.innerHTML = '';
     createModal.classList.add('is-visible');
 
-    if (action === 'add-tld') {
-      createTitle.textContent = 'Add Top-Level Domain';
-      createFields.innerHTML =
-        '<label>Full domain name (TLD)</label>' +
-        '<input type="text" id="create-dns" placeholder="e.g. blumer.cloud" autofocus />' +
-        '<label>Owner</label>' +
-        '<input type="text" id="create-owner" placeholder="Owner team" />';
+    if (action === 'add-domain') {
+      // If clicked on a namespace node, user only enters segment (auto-appends parent)
+      const kind = target.dataset.kind;
+      const nsPath = (kind === 'namespace') ? getNamespacePath(target) : '';
+      if (nsPath) {
+        createTitle.textContent = 'Add Domain under .' + nsPath;
+        createFields.innerHTML =
+          '<label>Domain name (segment only)</label>' +
+          '<div class="input-with-hint"><input type="text" id="create-segment" placeholder="e.g. blumer" autofocus />' +
+          '<span class="form-help">Will create: <strong><span id="preview-domain"></span></strong></span></div>' +
+          '<label>Owner</label>' +
+          '<input type="text" id="create-owner" placeholder="Owner team" />';
+        createFields.dataset.nsPath = nsPath;
+        const seg = document.getElementById('create-segment');
+        const prev = document.getElementById('preview-domain');
+        prev.textContent = '___.' + nsPath;
+        seg.addEventListener('input', () => { prev.textContent = (seg.value || '___') + '.' + nsPath; });
+      } else {
+        createTitle.textContent = 'Add Domain';
+        createFields.innerHTML =
+          '<label>Full domain name</label>' +
+          '<input type="text" id="create-dns" placeholder="e.g. blumer.cloud" autofocus />' +
+          '<label>Owner</label>' +
+          '<input type="text" id="create-owner" placeholder="Owner team" />';
+        createFields.dataset.nsPath = '';
+      }
     } else if (action === 'add-subdomain') {
       const parentDomain = target.dataset.id;
       createTitle.textContent = 'Add Subdomain of ' + parentDomain;
@@ -297,10 +335,18 @@
 
   document.getElementById('create-confirm').addEventListener('click', async () => {
     let url, opts;
-    if (createAction === 'add-tld') {
-      const dns = document.getElementById('create-dns').value.trim();
+    if (createAction === 'add-domain') {
+      const nsPath = createFields.dataset.nsPath;
       const owner = document.getElementById('create-owner').value.trim() || 'unknown';
-      if (!dns) { alert('Domain name required'); return; }
+      let dns;
+      if (nsPath) {
+        const segment = document.getElementById('create-segment').value.trim();
+        if (!segment) { alert('Domain segment required'); return; }
+        dns = segment + '.' + nsPath;
+      } else {
+        dns = (document.getElementById('create-dns') || {}).value?.trim();
+        if (!dns) { alert('Domain name required'); return; }
+      }
       url = '/api/v1/domains';
       opts = {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: new URLSearchParams({dns, owner})};
     } else if (createAction === 'add-subdomain') {
