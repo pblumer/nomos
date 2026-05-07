@@ -110,6 +110,19 @@ func (h *handler) apiDomainRoutes(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusOK, map[string]string{"deleted": parts[0]})
 			return
 		}
+		if r.Method == http.MethodPut {
+			var req struct{ Name string `json:"name"` }
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			if err := app.RenameDomain(h.cosmosPath, parts[0], req.Name); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"renamed": req.Name})
+			return
+		}
 		if r.Method == http.MethodGet {
 			dto, err := app.GetDomain(h.cosmosPath, parts[0])
 			if err != nil {
@@ -150,6 +163,19 @@ func (h *handler) apiDomainRoutes(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			writeJSON(w, http.StatusOK, map[string]string{"deleted": parts[0] + "/" + parts[2]})
+			return
+		}
+		if r.Method == http.MethodPut {
+			var req struct{ Name string `json:"name"` }
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			if err := app.RenameService(h.cosmosPath, parts[0], parts[2], req.Name); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"renamed": req.Name})
 			return
 		}
 		dto, err := app.GetService(h.cosmosPath, parts[0], parts[2])
@@ -424,7 +450,20 @@ func (h *handler) cosmosPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	doc, _ := app.DoctorCosmos(h.cosmosPath)
-	h.page(w, "cosmos", map[string]any{"ActiveNav": "cosmos", "PageTitle": "Cosmos", "Cosmos": co, "Doctor": doc})
+	bp, _ := app.ListBlueprints(h.cosmosPath)
+	inst, _ := app.ListInstances(h.cosmosPath)
+	domains, _ := app.ListDomains(h.cosmosPath)
+	var services []app.ServiceDTO
+	for _, d := range domains.Domains {
+		ss, _ := app.ListServices(h.cosmosPath, d.Canonical)
+		services = append(services, ss.Services...)
+	}
+	h.page(w, "cosmos", map[string]any{
+		"ActiveNav": "cosmos", "PageTitle": "Cosmos",
+		"Cosmos": co, "Doctor": doc,
+		"Domains": domains.Domains, "Services": services,
+		"Blueprints": bp.Blueprints, "Instances": inst.Instances,
+	})
 }
 func (h *handler) domainsPage(w http.ResponseWriter, r *http.Request) {
 	ex, err := buildDomainsExplorer(h.cosmosPath, r.URL.Query().Get("selected"))

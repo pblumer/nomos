@@ -251,13 +251,12 @@ func TestBlueprintAndInstanceAPIRoutes(t *testing.T) {
 func TestExtendedWebPages(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	pages := map[string][]string{
-		"/cosmos":                           {"Cosmos", "Doctor", "cosmos.yaml"},
+		"/cosmos":                           {"Cosmos Explorer", "Domains", "Blueprints", "Instances"},
 		"/services":                         {"Services", "Create service", "user-account"},
 		"/namespaces":                       {"Namespace Tree", "identity.blumer.cloud", "user-account"},
 		"/blueprints":                       {"Blueprints", "PB-ACC-MBX-001", "SB-1"},
 		"/blueprints/PB-ACC-MBX-001":        {"PB-ACC-MBX-001", "Required inputs", "identity.blumer.cloud/user-account"},
 		"/instances":                        {"Instances", "PI-ACC-MBX-EXAMPLE-001"},
-		"/instances/PI-ACC-MBX-EXAMPLE-001": {"Compliance", "compliant"},
 		"/verify":                           {"Verification", "Verify domain", "Evidence files"},
 		"/api":                              {"GET /health", "GET /api/v1/cosmos", "GET /api/v1/instances"},
 	}

@@ -374,6 +374,66 @@ func DeleteService(path, domainName, serviceName string) error {
 	return nil
 }
 
+func RenameDomain(path, oldName, newName string) error {
+	oldCanon := namespace.Canonical(strings.TrimSpace(oldName))
+	newCanon := namespace.Canonical(strings.TrimSpace(newName))
+	if oldCanon == "" || newCanon == "" || !strings.Contains(newCanon, ".") || strings.ContainsAny(newCanon, `/\\`) {
+		return Error(CodeInvalidNamespace, "Invalid domain name: "+newName, http.StatusBadRequest, nil)
+	}
+	_, err := GetDomain(path, oldCanon)
+	if err != nil {
+		return err
+	}
+	// Check conflict
+	if _, err := os.Stat(filepath.Join(path, "domains", newCanon)); err == nil {
+		return Error(CodeInvalidNamespace, "Domain already exists: "+newCanon, http.StatusConflict, nil)
+	}
+	if err := os.Rename(filepath.Join(path, "domains", oldCanon), filepath.Join(path, "domains", newCanon)); err != nil {
+		return Error(CodeInternalError, "Failed to rename domain: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	// Update domain.yaml name field
+	domainFile := filepath.Join(path, "domains", newCanon, "domain.yaml")
+	var d model.Domain
+	if err := fsx.ReadYAML(domainFile, &d); err != nil {
+		return Error(CodeInternalError, "Failed to read domain.yaml: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	d.Name = newCanon
+	d.DNSName = newCanon
+	if err := fsx.WriteYAML(domainFile, d); err != nil {
+		return Error(CodeInternalError, "Failed to write domain.yaml: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return nil
+}
+
+func RenameService(path, domainName, oldName, newName string) error {
+	canonical := namespace.Canonical(strings.TrimSpace(domainName))
+	_, err := GetService(path, canonical, oldName)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(newName) == "" || strings.ContainsAny(newName, `/\\`) || newName == "." || newName == ".." {
+		return Error(CodeInvalidNamespace, "Invalid service name: "+newName, http.StatusBadRequest, nil)
+	}
+	oldDir := filepath.Join(path, "domains", canonical, "services", oldName)
+	newDir := filepath.Join(path, "domains", canonical, "services", newName)
+	if _, err := os.Stat(newDir); err == nil {
+		return Error(CodeInvalidNamespace, "Service already exists: "+newName, http.StatusConflict, nil)
+	}
+	if err := os.Rename(oldDir, newDir); err != nil {
+		return Error(CodeInternalError, "Failed to rename service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	// Update service.yaml name field
+	var s model.Service
+	if err := fsx.ReadYAML(filepath.Join(newDir, "service.yaml"), &s); err != nil {
+		return Error(CodeInternalError, "Failed to read service.yaml: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	s.Name = newName
+	if err := fsx.WriteYAML(filepath.Join(newDir, "service.yaml"), s); err != nil {
+		return Error(CodeInternalError, "Failed to write service.yaml: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return nil
+}
+
 func AddService(path, domainName, name, owner string, force bool) (ServiceDTO, error) {
 	d, err := GetDomain(path, domainName)
 	if err != nil {

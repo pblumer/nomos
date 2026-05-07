@@ -163,3 +163,71 @@ func TestDeleteService_NotFound(t *testing.T) {
 		t.Fatalf("expected SERVICE_NOT_FOUND, got %v", err)
 	}
 }
+
+func TestRenameDomain(t *testing.T) {
+	p := createAppTestCosmos(t)
+	err := RenameDomain(p, "identity.blumer.cloud", "user.blumer.cloud")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, e := os.Stat(filepath.Join(p, "domains", "identity.blumer.cloud")); !os.IsNotExist(e) {
+		t.Fatal("expected old domain dir to be gone")
+	}
+	if _, e := os.Stat(filepath.Join(p, "domains", "user.blumer.cloud")); os.IsNotExist(e) {
+		t.Fatal("expected new domain dir to exist")
+	}
+	if _, e := os.Stat(filepath.Join(p, "domains", "user.blumer.cloud", "services", "user-account", "service.yaml")); os.IsNotExist(e) {
+		t.Fatal("expected service to survive domain rename")
+	}
+	d, err := GetDomain(p, "user.blumer.cloud")
+	if err != nil {
+		t.Fatalf("could not get renamed domain: %v", err)
+	}
+	if d.Name != "user.blumer.cloud" {
+		t.Fatalf("expected name user.blumer.cloud, got %s", d.Name)
+	}
+	// Old name gone
+	if _, err := GetDomain(p, "identity.blumer.cloud"); err == nil {
+		t.Fatal("expected old name to be gone")
+	}
+}
+
+func TestRenameDomain_NameConflict(t *testing.T) {
+	p := createAppTestCosmos(t)
+	err := RenameDomain(p, "identity.blumer.cloud", "platform.blumer.cloud")
+	if err == nil {
+		t.Fatal("expected error for name conflict")
+	}
+}
+
+func TestRenameService(t *testing.T) {
+	p := createAppTestCosmos(t)
+	err := RenameService(p, "identity.blumer.cloud", "user-account", "identity-account")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, e := os.Stat(filepath.Join(p, "domains", "identity.blumer.cloud", "services", "user-account")); !os.IsNotExist(e) {
+		t.Fatal("expected old service dir to be gone")
+	}
+	if _, e := os.Stat(filepath.Join(p, "domains", "identity.blumer.cloud", "services", "identity-account")); os.IsNotExist(e) {
+		t.Fatal("expected new service dir to exist")
+	}
+	s, err := GetService(p, "identity.blumer.cloud", "identity-account")
+	if err != nil {
+		t.Fatalf("could not get renamed service: %v", err)
+	}
+	if s.Name != "identity-account" || s.Domain != "identity.blumer.cloud" {
+		t.Fatalf("unexpected service: %+v", s)
+	}
+	if _, err := GetService(p, "identity.blumer.cloud", "user-account"); err == nil {
+		t.Fatal("expected old name to be gone")
+	}
+}
+
+func TestRenameService_NotFound(t *testing.T) {
+	p := createAppTestCosmos(t)
+	err := RenameService(p, "identity.blumer.cloud", "does-not-exist", "new-name")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
