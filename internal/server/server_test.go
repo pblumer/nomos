@@ -353,6 +353,9 @@ func TestCreateDomainAndService(t *testing.T) {
 	if rr := postForm(h, "/api/v1/domains/blumer.com/children", "label=identity-api&owner=Web"); rr.Code != http.StatusCreated || !strings.Contains(rr.Body.String(), "identity-api.blumer.com") {
 		t.Fatalf("child domain create status=%d body=%s", rr.Code, rr.Body.String())
 	}
+	if rr := postJSON(h, "/api/v1/domains/identity-api.blumer.com/children", `{"label":"products","owner":"Web"}`); rr.Code != http.StatusCreated || !strings.Contains(rr.Body.String(), "products.identity-api.blumer.com") || !strings.Contains(rr.Body.String(), `"treePath":"/com/blumer/identity-api/products"`) || !strings.Contains(rr.Body.String(), `.nomos/domains/com/blumer/identity-api/products/domain.yaml`) {
+		t.Fatalf("json child domain create status=%d body=%s", rr.Code, rr.Body.String())
+	}
 	if rr := postForm(h, "/api/v1/namespaces/cloud/domains", "label=api-blumer&owner=Web"); rr.Code != http.StatusCreated || !strings.Contains(rr.Body.String(), "api-blumer.cloud") {
 		t.Fatalf("namespace route create status=%d body=%s", rr.Code, rr.Body.String())
 	}

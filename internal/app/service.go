@@ -52,8 +52,13 @@ func GetDomain(path, domainName string) (DomainDTO, error) {
 		return DomainDTO{}, err
 	}
 	canonical := namespace.Canonical(domainName)
+	if strings.HasPrefix(canonical, "/") {
+		if converted, err := namespace.TreePathToCanonical(canonical); err == nil {
+			canonical = converted
+		}
+	}
 	for _, d := range tree.Domains {
-		if d.Name == canonical {
+		if strings.EqualFold(d.Name, canonical) {
 			return domainDTO(d, true), nil
 		}
 	}
@@ -127,7 +132,7 @@ func BuildNamespaceTree(path string) (NamespaceTreeDTO, error) {
 func domainDTO(d cosmosfs.DomainNode, includeServices bool) DomainDTO {
 	canonical := namespace.Canonical(d.Name)
 	v := namespace.View(canonical)
-	dto := DomainDTO{Name: canonical, Canonical: canonical, Namespace: namespaceDTO(v), Label: v.Label, NamespaceName: v.Namespace, ParentCanonical: v.ParentCanonical, VerificationStatus: verificationStatus(fallback(d.Metadata.Status, "unknown")), DisplayName: v.Label, Owner: fallback(d.Metadata.Owner, "unknown"), Status: fallback(d.Metadata.Status, "unknown"), Path: d.Path, ServiceCount: len(d.Services)}
+	dto := DomainDTO{Name: canonical, Canonical: canonical, CanonicalName: canonical, Namespace: namespaceDTO(v), Label: v.Label, NamespaceName: v.Namespace, ParentCanonical: v.ParentCanonical, ParentTreePath: v.ParentTreePath, TreePath: v.TreePath, GitPath: v.GitPath, VerificationStatus: verificationStatus(fallback(d.Metadata.Status, "unknown")), DisplayName: v.Label, Owner: fallback(d.Metadata.Owner, "unknown"), Status: fallback(d.Metadata.Status, "unknown"), Path: d.Path, ServiceCount: len(d.Services)}
 	if includeServices {
 		dto.Services = make([]ServiceDTO, 0, len(d.Services))
 		for _, s := range d.Services {
@@ -158,6 +163,7 @@ func load(path string) (cosmosfs.Tree, error) {
 func namespaceDTO(v namespace.NamespaceView) NamespaceDTO {
 	return NamespaceDTO{
 		Canonical:       v.Canonical,
+		CanonicalName:   v.CanonicalName,
 		Namespace:       v.Namespace,
 		Labels:          v.Labels,
 		Label:           v.Label,
@@ -165,6 +171,8 @@ func namespaceDTO(v namespace.NamespaceView) NamespaceDTO {
 		Parts:           v.Parts,
 		TreeParts:       v.TreeParts,
 		TreePath:        v.TreePath,
+		GitPath:         v.GitPath,
+		ParentTreePath:  v.ParentTreePath,
 		DisplayPath:     v.DisplayPath,
 		Leaf:            v.Leaf,
 	}
@@ -196,14 +204,16 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 			child := NamespaceTreeNodeDTO{Label: label, Kind: kind}
 			if kind == "namespace" {
 				child.DisplayPath = label
-				child.TreePath = label
+				child.TreePath = "/" + label
 			} else {
 				canonical, err := namespace.ComposeCanonical(parts[0], parts[1:i+1]...)
 				if err == nil {
 					child.Canonical = canonical
+					child.CanonicalName = canonical
 					v := namespace.View(canonical)
 					child.DisplayPath = v.DisplayPath
 					child.TreePath = v.TreePath
+					child.GitPath = v.GitPath
 				}
 			}
 			node.Children = append(node.Children, child)
@@ -211,8 +221,10 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 		}
 		if kind == "domain" && i == len(parts)-1 {
 			node.Children[idx].Canonical = d.Canonical
+			node.Children[idx].CanonicalName = d.Canonical
 			node.Children[idx].DisplayPath = d.Namespace.DisplayPath
 			node.Children[idx].TreePath = d.Namespace.TreePath
+			node.Children[idx].GitPath = d.GitPath
 			dd := d
 			node.Children[idx].Domain = &dd
 		}
@@ -221,13 +233,13 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 	if len(d.Services) > 0 {
 		idx := findTreeChild(node, "Services", "service-parent")
 		if idx == -1 {
-			node.Children = append(node.Children, NamespaceTreeNodeDTO{Label: "Services", Kind: "service-parent", Canonical: d.Canonical, DisplayPath: d.Namespace.DisplayPath + " / Services", TreePath: d.Namespace.TreePath + "/services"})
+			node.Children = append(node.Children, NamespaceTreeNodeDTO{Label: "Services", Kind: "service-parent", Canonical: d.Canonical, CanonicalName: d.Canonical, DisplayPath: d.Namespace.DisplayPath + " / Services", TreePath: d.Namespace.TreePath + "/services", GitPath: d.GitPath})
 			idx = len(node.Children) - 1
 		}
 		serviceParent := &node.Children[idx]
 		for _, svc := range d.Services {
 			s := svc
-			serviceParent.Children = append(serviceParent.Children, NamespaceTreeNodeDTO{Label: svc.Name, Kind: "service", Canonical: d.Canonical + "/" + svc.Name, Service: &s})
+			serviceParent.Children = append(serviceParent.Children, NamespaceTreeNodeDTO{Label: svc.Name, Kind: "service", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s})
 		}
 	}
 }
@@ -375,22 +387,28 @@ func DoctorCosmos(path string) (DoctorDTO, error) {
 	return DoctorDTO{Status: status, Checks: checks}, nil
 }
 
+func domainDirFromTreePath(workspace, treePath string) string {
+	return filepath.Join(storage.DomainsDir(workspace), filepath.FromSlash(strings.TrimPrefix(treePath, "/")))
+}
+
 func AddDomain(path, dns, owner string, force bool) (DomainDTO, error) {
 	dns = namespace.Canonical(strings.TrimSpace(dns))
-	if dns == "" || !strings.Contains(dns, ".") || strings.ContainsAny(dns, `/\\`) {
-		return DomainDTO{}, Error(CodeInvalidNamespace, "Invalid domain name: "+dns, http.StatusBadRequest, nil)
+	identity, err := namespace.Identity(dns)
+	if err != nil || strings.ContainsAny(dns, `/\`) {
+		return DomainDTO{}, Error(CodeInvalidNamespace, "Invalid domain name: "+dns, http.StatusBadRequest, err)
 	}
+	dns = identity.CanonicalName
 	if strings.TrimSpace(owner) == "" {
 		owner = "unknown"
 	}
-	ddir := filepath.Join(storage.DomainsDir(path), dns)
+	ddir := domainDirFromTreePath(path, identity.TreePath)
 	if _, err := os.Stat(ddir); err == nil && !force {
 		return DomainDTO{}, Error(CodeInvalidNamespace, "Domain already exists: "+dns, http.StatusConflict, nil)
 	}
 	if err := os.MkdirAll(filepath.Join(ddir, "services"), 0o755); err != nil {
 		return DomainDTO{}, err
 	}
-	d := model.Domain{ID: "domain-" + strings.ReplaceAll(dns, ".", "-"), Type: "domain", Name: dns, Version: "0.1.0", Status: "draft", Owner: owner, DNSName: dns, Summary: "Nomos Domain " + dns + "."}
+	d := model.Domain{ID: dns, Type: "domain", Name: dns, Version: "0.1.0", Status: "draft", Owner: owner, DNSName: dns, Namespace: identity.Namespace, Label: identity.Label, Labels: identity.Labels, CanonicalName: dns, TreePath: identity.TreePath, ParentCanonical: identity.ParentCanonical, ParentTreePath: identity.ParentTreePath, Summary: "Nomos Domain " + dns + "."}
 	if err := fsx.WriteYAML(filepath.Join(ddir, "domain.yaml"), d); err != nil {
 		return DomainDTO{}, err
 	}
@@ -402,15 +420,14 @@ func AddDomain(path, dns, owner string, force bool) (DomainDTO, error) {
 
 func DeleteDomain(path, domainName string) error {
 	canonical := namespace.Canonical(strings.TrimSpace(domainName))
-	if canonical == "" || !strings.Contains(canonical, ".") || strings.ContainsAny(canonical, `/\\`) {
+	if canonical == "" || !strings.Contains(canonical, ".") || strings.ContainsAny(canonical, `/\`) {
 		return Error(CodeInvalidNamespace, "Invalid domain name: "+domainName, http.StatusBadRequest, nil)
 	}
-	_, err := GetDomain(path, canonical)
+	d, err := GetDomain(path, canonical)
 	if err != nil {
 		return err
 	}
-	dir := filepath.Join(storage.DomainsDir(path), canonical)
-	if err := os.RemoveAll(dir); err != nil {
+	if err := os.RemoveAll(d.Path); err != nil {
 		return Error(CodeInternalError, "Failed to delete domain: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	return nil
@@ -418,11 +435,14 @@ func DeleteDomain(path, domainName string) error {
 
 func DeleteService(path, domainName, serviceName string) error {
 	canonical := namespace.Canonical(strings.TrimSpace(domainName))
-	_, err := GetService(path, canonical, serviceName)
+	d, err := GetDomain(path, canonical)
 	if err != nil {
 		return err
 	}
-	dir := filepath.Join(storage.DomainsDir(path), canonical, "services", serviceName)
+	if _, err := GetService(path, canonical, serviceName); err != nil {
+		return err
+	}
+	dir := filepath.Join(d.Path, "services", serviceName)
 	if err := os.RemoveAll(dir); err != nil {
 		return Error(CodeInternalError, "Failed to delete service: "+err.Error(), http.StatusInternalServerError, err)
 	}
@@ -431,41 +451,53 @@ func DeleteService(path, domainName, serviceName string) error {
 
 func RenameDomain(path, oldName, newName string) error {
 	oldCanon := namespace.Canonical(strings.TrimSpace(oldName))
-	newCanon := namespace.Canonical(strings.TrimSpace(newName))
-	if oldCanon == "" || newCanon == "" || !strings.Contains(newCanon, ".") || strings.ContainsAny(newCanon, `/\\`) {
-		return Error(CodeInvalidNamespace, "Invalid domain name: "+newName, http.StatusBadRequest, nil)
+	newIdentity, err := namespace.Identity(newName)
+	if err != nil || strings.ContainsAny(newName, `/\`) {
+		return Error(CodeInvalidNamespace, "Invalid domain name: "+newName, http.StatusBadRequest, err)
 	}
-	_, err := GetDomain(path, oldCanon)
+	oldDomain, err := GetDomain(path, oldCanon)
 	if err != nil {
 		return err
 	}
-	if _, err := os.Stat(filepath.Join(storage.DomainsDir(path), newCanon)); err == nil {
+	newCanon := newIdentity.CanonicalName
+	newDir := domainDirFromTreePath(path, newIdentity.TreePath)
+	if _, err := os.Stat(newDir); err == nil {
 		return Error(CodeInvalidNamespace, "Domain already exists: "+newCanon, http.StatusConflict, nil)
 	}
-	if err := os.Rename(filepath.Join(storage.DomainsDir(path), oldCanon), filepath.Join(storage.DomainsDir(path), newCanon)); err != nil {
+	if err := os.Rename(oldDomain.Path, newDir); err != nil {
 		return Error(CodeInternalError, "Failed to rename domain: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	var d model.Domain
-	f := filepath.Join(storage.DomainsDir(path), newCanon, "domain.yaml")
+	f := filepath.Join(newDir, "domain.yaml")
 	if err := fsx.ReadYAML(f, &d); err != nil {
 		return Error(CodeInternalError, "read domain.yaml: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	d.Name = newCanon
 	d.DNSName = newCanon
+	d.CanonicalName = newCanon
+	d.Namespace = newIdentity.Namespace
+	d.Label = newIdentity.Label
+	d.Labels = newIdentity.Labels
+	d.TreePath = newIdentity.TreePath
+	d.ParentCanonical = newIdentity.ParentCanonical
+	d.ParentTreePath = newIdentity.ParentTreePath
 	return fsx.WriteYAML(f, d)
 }
 
 func RenameService(path, domainName, oldName, newName string) error {
 	canonical := namespace.Canonical(strings.TrimSpace(domainName))
-	_, err := GetService(path, canonical, oldName)
+	d, err := GetDomain(path, canonical)
 	if err != nil {
+		return err
+	}
+	if _, err := GetService(path, canonical, oldName); err != nil {
 		return err
 	}
 	if strings.TrimSpace(newName) == "" || strings.ContainsAny(newName, `/\\`) || newName == "." || newName == ".." {
 		return Error(CodeInvalidNamespace, "Invalid service name: "+newName, http.StatusBadRequest, nil)
 	}
-	oldDir := filepath.Join(storage.DomainsDir(path), canonical, "services", oldName)
-	newDir := filepath.Join(storage.DomainsDir(path), canonical, "services", newName)
+	oldDir := filepath.Join(d.Path, "services", oldName)
+	newDir := filepath.Join(d.Path, "services", newName)
 	if _, err := os.Stat(newDir); err == nil {
 		return Error(CodeInvalidNamespace, "Service already exists: "+newName, http.StatusConflict, nil)
 	}
@@ -493,7 +525,7 @@ func AddService(path, domainName, name, owner string, force bool) (ServiceDTO, e
 	if strings.TrimSpace(owner) == "" {
 		owner = "unknown"
 	}
-	sdir := filepath.Join(storage.DomainsDir(path), d.Canonical, "services", name)
+	sdir := filepath.Join(d.Path, "services", name)
 	if _, err := os.Stat(sdir); err == nil && !force {
 		return ServiceDTO{}, Error(CodeInvalidNamespace, "Service already exists: "+d.Canonical+"/"+name, http.StatusConflict, nil)
 	}

@@ -2,12 +2,26 @@ package namespace
 
 import (
 	"fmt"
+	"path"
 	"strings"
 )
+
+// DomainIdentity centralizes the canonical DNS-like name and tree-ordered storage identity.
+type DomainIdentity struct {
+	Namespace       string   `json:"namespace"`
+	Labels          []string `json:"labels"`
+	Label           string   `json:"label"`
+	TreePath        string   `json:"treePath"`
+	GitPath         string   `json:"gitPath"`
+	CanonicalName   string   `json:"canonicalName"`
+	ParentTreePath  string   `json:"parentTreePath"`
+	ParentCanonical string   `json:"parentCanonical"`
+}
 
 // NamespaceView exposes canonical DNS-like namespaces alongside tree-oriented display metadata.
 type NamespaceView struct {
 	Canonical       string   `json:"canonical"`
+	CanonicalName   string   `json:"canonicalName"`
 	Namespace       string   `json:"namespace"`
 	Labels          []string `json:"labels"`
 	Label           string   `json:"label"`
@@ -15,6 +29,8 @@ type NamespaceView struct {
 	Parts           []string `json:"parts"`
 	TreeParts       []string `json:"treeParts"`
 	TreePath        string   `json:"treePath"`
+	GitPath         string   `json:"gitPath"`
+	ParentTreePath  string   `json:"parentTreePath"`
 	DisplayPath     string   `json:"displayPath"`
 	Leaf            string   `json:"leaf"`
 }
@@ -77,7 +93,7 @@ func TreeParts(canonical string) []string {
 	return out
 }
 
-func TreePath(canonical string) string { return strings.Join(TreeParts(canonical), "/") }
+func TreePath(canonical string) string { return "/" + strings.Join(TreeParts(canonical), "/") }
 
 func DisplayPath(canonical string) string { return strings.Join(TreeParts(canonical), " / ") }
 
@@ -88,7 +104,72 @@ func ParentTreePath(canonical string) string {
 	if len(parts) <= 1 {
 		return ""
 	}
-	return strings.Join(parts[:len(parts)-1], " / ")
+	return "/" + strings.Join(parts[:len(parts)-1], "/")
+}
+
+func TreePathToCanonical(treePath string) (string, error) {
+	parts := cleanTreePathParts(treePath)
+	if len(parts) < 2 {
+		return "", fmt.Errorf("tree path must contain namespace and at least one label: %s", treePath)
+	}
+	return ComposeCanonical(parts[0], parts[1:]...)
+}
+
+func CanonicalToTreePath(canonical string) (string, error) {
+	if _, err := validateCanonical(canonical); err != nil {
+		return "", err
+	}
+	return TreePath(canonical), nil
+}
+
+func TreePathToGitPath(treePath string) (string, error) {
+	parts := cleanTreePathParts(treePath)
+	if len(parts) < 2 {
+		return "", fmt.Errorf("tree path must contain namespace and at least one label: %s", treePath)
+	}
+	for _, part := range parts {
+		if !validLabel(strings.ToLower(part)) || part != strings.ToLower(part) {
+			return "", fmt.Errorf("invalid tree path label: %s", part)
+		}
+	}
+	return path.Join(append([]string{".nomos", "domains"}, parts...)...) + "/domain.yaml", nil
+}
+
+func Identity(canonical string) (DomainIdentity, error) {
+	c, err := validateCanonical(canonical)
+	if err != nil {
+		return DomainIdentity{}, err
+	}
+	gitPath, err := TreePathToGitPath(TreePath(c))
+	if err != nil {
+		return DomainIdentity{}, err
+	}
+	return DomainIdentity{
+		Namespace:       Namespace(c),
+		Labels:          Labels(c),
+		Label:           Label(c),
+		TreePath:        TreePath(c),
+		GitPath:         gitPath,
+		CanonicalName:   c,
+		ParentTreePath:  ParentTreePath(c),
+		ParentCanonical: ParentCanonical(c),
+	}, nil
+}
+
+func cleanTreePathParts(treePath string) []string {
+	trimmed := strings.Trim(strings.TrimSpace(treePath), "/")
+	if trimmed == "" {
+		return []string{}
+	}
+	raw := strings.Split(trimmed, "/")
+	parts := make([]string, 0, len(raw))
+	for _, part := range raw {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			parts = append(parts, part)
+		}
+	}
+	return parts
 }
 
 // ComposeCanonical derives a canonical DNS name from a namespace and labels ordered
@@ -136,8 +217,10 @@ func ComposeChildCanonical(parentCanonical, childLabel string) (string, error) {
 func View(canonical string) NamespaceView {
 	c := Canonical(canonical)
 	label := Label(c)
+	gitPath, _ := TreePathToGitPath(TreePath(c))
 	return NamespaceView{
 		Canonical:       c,
+		CanonicalName:   c,
 		Namespace:       Namespace(c),
 		Labels:          Labels(c),
 		Label:           label,
@@ -145,9 +228,25 @@ func View(canonical string) NamespaceView {
 		Parts:           Parts(c),
 		TreeParts:       TreeParts(c),
 		TreePath:        TreePath(c),
+		GitPath:         gitPath,
+		ParentTreePath:  ParentTreePath(c),
 		DisplayPath:     DisplayPath(c),
 		Leaf:            label,
 	}
+}
+
+func validateCanonical(canonical string) (string, error) {
+	c := Canonical(strings.ToLower(canonical))
+	parts := Parts(c)
+	if len(parts) < 2 {
+		return "", fmt.Errorf("invalid canonical name: %s", canonical)
+	}
+	for _, part := range parts {
+		if !validLabel(part) {
+			return "", fmt.Errorf("invalid canonical name: %s", canonical)
+		}
+	}
+	return c, nil
 }
 
 func validLabel(label string) bool {

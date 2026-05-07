@@ -50,43 +50,56 @@ func LoadTree(path string) (Tree, error) {
 		return Tree{}, err
 	}
 	tree := Tree{Path: path, Cosmos: co}
-	ents, err := os.ReadDir(storage.DomainsDirForRead(path))
-	if err != nil && !os.IsNotExist(err) {
-		return Tree{}, err
-	}
-	for _, e := range ents {
-		if !e.IsDir() {
-			continue
-		}
-		dir := filepath.Join(storage.DomainsDirForRead(path), e.Name())
-		if _, err := os.Stat(filepath.Join(dir, "domain.yaml")); err != nil {
-			continue
-		}
-		var d model.Domain
-		if err := fsx.ReadYAML(filepath.Join(dir, "domain.yaml"), &d); err != nil {
+	domainRoot := storage.DomainsDirForRead(path)
+	if _, err := os.Stat(domainRoot); err != nil {
+		if !os.IsNotExist(err) {
 			return Tree{}, err
 		}
-		dn := DomainNode{Path: dir, Metadata: d, Name: firstNonEmpty(d.Name, d.DNSName, e.Name())}
-		sents, err := os.ReadDir(filepath.Join(dir, "services"))
-		if err != nil && !os.IsNotExist(err) {
+	} else {
+		err := filepath.WalkDir(domainRoot, func(current string, de os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if !de.IsDir() {
+				return nil
+			}
+			if de.Name() == "services" {
+				return filepath.SkipDir
+			}
+			domainYAML := filepath.Join(current, "domain.yaml")
+			if _, err := os.Stat(domainYAML); err != nil {
+				return nil
+			}
+			var d model.Domain
+			if err := fsx.ReadYAML(domainYAML, &d); err != nil {
+				return err
+			}
+			dn := DomainNode{Path: current, Metadata: d, Name: firstNonEmpty(d.CanonicalName, d.Name, d.DNSName, filepath.Base(current))}
+			sents, err := os.ReadDir(filepath.Join(current, "services"))
+			if err != nil && !os.IsNotExist(err) {
+				return err
+			}
+			for _, se := range sents {
+				if !se.IsDir() {
+					continue
+				}
+				sdir := filepath.Join(current, "services", se.Name())
+				if _, err := os.Stat(filepath.Join(sdir, "service.yaml")); err != nil {
+					continue
+				}
+				var s model.Service
+				if err := fsx.ReadYAML(filepath.Join(sdir, "service.yaml"), &s); err != nil {
+					return err
+				}
+				dn.Services = append(dn.Services, ServiceNode{Path: sdir, Metadata: s, Name: firstNonEmpty(s.Name, se.Name())})
+			}
+			sort.Slice(dn.Services, func(i, j int) bool { return dn.Services[i].Name < dn.Services[j].Name })
+			tree.Domains = append(tree.Domains, dn)
+			return nil
+		})
+		if err != nil {
 			return Tree{}, err
 		}
-		for _, se := range sents {
-			if !se.IsDir() {
-				continue
-			}
-			sdir := filepath.Join(dir, "services", se.Name())
-			if _, err := os.Stat(filepath.Join(sdir, "service.yaml")); err != nil {
-				continue
-			}
-			var s model.Service
-			if err := fsx.ReadYAML(filepath.Join(sdir, "service.yaml"), &s); err != nil {
-				return Tree{}, err
-			}
-			dn.Services = append(dn.Services, ServiceNode{Path: sdir, Metadata: s, Name: firstNonEmpty(s.Name, se.Name())})
-		}
-		sort.Slice(dn.Services, func(i, j int) bool { return dn.Services[i].Name < dn.Services[j].Name })
-		tree.Domains = append(tree.Domains, dn)
 	}
 	sort.Slice(tree.Domains, func(i, j int) bool { return tree.Domains[i].Name < tree.Domains[j].Name })
 	blueprints, err := scanBlueprints(path)

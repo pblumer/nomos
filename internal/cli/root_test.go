@@ -211,7 +211,7 @@ func TestDomainAddCreatesDomainArtifact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, rel := range []string{filepath.Join(".nomos", "domains", "identity.blumer.cloud", "domain.yaml"), filepath.Join(".nomos", "domains", "identity.blumer.cloud", "README.md")} {
+	for _, rel := range []string{filepath.Join(".nomos", "domains", "cloud", "blumer", "identity", "domain.yaml"), filepath.Join(".nomos", "domains", "cloud", "blumer", "identity", "README.md")} {
 		if _, err := os.Stat(filepath.Join(p, rel)); err != nil {
 			t.Fatalf("missing %s", rel)
 		}
@@ -220,7 +220,7 @@ func TestDomainAddCreatesDomainArtifact(t *testing.T) {
 		t.Fatalf("root-level domain directory should not exist")
 	}
 	var d model.Domain
-	if err := fsx.ReadYAML(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud", "domain.yaml"), &d); err != nil {
+	if err := fsx.ReadYAML(filepath.Join(storage.DomainsDir(p), "cloud", "blumer", "identity", "domain.yaml"), &d); err != nil {
 		t.Fatal(err)
 	}
 	if d.Type != "domain" || d.Name != "identity.blumer.cloud" || d.Owner != "Identity Team" || d.DNSName != "identity.blumer.cloud" {
@@ -257,7 +257,7 @@ func TestServiceAddCreatesServiceArtifact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	base := filepath.Join(".nomos", "domains", "identity.blumer.cloud", "services", "user-account")
+	base := filepath.Join(".nomos", "domains", "cloud", "blumer", "identity", "services", "user-account")
 	for _, rel := range []string{base + "/service.yaml", base + "/README.md", base + "/capabilities", base + "/requirements", base + "/rules", base + "/processes", base + "/skills", base + "/findings", base + "/evidence"} {
 		if _, err := os.Stat(filepath.Join(p, rel)); err != nil {
 			t.Fatalf("missing %s", rel)

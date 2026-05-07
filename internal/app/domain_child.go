@@ -16,9 +16,15 @@ func AddDomainInNamespace(path, namespaceName, label, owner string, force bool) 
 }
 
 func AddChildDomain(path, parentCanonicalName, segment, owner string, force bool) (DomainDTO, error) {
+	parentCanonicalName = namespace.Canonical(parentCanonicalName)
 	canonical, err := namespace.ComposeChildCanonical(parentCanonicalName, segment)
 	if err != nil {
 		return DomainDTO{}, Error(CodeInvalidNamespace, "Invalid segment. Use only one new label, for example: identity", http.StatusBadRequest, err)
+	}
+	if strings.Contains(parentCanonicalName, ".") {
+		if _, err := GetDomain(path, parentCanonicalName); err != nil {
+			return DomainDTO{}, err
+		}
 	}
 	return AddDomain(path, canonical, owner, force)
 }

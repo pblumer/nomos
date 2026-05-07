@@ -167,9 +167,26 @@ func (h *handler) apiDomainRoutes(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		_ = r.ParseForm()
-		label := first(r.FormValue("label"), r.FormValue("segment"))
-		dto, err := app.AddChildDomain(h.cosmosPath, parts[0], label, r.FormValue("owner"), r.FormValue("force") != "")
+		var req struct {
+			Label   string `json:"label"`
+			Segment string `json:"segment"`
+			Owner   string `json:"owner"`
+			Force   bool   `json:"force"`
+		}
+		if ct := r.Header.Get("Content-Type"); strings.Contains(ct, "application/json") {
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+		} else {
+			_ = r.ParseForm()
+			req.Label = r.FormValue("label")
+			req.Segment = r.FormValue("segment")
+			req.Owner = r.FormValue("owner")
+			req.Force = r.FormValue("force") != ""
+		}
+		label := first(req.Label, req.Segment)
+		dto, err := app.AddChildDomain(h.cosmosPath, parts[0], label, req.Owner, req.Force)
 		if err != nil {
 			h.apiErr(w, err)
 			return

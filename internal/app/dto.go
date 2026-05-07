@@ -13,6 +13,7 @@ type CosmosDTO struct {
 
 type NamespaceDTO struct {
 	Canonical       string   `json:"canonical"`
+	CanonicalName   string   `json:"canonicalName"`
 	Namespace       string   `json:"namespace"`
 	Labels          []string `json:"labels"`
 	Label           string   `json:"label"`
@@ -20,6 +21,8 @@ type NamespaceDTO struct {
 	Parts           []string `json:"parts"`
 	TreeParts       []string `json:"treeParts"`
 	TreePath        string   `json:"treePath"`
+	GitPath         string   `json:"gitPath"`
+	ParentTreePath  string   `json:"parentTreePath"`
 	DisplayPath     string   `json:"displayPath"`
 	Leaf            string   `json:"leaf"`
 }
@@ -27,10 +30,14 @@ type NamespaceDTO struct {
 type DomainDTO struct {
 	Name               string       `json:"name"`
 	Canonical          string       `json:"canonical"`
+	CanonicalName      string       `json:"canonicalName"`
 	Namespace          NamespaceDTO `json:"namespace"`
 	Label              string       `json:"label"`
 	NamespaceName      string       `json:"namespaceName"`
 	ParentCanonical    string       `json:"parentCanonical"`
+	ParentTreePath     string       `json:"parentTreePath"`
+	TreePath           string       `json:"treePath"`
+	GitPath            string       `json:"gitPath"`
 	VerificationStatus string       `json:"verificationStatus"`
 	DisplayName        string       `json:"displayName"`
 	Owner              string       `json:"owner"`
@@ -75,14 +82,16 @@ type NamespaceTreeDTO struct {
 	Root NamespaceTreeNodeDTO `json:"root"`
 }
 type NamespaceTreeNodeDTO struct {
-	Label       string                 `json:"label"`
-	Kind        string                 `json:"kind"`
-	Canonical   string                 `json:"canonical,omitempty"`
-	DisplayPath string                 `json:"displayPath,omitempty"`
-	TreePath    string                 `json:"treePath,omitempty"`
-	Domain      *DomainDTO             `json:"domain,omitempty"`
-	Service     *ServiceDTO            `json:"service,omitempty"`
-	Children    []NamespaceTreeNodeDTO `json:"children,omitempty"`
+	Label         string                 `json:"label"`
+	Kind          string                 `json:"kind"`
+	Canonical     string                 `json:"canonical,omitempty"`
+	CanonicalName string                 `json:"canonicalName,omitempty"`
+	GitPath       string                 `json:"gitPath,omitempty"`
+	DisplayPath   string                 `json:"displayPath,omitempty"`
+	TreePath      string                 `json:"treePath,omitempty"`
+	Domain        *DomainDTO             `json:"domain,omitempty"`
+	Service       *ServiceDTO            `json:"service,omitempty"`
+	Children      []NamespaceTreeNodeDTO `json:"children,omitempty"`
 }
 
 type RequiredServiceRefDTO struct {
