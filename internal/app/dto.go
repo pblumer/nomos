@@ -1,14 +1,15 @@
 package app
 
 type CosmosDTO struct {
-	Path         string `json:"path"`
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	Version      string `json:"version"`
-	Status       string `json:"status"`
-	Owner        string `json:"owner"`
-	DomainCount  int    `json:"domainCount"`
-	ServiceCount int    `json:"serviceCount"`
+	Path               string `json:"path"`
+	ID                 string `json:"id"`
+	Name               string `json:"name"`
+	Version            string `json:"version"`
+	Status             string `json:"status"`
+	Owner              string `json:"owner"`
+	DomainCount        int    `json:"domainCount"`
+	VirtualDomainCount int    `json:"virtualDomainCount"`
+	ServiceCount       int    `json:"serviceCount"`
 }
 
 type NamespaceDTO struct {
@@ -44,6 +45,8 @@ type DomainDTO struct {
 	Status             string       `json:"status"`
 	Path               string       `json:"path"`
 	ServiceCount       int          `json:"serviceCount"`
+	Persisted          bool         `json:"persisted"`
+	Virtual            bool         `json:"virtual"`
 	Services           []ServiceDTO `json:"services,omitempty"`
 }
 
@@ -82,16 +85,23 @@ type NamespaceTreeDTO struct {
 	Root NamespaceTreeNodeDTO `json:"root"`
 }
 type NamespaceTreeNodeDTO struct {
-	Label         string                 `json:"label"`
-	Kind          string                 `json:"kind"`
-	Canonical     string                 `json:"canonical,omitempty"`
-	CanonicalName string                 `json:"canonicalName,omitempty"`
-	GitPath       string                 `json:"gitPath,omitempty"`
-	DisplayPath   string                 `json:"displayPath,omitempty"`
-	TreePath      string                 `json:"treePath,omitempty"`
-	Domain        *DomainDTO             `json:"domain,omitempty"`
-	Service       *ServiceDTO            `json:"service,omitempty"`
-	Children      []NamespaceTreeNodeDTO `json:"children,omitempty"`
+	Label                string                 `json:"label"`
+	Kind                 string                 `json:"kind"`
+	Canonical            string                 `json:"canonical,omitempty"`
+	CanonicalName        string                 `json:"canonicalName,omitempty"`
+	GitPath              string                 `json:"gitPath,omitempty"`
+	DisplayPath          string                 `json:"displayPath,omitempty"`
+	TreePath             string                 `json:"treePath,omitempty"`
+	Domain               *DomainDTO             `json:"domain,omitempty"`
+	Service              *ServiceDTO            `json:"service,omitempty"`
+	Persisted            bool                   `json:"persisted"`
+	Virtual              bool                   `json:"virtual"`
+	CanCreateChildDomain bool                   `json:"canCreateChildDomain"`
+	CanAddService        bool                   `json:"canAddService"`
+	CanOpenDetails       bool                   `json:"canOpenDetails"`
+	CanVerifyDomain      bool                   `json:"canVerifyDomain"`
+	CanMaterializeDomain bool                   `json:"canMaterializeDomain"`
+	Children             []NamespaceTreeNodeDTO `json:"children,omitempty"`
 }
 
 type RequiredServiceRefDTO struct {

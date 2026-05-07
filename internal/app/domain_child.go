@@ -23,10 +23,21 @@ func AddChildDomain(path, parentCanonicalName, segment, owner string, force bool
 	}
 	if strings.Contains(parentCanonicalName, ".") {
 		if _, err := GetDomain(path, parentCanonicalName); err != nil {
-			return DomainDTO{}, err
+			if !isAppCode(err, CodeDomainNotFound) {
+				return DomainDTO{}, err
+			}
+			if _, materializeErr := addDomain(path, parentCanonicalName, owner, false, true); materializeErr != nil && !isAppCode(materializeErr, CodeInvalidNamespace) {
+				return DomainDTO{}, materializeErr
+			} else if materializeErr != nil {
+				return DomainDTO{}, Error(CodeDomainNotFound, "Cannot create child domain because "+parentCanonicalName+" is only a virtual parent. Materialize "+parentCanonicalName+" first.", http.StatusConflict, materializeErr)
+			}
 		}
 	}
 	return AddDomain(path, canonical, owner, force)
+}
+
+func isAppCode(err error, code string) bool {
+	return err != nil && strings.Contains(err.Error(), code)
 }
 
 func validDomainSegment(segment string) bool {

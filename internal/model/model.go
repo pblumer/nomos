@@ -12,22 +12,23 @@ type Cosmos struct {
 }
 
 type Domain struct {
-	ID              string   `yaml:"id" json:"id"`
-	Type            string   `yaml:"type" json:"type"`
-	Name            string   `yaml:"name" json:"name"`
-	Version         string   `yaml:"version" json:"version"`
-	Status          string   `yaml:"status" json:"status"`
-	Owner           string   `yaml:"owner" json:"owner"`
-	DNSName         string   `yaml:"dns_name" json:"dns_name"`
-	Namespace       string   `yaml:"namespace" json:"namespace"`
-	Label           string   `yaml:"label" json:"label"`
-	Labels          []string `yaml:"labels" json:"labels"`
-	CanonicalName   string   `yaml:"canonicalName" json:"canonicalName"`
-	TreePath        string   `yaml:"treePath" json:"treePath"`
-	ParentCanonical string   `yaml:"parentCanonical" json:"parentCanonical"`
-	ParentTreePath  string   `yaml:"parentTreePath" json:"parentTreePath"`
-	Summary         string   `yaml:"summary" json:"summary"`
-	Services        []string `yaml:"services" json:"services"`
+	ID                   string   `yaml:"id" json:"id"`
+	Type                 string   `yaml:"type" json:"type"`
+	Name                 string   `yaml:"name" json:"name"`
+	Version              string   `yaml:"version" json:"version"`
+	Status               string   `yaml:"status" json:"status"`
+	Owner                string   `yaml:"owner" json:"owner"`
+	DNSName              string   `yaml:"dns_name" json:"dns_name"`
+	Namespace            string   `yaml:"namespace" json:"namespace"`
+	Label                string   `yaml:"label" json:"label"`
+	Labels               []string `yaml:"labels" json:"labels"`
+	CanonicalName        string   `yaml:"canonicalName" json:"canonicalName"`
+	TreePath             string   `yaml:"treePath" json:"treePath"`
+	ParentCanonical      string   `yaml:"parentCanonical" json:"parentCanonical"`
+	ParentTreePath       string   `yaml:"parentTreePath" json:"parentTreePath"`
+	MaterializedFromTree bool     `yaml:"materializedFromTree,omitempty" json:"materializedFromTree,omitempty"`
+	Summary              string   `yaml:"summary" json:"summary"`
+	Services             []string `yaml:"services" json:"services"`
 }
 
 type Service struct {

@@ -1,12 +1,12 @@
 {{define "cosmos"}}{{template "layout" .}}{{end}}
 
 {{define "cosmos_page_node"}}
-<li class="cosmos-node" data-kind="{{.Kind}}" data-id="{{if .Canonical}}{{.Canonical}}{{else}}{{.Label}}{{end}}" data-canonical="{{.Canonical}}" data-tree-path="{{.TreePath}}" data-git-path="{{.GitPath}}"{{if .Service}} data-domain="{{.Service.Domain}}"{{else if eq .Kind "service-parent"}} data-domain="{{.Canonical}}"{{end}}>
-  <div class="cosmos-node-row" data-kind="{{.Kind}}" data-id="{{if .Canonical}}{{.Canonical}}{{else}}{{.Label}}{{end}}" data-canonical="{{.Canonical}}" data-tree-path="{{.TreePath}}" data-git-path="{{.GitPath}}"{{if .Service}} data-domain="{{.Service.Domain}}"{{else if eq .Kind "service-parent"}} data-domain="{{.Canonical}}"{{end}}>
+<li class="cosmos-node" data-kind="{{.Kind}}" data-id="{{if .Canonical}}{{.Canonical}}{{else}}{{.Label}}{{end}}" data-canonical="{{.Canonical}}" data-tree-path="{{.TreePath}}" data-git-path="{{.GitPath}}" data-persisted="{{.Persisted}}" data-virtual="{{.Virtual}}" data-can-create-child-domain="{{.CanCreateChildDomain}}" data-can-add-service="{{.CanAddService}}" data-can-open-details="{{.CanOpenDetails}}" data-can-verify-domain="{{.CanVerifyDomain}}" data-can-materialize-domain="{{.CanMaterializeDomain}}"{{if .Service}} data-domain="{{.Service.Domain}}"{{else if eq .Kind "service-parent"}} data-domain="{{.Canonical}}"{{end}}>
+  <div class="cosmos-node-row" data-kind="{{.Kind}}" data-id="{{if .Canonical}}{{.Canonical}}{{else}}{{.Label}}{{end}}" data-canonical="{{.Canonical}}" data-tree-path="{{.TreePath}}" data-git-path="{{.GitPath}}" data-persisted="{{.Persisted}}" data-virtual="{{.Virtual}}" data-can-create-child-domain="{{.CanCreateChildDomain}}" data-can-add-service="{{.CanAddService}}" data-can-open-details="{{.CanOpenDetails}}" data-can-verify-domain="{{.CanVerifyDomain}}" data-can-materialize-domain="{{.CanMaterializeDomain}}"{{if .Service}} data-domain="{{.Service.Domain}}"{{else if eq .Kind "service-parent"}} data-domain="{{.Canonical}}"{{end}}>
     {{if .Children}}<span class="tree-toggle material-symbols-outlined">expand_more</span>{{else}}<span class="tree-toggle-spacer"></span>{{end}}
-    <span class="material-symbols-outlined cosmos-node-icon">{{if eq .Kind "cosmos"}}account_tree{{else if eq .Kind "domain"}}dns{{else if eq .Kind "service-parent"}}folder_managed{{else if eq .Kind "service"}}settings{{else if eq .Kind "namespace"}}public{{else if eq .Kind "namespace-parent"}}public{{else if eq .Kind "domain-parent"}}public{{else if eq .Kind "blueprint-parent"}}description{{else if eq .Kind "blueprint"}}assignment{{else}}folder{{end}}</span>
+    <span class="material-symbols-outlined cosmos-node-icon">{{if eq .Kind "cosmos"}}account_tree{{else if eq .Kind "domain"}}{{if .Virtual}}folder{{else}}dns{{end}}{{else if eq .Kind "service-parent"}}folder_managed{{else if eq .Kind "service"}}settings{{else if eq .Kind "namespace"}}public{{else if eq .Kind "namespace-parent"}}public{{else if eq .Kind "domain-parent"}}public{{else if eq .Kind "blueprint-parent"}}description{{else if eq .Kind "blueprint"}}assignment{{else}}folder{{end}}</span>
     <span class="cosmos-node-label">{{.Label}}</span>
-    <span class="node-kind">{{if eq .Kind "domain"}}{{if .Domain}}{{.Domain.ServiceCount}} svc{{else}}domain{{end}}{{else if eq .Kind "namespace-parent"}}zones{{else if eq .Kind "service-parent"}}services{{else}}{{.Kind}}{{end}}</span>
+    <span class="node-kind {{if .Virtual}}node-kind-virtual{{end}}">{{if eq .Kind "domain"}}{{if .Virtual}}virtual{{else}}domain{{end}}{{else if eq .Kind "namespace-parent"}}zones{{else if eq .Kind "service-parent"}}services{{else}}{{.Kind}}{{end}}</span>
   </div>
   {{if .Children}}
   <ul class="cosmos-children is-collapsed">
@@ -26,7 +26,7 @@
   <article class="card explorer-panel" id="cosmos-tree-panel">
     <div class="tree-header">
       <h3>{{.Cosmos.Name}}</h3>
-      <span class="muted">{{.Cosmos.DomainCount}} domains · {{.Cosmos.ServiceCount}} services</span>
+      <span class="muted">{{.Cosmos.DomainCount}} persisted domains · {{.Cosmos.VirtualDomainCount}} virtual parents · {{.Cosmos.ServiceCount}} services</span>
     </div>
     <ul class="cosmos-tree" id="cosmos-tree">
       <li class="cosmos-node" data-kind="cosmos" data-id="{{.Cosmos.ID}}">
@@ -78,7 +78,9 @@
 <div id="ctx-menu" class="ctx-menu">
   <div class="ctx-item" data-action="add-domain"><span class="material-symbols-outlined">add</span> Add Domain</div>
   <div class="ctx-item" data-action="add-subdomain"><span class="material-symbols-outlined">add</span> Add Child Domain</div>
+  <div class="ctx-item" data-action="materialize-domain"><span class="material-symbols-outlined">note_add</span> Materialize Domain</div>
   <div class="ctx-item" data-action="verify-domain"><span class="material-symbols-outlined">verified</span> Verify Domain</div>
+  <div class="ctx-item" data-action="copy-canonical"><span class="material-symbols-outlined">content_copy</span> Copy Canonical Name</div>
   <div class="ctx-item" data-action="add-service"><span class="material-symbols-outlined">settings</span> Add Service</div>
   <div class="ctx-item" data-action="add-blueprint"><span class="material-symbols-outlined">add</span> Add Blueprint</div>
   <hr class="ctx-divider">
@@ -218,13 +220,17 @@
       'namespace-parent': [],
       'domain-parent':    ['add-domain'],
       'namespace':        ['add-domain'],
-      'domain':           ['add-subdomain', 'add-service', 'verify-domain', 'rename', 'delete'],
       'service-parent':   ['add-service'],
       'service':          ['rename', 'delete'],
       'blueprint-parent': ['add-blueprint'],
       'blueprint':        ['rename', 'delete']
     };
-    const allowed = actionMap[kind] || [];
+    let allowed = actionMap[kind] || [];
+    if (kind === 'domain') {
+      allowed = target.dataset.persisted === 'true'
+        ? ['add-subdomain', 'add-service', 'verify-domain', 'copy-canonical', 'rename', 'delete']
+        : ['add-subdomain', 'materialize-domain', 'copy-canonical'];
+    }
 
     ctxMenu.querySelectorAll('.ctx-item').forEach(it => {
       it.style.display = allowed.includes(it.dataset.action) ? 'flex' : 'none';
@@ -269,6 +275,7 @@
     if (action === 'delete') doDelete(ctxTarget);
     else if (action === 'verify-domain') doVerify(ctxTarget);
     else if (action === 'rename') openRename(ctxTarget);
+    else if (action === 'copy-canonical') navigator.clipboard?.writeText(ctxTarget.dataset.canonical || ctxTarget.dataset.id || '');
     else openCreate(action, ctxTarget);
   });
 
@@ -278,7 +285,7 @@
     const label = target.querySelector('.cosmos-node-label').textContent;
     if (!confirm('Delete ' + kind + ' "' + label + '"?')) return;
     let url;
-    if (kind === 'domain') url = '/api/v1/domains/' + encodeURIComponent(dataset.canonical || id);
+    if (kind === 'domain') url = '/api/v1/domains/' + encodeURIComponent(target.dataset.canonical || id);
     else if (kind === 'service') url = '/api/v1/domains/' + encodeURIComponent(target.dataset.domain) + '/services/' + encodeURIComponent(id.split('/').pop());
     else if (kind === 'blueprint') url = '/api/v1/blueprints/' + encodeURIComponent(id);
     else return;
@@ -346,10 +353,19 @@
       const updateChildPreview = () => {
         const label = segInput.value.trim() || '___';
         preview.textContent = label + '.' + parentDomain;
-        previewGitPath.textContent = ((parentTreePath || '').replace(/\/$/, '') + '/' + label).replace(/^$/, '/' + label);
+        const childTreePath = ((parentTreePath || '').replace(/\/$/, '') + '/' + label).replace(/^$/, '/' + label);
+        previewGitPath.textContent = '.nomos/domains' + childTreePath + '/domain.yaml';
       };
       updateChildPreview();
       segInput.addEventListener('input', updateChildPreview);
+    } else if (action === 'materialize-domain') {
+      const canonical = target.dataset.canonical || target.dataset.id;
+      createTitle.textContent = 'Materialize domain ' + canonical;
+      createFields.innerHTML =
+        '<p class="muted">Create <code>domain.yaml</code> for this virtual grouping node.</p>' +
+        '<label>Owner</label>' +
+        '<input type="text" id="create-owner" placeholder="Owner team" />';
+      createFields.dataset.canonical = canonical;
     } else if (action === 'add-service') {
       const domainId = target.dataset.kind === 'service-parent' ? target.dataset.domain : target.dataset.id;
       createTitle.textContent = 'Add Service to ' + domainId;
@@ -442,6 +458,11 @@
       if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(segment)) { showCreateError('Enter one lowercase label only, for example: products'); return; }
       url = '/api/v1/domains/' + encodeURIComponent(parent) + '/children';
       opts = {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({label: segment, owner})};
+    } else if (createAction === 'materialize-domain') {
+      const dns = createFields.dataset.canonical;
+      const owner = document.getElementById('create-owner').value.trim() || 'unknown';
+      url = '/api/v1/domains';
+      opts = {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: new URLSearchParams({dns, owner})};
     } else if (createAction === 'add-service') {
       const name = document.getElementById('create-svcname').value.trim();
       const owner = document.getElementById('create-owner').value.trim() || 'unknown';
@@ -493,7 +514,7 @@
   /* ── Detail Panel ── */
   async function loadDetail(kind, id, dataset) {
     if (kind === 'cosmos') {
-      detailPanel.innerHTML = '<h3>{{.Cosmos.Name}}</h3><dl class="details-list"><dt>ID</dt><dd>{{.Cosmos.ID}}</dd><dt>Version</dt><dd>{{.Cosmos.Version}}</dd><dt>Status</dt><dd><span class="badge badge-{{.Cosmos.Status}}">{{.Cosmos.Status}}</span></dd><dt>Domains</dt><dd>{{.Cosmos.DomainCount}}</dd><dt>Services</dt><dd>{{.Cosmos.ServiceCount}}</dd></dl>';
+      detailPanel.innerHTML = '<h3>{{.Cosmos.Name}}</h3><dl class="details-list"><dt>ID</dt><dd>{{.Cosmos.ID}}</dd><dt>Version</dt><dd>{{.Cosmos.Version}}</dd><dt>Status</dt><dd><span class="badge badge-{{.Cosmos.Status}}">{{.Cosmos.Status}}</span></dd><dt>Persisted domains</dt><dd>{{.Cosmos.DomainCount}}</dd><dt>Virtual parents</dt><dd>{{.Cosmos.VirtualDomainCount}}</dd><dt>Services</dt><dd>{{.Cosmos.ServiceCount}}</dd></dl>';
       return;
     }
     if (kind === 'namespace-parent' || kind === 'domain-parent' || kind === 'blueprint-parent') {
@@ -507,6 +528,13 @@
     }
     if (kind === 'service-parent') {
       detailPanel.innerHTML = '<h3>Services</h3><p class="muted">Services attached to ' + esc(dataset.domain) + '.</p>';
+      return;
+    }
+    if (kind === 'domain' && dataset.virtual === 'true') {
+      const canonical = dataset.canonical || id;
+      detailPanel.innerHTML = '<h3>' + esc(canonical) + '</h3><span class="badge node-kind-virtual">Virtual domain group</span><p class="muted">This node exists because child domains exist below it, but it has no domain.yaml yet.</p><dl class="details-list"><dt>Canonical name</dt><dd><code>' + esc(canonical) + '</code></dd><dt>Tree path</dt><dd><code>' + esc(dataset.treePath || '') + '</code></dd><dt>Git path</dt><dd><code>' + esc(dataset.gitPath || '') + '</code></dd></dl><div class="context-actions"><button class="button button-primary" id="detail-add-child">Add child domain</button><button class="button button-secondary" id="detail-materialize">Materialize domain</button></div>';
+      const add = document.getElementById('detail-add-child'); if (add) add.addEventListener('click', () => openCreate('add-subdomain', document.querySelector('.cosmos-node-row.is-selected')));
+      const mat = document.getElementById('detail-materialize'); if (mat) mat.addEventListener('click', () => openCreate('materialize-domain', document.querySelector('.cosmos-node-row.is-selected')));
       return;
     }
     try {
