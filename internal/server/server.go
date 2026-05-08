@@ -401,6 +401,35 @@ func (h *handler) apiBlueprintRoutes(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, dto)
 		return
 	}
+	// /api/v1/blueprints/{id}/service-blueprints        POST  → add service blueprint
+	// /api/v1/blueprints/{id}/service-blueprints/{svcID} DELETE → remove service blueprint
+	if len(parts) >= 2 && parts[0] != "" && parts[1] == "service-blueprints" {
+		if len(parts) == 2 && r.Method == http.MethodPost {
+			var body struct {
+				ServiceID string `json:"service_id"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.ServiceID == "" {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "service_id required"})
+				return
+			}
+			dto, err := app.AddServiceBlueprintToProduct(h.cosmosPath, parts[0], body.ServiceID)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+			return
+		}
+		if len(parts) == 3 && parts[2] != "" && r.Method == http.MethodDelete {
+			dto, err := app.RemoveServiceBlueprintFromProduct(h.cosmosPath, parts[0], parts[2])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+			return
+		}
+	}
 	http.NotFound(w, r)
 }
 func (h *handler) apiInstances(w http.ResponseWriter, r *http.Request) {
@@ -805,7 +834,23 @@ func (h *handler) blueprintPage(w http.ResponseWriter, r *http.Request, id strin
 		h.errorPage(w, r, statusOf(err), "Blueprint not found", err.Error())
 		return
 	}
-	h.page(w, "blueprint_detail", map[string]any{"ActiveNav": "blueprints", "PageTitle": bp.ID, "Blueprint": bp})
+	allBps, _ := app.ListBlueprints(h.cosmosPath)
+	var serviceBps []app.BlueprintDTO
+	for _, ref := range bp.RequiredServiceBlueprints {
+		for _, b := range allBps.Blueprints {
+			if b.ID == ref {
+				serviceBps = append(serviceBps, b)
+				break
+			}
+		}
+	}
+	h.page(w, "blueprint_detail", map[string]any{
+		"ActiveNav":         "blueprints",
+		"PageTitle":         bp.ID,
+		"Blueprint":         bp,
+		"AllBlueprints":     allBps.Blueprints,
+		"ServiceBlueprints": serviceBps,
+	})
 }
 func (h *handler) instancesPage(w http.ResponseWriter, r *http.Request) {
 	inst, err := app.ListInstances(h.cosmosPath)
