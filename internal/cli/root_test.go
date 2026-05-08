@@ -1042,3 +1042,88 @@ owner: Team
 		t.Fatal("expected validate to fail on error-severity findings")
 	}
 }
+
+func TestFirstNonEmpty(t *testing.T) {
+	if got := firstNonEmpty("", "  ", "hello", "world"); got != "hello" {
+		t.Fatalf("expected hello, got %q", got)
+	}
+	if got := firstNonEmpty("", ""); got != "" {
+		t.Fatalf("expected empty string, got %q", got)
+	}
+	if got := firstNonEmpty("first"); got != "first" {
+		t.Fatalf("expected first, got %q", got)
+	}
+}
+
+func TestLoadCosmosTree(t *testing.T) {
+	p := t.TempDir()
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(os.MkdirAll(filepath.Dir(storage.CosmosFile(p)), 0o755))
+	must(os.WriteFile(storage.CosmosFile(p), []byte("id: cosmos-test\nname: Test Cosmos\nversion: 0.1.0\nstatus: draft\nowner: Team\n"), 0o644))
+	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "example.com", "services", "api"), 0o755))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "example.com", "domain.yaml"), []byte("name: example.com\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "example.com", "services", "api", "service.yaml"), []byte("name: api\n"), 0o644))
+
+	tree, err := loadCosmosTree(p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tree.Cosmos.Name != "Test Cosmos" {
+		t.Fatalf("expected Test Cosmos, got %q", tree.Cosmos.Name)
+	}
+	if len(tree.Domains) != 1 || tree.Domains[0].Name != "example.com" {
+		t.Fatalf("expected one domain example.com, got %+v", tree.Domains)
+	}
+	if len(tree.Domains[0].Services) != 1 || tree.Domains[0].Services[0].Name != "api" {
+		t.Fatalf("expected one service api, got %+v", tree.Domains[0].Services)
+	}
+}
+
+func TestScanDomains_MissingRoot(t *testing.T) {
+	p := t.TempDir()
+	domains, err := scanDomains(p)
+	if err != nil {
+		t.Fatalf("unexpected error for missing domains dir: %v", err)
+	}
+	if len(domains) != 0 {
+		t.Fatalf("expected empty domains, got %+v", domains)
+	}
+}
+
+func TestScanServices_MissingDir(t *testing.T) {
+	p := t.TempDir()
+	services, err := scanServices(p)
+	if err != nil {
+		t.Fatalf("unexpected error for missing services dir: %v", err)
+	}
+	if len(services) != 0 {
+		t.Fatalf("expected empty services, got %+v", services)
+	}
+}
+
+func TestPrintNamespaceNode(t *testing.T) {
+	p := t.TempDir()
+	must := func(e error) {
+		t.Helper()
+		if e != nil {
+			t.Fatal(e)
+		}
+	}
+	must(os.MkdirAll(filepath.Dir(storage.CosmosFile(p)), 0o755))
+	must(os.WriteFile(storage.CosmosFile(p), []byte("id: cosmos-test\nname: Test\nversion: 0.1.0\nstatus: draft\nowner: Team\n"), 0o644))
+	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "example.com", "services"), 0o755))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "example.com", "domain.yaml"), []byte("name: example.com\n"), 0o644))
+
+	out, _, err := executeCommand(t, "namespace", "tree", "--path", p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "com") {
+		t.Fatalf("expected namespace output to contain 'com', got: %s", out)
+	}
+}

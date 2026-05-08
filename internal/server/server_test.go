@@ -728,3 +728,254 @@ func TestBlueprintAndInstanceWebPages(t *testing.T) {
 	}
 	hasAll(t, rr.Body.String(), "PI-ACC-MBX-EXAMPLE-001")
 }
+
+func TestLegacyServiceAPI(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	// valid legacy service lookup
+	rr := get(h, "/api/v1/services/identity.blumer.cloud/user-account")
+	if rr.Code != 200 {
+		t.Fatalf("expected 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	hasAll(t, rr.Body.String(), "user-account")
+
+	// not enough path segments → 404
+	rr = get(h, "/api/v1/services/identity.blumer.cloud")
+	if rr.Code != 404 {
+		t.Fatalf("expected 404 for bad path, got %d", rr.Code)
+	}
+
+	// non-existent service → 404
+	rr = get(h, "/api/v1/services/identity.blumer.cloud/no-such-service")
+	if rr.Code != 404 {
+		t.Fatalf("expected 404 for missing service, got %d", rr.Code)
+	}
+}
+
+func TestVerifyDomainAPI(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	// empty domain → 404
+	rr := postJSON(h, "/api/v1/verify/domain/", "")
+	if rr.Code != 404 {
+		t.Fatalf("expected 404 for empty domain, got %d", rr.Code)
+	}
+
+	// GET method → 405
+	rr2 := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/verify/domain/example.com", nil)
+	h.ServeHTTP(rr2, req)
+	if rr2.Code != 405 {
+		t.Fatalf("expected 405 for GET, got %d", rr2.Code)
+	}
+
+	// POST with real domain → triggers VerifyDomain (will likely error due to DNS in test env)
+	rr = postJSON(h, "/api/v1/verify/domain/identity.blumer.cloud", "")
+	// We expect either 200 (if DNS works) or a 4xx/5xx error — just ensure it was reached
+	if rr.Code == 404 {
+		t.Fatalf("handler should have been reached (not 404), got %d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestRequirementsAndRulesPages(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	rr := get(h, "/requirements")
+	if rr.Code != 200 {
+		t.Fatalf("/requirements status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	hasAll(t, rr.Body.String(), "Requirements")
+
+	rr = get(h, "/rules")
+	if rr.Code != 200 {
+		t.Fatalf("/rules status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	hasAll(t, rr.Body.String(), "Rules")
+}
+
+func TestFormPostRoutes(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	// POST /domains creates a domain and redirects
+	rr := httptest.NewRecorder()
+	body := strings.NewReader("dns=newtest.example.com&owner=Test+Team")
+	req := httptest.NewRequest(http.MethodPost, "/domains", body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	h.ServeHTTP(rr, req)
+	if rr.Code != 303 {
+		t.Fatalf("POST /domains expected 303 redirect, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	// POST /domains with invalid name → error page (non-303)
+	rr2 := httptest.NewRecorder()
+	body2 := strings.NewReader("dns=bad/name&owner=Team")
+	req2 := httptest.NewRequest(http.MethodPost, "/domains", body2)
+	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	h.ServeHTTP(rr2, req2)
+	if rr2.Code == 303 {
+		t.Fatalf("POST /domains with bad name should not redirect")
+	}
+
+	// POST /services → redirects
+	rr3 := httptest.NewRecorder()
+	body3 := strings.NewReader("domain=identity.blumer.cloud&name=new-service&owner=Team")
+	req3 := httptest.NewRequest(http.MethodPost, "/services", body3)
+	req3.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	h.ServeHTTP(rr3, req3)
+	if rr3.Code != 303 {
+		t.Fatalf("POST /services expected 303 redirect, got %d body=%s", rr3.Code, rr3.Body.String())
+	}
+
+	// POST /verify → redirects (DNS will fail but handler still redirects)
+	rr4 := httptest.NewRecorder()
+	body4 := strings.NewReader("domain=identity.blumer.cloud")
+	req4 := httptest.NewRequest(http.MethodPost, "/verify", body4)
+	req4.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	h.ServeHTTP(rr4, req4)
+	if rr4.Code != 303 {
+		t.Fatalf("POST /verify expected 303 redirect, got %d body=%s", rr4.Code, rr4.Body.String())
+	}
+
+	// POST unknown route → error page
+	rr5 := httptest.NewRecorder()
+	req5 := httptest.NewRequest(http.MethodPost, "/unknown-route", nil)
+	h.ServeHTTP(rr5, req5)
+	// formPost only handles /domains, /services, /verify; anything else → 404 error page
+}
+
+func TestHTMLNotFound(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	rr := get(h, "/no-such-page-xyz")
+	if rr.Code != 404 {
+		t.Fatalf("expected 404, got %d", rr.Code)
+	}
+}
+
+func TestNamespacesAndGraphPages(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	rr := get(h, "/namespaces")
+	if rr.Code != 200 {
+		t.Fatalf("/namespaces status=%d", rr.Code)
+	}
+
+	rr = get(h, "/graph")
+	if rr.Code != 200 {
+		t.Fatalf("/graph status=%d", rr.Code)
+	}
+	hasAll(t, rr.Body.String(), "graph")
+}
+
+func TestAPINamespacesAndValidate(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	rr := get(h, "/api/v1/namespaces")
+	if rr.Code != 200 {
+		t.Fatalf("/api/v1/namespaces status=%d", rr.Code)
+	}
+
+	// wrong path → 404
+	rr = get(h, "/api/v1/namespaces/extra")
+	if rr.Code != 404 {
+		t.Fatalf("expected 404, got %d", rr.Code)
+	}
+
+	// method not allowed
+	rr2 := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/namespaces", nil)
+	h.ServeHTTP(rr2, req)
+	if rr2.Code != 405 {
+		t.Fatalf("expected 405, got %d", rr2.Code)
+	}
+
+	rr = get(h, "/api/v1/validate")
+	if rr.Code != 200 {
+		t.Fatalf("/api/v1/validate status=%d", rr.Code)
+	}
+}
+
+func TestAPIGraphFormats(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	// default format (mermaid text)
+	rr := get(h, "/api/v1/graph")
+	if rr.Code != 200 {
+		t.Fatalf("/api/v1/graph status=%d", rr.Code)
+	}
+
+	// json format
+	rr = get(h, "/api/v1/graph?format=json")
+	if rr.Code != 200 {
+		t.Fatalf("/api/v1/graph?format=json status=%d", rr.Code)
+	}
+	hasAll(t, rr.Body.String(), "mermaid")
+}
+
+func TestOpenAPIAndSwaggerUI(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	rr := get(h, "/openapi.json")
+	if rr.Code != 200 {
+		t.Fatalf("/openapi.json status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	hasAll(t, rr.Body.String(), "openapi")
+
+	rr = get(h, "/swagger")
+	if rr.Code != 200 {
+		t.Fatalf("/swagger status=%d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestAPIInstancesListAndCreate(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	rr := get(h, "/api/v1/instances")
+	if rr.Code != 200 {
+		t.Fatalf("/api/v1/instances status=%d body=%s", rr.Code, rr.Body.String())
+	}
+
+	// create a new product instance
+	rr = postJSON(h, "/api/v1/instances",
+		`{"id":"PI-NEW-TEST","type":"product_instance","name":"New","blueprint_ref":"PB-ACC-MBX-001","blueprint_version":"0.1.0","status":"draft","owner":"Team"}`)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("create instance status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	hasAll(t, rr.Body.String(), "PI-NEW-TEST")
+
+	// invalid json → 400
+	rr = postJSON(h, "/api/v1/instances", `{bad json}`)
+	if rr.Code != 400 {
+		t.Fatalf("expected 400 for bad JSON, got %d", rr.Code)
+	}
+}
+
+func TestNamespaceRoutesAPI(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	// POST /api/v1/namespaces/{ns}/domains
+	rr := httptest.NewRecorder()
+	body := strings.NewReader("label=newlabel&owner=Team")
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/namespaces/cloud/domains", body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	h.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("POST namespace domain status=%d body=%s", rr.Code, rr.Body.String())
+	}
+
+	// method not allowed
+	rr2 := httptest.NewRecorder()
+	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/namespaces/cloud/domains", nil)
+	h.ServeHTTP(rr2, req2)
+	if rr2.Code != 405 {
+		t.Fatalf("expected 405, got %d", rr2.Code)
+	}
+
+	// bad path
+	rr3 := httptest.NewRecorder()
+	req3 := httptest.NewRequest(http.MethodPost, "/api/v1/namespaces/cloud/unknown", nil)
+	h.ServeHTTP(rr3, req3)
+	if rr3.Code != 404 {
+		t.Fatalf("expected 404 for unknown namespace sub-path, got %d", rr3.Code)
+	}
+}
