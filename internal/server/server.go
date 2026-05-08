@@ -476,6 +476,66 @@ func (h *handler) apiBlueprintRoutes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// /api/v1/blueprints/{id}/attributes                        POST   → add attribute
+	// /api/v1/blueprints/{id}/attributes/{attrID}               DELETE → remove attribute
+	// /api/v1/blueprints/{id}/attributes/{attrID}/rules         POST   → add rule
+	// /api/v1/blueprints/{id}/attributes/{attrID}/rules/{ruleID} DELETE → remove rule
+	if len(parts) >= 2 && parts[0] != "" && parts[1] == "attributes" {
+		if len(parts) == 2 && r.Method == http.MethodPost {
+			var body struct {
+				Label    string `json:"label"`
+				Type     string `json:"type"`
+				Required bool   `json:"required"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Label == "" {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "label required"})
+				return
+			}
+			dto, err := app.AddBlueprintAttribute(h.cosmosPath, parts[0], body.Label, body.Type, body.Required)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusCreated, dto)
+			return
+		}
+		if len(parts) == 3 && parts[2] != "" && r.Method == http.MethodDelete {
+			dto, err := app.DeleteBlueprintAttribute(h.cosmosPath, parts[0], parts[2])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+			return
+		}
+		if len(parts) == 4 && parts[2] != "" && parts[3] == "rules" && r.Method == http.MethodPost {
+			var body struct {
+				Label string `json:"label"`
+				Type  string `json:"type"`
+				Value string `json:"value"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Label == "" || body.Type == "" {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "label and type required"})
+				return
+			}
+			dto, err := app.AddAttributeRule(h.cosmosPath, parts[0], parts[2], body.Label, body.Type, body.Value)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusCreated, dto)
+			return
+		}
+		if len(parts) == 5 && parts[3] == "rules" && parts[4] != "" && r.Method == http.MethodDelete {
+			dto, err := app.DeleteAttributeRule(h.cosmosPath, parts[0], parts[2], parts[4])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+			return
+		}
+	}
 	http.NotFound(w, r)
 }
 func (h *handler) apiInstances(w http.ResponseWriter, r *http.Request) {
@@ -556,6 +616,31 @@ func (h *handler) apiInstanceRoutes(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			dto, err := app.VerifyInstance(h.cosmosPath, parts[0])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+			return
+		case "attribute-validation":
+			dto, err := app.ValidateInstanceAttributes(h.cosmosPath, parts[0])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+			return
+		case "attribute-values":
+			if r.Method != http.MethodPatch {
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				return
+			}
+			var values map[string]string
+			if err := json.NewDecoder(r.Body).Decode(&values); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			dto, err := app.SetInstanceAttributeValues(h.cosmosPath, parts[0], values)
 			if err != nil {
 				h.apiErr(w, err)
 				return

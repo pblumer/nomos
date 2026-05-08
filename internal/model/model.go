@@ -74,6 +74,7 @@ type Blueprint struct {
 	QualityCriteria           []string               `yaml:"quality_criteria" json:"quality_criteria"`
 	EvidenceRequirements      []string               `yaml:"evidence_requirements" json:"evidence_requirements"`
 	Requirements              []BlueprintRequirement `yaml:"requirements,omitempty" json:"requirements,omitempty"`
+	Attributes                []BlueprintAttribute   `yaml:"attributes,omitempty" json:"attributes,omitempty"`
 }
 
 // BlueprintRequirement represents a design-time check on a blueprint.
@@ -82,6 +83,25 @@ type BlueprintRequirement struct {
 	ID     string `yaml:"id" json:"id"`
 	Label  string `yaml:"label" json:"label"`
 	Status string `yaml:"status" json:"status"`
+}
+
+// BlueprintAttribute is a typed property of a blueprint with attached validation rules.
+type BlueprintAttribute struct {
+	ID       string          `yaml:"id" json:"id"`
+	Label    string          `yaml:"label" json:"label"`
+	Type     string          `yaml:"type" json:"type"` // text, number, boolean, date, enum
+	Required bool            `yaml:"required" json:"required"`
+	Rules    []AttributeRule `yaml:"rules,omitempty" json:"rules,omitempty"`
+}
+
+// AttributeRule defines one validation constraint on a BlueprintAttribute.
+// Automatic types: regex, max_length, min_length, starts_with, ends_with, one_of
+// Manual type: manual (user marks pass/fail themselves)
+type AttributeRule struct {
+	ID    string `yaml:"id" json:"id"`
+	Label string `yaml:"label" json:"label"`
+	Type  string `yaml:"type" json:"type"`
+	Value string `yaml:"value" json:"value"`
 }
 
 type Instance struct {
@@ -100,6 +120,7 @@ type Instance struct {
 	ComplianceStatus            string            `yaml:"compliance_status" json:"compliance_status"`
 	Evidence                    []Evidence        `yaml:"evidence" json:"evidence,omitempty"`
 	Findings                    []Finding         `yaml:"findings" json:"findings"`
+	AttributeValues             map[string]string `yaml:"attribute_values,omitempty" json:"attribute_values,omitempty"`
 }
 
 type Evidence struct {

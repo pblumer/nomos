@@ -130,6 +130,17 @@
 .req-label{flex:1;font-size:.82rem;color:#1e293b}
 .req-done{text-decoration:line-through;color:#94a3b8}
 .req-del{background:none;border:none;cursor:pointer;color:#cbd5e1;padding:0;line-height:1;display:flex;align-items:center}.req-del .mi{font-size:14px;font-family:'Material Symbols Outlined'}.req-del:hover{color:#ef4444}
+.attr-row{border:1px solid #e8edf4;border-radius:7px;padding:.4rem .6rem;margin-bottom:.35rem}
+.attr-row-head{display:flex;align-items:center;gap:.35rem;margin-bottom:.15rem}
+.attr-name{font-size:.82rem;font-weight:600;color:#1e293b;flex:1}
+.attr-badge{font-size:.72rem;background:#f1f5f9;color:#475569;padding:1px 5px;border-radius:4px}
+.rule-row{display:flex;align-items:center;gap:.25rem;padding:1px 0;font-size:.78rem}
+.rule-type-badge{background:#f1f5f9;color:#475569;padding:1px 5px;border-radius:4px;font-family:monospace;font-size:.72rem}
+.rule-add-row{display:flex;gap:.25rem;margin-top:.25rem;flex-wrap:wrap}
+.rule-add-row input,.rule-add-row select{border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem}
+.attr-add-row{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem}
+.attr-add-row input,.attr-add-row select{border:1px solid #d1d5db;border-radius:6px;padding:.32rem .55rem;font-size:.82rem}
+.tree-controls{display:flex;gap:.3rem}
 </style>
 
 <section class="page-header">
@@ -141,7 +152,13 @@
   <div class="ex-tree-card">
     <div class="ex-tree-head">
       <h3>{{.Cosmos.Name}}</h3>
-      <span class="ex-tree-meta">{{.Cosmos.DomainCount}} domains &middot; {{.Cosmos.ServiceCount}} services</span>
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <span class="ex-tree-meta">{{.Cosmos.DomainCount}} domains &middot; {{.Cosmos.ServiceCount}} services</span>
+        <div class="tree-controls">
+          <button class="btn btn-secondary btn-sm" id="tree-expand-all" title="Alles ausklappen"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:13px">unfold_more</span></button>
+          <button class="btn btn-secondary btn-sm" id="tree-collapse-all" title="Alles einklappen"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:13px">unfold_less</span></button>
+        </div>
+      </div>
     </div>
     <div class="ex-tree-body">
       <ul class="cn-tree" id="cosmos-tree">
@@ -287,6 +304,19 @@ tree.addEventListener('contextmenu',e=>{
   showCtx(e.clientX,e.clientY,row);
 });
 document.addEventListener('click',hideCtx);
+
+$('tree-expand-all').addEventListener('click',()=>{
+  tree.querySelectorAll('.cn-children').forEach(ul=>ul.classList.remove('collapsed'));
+  tree.querySelectorAll('.cn-toggle').forEach(btn=>btn.classList.add('open'));
+});
+$('tree-collapse-all').addEventListener('click',()=>{
+  tree.querySelectorAll('.cn-children').forEach(ul=>ul.classList.add('collapsed'));
+  tree.querySelectorAll('.cn-toggle').forEach(btn=>btn.classList.remove('open'));
+  const rootLi=tree.querySelector(':scope > .cn');
+  rootLi?.querySelector(':scope > .cn-children')?.classList.remove('collapsed');
+  rootLi?.querySelector(':scope > .cn-row .cn-toggle')?.classList.add('open');
+});
+
 const sel=new URLSearchParams(location.search).get('selected');
 if(sel){const[kind,id]=sel.split(':');const row=tree.querySelector(`.cn-row[data-kind="${kind}"][data-canonical="${id}"],.cn-row[data-kind="${kind}"][data-id="${id}"]`);if(row){expandToRow(row);row.classList.add('selected');loadDetail(row);}}
 function expandToRow(row){let ul=row.closest('.cn-children');while(ul){ul.classList.remove('collapsed');const btn=ul.previousElementSibling?.querySelector('.cn-toggle');if(btn)btn.classList.add('open');ul=ul.parentElement?.closest('.cn-children');}}
@@ -363,7 +393,7 @@ async function loadDetail(row){const kind=row.dataset.kind,id=row.dataset.id,can
   try{const res=await fetch(url);const d=await res.json();if(!res.ok){detail.innerHTML=`<div style="padding:1rem"><div class="nerror show">${esc(d.error?.message||'Fehler')}</div></div>`;return;}
   if(kind==='domain')detail.innerHTML=domainDetail(d);
   else if(kind==='service')detail.innerHTML=serviceDetail(d);
-  else if(kind==='blueprint'){detail.innerHTML=blueprintDetail(d);wireReqs(detail,d.id);}
+  else if(kind==='blueprint'){detail.innerHTML=blueprintDetail(d);wireReqs(detail,d.id);wireAttrs(detail,d.id);}
   detail.querySelector('#det-edit')?.addEventListener('click',()=>doEdit(row));
   detail.querySelector('#det-delete')?.addEventListener('click',()=>doDelete(row));
   detail.querySelector('#det-verify')?.addEventListener('click',()=>doVerify(row));
@@ -419,9 +449,62 @@ function wireReqs(container,bpId){
   addInput?.addEventListener('keydown',e=>{if(e.key==='Enter')doAddReq();});
 }
 function renderReqs(reqs,bpId){if(!reqs||!reqs.length)return`<div style="color:#94a3b8;font-size:.78rem;font-style:italic;padding:.25rem 0">Noch keine Anforderungen.</div>`;return reqs.map(r=>{const done=r.status==='fulfilled';return`<div class="req-row" data-req-id="${esc(r.id)}"><button class="req-check ${done?'fulfilled':''}" data-req-id="${esc(r.id)}" data-status="${esc(r.status||'open')}" title="${done?'Als offen markieren':'Als erfüllt markieren'}"><span class="mi" style="font-family:'Material Symbols Outlined'">${done?'check_circle':'radio_button_unchecked'}</span></button><span class="req-label ${done?'req-done':''}">${esc(r.label)}</span><button class="req-del" data-req-id="${esc(r.id)}" title="Löschen"><span class="mi" style="font-family:'Material Symbols Outlined'">close</span></button></div>`;}).join('');}
+
+function renderAttrs(attrs,bpId){
+  if(!attrs||!attrs.length)return`<div style="color:#94a3b8;font-size:.78rem;font-style:italic;padding:.25rem 0">Keine Attribute.</div>`;
+  return attrs.map(a=>{
+    const rulesHtml=(a.rules||[]).map(r=>`<div class="rule-row"><span class="rule-type-badge">${esc(r.type)}</span><span style="flex:1">${esc(r.label)}${r.value?' <span style="color:#94a3b8">('+esc(r.value)+')</span>':''}</span><button class="btn btn-danger btn-sm rule-del-btn" data-attr-id="${esc(a.id)}" data-rule-id="${esc(r.id)}" title="Regel löschen" style="padding:1px 5px">&#x2715;</button></div>`).join('')||`<div style="color:#94a3b8;font-size:.75rem;font-style:italic">Keine Regeln</div>`;
+    const typeSelect=`<select class="rule-new-type" data-attr-id="${esc(a.id)}" style="border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><option value="regex">regex</option><option value="max_length">max_length</option><option value="min_length">min_length</option><option value="starts_with">starts_with</option><option value="ends_with">ends_with</option><option value="one_of">one_of</option><option value="manual">manual</option></select>`;
+    return`<div class="attr-row" data-attr-id="${esc(a.id)}"><div class="attr-row-head"><span class="attr-name">${esc(a.label)}</span><span class="attr-badge">${esc(a.type)}${a.required?' · required':''}</span><button class="btn btn-danger btn-sm attr-del-btn" data-attr-id="${esc(a.id)}" title="Attribut löschen" style="padding:1px 5px">&#x2715;</button></div><div class="rule-list">${rulesHtml}</div><div class="rule-add-row"><input class="rule-new-label" data-attr-id="${esc(a.id)}" placeholder="Regelbezeichnung…" style="flex:1;min-width:80px" />${typeSelect}<input class="rule-new-value" data-attr-id="${esc(a.id)}" placeholder="Wert…" style="width:75px" /><button class="btn btn-secondary btn-sm rule-add-btn" data-attr-id="${esc(a.id)}">+ Regel</button></div></div>`;
+  }).join('');
+}
+
+function wireAttrs(container,bpId){
+  function refresh(dto){
+    const attrList=container.querySelector('#attr-list'),attrCount=container.querySelector('#attr-count');
+    if(attrList)attrList.innerHTML=renderAttrs(dto.attributes||[],bpId);
+    if(attrCount)attrCount.textContent=(dto.attributes||[]).length;
+    wire();
+  }
+  function wire(){
+    container.querySelectorAll('.attr-del-btn').forEach(btn=>{
+      btn.addEventListener('click',async()=>{const aid=btn.dataset.attrId;btn.disabled=true;const r=await fetch('/api/v1/blueprints/'+encodeURIComponent(bpId)+'/attributes/'+encodeURIComponent(aid),{method:'DELETE'});if(r.ok)refresh(await r.json());else btn.disabled=false;});
+    });
+    container.querySelectorAll('.rule-del-btn').forEach(btn=>{
+      btn.addEventListener('click',async()=>{const aid=btn.dataset.attrId,rid=btn.dataset.ruleId;btn.disabled=true;const r=await fetch('/api/v1/blueprints/'+encodeURIComponent(bpId)+'/attributes/'+encodeURIComponent(aid)+'/rules/'+encodeURIComponent(rid),{method:'DELETE'});if(r.ok)refresh(await r.json());else btn.disabled=false;});
+    });
+    container.querySelectorAll('.rule-add-btn').forEach(btn=>{
+      btn.addEventListener('click',async()=>{
+        const aid=btn.dataset.attrId;
+        const labelEl=container.querySelector(`.rule-new-label[data-attr-id="${CSS.escape(aid)}"]`);
+        const typeEl=container.querySelector(`.rule-new-type[data-attr-id="${CSS.escape(aid)}"]`);
+        const valueEl=container.querySelector(`.rule-new-value[data-attr-id="${CSS.escape(aid)}"]`);
+        const label=labelEl?.value.trim(),type=typeEl?.value,value=valueEl?.value.trim()||'';
+        if(!label)return;btn.disabled=true;
+        const r=await fetch('/api/v1/blueprints/'+encodeURIComponent(bpId)+'/attributes/'+encodeURIComponent(aid)+'/rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({label,type,value})});
+        if(r.ok){if(labelEl)labelEl.value='';if(valueEl)valueEl.value='';refresh(await r.json());}else btn.disabled=false;
+      });
+    });
+  }
+  wire();
+  const addBtn=container.querySelector('#attr-add-btn');
+  async function doAdd(){
+    const label=container.querySelector('#attr-new-label')?.value.trim();
+    const type=container.querySelector('#attr-new-type')?.value||'text';
+    const required=container.querySelector('#attr-new-req')?.checked||false;
+    if(!label)return;addBtn.disabled=true;
+    const r=await fetch('/api/v1/blueprints/'+encodeURIComponent(bpId)+'/attributes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({label,type,required})});
+    if(r.ok){const label_input=container.querySelector('#attr-new-label');if(label_input)label_input.value='';refresh(await r.json());}
+    addBtn.disabled=false;
+  }
+  addBtn?.addEventListener('click',doAdd);
+  container.querySelector('#attr-new-label')?.addEventListener('keydown',e=>{if(e.key==='Enter')doAdd();});
+}
+
 function blueprintDetail(d){const caps=(d.capabilities||[]).map(c=>`<span class="badge">${esc(c)}</span>`).join(' ')||'&ndash;';const sys=(d.target_systems||d.targetSystems||[]).join(', ')||'&ndash;';
 const reqsHtml=`<div style="margin-top:.75rem"><div style="font-size:.78rem;font-weight:700;color:#475569;margin-bottom:.35rem;display:flex;align-items:center;justify-content:space-between">Anforderungen<span id="req-count" style="background:#eef2ff;color:#4338ca;border-radius:6px;padding:0 6px;font-size:.72rem">${(d.requirements||[]).length}</span></div><div id="req-list">${renderReqs(d.requirements||[],d.id)}</div><div style="display:flex;gap:.35rem;margin-top:.4rem"><input id="req-new-label" placeholder="Neue Anforderung…" style="flex:1;border:1px solid #d1d5db;border-radius:6px;padding:.32rem .55rem;font-size:.82rem" /><button id="req-add-btn" class="btn btn-primary btn-sm">+</button></div></div>`;
-return `<div class="detail-head"><div class="detail-head-left">${iconDiv('blueprint')}<div><div class="detail-title">${esc(d.id)}</div><div class="detail-subtitle">${esc(d.type)}</div></div></div><div class="detail-actions-head"><button class="btn btn-secondary btn-sm" id="det-edit" title="Bearbeiten"><span class="mi" style="font-family:'Material Symbols Outlined'">edit</span></button><button class="btn btn-danger btn-sm" id="det-delete" title="L&ouml;schen"><span class="mi" style="font-family:'Material Symbols Outlined'">delete</span></button></div></div><div class="detail-body"><dl class="detail-props"><dt>ID</dt><dd><code>${esc(d.id)}</code></dd><dt>Name</dt><dd>${esc(d.name||'&ndash;')}</dd><dt>Version</dt><dd>${esc(d.version||'&ndash;')}</dd><dt>Status</dt><dd><span class="badge badge-${d.status}">${esc(d.status)}</span></dd><dt>Owner</dt><dd>${esc(d.owner||'&ndash;')}</dd><dt>Summary</dt><dd>${esc(d.summary||'&ndash;')}</dd><dt>Capabilities</dt><dd>${caps}</dd><dt>Zielsysteme</dt><dd>${esc(sys)}</dd></dl>${reqsHtml}</div><div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/blueprints/${encodeURIComponent(d.id)}">API JSON</a></div>`;}
+const attrsHtml=`<div style="margin-top:.75rem;border-top:1px solid #f0f4f8;padding-top:.65rem"><div style="font-size:.78rem;font-weight:700;color:#475569;margin-bottom:.35rem;display:flex;align-items:center;justify-content:space-between">Attribute <span id="attr-count" style="background:#d1fae5;color:#065f46;border-radius:6px;padding:0 6px;font-size:.72rem">${(d.attributes||[]).length}</span></div><div id="attr-list">${renderAttrs(d.attributes||[],d.id)}</div><div class="attr-add-row"><input id="attr-new-label" placeholder="Label…" style="flex:1;min-width:90px" /><select id="attr-new-type" style="border:1px solid #d1d5db;border-radius:6px;padding:.32rem .55rem;font-size:.82rem"><option value="text">text</option><option value="number">number</option><option value="boolean">boolean</option><option value="date">date</option><option value="enum">enum</option></select><label style="display:flex;align-items:center;gap:.25rem;font-size:.82rem;white-space:nowrap"><input type="checkbox" id="attr-new-req" /> Pflicht</label><button id="attr-add-btn" class="btn btn-primary btn-sm">+ Attribut</button></div></div>`;
+return `<div class="detail-head"><div class="detail-head-left">${iconDiv('blueprint')}<div><div class="detail-title">${esc(d.name||d.id)}</div><div class="detail-subtitle">${esc(d.type)}</div></div></div><div class="detail-actions-head"><button class="btn btn-secondary btn-sm" id="det-edit" title="Bearbeiten"><span class="mi" style="font-family:'Material Symbols Outlined'">edit</span></button><button class="btn btn-danger btn-sm" id="det-delete" title="L&ouml;schen"><span class="mi" style="font-family:'Material Symbols Outlined'">delete</span></button></div></div><div class="detail-body"><dl class="detail-props"><dt>ID</dt><dd><code>${esc(d.id)}</code></dd><dt>Name</dt><dd>${esc(d.name||'&ndash;')}</dd><dt>Version</dt><dd>${esc(d.version||'&ndash;')}</dd><dt>Status</dt><dd><span class="badge badge-${d.status}">${esc(d.status)}</span></dd><dt>Owner</dt><dd>${esc(d.owner||'&ndash;')}</dd><dt>Summary</dt><dd>${esc(d.summary||'&ndash;')}</dd><dt>Capabilities</dt><dd>${caps}</dd><dt>Zielsysteme</dt><dd>${esc(sys)}</dd></dl>${reqsHtml}${attrsHtml}</div><div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/blueprints/${encodeURIComponent(d.id)}">API JSON</a><a class="btn btn-secondary" href="/api/v1/blueprints/${encodeURIComponent(d.id)}/attribute-validation" style="display:none" id="det-attr-validate">Attribut-Validierung</a></div>`;}
 
 })();
 </script>
