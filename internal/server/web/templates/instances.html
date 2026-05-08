@@ -1,1 +1,242 @@
-{{define "instances"}}{{template "layout" .}}{{end}}{{define "content_instances"}}<section class="page-header"><div><h2>Instances</h2><p>Product and service instances.</p></div><a class="button button-secondary" href="/api/v1/instances">API JSON</a></section><section class="card"><table class="data-table"><thead><tr><th>ID</th><th>Type</th><th>Name</th><th>Blueprint</th><th>Status</th><th>Compliance</th></tr></thead><tbody>{{range .Instances}}<tr><td><a href="/instances/{{.ID}}">{{.ID}}</a></td><td>{{.Type}}</td><td>{{.Name}}</td><td>{{.BlueprintRef}}@{{.BlueprintVersion}}</td><td><span class="badge">{{.Status}}</span></td><td><span class="badge">{{.ComplianceStatus}}</span></td></tr>{{else}}<tr><td colspan="6" class="empty-state">No instances</td></tr>{{end}}</tbody></table></section>{{end}}
+{{define "instances"}}{{template "layout" .}}{{end}}
+
+{{define "content_instances"}}
+<style>
+.inst-layout{display:flex;flex-direction:column;gap:1.25rem;margin-top:1rem}
+.inst-section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem}
+.inst-section-head h3{margin:0;font-size:.95rem;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:.5rem}
+.inst-section-head h3 .mi{font-size:18px;font-family:'Material Symbols Outlined'}
+.inst-count{font-size:.78rem;color:#64748b;background:#f1f5f9;padding:2px 8px;border-radius:10px;font-weight:600}
+.inst-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:.75rem}
+.inst-card{background:#fff;border:1px solid #e8edf4;border-radius:10px;padding:.9rem 1rem;display:flex;flex-direction:column;gap:.5rem;transition:box-shadow .12s;text-decoration:none;color:inherit}
+.inst-card:hover{box-shadow:0 2px 10px rgba(15,23,42,.1);border-color:#c7d2fe}
+.inst-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem}
+.inst-card-title{font-size:.88rem;font-weight:700;color:#0f172a;margin:0}
+.inst-card-sub{font-size:.75rem;color:#64748b;margin:1px 0 0}
+.inst-card-icon{width:32px;height:32px;border-radius:7px;display:grid;place-items:center;flex-shrink:0;font-family:'Material Symbols Outlined';font-size:16px}
+.inst-card-icon.product{background:#eef2ff;color:#4338ca}
+.inst-card-icon.service{background:#ede9fe;color:#5b21b6}
+.inst-card-meta{display:flex;flex-wrap:wrap;gap:.3rem;font-size:.75rem;color:#64748b}
+.inst-card-meta code{background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:.72rem;color:#1e293b}
+.inst-card-badges{display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.1rem}
+.badge-status-draft{background:#f1f5f9;color:#475569}
+.badge-status-active{background:#d1fae5;color:#065f46}
+.badge-status-deprecated{background:#fef3c7;color:#92400e}
+.badge-compliance-compliant{background:#d1fae5;color:#065f46}
+.badge-compliance-non_compliant{background:#fee2e2;color:#991b1b}
+.badge-compliance-warning{background:#fef3c7;color:#92400e}
+.badge-compliance-unknown{background:#f1f5f9;color:#64748b}
+.badge-compliance-blocked{background:#fce7f3;color:#9d174d}
+.inst-sub-count{font-size:.72rem;background:#eef2ff;color:#4338ca;padding:1px 7px;border-radius:8px;font-weight:600;white-space:nowrap}
+.inst-empty{padding:2rem;text-align:center;color:#94a3b8;font-style:italic;font-size:.88rem;background:#fff;border:1px solid #e8edf4;border-radius:10px}
+.btn{display:inline-flex;align-items:center;gap:.3rem;padding:.35rem .75rem;border-radius:7px;font-size:.82rem;font-weight:600;cursor:pointer;border:none;transition:background .12s;text-decoration:none;line-height:1.4}
+.btn .mi{font-size:15px;font-family:'Material Symbols Outlined'}
+.btn-primary{background:#4f46e5;color:#fff}.btn-primary:hover{background:#4338ca}
+.btn-secondary{background:#f1f5f9;color:#334155;border:1px solid #e2e8f0}.btn-secondary:hover{background:#e2e8f0}
+.btn-sm{padding:.22rem .5rem;font-size:.78rem}
+.nmodal-overlay{position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.45);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .15s,visibility .15s}
+.nmodal-overlay.open{opacity:1;visibility:visible}
+.nmodal{background:#fff;border-radius:14px;width:min(520px,94vw);box-shadow:0 8px 40px rgba(15,23,42,.18);transform:translateY(8px) scale(.97);transition:transform .15s}
+.nmodal-overlay.open .nmodal{transform:none}
+.nmodal-head{padding:1.1rem 1.4rem .85rem;border-bottom:1px solid #f0f4f8;display:flex;justify-content:space-between;align-items:center}
+.nmodal-head h3{margin:0;font-size:1rem}
+.nmodal-close{background:none;border:none;cursor:pointer;color:#94a3b8;font-size:1.1rem;padding:4px 7px;border-radius:6px}.nmodal-close:hover{background:#f1f5f9;color:#334155}
+.nmodal-body{padding:1.2rem 1.4rem}
+.nmodal-foot{padding:.85rem 1.4rem;border-top:1px solid #f0f4f8;display:flex;justify-content:flex-end;gap:.5rem}
+.nfield{margin-bottom:.8rem}
+.nfield label{display:block;font-size:.8rem;font-weight:600;color:#475569;margin-bottom:.28rem}
+.nfield input,.nfield select,.nfield textarea{width:100%;border:1px solid #d1d5db;border-radius:7px;padding:.45rem .65rem;font-size:.86rem;background:#fff;transition:border .12s;box-sizing:border-box}
+.nfield input:focus,.nfield select:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.1)}
+.nfield-hint{font-size:.74rem;color:#64748b;margin-top:.2rem}
+.nerror{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:7px;padding:.55rem .75rem;font-size:.83rem;margin-bottom:.8rem;display:none}
+.nerror.show{display:block}
+.type-tabs{display:flex;gap:.4rem;margin-bottom:1rem}
+.type-tab{flex:1;padding:.4rem;border:1.5px solid #e2e8f0;border-radius:7px;background:#fff;cursor:pointer;font-size:.82rem;font-weight:600;color:#64748b;text-align:center;transition:all .12s}
+.type-tab.active{border-color:#4f46e5;background:#eef2ff;color:#4338ca}
+</style>
+
+<section class="page-header">
+  <div><h2>Instances</h2><p>Product- und Service-Instanzen verwalten</p></div>
+  <div style="display:flex;gap:.5rem;align-items:center">
+    <a class="btn btn-secondary" href="/api/v1/instances"><span class="mi" style="font-family:'Material Symbols Outlined'">code</span> API JSON</a>
+    <button class="btn btn-primary" id="btn-create-inst"><span class="mi" style="font-family:'Material Symbols Outlined'">add_circle</span> Neue Instanz</button>
+  </div>
+</section>
+
+<div class="inst-layout">
+  {{$allInst := .Instances}}
+
+  {{/* Product Instances */}}
+  <div>
+    <div class="inst-section-head">
+      <h3><span class="mi">inventory_2</span> Product Instances</h3>
+    </div>
+    <div class="inst-grid" id="product-grid">
+      {{$hasProduct := false}}
+      {{range .Instances}}{{if eq .Type "product_instance"}}
+      {{$hasProduct = true}}
+      <a class="inst-card" href="/instances/{{.ID}}">
+        <div class="inst-card-head">
+          <div>
+            <div class="inst-card-title">{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</div>
+            <div class="inst-card-sub">{{.ID}}</div>
+          </div>
+          <div class="inst-card-icon product">inventory_2</div>
+        </div>
+        <div class="inst-card-meta">
+          <span>Blueprint: <code>{{.BlueprintRef}}</code></span>
+          {{if .Owner}}<span>· {{.Owner}}</span>{{end}}
+        </div>
+        <div class="inst-card-badges">
+          <span class="badge badge-status-{{.Status}}">{{.Status}}</span>
+          <span class="badge badge-compliance-{{.ComplianceStatus}}">{{if .ComplianceStatus}}{{.ComplianceStatus}}{{else}}unknown{{end}}</span>
+          {{if .ProvisionedServiceInstances}}<span class="inst-sub-count">{{len .ProvisionedServiceInstances}} services</span>{{end}}
+        </div>
+      </a>
+      {{end}}{{end}}
+      {{if not $hasProduct}}<div class="inst-empty">Keine Product Instances vorhanden.<br>Erstelle eine neue Instanz mit dem Button oben.</div>{{end}}
+    </div>
+  </div>
+
+  {{/* Service Instances */}}
+  <div>
+    <div class="inst-section-head">
+      <h3><span class="mi">settings</span> Service Instances</h3>
+    </div>
+    <div class="inst-grid">
+      {{$hasSvc := false}}{{range .Instances}}{{if eq .Type "service_instance"}}{{$hasSvc = true}}
+      <a class="inst-card" href="/instances/{{.ID}}">
+        <div class="inst-card-head">
+          <div>
+            <div class="inst-card-title">{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</div>
+            <div class="inst-card-sub">{{.ID}}{{if .OwningProductInstance}} · in {{.OwningProductInstance}}{{end}}</div>
+          </div>
+          <div class="inst-card-icon service">settings</div>
+        </div>
+        <div class="inst-card-meta">
+          <span>Blueprint: <code>{{.BlueprintRef}}</code></span>
+          {{if .Owner}}<span>· {{.Owner}}</span>{{end}}
+        </div>
+        <div class="inst-card-badges">
+          <span class="badge badge-status-{{.Status}}">{{.Status}}</span>
+          <span class="badge badge-compliance-{{.ComplianceStatus}}">{{if .ComplianceStatus}}{{.ComplianceStatus}}{{else}}unknown{{end}}</span>
+        </div>
+      </a>
+      {{end}}{{end}}
+      {{if not $hasSvc}}<div class="inst-empty">Keine Service Instances vorhanden.</div>{{end}}
+    </div>
+  </div>
+</div>
+
+{{/* Create Instance Modal */}}
+<div id="create-modal" class="nmodal-overlay">
+  <div class="nmodal">
+    <div class="nmodal-head">
+      <h3>Neue Instanz erstellen</h3>
+      <button class="nmodal-close" id="modal-close">&#x2715;</button>
+    </div>
+    <div class="nmodal-body">
+      <div id="modal-error" class="nerror"></div>
+      <div class="type-tabs">
+        <button class="type-tab active" id="tab-product" data-type="product_instance">&#128230; Product Instance</button>
+        <button class="type-tab" id="tab-service" data-type="service_instance">&#9881; Service Instance</button>
+      </div>
+      <div class="nfield">
+        <label>ID</label>
+        <input id="f-id" placeholder="z.B. PROD-IDENTITY-001" />
+        <div class="nfield-hint">Eindeutige ID der Instanz</div>
+      </div>
+      <div class="nfield">
+        <label>Name</label>
+        <input id="f-name" placeholder="Anzeigename" />
+      </div>
+      <div class="nfield">
+        <label>Blueprint</label>
+        <select id="f-blueprint">
+          <option value="">— Blueprint wählen —</option>
+          {{range .Blueprints}}
+          <option value="{{.ID}}" data-type="{{.Type}}">{{.ID}}{{if .Name}} · {{.Name}}{{end}} ({{.Type}})</option>
+          {{end}}
+        </select>
+      </div>
+      <div class="nfield">
+        <label>Owner</label>
+        <input id="f-owner" placeholder="Team oder Person" />
+      </div>
+      <div class="nfield" id="field-owning-product" style="display:none">
+        <label>Eltern-Product Instance (optional)</label>
+        <select id="f-owning-product">
+          <option value="">— kein Eltern-Produkt —</option>
+          {{range .Instances}}{{if eq .Type "product_instance"}}
+          <option value="{{.ID}}">{{.ID}}{{if .Name}} · {{.Name}}{{end}}</option>
+          {{end}}{{end}}
+        </select>
+      </div>
+    </div>
+    <div class="nmodal-foot">
+      <button class="btn btn-secondary" id="modal-cancel">Abbrechen</button>
+      <button class="btn btn-primary" id="modal-confirm">Erstellen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+let selectedType='product_instance';
+
+document.querySelectorAll('.type-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.type-tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    selectedType=tab.dataset.type;
+    document.getElementById('field-owning-product').style.display=
+      selectedType==='service_instance'?'':'none';
+    filterBlueprintsByType();
+  });
+});
+
+function filterBlueprintsByType(){
+  const sel=document.getElementById('f-blueprint');
+  const typeMap={product_instance:'product_blueprint',service_instance:'service_blueprint'};
+  const target=typeMap[selectedType]||'';
+  Array.from(sel.options).forEach(o=>{
+    if(!o.value)return;
+    o.hidden=target&&o.dataset.type!==target;
+  });
+  if(sel.selectedOptions[0]?.hidden) sel.value='';
+}
+
+const modal=document.getElementById('create-modal');
+const err=document.getElementById('modal-error');
+function openModal(){modal.classList.add('open');err.classList.remove('show');err.textContent='';}
+function closeModal(){modal.classList.remove('open');}
+document.getElementById('btn-create-inst').addEventListener('click',openModal);
+document.getElementById('modal-close').addEventListener('click',closeModal);
+document.getElementById('modal-cancel').addEventListener('click',closeModal);
+modal.addEventListener('click',e=>{if(e.target===modal)closeModal();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+document.getElementById('modal-confirm').addEventListener('click',async()=>{
+  const id=document.getElementById('f-id').value.trim();
+  const name=document.getElementById('f-name').value.trim();
+  const bpRef=document.getElementById('f-blueprint').value;
+  const owner=document.getElementById('f-owner').value.trim()||'unknown';
+  const owningProduct=document.getElementById('f-owning-product').value;
+  err.classList.remove('show');
+  if(!id){err.textContent='ID ist erforderlich';err.classList.add('show');return;}
+  if(!bpRef){err.textContent='Blueprint ist erforderlich';err.classList.add('show');return;}
+  const btn=document.getElementById('modal-confirm');
+  btn.disabled=true;btn.textContent='Erstelle…';
+  try{
+    const payload={id,name,type:selectedType,blueprint_ref:bpRef,blueprint_version:'0.1.0',status:'draft',owner};
+    if(owningProduct) payload.owning_product_instance=owningProduct;
+    const r=await fetch('/api/v1/instances',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d=await r.json().catch(()=>({}));
+    if(r.ok){location.href='/instances/'+encodeURIComponent(id);}
+    else{err.textContent=d.error?.message||d.error||'Erstellen fehlgeschlagen';err.classList.add('show');}
+  }finally{btn.disabled=false;btn.textContent='Erstellen';}
+});
+})();
+</script>
+{{end}}

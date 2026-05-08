@@ -854,3 +854,27 @@ func VerifyInstance(path, id string) (InstanceDTO, error) {
 	}
 	return GetInstance(path, id)
 }
+
+// ProvisionServiceInstance creates a service_instance linked to an existing product_instance.
+// It sets OwningProductInstance on the new instance and appends the new ID to the
+// product's ProvisionedServiceInstances list atomically (best-effort).
+func ProvisionServiceInstance(cosmosPath, productID string, inst model.Instance) (InstanceDTO, error) {
+	product, err := GetInstance(cosmosPath, productID)
+	if err != nil {
+		return InstanceDTO{}, err
+	}
+	if product.Type != "product_instance" {
+		return InstanceDTO{}, Error(CodeInvalidInput, "target instance is not a product_instance", http.StatusBadRequest, nil)
+	}
+	inst.Type = "service_instance"
+	inst.OwningProductInstance = productID
+	if err := CreateInstance(cosmosPath, inst); err != nil {
+		return InstanceDTO{}, err
+	}
+	var productRaw model.Instance
+	if err := fsx.ReadYAML(product.Path, &productRaw); err == nil {
+		productRaw.ProvisionedServiceInstances = append(productRaw.ProvisionedServiceInstances, inst.ID)
+		_ = fsx.WriteYAML(product.Path, productRaw)
+	}
+	return GetInstance(cosmosPath, inst.ID)
+}

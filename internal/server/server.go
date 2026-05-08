@@ -44,6 +44,7 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/v1/blueprints/", h.apiBlueprintRoutes)
 	mux.HandleFunc("/api/v1/instances", h.apiInstances)
 	mux.HandleFunc("/api/v1/instances/", h.apiInstanceRoutes)
+	mux.HandleFunc("/api/v1/product-instances/", h.apiProvisionServiceInstance)
 	mux.HandleFunc("/api/v1/verify/domain/", h.apiVerifyDomain)
 	mux.HandleFunc("/api/v1/servicegraphs", h.apiServicegraphs)
 	mux.HandleFunc("/api/v1/servicegraphs/", h.apiServicegraphRoutes)
@@ -812,7 +813,8 @@ func (h *handler) instancesPage(w http.ResponseWriter, r *http.Request) {
 		h.errorPage(w, r, statusOf(err), "Instances unavailable", err.Error())
 		return
 	}
-	h.page(w, "instances", map[string]any{"ActiveNav": "instances", "PageTitle": "Instances", "Instances": inst.Instances})
+	bps, _ := app.ListBlueprints(h.cosmosPath)
+	h.page(w, "instances", map[string]any{"ActiveNav": "instances", "PageTitle": "Instances", "Instances": inst.Instances, "Blueprints": bps.Blueprints})
 }
 func (h *handler) instancePage(w http.ResponseWriter, r *http.Request, id string) {
 	inst, err := app.GetInstance(h.cosmosPath, id)
@@ -821,8 +823,48 @@ func (h *handler) instancePage(w http.ResponseWriter, r *http.Request, id string
 		return
 	}
 	comp, _ := app.GetInstanceCompliance(h.cosmosPath, id)
-	h.page(w, "instance_detail", map[string]any{"ActiveNav": "instances", "PageTitle": inst.ID, "Instance": inst, "Compliance": comp})
+	allInst, _ := app.ListInstances(h.cosmosPath)
+	var subInstances []app.InstanceDTO
+	for _, si := range allInst.Instances {
+		if si.OwningProductInstance == id {
+			subInstances = append(subInstances, si)
+		}
+	}
+	bps, _ := app.ListBlueprints(h.cosmosPath)
+	h.page(w, "instance_detail", map[string]any{
+		"ActiveNav":    "instances",
+		"PageTitle":    inst.ID,
+		"Instance":     inst,
+		"Compliance":   comp,
+		"SubInstances": subInstances,
+		"Blueprints":   bps.Blueprints,
+	})
 }
+func (h *handler) apiProvisionServiceInstance(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/product-instances/")
+	parts := strings.SplitN(rest, "/", 2)
+	if len(parts) != 2 || parts[1] != "service-instances" || parts[0] == "" {
+		http.NotFound(w, r)
+		return
+	}
+	productID := parts[0]
+	var inst model.Instance
+	if err := json.NewDecoder(r.Body).Decode(&inst); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+		return
+	}
+	dto, err := app.ProvisionServiceInstance(h.cosmosPath, productID, inst)
+	if err != nil {
+		h.apiErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, dto)
+}
+
 func (h *handler) apiPage(w http.ResponseWriter, r *http.Request) {
 	h.page(w, "api", map[string]any{"ActiveNav": "api", "PageTitle": "API"})
 }
