@@ -600,3 +600,131 @@ func TestAPIDomainAndServiceDELETE(t *testing.T) {
 		t.Fatalf("expected 404 for non-existent domain, got %d", del3.Code)
 	}
 }
+
+func TestInstanceAPIRoutes(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	// GET single instance
+	rr := get(h, "/api/v1/instances/PI-ACC-MBX-EXAMPLE-001")
+	if rr.Code != 200 {
+		t.Fatalf("GET instance status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	hasAll(t, rr.Body.String(), "PI-ACC-MBX-EXAMPLE-001", "product_instance")
+
+	// GET non-existent → 404
+	if rr := get(h, "/api/v1/instances/DOES-NOT-EXIST"); rr.Code != 404 {
+		t.Fatalf("expected 404 for missing instance, got %d", rr.Code)
+	}
+
+	// PATCH instance
+	rr = patchJSON(h, "/api/v1/instances/PI-ACC-MBX-EXAMPLE-001", `{"name":"Renamed","status":"active"}`)
+	if rr.Code != 200 {
+		t.Fatalf("PATCH instance status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	hasAll(t, rr.Body.String(), "Renamed", "active")
+
+	// PATCH non-existent → 404
+	rr = patchJSON(h, "/api/v1/instances/DOES-NOT-EXIST", `{"name":"x"}`)
+	if rr.Code != 404 {
+		t.Fatalf("expected 404 for missing instance PATCH, got %d", rr.Code)
+	}
+
+	// GET /compliance
+	rr = get(h, "/api/v1/instances/PI-ACC-MBX-EXAMPLE-001/compliance")
+	if rr.Code != 200 {
+		t.Fatalf("compliance status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	hasAll(t, rr.Body.String(), "compliant")
+
+	// POST /verify
+	rr = postJSON(h, "/api/v1/instances/PI-ACC-MBX-EXAMPLE-001/verify", "")
+	if rr.Code != 200 {
+		t.Fatalf("verify status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	hasAll(t, rr.Body.String(), "compliant", "evidence-verify-")
+
+	// DELETE instance
+	rr = deleteReq(h, "/api/v1/instances/PI-ACC-MBX-EXAMPLE-001")
+	if rr.Code != 200 {
+		t.Fatalf("DELETE instance status=%d body=%s", rr.Code, rr.Body.String())
+	}
+
+	// deleted instance → 404
+	if rr := get(h, "/api/v1/instances/PI-ACC-MBX-EXAMPLE-001"); rr.Code != 404 {
+		t.Fatalf("expected 404 after delete, got %d", rr.Code)
+	}
+}
+
+func TestBlueprintPatchPublishValidateAPI(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	// PATCH blueprint
+	rr := patchJSON(h, "/api/v1/blueprints/PB-ACC-MBX-001", `{"name":"Renamed BP","status":"active"}`)
+	if rr.Code != 200 {
+		t.Fatalf("PATCH blueprint status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	hasAll(t, rr.Body.String(), "Renamed BP", "active")
+
+	// PATCH non-existent → 404
+	rr = patchJSON(h, "/api/v1/blueprints/DOES-NOT-EXIST", `{"name":"x"}`)
+	if rr.Code != 404 {
+		t.Fatalf("expected 404 for PATCH non-existent blueprint, got %d", rr.Code)
+	}
+
+	// POST /publish
+	rr = postJSON(h, "/api/v1/blueprints/PB-ACC-MBX-001/publish", "")
+	if rr.Code != 200 {
+		t.Fatalf("publish status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	hasAll(t, rr.Body.String(), "published")
+
+	// GET /validate
+	rr = get(h, "/api/v1/blueprints/PB-ACC-MBX-001/validate")
+	if rr.Code != 200 {
+		t.Fatalf("validate status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	hasAll(t, rr.Body.String(), "status")
+}
+
+func TestProvisionServiceInstanceAPI(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	// Provision a service instance under an existing product instance
+	rr := postJSON(h, "/api/v1/product-instances/PI-ACC-MBX-EXAMPLE-001/service-instances",
+		`{"id":"SI-TEST-001","blueprint_ref":"SB-1","blueprint_version":"0.1.0","status":"draft","owner":"Team"}`)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("provision status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	hasAll(t, rr.Body.String(), "SI-TEST-001", "service_instance", "PI-ACC-MBX-EXAMPLE-001")
+
+	// Provision to non-existent product → 404
+	rr = postJSON(h, "/api/v1/product-instances/DOES-NOT-EXIST/service-instances",
+		`{"id":"SI-TEST-002","blueprint_ref":"SB-1","blueprint_version":"0.1.0","status":"draft","owner":"Team"}`)
+	if rr.Code != 404 {
+		t.Fatalf("expected 404 for missing product, got %d", rr.Code)
+	}
+
+	// Wrong path → 404
+	rr = postJSON(h, "/api/v1/product-instances/PI-ACC-MBX-EXAMPLE-001/wrong-path", `{}`)
+	if rr.Code != 404 {
+		t.Fatalf("expected 404 for wrong sub-path, got %d", rr.Code)
+	}
+}
+
+func TestBlueprintAndInstanceWebPages(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	// blueprint detail page
+	rr := get(h, "/blueprints/SB-1")
+	if rr.Code != 200 {
+		t.Fatalf("/blueprints/SB-1 status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	hasAll(t, rr.Body.String(), "SB-1", "service_blueprint")
+
+	// instance detail page
+	rr = get(h, "/instances/PI-ACC-MBX-EXAMPLE-001")
+	if rr.Code != 200 {
+		t.Fatalf("/instances/PI-ACC-MBX-EXAMPLE-001 status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	hasAll(t, rr.Body.String(), "PI-ACC-MBX-EXAMPLE-001")
+}

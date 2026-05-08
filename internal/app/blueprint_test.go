@@ -443,3 +443,87 @@ func TestDeleteBlueprintRequirement_NonExistentIsNoop(t *testing.T) {
 		t.Fatalf("expected empty list, got %v", got.Requirements)
 	}
 }
+
+// ── PatchBlueprint ───────────────────────────────────────────────────────────
+
+func TestPatchBlueprint_Fields(t *testing.T) {
+	p, productID, _ := createProductAndService(t)
+
+	got, err := PatchBlueprint(p, productID, map[string]string{
+		"name":    "Updated Name",
+		"owner":   "New Owner",
+		"status":  "active",
+		"version": "1.0.0",
+		"summary": "Updated summary",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Name != "Updated Name" {
+		t.Fatalf("name not updated: %s", got.Name)
+	}
+	if got.Owner != "New Owner" {
+		t.Fatalf("owner not updated: %s", got.Owner)
+	}
+	if got.Status != "active" {
+		t.Fatalf("status not updated: %s", got.Status)
+	}
+	if got.Version != "1.0.0" {
+		t.Fatalf("version not updated: %s", got.Version)
+	}
+	if got.Summary != "Updated summary" {
+		t.Fatalf("summary not updated: %s", got.Summary)
+	}
+}
+
+func TestPatchBlueprint_NotFound(t *testing.T) {
+	p := createTestCosmosWithCatalog(t)
+	_, err := PatchBlueprint(p, "PB-NONEXISTENT", map[string]string{"name": "x"})
+	if err == nil {
+		t.Fatal("expected error for non-existent blueprint")
+	}
+}
+
+// ── PublishBlueprint ─────────────────────────────────────────────────────────
+
+func TestPublishBlueprint_SetsStatusToPublished(t *testing.T) {
+	p, productID, _ := createProductAndService(t)
+
+	got, err := PublishBlueprint(p, productID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Status != "published" {
+		t.Fatalf("expected status published, got %s", got.Status)
+	}
+}
+
+func TestPublishBlueprint_NotFound(t *testing.T) {
+	p := createTestCosmosWithCatalog(t)
+	_, err := PublishBlueprint(p, "PB-NONEXISTENT")
+	if err == nil {
+		t.Fatal("expected error for non-existent blueprint")
+	}
+}
+
+// ── ValidateBlueprint ────────────────────────────────────────────────────────
+
+func TestValidateBlueprint_ValidBlueprint(t *testing.T) {
+	p, productID, _ := createProductAndService(t)
+
+	got, err := ValidateBlueprint(p, productID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Status == "" {
+		t.Fatal("expected a non-empty validation status")
+	}
+}
+
+func TestValidateBlueprint_NotFound(t *testing.T) {
+	p := createTestCosmosWithCatalog(t)
+	_, err := ValidateBlueprint(p, "PB-NONEXISTENT")
+	if err == nil {
+		t.Fatal("expected error for non-existent blueprint")
+	}
+}
