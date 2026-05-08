@@ -325,6 +325,126 @@ func postJSON(h http.Handler, path, body string) *httptest.ResponseRecorder {
 	h.ServeHTTP(rr, req)
 	return rr
 }
+func patchJSON(h http.Handler, path, body string) *httptest.ResponseRecorder {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(rr, req)
+	return rr
+}
+func deleteReq(h http.Handler, path string) *httptest.ResponseRecorder {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, path, nil)
+	h.ServeHTTP(rr, req)
+	return rr
+}
+
+func TestServiceBlueprintManagementAPI(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	// add service blueprint SB-1 to product PB-ACC-MBX-001
+	rr := postJSON(h, "/api/v1/blueprints/PB-ACC-MBX-001/service-blueprints", `{"service_id":"SB-1"}`)
+	if rr.Code != 200 {
+		t.Fatalf("add service blueprint status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	hasAll(t, rr.Body.String(), "SB-1", "required_service_blueprints")
+
+	// adding again is idempotent
+	rr = postJSON(h, "/api/v1/blueprints/PB-ACC-MBX-001/service-blueprints", `{"service_id":"SB-1"}`)
+	if rr.Code != 200 {
+		t.Fatalf("idempotent add status=%d", rr.Code)
+	}
+
+	// missing service_id → 400
+	rr = postJSON(h, "/api/v1/blueprints/PB-ACC-MBX-001/service-blueprints", `{}`)
+	if rr.Code != 400 {
+		t.Fatalf("expected 400 for missing service_id, got %d", rr.Code)
+	}
+
+	// non-existent blueprint → 404
+	rr = postJSON(h, "/api/v1/blueprints/DOES-NOT-EXIST/service-blueprints", `{"service_id":"SB-1"}`)
+	if rr.Code != 404 {
+		t.Fatalf("expected 404 for non-existent blueprint, got %d", rr.Code)
+	}
+
+	// remove service blueprint
+	rr = deleteReq(h, "/api/v1/blueprints/PB-ACC-MBX-001/service-blueprints/SB-1")
+	if rr.Code != 200 {
+		t.Fatalf("remove service blueprint status=%d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestBlueprintRequirementsAPI(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	bpPath := "/api/v1/blueprints/PB-ACC-MBX-001/requirements"
+
+	// add requirement
+	rr := postJSON(h, bpPath, `{"label":"Datenschutzkonzept vorhanden"}`)
+	if rr.Code != 200 {
+		t.Fatalf("add requirement status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	hasAll(t, rr.Body.String(), "Datenschutzkonzept vorhanden", "requirements")
+
+	// parse out the requirement ID — all requirement IDs are prefixed with "req-"
+	body := rr.Body.String()
+	idMarker := `"id":"req-`
+	idStart := strings.Index(body, idMarker)
+	if idStart == -1 {
+		t.Fatalf("could not find requirement id in response: %s", body)
+	}
+	idStart += len(`"id":"`)
+	idEnd := strings.Index(body[idStart:], `"`) + idStart
+	reqID := body[idStart:idEnd]
+	if reqID == "" {
+		t.Fatal("could not extract requirement ID from response")
+	}
+
+	// missing label → 400
+	rr = postJSON(h, bpPath, `{"label":""}`)
+	if rr.Code != 400 {
+		t.Fatalf("expected 400 for empty label, got %d", rr.Code)
+	}
+
+	// toggle fulfilled = true
+	rr = patchJSON(h, bpPath+"/"+reqID, `{"fulfilled":true}`)
+	if rr.Code != 200 {
+		t.Fatalf("toggle fulfilled status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"fulfilled":true`) {
+		t.Fatalf("expected fulfilled:true in response: %s", rr.Body.String())
+	}
+
+	// toggle fulfilled = false
+	rr = patchJSON(h, bpPath+"/"+reqID, `{"fulfilled":false}`)
+	if rr.Code != 200 {
+		t.Fatalf("toggle unfulfilled status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"fulfilled":false`) {
+		t.Fatalf("expected fulfilled:false in response: %s", rr.Body.String())
+	}
+
+	// patch non-existent requirement → 404
+	rr = patchJSON(h, bpPath+"/req-nonexistent", `{"fulfilled":true}`)
+	if rr.Code != 404 {
+		t.Fatalf("expected 404 for non-existent requirement, got %d", rr.Code)
+	}
+
+	// delete requirement
+	rr = deleteReq(h, bpPath+"/"+reqID)
+	if rr.Code != 200 {
+		t.Fatalf("delete requirement status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if strings.Contains(rr.Body.String(), "Datenschutzkonzept vorhanden") {
+		t.Fatal("deleted requirement should not appear in response")
+	}
+
+	// non-existent blueprint → 404
+	rr = postJSON(h, "/api/v1/blueprints/DOES-NOT-EXIST/requirements", `{"label":"test"}`)
+	if rr.Code != 404 {
+		t.Fatalf("expected 404 for non-existent blueprint, got %d", rr.Code)
+	}
+}
+
 func mustMkdir(t *testing.T, path string) {
 	t.Helper()
 	if err := os.MkdirAll(path, 0o755); err != nil {
