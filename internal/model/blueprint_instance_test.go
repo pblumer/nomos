@@ -96,3 +96,23 @@ findings:
 		t.Fatalf("expected evidence and finding: %#v", inst)
 	}
 }
+
+func TestBlueprintAttributeServiceRefYAMLParsing(t *testing.T) {
+	raw := []byte(`id: PB-ATTR-SVC-001
+type: product_blueprint
+name: Attribute Service Ref
+attributes:
+  - id: attr-service
+    label: Provisionierungsservice
+    type: service_ref
+    required: true
+    service_ref: identity.blumer.cloud/user-account
+`)
+	var bp Blueprint
+	if err := yaml.Unmarshal(raw, &bp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(bp.Attributes) != 1 || bp.Attributes[0].Type != "service_ref" || bp.Attributes[0].ServiceRef != "identity.blumer.cloud/user-account" {
+		t.Fatalf("expected service_ref attribute mapping: %#v", bp.Attributes)
+	}
+}

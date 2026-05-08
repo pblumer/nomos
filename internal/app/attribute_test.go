@@ -90,6 +90,31 @@ func TestAddBlueprintAttribute_DefaultsToText(t *testing.T) {
 	}
 }
 
+func TestAddBlueprintAttribute_ServiceRef(t *testing.T) {
+	p, productID, _ := createProductAndService(t)
+
+	got, err := AddBlueprintAttributeWithServiceRef(p, productID, "Provisionierungsservice", "service_ref", true, "identity.blumer.cloud/user-account")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	attr := got.Attributes[0]
+	if attr.Type != "service_ref" {
+		t.Fatalf("expected type service_ref, got %s", attr.Type)
+	}
+	if attr.ServiceRef != "identity.blumer.cloud/user-account" {
+		t.Fatalf("unexpected service_ref: %s", attr.ServiceRef)
+	}
+}
+
+func TestAddBlueprintAttribute_ServiceRefOnlyForServiceRefType(t *testing.T) {
+	p, productID, _ := createProductAndService(t)
+
+	_, err := AddBlueprintAttributeWithServiceRef(p, productID, "Feld", "text", false, "identity.blumer.cloud/user-account")
+	if err == nil {
+		t.Fatal("expected error for service_ref on text attribute")
+	}
+}
+
 func TestAddBlueprintAttribute_EmptyLabel(t *testing.T) {
 	p, productID, _ := createProductAndService(t)
 	_, err := AddBlueprintAttribute(p, productID, "", "text", false)
@@ -406,3 +431,27 @@ func TestSetInstanceAttributeValues_NotFound(t *testing.T) {
 // suppress unused import
 var _ = os.MkdirAll
 var _ = filepath.Join
+
+func TestDeleteBlueprintAttribute_RemovesRequirementRefs(t *testing.T) {
+	p, productID, _ := createProductAndService(t)
+
+	withAttr, err := AddBlueprintAttribute(p, productID, "Region", "text", true)
+	if err != nil {
+		t.Fatalf("add attribute: %v", err)
+	}
+	attrID := withAttr.Attributes[0].ID
+	if _, err := AddBlueprintRequirementWithAttributeRefs(p, productID, "Region muss gesetzt sein", []string{attrID}); err != nil {
+		t.Fatalf("add requirement: %v", err)
+	}
+
+	got, err := DeleteBlueprintAttribute(p, productID, attrID)
+	if err != nil {
+		t.Fatalf("delete attribute: %v", err)
+	}
+	if len(got.Requirements) != 1 {
+		t.Fatalf("expected requirement to stay, got %d", len(got.Requirements))
+	}
+	if len(got.Requirements[0].AttributeRefs) != 0 {
+		t.Fatalf("expected attribute refs to be removed, got %#v", got.Requirements[0].AttributeRefs)
+	}
+}
