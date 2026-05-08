@@ -363,9 +363,31 @@ func blueprintDTO(b cosmosfs.BlueprintNode) BlueprintDTO {
 	}
 	requirements := make([]BlueprintRequirementDTO, 0, len(b.Metadata.Requirements))
 	for _, r := range b.Metadata.Requirements {
-		requirements = append(requirements, BlueprintRequirementDTO{ID: r.ID, Label: r.Label, Fulfilled: r.Fulfilled})
+		requirements = append(requirements, BlueprintRequirementDTO{ID: r.ID, Label: r.Label, Status: r.Status})
 	}
-	return BlueprintDTO{ID: b.Metadata.ID, Type: b.Metadata.Type, Name: b.Metadata.Name, Version: b.Metadata.Version, Status: b.Metadata.Status, Owner: b.Metadata.Owner, Summary: b.Metadata.Summary, Path: b.Path, Variants: variants, Capabilities: b.Metadata.Capabilities, TargetSystems: b.Metadata.TargetSystems, RequiredInputs: b.Metadata.RequiredInputs, RequiredServiceBlueprints: b.Metadata.RequiredServiceBlueprints, RequiredServices: requiredServices, NamespaceServiceRef: b.Metadata.NamespaceServiceRef, Rules: b.Metadata.Rules, QualityCriteria: b.Metadata.QualityCriteria, EvidenceRequirements: b.Metadata.EvidenceRequirements, Requirements: requirements}
+	attributes := make([]BlueprintAttributeDTO, 0, len(b.Metadata.Attributes))
+	for _, a := range b.Metadata.Attributes {
+		rules := make([]AttributeRuleDTO, 0, len(a.Rules))
+		for _, rule := range a.Rules {
+			rules = append(rules, AttributeRuleDTO{ID: rule.ID, Label: rule.Label, Type: rule.Type, Value: rule.Value})
+		}
+		attributes = append(attributes, BlueprintAttributeDTO{ID: a.ID, Label: a.Label, Type: a.Type, Required: a.Required, Rules: rules})
+	}
+	return BlueprintDTO{ID: b.Metadata.ID, Type: b.Metadata.Type, Name: b.Metadata.Name, Version: b.Metadata.Version, Status: b.Metadata.Status, Owner: b.Metadata.Owner, Summary: b.Metadata.Summary, Path: b.Path, Variants: variants, Capabilities: b.Metadata.Capabilities, TargetSystems: b.Metadata.TargetSystems, RequiredInputs: b.Metadata.RequiredInputs, RequiredServiceBlueprints: b.Metadata.RequiredServiceBlueprints, RequiredServices: requiredServices, NamespaceServiceRef: b.Metadata.NamespaceServiceRef, Rules: b.Metadata.Rules, QualityCriteria: b.Metadata.QualityCriteria, EvidenceRequirements: b.Metadata.EvidenceRequirements, Requirements: requirements, RequirementsStatus: requirementsStatus(b.Metadata.Requirements), Attributes: attributes}
+}
+
+// requirementsStatus derives the overall status from a set of requirements:
+// no requirements → "" (null), any open → "open", all fulfilled → "fulfilled"
+func requirementsStatus(reqs []model.BlueprintRequirement) string {
+	if len(reqs) == 0 {
+		return ""
+	}
+	for _, r := range reqs {
+		if r.Status != "fulfilled" {
+			return "open"
+		}
+	}
+	return "fulfilled"
 }
 
 func instanceDTO(i cosmosfs.InstanceNode) InstanceDTO {
@@ -377,7 +399,7 @@ func instanceDTO(i cosmosfs.InstanceNode) InstanceDTO {
 	for _, f := range i.Metadata.Findings {
 		findings = append(findings, CatalogFindingDTO{ID: f.ID, Severity: f.Severity, Category: f.Category, Summary: f.Summary, Code: f.Code, Message: f.Message, Path: f.Path})
 	}
-	return InstanceDTO{ID: i.Metadata.ID, Type: i.Metadata.Type, Name: i.Metadata.Name, BlueprintRef: i.Metadata.BlueprintRef, BlueprintVersion: i.Metadata.BlueprintVersion, Status: i.Metadata.Status, Owner: i.Metadata.Owner, Path: i.Path, Inputs: i.Metadata.Inputs, ObservedState: i.Metadata.ObservedState, ProvisionedServiceInstances: i.Metadata.ProvisionedServiceInstances, OwningProductInstance: i.Metadata.OwningProductInstance, ProviderRef: i.Metadata.ProviderRef, ComplianceStatus: i.Metadata.ComplianceStatus, Evidence: evidence, Findings: findings}
+	return InstanceDTO{ID: i.Metadata.ID, Type: i.Metadata.Type, Name: i.Metadata.Name, BlueprintRef: i.Metadata.BlueprintRef, BlueprintVersion: i.Metadata.BlueprintVersion, Status: i.Metadata.Status, Owner: i.Metadata.Owner, Path: i.Path, Inputs: i.Metadata.Inputs, ObservedState: i.Metadata.ObservedState, ProvisionedServiceInstances: i.Metadata.ProvisionedServiceInstances, OwningProductInstance: i.Metadata.OwningProductInstance, ProviderRef: i.Metadata.ProviderRef, ComplianceStatus: i.Metadata.ComplianceStatus, Evidence: evidence, Findings: findings, AttributeValues: i.Metadata.AttributeValues}
 }
 
 func DoctorCosmos(path string) (DoctorDTO, error) {
@@ -758,14 +780,17 @@ func AddBlueprintRequirement(path, id, label string) (BlueprintDTO, error) {
 		return BlueprintDTO{}, Error(CodeInternalError, "Failed to read blueprint: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	reqID := fmt.Sprintf("req-%d", time.Now().UnixNano())
-	raw.Requirements = append(raw.Requirements, model.BlueprintRequirement{ID: reqID, Label: label, Fulfilled: false})
+	raw.Requirements = append(raw.Requirements, model.BlueprintRequirement{ID: reqID, Label: label, Status: "open"})
 	if err := fsx.WriteYAML(bp.Path, raw); err != nil {
 		return BlueprintDTO{}, Error(CodeInternalError, "Failed to write blueprint: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	return GetBlueprint(path, id)
 }
 
-func SetBlueprintRequirementFulfilled(path, id, reqID string, fulfilled bool) (BlueprintDTO, error) {
+func SetBlueprintRequirementStatus(path, id, reqID, status string) (BlueprintDTO, error) {
+	if status != "open" && status != "fulfilled" {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "status must be 'open' or 'fulfilled'", http.StatusBadRequest, nil)
+	}
 	bp, err := GetBlueprint(path, id)
 	if err != nil {
 		return BlueprintDTO{}, err
@@ -777,7 +802,7 @@ func SetBlueprintRequirementFulfilled(path, id, reqID string, fulfilled bool) (B
 	found := false
 	for i := range raw.Requirements {
 		if raw.Requirements[i].ID == reqID {
-			raw.Requirements[i].Fulfilled = fulfilled
+			raw.Requirements[i].Status = status
 			found = true
 			break
 		}

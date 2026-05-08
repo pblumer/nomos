@@ -134,12 +134,51 @@ type BlueprintDTO struct {
 	QualityCriteria           []string                  `json:"quality_criteria"`
 	EvidenceRequirements      []string                  `json:"evidence_requirements"`
 	Requirements              []BlueprintRequirementDTO `json:"requirements,omitempty"`
+	RequirementsStatus        string                    `json:"requirements_status,omitempty"`
+	Attributes                []BlueprintAttributeDTO   `json:"attributes,omitempty"`
+}
+
+type BlueprintAttributeDTO struct {
+	ID       string             `json:"id"`
+	Label    string             `json:"label"`
+	Type     string             `json:"type"`
+	Required bool               `json:"required"`
+	Rules    []AttributeRuleDTO `json:"rules,omitempty"`
+}
+
+type AttributeRuleDTO struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	Type  string `json:"type"`
+	Value string `json:"value"`
+}
+
+// AttributeValidationDTO is the result of validating an instance's attribute values.
+type AttributeValidationDTO struct {
+	Status     string                 `json:"status"` // valid, invalid, missing_values
+	Attributes []AttrValidationResult `json:"attributes"`
+}
+
+type AttrValidationResult struct {
+	AttributeID string          `json:"attribute_id"`
+	Label       string          `json:"label"`
+	Value       string          `json:"value,omitempty"`
+	Status      string          `json:"status"` // valid, invalid, missing
+	Rules       []RuleResultDTO `json:"rules,omitempty"`
+}
+
+type RuleResultDTO struct {
+	RuleID  string `json:"rule_id"`
+	Label   string `json:"label"`
+	Type    string `json:"type"`
+	Status  string `json:"status"` // pass, fail, manual
+	Message string `json:"message,omitempty"`
 }
 
 type BlueprintRequirementDTO struct {
-	ID        string `json:"id"`
-	Label     string `json:"label"`
-	Fulfilled bool   `json:"fulfilled"`
+	ID     string `json:"id"`
+	Label  string `json:"label"`
+	Status string `json:"status"`
 }
 
 type VariantDTO struct {
@@ -169,6 +208,7 @@ type InstanceDTO struct {
 	ComplianceStatus            string              `json:"compliance_status"`
 	Evidence                    []EvidenceDTO       `json:"evidence,omitempty"`
 	Findings                    []CatalogFindingDTO `json:"findings"`
+	AttributeValues             map[string]string   `json:"attribute_values,omitempty"`
 }
 
 type EvidenceDTO struct {

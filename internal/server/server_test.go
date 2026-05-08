@@ -405,26 +405,41 @@ func TestBlueprintRequirementsAPI(t *testing.T) {
 		t.Fatalf("expected 400 for empty label, got %d", rr.Code)
 	}
 
-	// toggle fulfilled = true
-	rr = patchJSON(h, bpPath+"/"+reqID, `{"fulfilled":true}`)
+	// set status to fulfilled
+	rr = patchJSON(h, bpPath+"/"+reqID, `{"status":"fulfilled"}`)
 	if rr.Code != 200 {
-		t.Fatalf("toggle fulfilled status=%d body=%s", rr.Code, rr.Body.String())
+		t.Fatalf("set fulfilled status=%d body=%s", rr.Code, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), `"fulfilled":true`) {
-		t.Fatalf("expected fulfilled:true in response: %s", rr.Body.String())
+	if !strings.Contains(rr.Body.String(), `"status":"fulfilled"`) {
+		t.Fatalf("expected status:fulfilled in response: %s", rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"requirements_status":"fulfilled"`) {
+		t.Fatalf("expected requirements_status:fulfilled in response: %s", rr.Body.String())
 	}
 
-	// toggle fulfilled = false
-	rr = patchJSON(h, bpPath+"/"+reqID, `{"fulfilled":false}`)
+	// set status back to open
+	rr = patchJSON(h, bpPath+"/"+reqID, `{"status":"open"}`)
 	if rr.Code != 200 {
-		t.Fatalf("toggle unfulfilled status=%d body=%s", rr.Code, rr.Body.String())
+		t.Fatalf("set open status=%d body=%s", rr.Code, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), `"fulfilled":false`) {
-		t.Fatalf("expected fulfilled:false in response: %s", rr.Body.String())
+	if !strings.Contains(rr.Body.String(), `"status":"open"`) {
+		t.Fatalf("expected status:open in response: %s", rr.Body.String())
+	}
+
+	// invalid status → 400
+	rr = patchJSON(h, bpPath+"/"+reqID, `{"status":"invalid"}`)
+	if rr.Code != 400 {
+		t.Fatalf("expected 400 for invalid status, got %d", rr.Code)
+	}
+
+	// missing status → 400
+	rr = patchJSON(h, bpPath+"/"+reqID, `{}`)
+	if rr.Code != 400 {
+		t.Fatalf("expected 400 for missing status, got %d", rr.Code)
 	}
 
 	// patch non-existent requirement → 404
-	rr = patchJSON(h, bpPath+"/req-nonexistent", `{"fulfilled":true}`)
+	rr = patchJSON(h, bpPath+"/req-nonexistent", `{"status":"fulfilled"}`)
 	if rr.Code != 404 {
 		t.Fatalf("expected 404 for non-existent requirement, got %d", rr.Code)
 	}
