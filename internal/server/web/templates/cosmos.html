@@ -149,16 +149,67 @@
               </div>
               {{if .Blueprints}}
               <ul class="cn-children collapsed">
-                {{range .Blueprints}}
-                <li class="cn" data-kind="blueprint" data-id="{{.ID}}" data-type="{{.Type}}">
-                  <div class="cn-row" data-kind="blueprint" data-id="{{.ID}}" data-type="{{.Type}}">
-                    <span class="cn-leaf"></span>
-                    <span class="cn-icon mi">assignment</span>
-                    <span class="cn-label">{{.ID}}</span>
-                    <span class="cn-badge cn-badge-blueprint">{{.Type}}</span>
+
+                {{/* ── Product Blueprints ── */}}
+                <li class="cn" data-kind="blueprint-parent" data-id="bp-products">
+                  <div class="cn-row" data-kind="blueprint-parent" data-id="bp-products">
+                    <button class="cn-toggle" aria-label="toggle">&#9658;</button>
+                    <span class="cn-icon mi" style="color:#4338ca">inventory_2</span>
+                    <span class="cn-label">Products</span>
+                    <span class="cn-badge cn-badge-blueprint-parent">products</span>
                   </div>
+                  <ul class="cn-children collapsed">
+                    {{range .Blueprints}}{{if eq .Type "product_blueprint"}}
+                    <li class="cn" data-kind="blueprint" data-id="{{.ID}}" data-type="{{.Type}}">
+                      <div class="cn-row" data-kind="blueprint" data-id="{{.ID}}" data-type="{{.Type}}">
+                        {{if .RequiredServiceBlueprints}}<button class="cn-toggle" aria-label="toggle">&#9658;</button>{{else}}<span class="cn-leaf"></span>{{end}}
+                        <span class="cn-icon mi" style="color:#4338ca">inventory_2</span>
+                        <span class="cn-label">{{.ID}}</span>
+                        <span class="cn-badge cn-badge-domain">product</span>
+                      </div>
+                      {{if .RequiredServiceBlueprints}}
+                      <ul class="cn-children collapsed">
+                        {{$allBPs := $.Blueprints}}
+                        {{range .RequiredServiceBlueprints}}
+                        {{$refID := .}}
+                        <li class="cn" data-kind="blueprint" data-id="{{$refID}}" data-type="service_blueprint">
+                          <div class="cn-row" data-kind="blueprint" data-id="{{$refID}}" data-type="service_blueprint">
+                            <span class="cn-leaf"></span>
+                            <span class="cn-icon mi" style="color:#059669">assignment</span>
+                            <span class="cn-label">{{$refID}}</span>
+                            <span class="cn-badge cn-badge-blueprint">service</span>
+                          </div>
+                        </li>
+                        {{end}}
+                      </ul>
+                      {{end}}
+                    </li>
+                    {{end}}{{end}}
+                  </ul>
                 </li>
-                {{end}}
+
+                {{/* ── Service Blueprints ── */}}
+                <li class="cn" data-kind="blueprint-parent" data-id="bp-services">
+                  <div class="cn-row" data-kind="blueprint-parent" data-id="bp-services">
+                    <button class="cn-toggle" aria-label="toggle">&#9658;</button>
+                    <span class="cn-icon mi" style="color:#059669">assignment</span>
+                    <span class="cn-label">Services</span>
+                    <span class="cn-badge cn-badge-blueprint-parent">services</span>
+                  </div>
+                  <ul class="cn-children collapsed">
+                    {{range .Blueprints}}{{if eq .Type "service_blueprint"}}
+                    <li class="cn" data-kind="blueprint" data-id="{{.ID}}" data-type="{{.Type}}">
+                      <div class="cn-row" data-kind="blueprint" data-id="{{.ID}}" data-type="{{.Type}}">
+                        <span class="cn-leaf"></span>
+                        <span class="cn-icon mi" style="color:#059669">assignment</span>
+                        <span class="cn-label">{{.ID}}</span>
+                        <span class="cn-badge cn-badge-blueprint">service</span>
+                      </div>
+                    </li>
+                    {{end}}{{end}}
+                  </ul>
+                </li>
+
               </ul>
               {{end}}
             </li>
