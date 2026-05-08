@@ -130,9 +130,16 @@ type BlueprintDTO struct {
 	RequiredServiceBlueprints []string                `json:"required_service_blueprints,omitempty"`
 	RequiredServices          []RequiredServiceRefDTO `json:"required_services,omitempty"`
 	NamespaceServiceRef       string                  `json:"namespace_service_ref,omitempty"`
-	Rules                     []string                `json:"rules,omitempty"`
-	QualityCriteria           []string                `json:"quality_criteria"`
-	EvidenceRequirements      []string                `json:"evidence_requirements"`
+	Rules                     []string                     `json:"rules,omitempty"`
+	QualityCriteria           []string                     `json:"quality_criteria"`
+	EvidenceRequirements      []string                     `json:"evidence_requirements"`
+	Requirements              []BlueprintRequirementDTO    `json:"requirements,omitempty"`
+}
+
+type BlueprintRequirementDTO struct {
+	ID        string `json:"id"`
+	Label     string `json:"label"`
+	Fulfilled bool   `json:"fulfilled"`
 }
 
 type VariantDTO struct {

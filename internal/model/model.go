@@ -73,6 +73,13 @@ type Blueprint struct {
 	Rules                     []string             `yaml:"rules" json:"rules,omitempty"`
 	QualityCriteria           []string             `yaml:"quality_criteria" json:"quality_criteria"`
 	EvidenceRequirements      []string             `yaml:"evidence_requirements" json:"evidence_requirements"`
+	Requirements              []BlueprintRequirement `yaml:"requirements,omitempty" json:"requirements,omitempty"`
+}
+
+type BlueprintRequirement struct {
+	ID        string `yaml:"id" json:"id"`
+	Label     string `yaml:"label" json:"label"`
+	Fulfilled bool   `yaml:"fulfilled" json:"fulfilled"`
 }
 
 type Instance struct {

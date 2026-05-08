@@ -361,7 +361,11 @@ func blueprintDTO(b cosmosfs.BlueprintNode) BlueprintDTO {
 	for _, svc := range b.Metadata.RequiredServices {
 		requiredServices = append(requiredServices, RequiredServiceRefDTO{ServiceRef: svc.ServiceRef, ServiceBlueprintRef: svc.ServiceBlueprintRef, Purpose: svc.Purpose, Required: svc.Required})
 	}
-	return BlueprintDTO{ID: b.Metadata.ID, Type: b.Metadata.Type, Name: b.Metadata.Name, Version: b.Metadata.Version, Status: b.Metadata.Status, Owner: b.Metadata.Owner, Summary: b.Metadata.Summary, Path: b.Path, Variants: variants, Capabilities: b.Metadata.Capabilities, TargetSystems: b.Metadata.TargetSystems, RequiredInputs: b.Metadata.RequiredInputs, RequiredServiceBlueprints: b.Metadata.RequiredServiceBlueprints, RequiredServices: requiredServices, NamespaceServiceRef: b.Metadata.NamespaceServiceRef, Rules: b.Metadata.Rules, QualityCriteria: b.Metadata.QualityCriteria, EvidenceRequirements: b.Metadata.EvidenceRequirements}
+	requirements := make([]BlueprintRequirementDTO, 0, len(b.Metadata.Requirements))
+	for _, r := range b.Metadata.Requirements {
+		requirements = append(requirements, BlueprintRequirementDTO{ID: r.ID, Label: r.Label, Fulfilled: r.Fulfilled})
+	}
+	return BlueprintDTO{ID: b.Metadata.ID, Type: b.Metadata.Type, Name: b.Metadata.Name, Version: b.Metadata.Version, Status: b.Metadata.Status, Owner: b.Metadata.Owner, Summary: b.Metadata.Summary, Path: b.Path, Variants: variants, Capabilities: b.Metadata.Capabilities, TargetSystems: b.Metadata.TargetSystems, RequiredInputs: b.Metadata.RequiredInputs, RequiredServiceBlueprints: b.Metadata.RequiredServiceBlueprints, RequiredServices: requiredServices, NamespaceServiceRef: b.Metadata.NamespaceServiceRef, Rules: b.Metadata.Rules, QualityCriteria: b.Metadata.QualityCriteria, EvidenceRequirements: b.Metadata.EvidenceRequirements, Requirements: requirements}
 }
 
 func instanceDTO(i cosmosfs.InstanceNode) InstanceDTO {
@@ -739,6 +743,74 @@ func RemoveServiceBlueprintFromProduct(path, productID, serviceID string) (Bluep
 		return BlueprintDTO{}, Error(CodeInternalError, "Failed to write blueprint: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	return GetBlueprint(path, productID)
+}
+
+func AddBlueprintRequirement(path, id, label string) (BlueprintDTO, error) {
+	bp, err := GetBlueprint(path, id)
+	if err != nil {
+		return BlueprintDTO{}, err
+	}
+	if strings.TrimSpace(label) == "" {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "requirement label is required", http.StatusBadRequest, nil)
+	}
+	var raw model.Blueprint
+	if err := fsx.ReadYAML(bp.Path, &raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to read blueprint: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	reqID := fmt.Sprintf("req-%d", time.Now().UnixNano())
+	raw.Requirements = append(raw.Requirements, model.BlueprintRequirement{ID: reqID, Label: label, Fulfilled: false})
+	if err := fsx.WriteYAML(bp.Path, raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to write blueprint: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetBlueprint(path, id)
+}
+
+func SetBlueprintRequirementFulfilled(path, id, reqID string, fulfilled bool) (BlueprintDTO, error) {
+	bp, err := GetBlueprint(path, id)
+	if err != nil {
+		return BlueprintDTO{}, err
+	}
+	var raw model.Blueprint
+	if err := fsx.ReadYAML(bp.Path, &raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to read blueprint: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	found := false
+	for i := range raw.Requirements {
+		if raw.Requirements[i].ID == reqID {
+			raw.Requirements[i].Fulfilled = fulfilled
+			found = true
+			break
+		}
+	}
+	if !found {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "requirement not found: "+reqID, http.StatusNotFound, nil)
+	}
+	if err := fsx.WriteYAML(bp.Path, raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to write blueprint: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetBlueprint(path, id)
+}
+
+func DeleteBlueprintRequirement(path, id, reqID string) (BlueprintDTO, error) {
+	bp, err := GetBlueprint(path, id)
+	if err != nil {
+		return BlueprintDTO{}, err
+	}
+	var raw model.Blueprint
+	if err := fsx.ReadYAML(bp.Path, &raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to read blueprint: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	filtered := raw.Requirements[:0]
+	for _, r := range raw.Requirements {
+		if r.ID != reqID {
+			filtered = append(filtered, r)
+		}
+	}
+	raw.Requirements = filtered
+	if err := fsx.WriteYAML(bp.Path, raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to write blueprint: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetBlueprint(path, id)
 }
 
 func PublishBlueprint(path, id string) (BlueprintDTO, error) {

@@ -124,6 +124,12 @@
 .svc-add-row{display:flex;gap:.4rem;align-items:center}
 .svc-add-row select{flex:1;border:1px solid #d1d5db;border-radius:7px;padding:.38rem .55rem;font-size:.83rem;background:#fff}
 .svc-add-row select:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.1)}
+.req-row{display:flex;align-items:center;gap:.35rem;padding:3px 0;border-radius:5px}
+.req-check{background:none;border:none;cursor:pointer;padding:0;line-height:1;color:#94a3b8;display:flex;align-items:center}.req-check .mi{font-size:17px;font-family:'Material Symbols Outlined'}
+.req-check.fulfilled{color:#10b981}.req-check:hover{color:#6366f1}
+.req-label{flex:1;font-size:.82rem;color:#1e293b}
+.req-done{text-decoration:line-through;color:#94a3b8}
+.req-del{background:none;border:none;cursor:pointer;color:#cbd5e1;padding:0;line-height:1;display:flex;align-items:center}.req-del .mi{font-size:14px;font-family:'Material Symbols Outlined'}.req-del:hover{color:#ef4444}
 </style>
 
 <section class="page-header">
@@ -354,7 +360,7 @@ async function loadDetail(row){const kind=row.dataset.kind,id=row.dataset.id,can
   try{const res=await fetch(url);const d=await res.json();if(!res.ok){detail.innerHTML=`<div style="padding:1rem"><div class="nerror show">${esc(d.error?.message||'Fehler')}</div></div>`;return;}
   if(kind==='domain')detail.innerHTML=domainDetail(d);
   else if(kind==='service')detail.innerHTML=serviceDetail(d);
-  else if(kind==='blueprint')detail.innerHTML=blueprintDetail(d);
+  else if(kind==='blueprint'){detail.innerHTML=blueprintDetail(d);wireReqs(detail,d.id);}
   detail.querySelector('#det-edit')?.addEventListener('click',()=>doEdit(row));
   detail.querySelector('#det-delete')?.addEventListener('click',()=>doDelete(row));
   detail.querySelector('#det-verify')?.addEventListener('click',()=>doVerify(row));
@@ -370,7 +376,48 @@ function domainDetail(d){return `<div class="detail-head"><div class="detail-hea
 
 function serviceDetail(d){return `<div class="detail-head"><div class="detail-head-left">${iconDiv('service')}<div><div class="detail-title">${esc(d.name)}</div><div class="detail-subtitle">Service &middot; ${esc(d.domain)}</div></div></div><div class="detail-actions-head"><button class="btn btn-secondary btn-sm" id="det-edit" title="Bearbeiten"><span class="mi" style="font-family:'Material Symbols Outlined'">edit</span></button><button class="btn btn-danger btn-sm" id="det-delete" title="L&ouml;schen"><span class="mi" style="font-family:'Material Symbols Outlined'">delete</span></button></div></div><div class="detail-body"><dl class="detail-props"><dt>Name</dt><dd>${esc(d.name)}</dd><dt>Domain</dt><dd><code>${esc(d.domain)}</code></dd><dt>Owner</dt><dd>${esc(d.owner||'&ndash;')}</dd><dt>Status</dt><dd><span class="badge badge-${d.status}">${esc(d.status)}</span></dd><dt>Pfad</dt><dd><code>${esc(d.path)}</code></dd></dl></div><div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/domains/${encodeURIComponent(d.domain)}/services/${encodeURIComponent(d.name)}">API JSON</a></div>`;}
 
-function blueprintDetail(d){const caps=(d.capabilities||[]).map(c=>`<span class="badge">${esc(c)}</span>`).join(' ')||'&ndash;';const sys=(d.target_systems||d.targetSystems||[]).join(', ')||'&ndash;';return `<div class="detail-head"><div class="detail-head-left">${iconDiv('blueprint')}<div><div class="detail-title">${esc(d.id)}</div><div class="detail-subtitle">${esc(d.type)}</div></div></div><div class="detail-actions-head"><button class="btn btn-secondary btn-sm" id="det-edit" title="Bearbeiten"><span class="mi" style="font-family:'Material Symbols Outlined'">edit</span></button><button class="btn btn-danger btn-sm" id="det-delete" title="L&ouml;schen"><span class="mi" style="font-family:'Material Symbols Outlined'">delete</span></button></div></div><div class="detail-body"><dl class="detail-props"><dt>ID</dt><dd><code>${esc(d.id)}</code></dd><dt>Name</dt><dd>${esc(d.name||'&ndash;')}</dd><dt>Version</dt><dd>${esc(d.version||'&ndash;')}</dd><dt>Status</dt><dd><span class="badge badge-${d.status}">${esc(d.status)}</span></dd><dt>Owner</dt><dd>${esc(d.owner||'&ndash;')}</dd><dt>Summary</dt><dd>${esc(d.summary||'&ndash;')}</dd><dt>Capabilities</dt><dd>${caps}</dd><dt>Zielsysteme</dt><dd>${esc(sys)}</dd></dl></div><div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/blueprints/${encodeURIComponent(d.id)}">API JSON</a></div>`;}
+function wireReqs(container,bpId){
+  const reqList=container.querySelector('#req-list');
+  const reqCount=container.querySelector('#req-count');
+  function refresh(dto){
+    if(reqList)reqList.innerHTML=renderReqs(dto.requirements||[],bpId);
+    if(reqCount)reqCount.textContent=(dto.requirements||[]).length;
+    wireReqButtons();
+  }
+  function wireReqButtons(){
+    container.querySelectorAll('.req-check').forEach(btn=>{
+      btn.addEventListener('click',async()=>{
+        const rid=btn.dataset.reqId;const cur=btn.dataset.fulfilled==='true';
+        btn.disabled=true;
+        const r=await fetch('/api/v1/blueprints/'+encodeURIComponent(bpId)+'/requirements/'+encodeURIComponent(rid),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fulfilled:!cur})});
+        if(r.ok)refresh(await r.json());else btn.disabled=false;
+      });
+    });
+    container.querySelectorAll('.req-del').forEach(btn=>{
+      btn.addEventListener('click',async()=>{
+        const rid=btn.dataset.reqId;btn.disabled=true;
+        const r=await fetch('/api/v1/blueprints/'+encodeURIComponent(bpId)+'/requirements/'+encodeURIComponent(rid),{method:'DELETE'});
+        if(r.ok)refresh(await r.json());else btn.disabled=false;
+      });
+    });
+  }
+  wireReqButtons();
+  const addBtn=container.querySelector('#req-add-btn');
+  const addInput=container.querySelector('#req-new-label');
+  async function doAddReq(){
+    const label=addInput?.value.trim();if(!label)return;
+    addBtn.disabled=true;
+    const r=await fetch('/api/v1/blueprints/'+encodeURIComponent(bpId)+'/requirements',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({label})});
+    if(r.ok){if(addInput)addInput.value='';refresh(await r.json());}
+    addBtn.disabled=false;
+  }
+  addBtn?.addEventListener('click',doAddReq);
+  addInput?.addEventListener('keydown',e=>{if(e.key==='Enter')doAddReq();});
+}
+function renderReqs(reqs,bpId){if(!reqs||!reqs.length)return`<div style="color:#94a3b8;font-size:.78rem;font-style:italic;padding:.25rem 0">Noch keine Anforderungen.</div>`;return reqs.map(r=>`<div class="req-row" data-req-id="${esc(r.id)}"><button class="req-check ${r.fulfilled?'fulfilled':''}" data-req-id="${esc(r.id)}" data-fulfilled="${r.fulfilled}" title="${r.fulfilled?'Als offen markieren':'Als erfüllt markieren'}"><span class="mi" style="font-family:'Material Symbols Outlined'">${r.fulfilled?'check_circle':'radio_button_unchecked'}</span></button><span class="req-label ${r.fulfilled?'req-done':''}">${esc(r.label)}</span><button class="req-del" data-req-id="${esc(r.id)}" title="Löschen"><span class="mi" style="font-family:'Material Symbols Outlined'">close</span></button></div>`).join('');}
+function blueprintDetail(d){const caps=(d.capabilities||[]).map(c=>`<span class="badge">${esc(c)}</span>`).join(' ')||'&ndash;';const sys=(d.target_systems||d.targetSystems||[]).join(', ')||'&ndash;';
+const reqsHtml=`<div style="margin-top:.75rem"><div style="font-size:.78rem;font-weight:700;color:#475569;margin-bottom:.35rem;display:flex;align-items:center;justify-content:space-between">Anforderungen<span id="req-count" style="background:#eef2ff;color:#4338ca;border-radius:6px;padding:0 6px;font-size:.72rem">${(d.requirements||[]).length}</span></div><div id="req-list">${renderReqs(d.requirements||[],d.id)}</div><div style="display:flex;gap:.35rem;margin-top:.4rem"><input id="req-new-label" placeholder="Neue Anforderung…" style="flex:1;border:1px solid #d1d5db;border-radius:6px;padding:.32rem .55rem;font-size:.82rem" /><button id="req-add-btn" class="btn btn-primary btn-sm">+</button></div></div>`;
+return `<div class="detail-head"><div class="detail-head-left">${iconDiv('blueprint')}<div><div class="detail-title">${esc(d.id)}</div><div class="detail-subtitle">${esc(d.type)}</div></div></div><div class="detail-actions-head"><button class="btn btn-secondary btn-sm" id="det-edit" title="Bearbeiten"><span class="mi" style="font-family:'Material Symbols Outlined'">edit</span></button><button class="btn btn-danger btn-sm" id="det-delete" title="L&ouml;schen"><span class="mi" style="font-family:'Material Symbols Outlined'">delete</span></button></div></div><div class="detail-body"><dl class="detail-props"><dt>ID</dt><dd><code>${esc(d.id)}</code></dd><dt>Name</dt><dd>${esc(d.name||'&ndash;')}</dd><dt>Version</dt><dd>${esc(d.version||'&ndash;')}</dd><dt>Status</dt><dd><span class="badge badge-${d.status}">${esc(d.status)}</span></dd><dt>Owner</dt><dd>${esc(d.owner||'&ndash;')}</dd><dt>Summary</dt><dd>${esc(d.summary||'&ndash;')}</dd><dt>Capabilities</dt><dd>${caps}</dd><dt>Zielsysteme</dt><dd>${esc(sys)}</dd></dl>${reqsHtml}</div><div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/blueprints/${encodeURIComponent(d.id)}">API JSON</a></div>`;}
 
 })();
 </script>
