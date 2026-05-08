@@ -133,9 +133,9 @@ type BlueprintDTO struct {
 	Rules                     []string                  `json:"rules,omitempty"`
 	QualityCriteria           []string                  `json:"quality_criteria"`
 	EvidenceRequirements      []string                  `json:"evidence_requirements"`
-	Requirements              []BlueprintRequirementDTO  `json:"requirements,omitempty"`
-	RequirementsStatus        string                     `json:"requirements_status,omitempty"`
-	Attributes                []BlueprintAttributeDTO    `json:"attributes,omitempty"`
+	Requirements              []BlueprintRequirementDTO `json:"requirements,omitempty"`
+	RequirementsStatus        string                    `json:"requirements_status,omitempty"`
+	Attributes                []BlueprintAttributeDTO   `json:"attributes,omitempty"`
 }
 
 type BlueprintAttributeDTO struct {
@@ -155,16 +155,16 @@ type AttributeRuleDTO struct {
 
 // AttributeValidationDTO is the result of validating an instance's attribute values.
 type AttributeValidationDTO struct {
-	Status     string                  `json:"status"` // valid, invalid, missing_values
-	Attributes []AttrValidationResult  `json:"attributes"`
+	Status     string                 `json:"status"` // valid, invalid, missing_values
+	Attributes []AttrValidationResult `json:"attributes"`
 }
 
 type AttrValidationResult struct {
-	AttributeID string            `json:"attribute_id"`
-	Label       string            `json:"label"`
-	Value       string            `json:"value,omitempty"`
-	Status      string            `json:"status"` // valid, invalid, missing
-	Rules       []RuleResultDTO   `json:"rules,omitempty"`
+	AttributeID string          `json:"attribute_id"`
+	Label       string          `json:"label"`
+	Value       string          `json:"value,omitempty"`
+	Status      string          `json:"status"` // valid, invalid, missing
+	Rules       []RuleResultDTO `json:"rules,omitempty"`
 }
 
 type RuleResultDTO struct {
