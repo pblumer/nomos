@@ -26,23 +26,28 @@
 .ex-tree-body{padding:.5rem .25rem .5rem .5rem;max-height:calc(100vh - 220px);overflow-y:auto}
 .cn-tree,.cn-tree ul,.cn-children{list-style:none;margin:0;padding:0}
 .cn{position:relative}
-.cn-children{margin-left:22px;padding-left:14px;border:none;position:relative}
+/* padding-left=12px reserves space for the vertical line at left:-6px (= 6px from container left) */
+.cn-children{margin-left:18px;padding-left:12px;border:none}
 .cn-children > .cn{position:relative}
-.cn-children > .cn::before{content:"";position:absolute;left:-14px;top:0;bottom:0;width:1px;background:#b8c5d1}
-.cn-children > .cn:last-child::before{bottom:auto;height:16px}
-.cn-children > .cn::after{content:"";position:absolute;left:-14px;top:15px;width:13px;height:1px;background:#b8c5d1}
+/* vertical line: full height for non-last siblings, stops at row-centre for last child */
+.cn-children > .cn::before{content:"";position:absolute;left:-6px;top:0;bottom:0;width:1px;background:#c0cdd8}
+.cn-children > .cn:last-child::before{bottom:auto;height:11px}
+/* horizontal branch from the vertical line to the toggle/leaf (8 px = gap to toggle left edge) */
+.cn-children > .cn::after{content:"";position:absolute;left:-6px;top:10px;width:8px;height:1px;background:#c0cdd8}
 .cn-children.collapsed{display:none}
 .cn-row{display:flex;align-items:center;gap:5px;padding:3px 6px 3px 2px;border-radius:7px;cursor:pointer;user-select:none;transition:background .1s;position:relative}
 .cn-row:hover{background:#f1f5f9}
 .cn-row.selected{background:#eef2ff;box-shadow:inset 3px 0 0 #6366f1}
 .cn-row.selected .cn-label{color:#3730a3;font-weight:600}
 .cn-row.selected .cn-icon{color:#4338ca}
-.cn-toggle{width:15px;height:15px;flex-shrink:0;background:#fff;border:1px solid #94a3b8;cursor:pointer;color:#475569;font-size:0;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:border-color .1s;padding:0;line-height:1;position:relative;z-index:1}
+/* toggle circle sits ON the horizontal branch; white bg covers the branch behind it */
+.cn-toggle{width:15px;height:15px;flex-shrink:0;background:#fff;border:1.5px solid #94a3b8;cursor:pointer;font-size:0;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:border-color .1s,background .1s;padding:0;line-height:1;position:relative;z-index:2}
 .cn-toggle::before{content:'+';font-size:11px;font-weight:700;line-height:1;color:#475569}
 .cn-toggle.open::before{content:'\2212'}
 .cn-toggle:hover{border-color:#4f46e5;background:#f0f0ff}
 .cn-toggle:hover::before{color:#4f46e5}
-.cn-leaf{width:15px;flex-shrink:0}
+/* leaf: rendered as a visible horizontal dash (same role as the toggle for leaf nodes) */
+.cn-leaf{width:13px;height:1px;flex-shrink:0;background:#c0cdd8;align-self:center}
 .cn-icon{font-size:15px;color:#64748b;flex-shrink:0;font-family:'Material Symbols Outlined'}
 .cn-row[data-kind="cosmos"] .cn-icon{color:#4f46e5}
 .cn-row[data-kind="namespace"] .cn-icon{color:#0284c7}
