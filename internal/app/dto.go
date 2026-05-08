@@ -139,11 +139,12 @@ type BlueprintDTO struct {
 }
 
 type BlueprintAttributeDTO struct {
-	ID       string             `json:"id"`
-	Label    string             `json:"label"`
-	Type     string             `json:"type"`
-	Required bool               `json:"required"`
-	Rules    []AttributeRuleDTO `json:"rules,omitempty"`
+	ID         string             `json:"id"`
+	Label      string             `json:"label"`
+	Type       string             `json:"type"`
+	Required   bool               `json:"required"`
+	ServiceRef string             `json:"service_ref,omitempty"`
+	Rules      []AttributeRuleDTO `json:"rules,omitempty"`
 }
 
 type AttributeRuleDTO struct {
@@ -176,9 +177,10 @@ type RuleResultDTO struct {
 }
 
 type BlueprintRequirementDTO struct {
-	ID     string `json:"id"`
-	Label  string `json:"label"`
-	Status string `json:"status"`
+	ID            string   `json:"id"`
+	Label         string   `json:"label"`
+	Status        string   `json:"status"`
+	AttributeRefs []string `json:"attribute_refs,omitempty"`
 }
 
 type VariantDTO struct {

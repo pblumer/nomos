@@ -15,15 +15,28 @@ import (
 // ── Attribute CRUD ────────────────────────────────────────────────────────────
 
 func AddBlueprintAttribute(path, bpID, label, attrType string, required bool) (BlueprintDTO, error) {
-	if strings.TrimSpace(label) == "" {
+	return AddBlueprintAttributeWithServiceRef(path, bpID, label, attrType, required, "")
+}
+
+func AddBlueprintAttributeWithServiceRef(path, bpID, label, attrType string, required bool, serviceRef string) (BlueprintDTO, error) {
+	label = strings.TrimSpace(label)
+	attrType = strings.TrimSpace(attrType)
+	serviceRef = strings.TrimSpace(serviceRef)
+	if label == "" {
 		return BlueprintDTO{}, Error(CodeInvalidInput, "attribute label is required", http.StatusBadRequest, nil)
 	}
-	validTypes := map[string]bool{"text": true, "number": true, "boolean": true, "date": true, "enum": true}
+	validTypes := map[string]bool{"text": true, "number": true, "boolean": true, "date": true, "enum": true, "service_ref": true}
 	if attrType == "" {
 		attrType = "text"
 	}
 	if !validTypes[attrType] {
 		return BlueprintDTO{}, Error(CodeInvalidInput, "invalid attribute type: "+attrType, http.StatusBadRequest, nil)
+	}
+	if attrType != "service_ref" && serviceRef != "" {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "service_ref is only allowed for service_ref attributes", http.StatusBadRequest, nil)
+	}
+	if attrType == "service_ref" && serviceRef != "" && !strings.Contains(serviceRef, "/") {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "service_ref must have the form <domain>/<service>", http.StatusBadRequest, nil)
 	}
 	bp, err := GetBlueprint(path, bpID)
 	if err != nil {
@@ -35,10 +48,11 @@ func AddBlueprintAttribute(path, bpID, label, attrType string, required bool) (B
 	}
 	attrID := fmt.Sprintf("attr-%d", time.Now().UnixNano())
 	raw.Attributes = append(raw.Attributes, model.BlueprintAttribute{
-		ID:       attrID,
-		Label:    label,
-		Type:     attrType,
-		Required: required,
+		ID:         attrID,
+		Label:      label,
+		Type:       attrType,
+		Required:   required,
+		ServiceRef: serviceRef,
 	})
 	if err := fsx.WriteYAML(bp.Path, raw); err != nil {
 		return BlueprintDTO{}, Error(CodeInternalError, "Failed to write blueprint: "+err.Error(), http.StatusInternalServerError, err)
@@ -66,6 +80,15 @@ func DeleteBlueprintAttribute(path, bpID, attrID string) (BlueprintDTO, error) {
 		return BlueprintDTO{}, Error(CodeInvalidInput, "attribute not found: "+attrID, http.StatusNotFound, nil)
 	}
 	raw.Attributes = filtered
+	for i := range raw.Requirements {
+		refs := raw.Requirements[i].AttributeRefs[:0]
+		for _, ref := range raw.Requirements[i].AttributeRefs {
+			if ref != attrID {
+				refs = append(refs, ref)
+			}
+		}
+		raw.Requirements[i].AttributeRefs = refs
+	}
 	if err := fsx.WriteYAML(bp.Path, raw); err != nil {
 		return BlueprintDTO{}, Error(CodeInternalError, "Failed to write blueprint: "+err.Error(), http.StatusInternalServerError, err)
 	}

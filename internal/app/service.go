@@ -363,7 +363,7 @@ func blueprintDTO(b cosmosfs.BlueprintNode) BlueprintDTO {
 	}
 	requirements := make([]BlueprintRequirementDTO, 0, len(b.Metadata.Requirements))
 	for _, r := range b.Metadata.Requirements {
-		requirements = append(requirements, BlueprintRequirementDTO{ID: r.ID, Label: r.Label, Status: r.Status})
+		requirements = append(requirements, BlueprintRequirementDTO{ID: r.ID, Label: r.Label, Status: r.Status, AttributeRefs: r.AttributeRefs})
 	}
 	attributes := make([]BlueprintAttributeDTO, 0, len(b.Metadata.Attributes))
 	for _, a := range b.Metadata.Attributes {
@@ -371,7 +371,7 @@ func blueprintDTO(b cosmosfs.BlueprintNode) BlueprintDTO {
 		for _, rule := range a.Rules {
 			rules = append(rules, AttributeRuleDTO{ID: rule.ID, Label: rule.Label, Type: rule.Type, Value: rule.Value})
 		}
-		attributes = append(attributes, BlueprintAttributeDTO{ID: a.ID, Label: a.Label, Type: a.Type, Required: a.Required, Rules: rules})
+		attributes = append(attributes, BlueprintAttributeDTO{ID: a.ID, Label: a.Label, Type: a.Type, Required: a.Required, ServiceRef: a.ServiceRef, Rules: rules})
 	}
 	return BlueprintDTO{ID: b.Metadata.ID, Type: b.Metadata.Type, Name: b.Metadata.Name, Version: b.Metadata.Version, Status: b.Metadata.Status, Owner: b.Metadata.Owner, Summary: b.Metadata.Summary, Path: b.Path, Variants: variants, Capabilities: b.Metadata.Capabilities, TargetSystems: b.Metadata.TargetSystems, RequiredInputs: b.Metadata.RequiredInputs, RequiredServiceBlueprints: b.Metadata.RequiredServiceBlueprints, RequiredServices: requiredServices, NamespaceServiceRef: b.Metadata.NamespaceServiceRef, Rules: b.Metadata.Rules, QualityCriteria: b.Metadata.QualityCriteria, EvidenceRequirements: b.Metadata.EvidenceRequirements, Requirements: requirements, RequirementsStatus: requirementsStatus(b.Metadata.Requirements), Attributes: attributes}
 }
@@ -768,23 +768,53 @@ func RemoveServiceBlueprintFromProduct(path, productID, serviceID string) (Bluep
 }
 
 func AddBlueprintRequirement(path, id, label string) (BlueprintDTO, error) {
+	return AddBlueprintRequirementWithAttributeRefs(path, id, label, nil)
+}
+
+func AddBlueprintRequirementWithAttributeRefs(path, id, label string, attributeRefs []string) (BlueprintDTO, error) {
 	bp, err := GetBlueprint(path, id)
 	if err != nil {
 		return BlueprintDTO{}, err
 	}
-	if strings.TrimSpace(label) == "" {
+	label = strings.TrimSpace(label)
+	if label == "" {
 		return BlueprintDTO{}, Error(CodeInvalidInput, "requirement label is required", http.StatusBadRequest, nil)
 	}
 	var raw model.Blueprint
 	if err := fsx.ReadYAML(bp.Path, &raw); err != nil {
 		return BlueprintDTO{}, Error(CodeInternalError, "Failed to read blueprint: "+err.Error(), http.StatusInternalServerError, err)
 	}
+	cleanRefs, err := normalizeRequirementAttributeRefs(attributeRefs, raw.Attributes)
+	if err != nil {
+		return BlueprintDTO{}, err
+	}
 	reqID := fmt.Sprintf("req-%d", time.Now().UnixNano())
-	raw.Requirements = append(raw.Requirements, model.BlueprintRequirement{ID: reqID, Label: label, Status: "open"})
+	raw.Requirements = append(raw.Requirements, model.BlueprintRequirement{ID: reqID, Label: label, Status: "open", AttributeRefs: cleanRefs})
 	if err := fsx.WriteYAML(bp.Path, raw); err != nil {
 		return BlueprintDTO{}, Error(CodeInternalError, "Failed to write blueprint: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	return GetBlueprint(path, id)
+}
+
+func normalizeRequirementAttributeRefs(attributeRefs []string, attributes []model.BlueprintAttribute) ([]string, error) {
+	known := make(map[string]bool, len(attributes))
+	for _, attr := range attributes {
+		known[attr.ID] = true
+	}
+	seen := make(map[string]bool, len(attributeRefs))
+	cleanRefs := make([]string, 0, len(attributeRefs))
+	for _, ref := range attributeRefs {
+		ref = strings.TrimSpace(ref)
+		if ref == "" || seen[ref] {
+			continue
+		}
+		if !known[ref] {
+			return nil, Error(CodeInvalidInput, "requirement references unknown attribute: "+ref, http.StatusBadRequest, nil)
+		}
+		seen[ref] = true
+		cleanRefs = append(cleanRefs, ref)
+	}
+	return cleanRefs, nil
 }
 
 func SetBlueprintRequirementStatus(path, id, reqID, status string) (BlueprintDTO, error) {

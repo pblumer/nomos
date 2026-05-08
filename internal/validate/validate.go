@@ -83,6 +83,18 @@ func validateCrossArtifacts(tree cosmosfs.Tree, res *Result) {
 				"Prüfe ob der Service '"+ref+"' im Cosmos existiert (nomos service list --domain <domain>)",
 			)
 		}
+		for _, attr := range b.Metadata.Attributes {
+			attrRef := strings.TrimSpace(attr.ServiceRef)
+			if attr.Type == "service_ref" && attrRef != "" && strings.Contains(attrRef, "/") && !serviceRefs[attrRef] {
+				res.addTyped(
+					"BLUEPRINT_ATTRIBUTE_SERVICE_REF_MISSING", "warning",
+					"Blueprint "+b.Metadata.ID+": Attribut "+attr.ID+" referenziert unbekannten Service: "+attrRef,
+					relPath(tree.Path, b.Path),
+					b.Metadata.Type, b.Metadata.ID,
+					"Prüfe ob der Service '"+attrRef+"' im Cosmos existiert (nomos service list --domain <domain>)",
+				)
+			}
+		}
 		// Check required_services refs
 		for _, svc := range b.Metadata.RequiredServices {
 			if svc.ServiceRef != "" && !serviceRefs[svc.ServiceRef] {
@@ -245,6 +257,37 @@ func validateBlueprint(b model.Blueprint, path string, res *Result) {
 			}
 			if strings.TrimSpace(svc.ServiceBlueprintRef) == "" {
 				res.add("PRODUCT_BLUEPRINT_REQUIRED_SERVICE_BLUEPRINT_REF_EMPTY", "error", "required_services Eintrag benoetigt service_blueprint_ref", entryPath)
+			}
+		}
+	}
+	attributeIDs := make(map[string]bool, len(b.Attributes))
+	for i, attr := range b.Attributes {
+		entryPath := path + ":attributes[" + fmt.Sprint(i) + "]"
+		if strings.TrimSpace(attr.ID) != "" {
+			attributeIDs[attr.ID] = true
+		}
+		if strings.TrimSpace(attr.Label) == "" {
+			res.add("BLUEPRINT_ATTRIBUTE_LABEL_EMPTY", "error", "Attribut benoetigt label", entryPath)
+		}
+		if attr.Type == "service_ref" {
+			if ref := strings.TrimSpace(attr.ServiceRef); ref != "" && !strings.Contains(ref, "/") {
+				res.add("BLUEPRINT_ATTRIBUTE_SERVICE_REF_SHAPE", "warning", "Attribut service_ref sollte die Form <domain>/<service> haben", entryPath)
+			}
+		}
+		if attr.Type != "service_ref" && strings.TrimSpace(attr.ServiceRef) != "" {
+			res.add("BLUEPRINT_ATTRIBUTE_SERVICE_REF_TYPE", "error", "service_ref ist nur fuer Attribute vom Typ service_ref erlaubt", entryPath)
+		}
+	}
+	for i, req := range b.Requirements {
+		entryPath := path + ":requirements[" + fmt.Sprint(i) + "]"
+		for _, ref := range req.AttributeRefs {
+			ref = strings.TrimSpace(ref)
+			if ref == "" {
+				res.add("BLUEPRINT_REQUIREMENT_ATTRIBUTE_REF_EMPTY", "warning", "Anforderung enthaelt leere attribute_refs Referenz", entryPath)
+				continue
+			}
+			if !attributeIDs[ref] {
+				res.add("BLUEPRINT_REQUIREMENT_ATTRIBUTE_REF_UNKNOWN", "error", "Anforderung referenziert unbekanntes Attribut: "+ref, entryPath)
 			}
 		}
 	}

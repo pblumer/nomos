@@ -574,3 +574,34 @@ func TestValidateBlueprint_NotFound(t *testing.T) {
 		t.Fatal("expected error for non-existent blueprint")
 	}
 }
+
+func TestAddBlueprintRequirement_WithAttributeRefs(t *testing.T) {
+	p, productID, _ := createProductAndService(t)
+
+	withAttr, err := AddBlueprintAttribute(p, productID, "Region", "text", true)
+	if err != nil {
+		t.Fatalf("add attribute: %v", err)
+	}
+	attrID := withAttr.Attributes[0].ID
+
+	got, err := AddBlueprintRequirementWithAttributeRefs(p, productID, "Region muss gesetzt sein", []string{attrID})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got.Requirements) != 1 {
+		t.Fatalf("expected 1 requirement, got %d", len(got.Requirements))
+	}
+	refs := got.Requirements[0].AttributeRefs
+	if len(refs) != 1 || refs[0] != attrID {
+		t.Fatalf("expected attribute ref %q, got %#v", attrID, refs)
+	}
+}
+
+func TestAddBlueprintRequirement_UnknownAttributeRef(t *testing.T) {
+	p, productID, _ := createProductAndService(t)
+
+	_, err := AddBlueprintRequirementWithAttributeRefs(p, productID, "Region muss gesetzt sein", []string{"attr-missing"})
+	if err == nil {
+		t.Fatal("expected error for unknown attribute ref")
+	}
+}

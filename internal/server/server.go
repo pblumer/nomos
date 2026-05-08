@@ -407,13 +407,14 @@ func (h *handler) apiBlueprintRoutes(w http.ResponseWriter, r *http.Request) {
 	if len(parts) >= 2 && parts[0] != "" && parts[1] == "requirements" {
 		if len(parts) == 2 && r.Method == http.MethodPost {
 			var body struct {
-				Label string `json:"label"`
+				Label         string   `json:"label"`
+				AttributeRefs []string `json:"attribute_refs"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Label == "" {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "label required"})
 				return
 			}
-			dto, err := app.AddBlueprintRequirement(h.cosmosPath, parts[0], body.Label)
+			dto, err := app.AddBlueprintRequirementWithAttributeRefs(h.cosmosPath, parts[0], body.Label, body.AttributeRefs)
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -483,15 +484,16 @@ func (h *handler) apiBlueprintRoutes(w http.ResponseWriter, r *http.Request) {
 	if len(parts) >= 2 && parts[0] != "" && parts[1] == "attributes" {
 		if len(parts) == 2 && r.Method == http.MethodPost {
 			var body struct {
-				Label    string `json:"label"`
-				Type     string `json:"type"`
-				Required bool   `json:"required"`
+				Label      string `json:"label"`
+				Type       string `json:"type"`
+				Required   bool   `json:"required"`
+				ServiceRef string `json:"service_ref"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Label == "" {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "label required"})
 				return
 			}
-			dto, err := app.AddBlueprintAttribute(h.cosmosPath, parts[0], body.Label, body.Type, body.Required)
+			dto, err := app.AddBlueprintAttributeWithServiceRef(h.cosmosPath, parts[0], body.Label, body.Type, body.Required, body.ServiceRef)
 			if err != nil {
 				h.apiErr(w, err)
 				return

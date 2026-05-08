@@ -80,18 +80,20 @@ type Blueprint struct {
 // BlueprintRequirement represents a design-time check on a blueprint.
 // Status: "" (not yet assessed) → "open" → "fulfilled"
 type BlueprintRequirement struct {
-	ID     string `yaml:"id" json:"id"`
-	Label  string `yaml:"label" json:"label"`
-	Status string `yaml:"status" json:"status"`
+	ID            string   `yaml:"id" json:"id"`
+	Label         string   `yaml:"label" json:"label"`
+	Status        string   `yaml:"status" json:"status"`
+	AttributeRefs []string `yaml:"attribute_refs,omitempty" json:"attribute_refs,omitempty"`
 }
 
 // BlueprintAttribute is a typed property of a blueprint with attached validation rules.
 type BlueprintAttribute struct {
-	ID       string          `yaml:"id" json:"id"`
-	Label    string          `yaml:"label" json:"label"`
-	Type     string          `yaml:"type" json:"type"` // text, number, boolean, date, enum
-	Required bool            `yaml:"required" json:"required"`
-	Rules    []AttributeRule `yaml:"rules,omitempty" json:"rules,omitempty"`
+	ID         string          `yaml:"id" json:"id"`
+	Label      string          `yaml:"label" json:"label"`
+	Type       string          `yaml:"type" json:"type"` // text, number, boolean, date, enum, service_ref
+	Required   bool            `yaml:"required" json:"required"`
+	ServiceRef string          `yaml:"service_ref,omitempty" json:"service_ref,omitempty"`
+	Rules      []AttributeRule `yaml:"rules,omitempty" json:"rules,omitempty"`
 }
 
 // AttributeRule defines one validation constraint on a BlueprintAttribute.
