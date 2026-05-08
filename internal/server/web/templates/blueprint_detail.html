@@ -103,8 +103,14 @@
       <h3><span class="mi">checklist</span> Requirements & Controls</h3>
       {{if .Blueprint.RequiredInputs}}
       <div class="req-section">
-        <h4>Required Inputs</h4>
+        <h4>Required inputs</h4>
         <div class="req-tags">{{range .Blueprint.RequiredInputs}}<span class="req-tag">{{.}}</span>{{end}}</div>
+      </div>
+      {{end}}
+      {{if .Blueprint.RequiredServices}}
+      <div class="req-section">
+        <h4>Required services</h4>
+        <div class="req-tags">{{range .Blueprint.RequiredServices}}<span class="req-tag">{{.ServiceRef}}{{if .ServiceBlueprintRef}} → {{.ServiceBlueprintRef}}{{end}}</span>{{end}}</div>
       </div>
       {{end}}
       {{if .Blueprint.Rules}}
@@ -115,13 +121,13 @@
       {{end}}
       {{if .Blueprint.QualityCriteria}}
       <div class="req-section">
-        <h4>Quality Criteria</h4>
+        <h4>Quality criteria</h4>
         <div class="req-tags">{{range .Blueprint.QualityCriteria}}<span class="req-tag">{{.}}</span>{{end}}</div>
       </div>
       {{end}}
       {{if .Blueprint.EvidenceRequirements}}
       <div class="req-section">
-        <h4>Evidence Requirements</h4>
+        <h4>Evidence requirements</h4>
         <div class="req-tags">{{range .Blueprint.EvidenceRequirements}}<span class="req-tag">{{.}}</span>{{end}}</div>
       </div>
       {{end}}
@@ -131,7 +137,7 @@
         <div class="req-tags">{{range .Blueprint.Capabilities}}<span class="req-tag">{{.}}</span>{{end}}</div>
       </div>
       {{end}}
-      {{if and (not .Blueprint.RequiredInputs) (not .Blueprint.Rules) (not .Blueprint.QualityCriteria) (not .Blueprint.EvidenceRequirements) (not .Blueprint.Capabilities)}}
+      {{if and (not .Blueprint.RequiredInputs) (not .Blueprint.RequiredServices) (not .Blueprint.Rules) (not .Blueprint.QualityCriteria) (not .Blueprint.EvidenceRequirements) (not .Blueprint.Capabilities)}}
       <span class="req-empty">Keine Requirements definiert.</span>
       {{end}}
     </div>
