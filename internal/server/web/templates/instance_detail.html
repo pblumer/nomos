@@ -1,1 +1,297 @@
-{{define "instance_detail"}}{{template "layout" .}}{{end}}{{define "content_instance_detail"}}<section class="page-header"><div><h2>{{.Instance.ID}}</h2><p>{{.Instance.Name}}</p></div><a class="button button-secondary" href="/api/v1/instances/{{.Instance.ID}}">API JSON</a></section><section class="split-grid"><article class="card"><h3>Instance</h3><dl class="details-list"><dt>Type</dt><dd>{{.Instance.Type}}</dd><dt>Blueprint</dt><dd>{{.Instance.BlueprintRef}}@{{.Instance.BlueprintVersion}}</dd><dt>Status</dt><dd><span class="badge">{{.Instance.Status}}</span></dd><dt>Owner</dt><dd>{{.Instance.Owner}}</dd><dt>Path</dt><dd><code>{{.Instance.Path}}</code></dd><dt>Provider</dt><dd>{{.Instance.ProviderRef}}</dd><dt>Owning product</dt><dd>{{.Instance.OwningProductInstance}}</dd></dl></article><article class="card"><h3>Compliance</h3><p>Status: <span class="badge">{{.Compliance.Status}}</span></p><h4>Evidence</h4>{{range .Compliance.Evidence}}<div class="list-row">{{.ID}} · {{.Type}} · {{.Summary}}</div>{{else}}<p class="empty-state">No evidence</p>{{end}}<h4>Findings</h4>{{range .Compliance.Findings}}<div class="list-row"><span class="badge badge-{{.Severity}}">{{.Severity}}</span> {{.Summary}}{{.Message}}</div>{{else}}<p class="empty-state">No findings</p>{{end}}</article></section>{{end}}
+{{define "instance_detail"}}{{template "layout" .}}{{end}}
+
+{{define "content_instance_detail"}}
+<style>
+.id-layout{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem;align-items:start}
+@media(max-width:900px){.id-layout{grid-template-columns:1fr}}
+.id-card{background:#fff;border:1px solid #e8edf4;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+.id-card-head{padding:.9rem 1.1rem .75rem;border-bottom:1px solid #f0f4f8;display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.id-card-head h3{margin:0;font-size:.9rem;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:.4rem}
+.id-card-head h3 .mi{font-size:16px;font-family:'Material Symbols Outlined';color:#64748b}
+.id-card-body{padding:1rem 1.1rem}
+.id-props{display:grid;grid-template-columns:max-content 1fr;gap:.35rem .8rem;font-size:.84rem}
+.id-props dt{font-weight:600;color:#475569;white-space:nowrap;padding-top:1px}
+.id-props dd{margin:0;color:#1e293b;word-break:break-all}
+.id-props code{background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:.78rem}
+.id-full{grid-column:1/-1}
+.svc-list{display:flex;flex-direction:column;gap:.5rem}
+.svc-item{display:flex;align-items:center;gap:.6rem;padding:.55rem .7rem;border:1px solid #e8edf4;border-radius:8px;text-decoration:none;color:inherit;transition:background .1s}
+.svc-item:hover{background:#f8fafc;border-color:#c7d2fe}
+.svc-item-icon{width:28px;height:28px;border-radius:6px;background:#ede9fe;color:#5b21b6;display:grid;place-items:center;font-family:'Material Symbols Outlined';font-size:14px;flex-shrink:0}
+.svc-item-main{flex:1;min-width:0}
+.svc-item-title{font-size:.84rem;font-weight:600;color:#0f172a}
+.svc-item-sub{font-size:.73rem;color:#64748b}
+.svc-empty{padding:1.2rem;text-align:center;color:#94a3b8;font-style:italic;font-size:.84rem;border:1px dashed #e2e8f0;border-radius:8px}
+.finding-row{padding:.5rem .65rem;border-radius:7px;font-size:.83rem;margin-bottom:.35rem;border-left:3px solid transparent}
+.finding-row.critical,.finding-row.high{background:#fef2f2;border-color:#f87171}
+.finding-row.medium{background:#fef3c7;border-color:#fbbf24}
+.finding-row.low{background:#eff6ff;border-color:#60a5fa}
+.finding-row.info{background:#f0fdf4;border-color:#4ade80}
+.btn{display:inline-flex;align-items:center;gap:.3rem;padding:.32rem .7rem;border-radius:7px;font-size:.81rem;font-weight:600;cursor:pointer;border:none;transition:background .12s;text-decoration:none;line-height:1.4}
+.btn .mi{font-size:14px;font-family:'Material Symbols Outlined'}
+.btn-primary{background:#4f46e5;color:#fff}.btn-primary:hover{background:#4338ca}
+.btn-secondary{background:#f1f5f9;color:#334155;border:1px solid #e2e8f0}.btn-secondary:hover{background:#e2e8f0}
+.btn-danger{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}.btn-danger:hover{background:#fee2e2}
+.btn-sm{padding:.2rem .45rem;font-size:.76rem}
+.nmodal-overlay{position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.45);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .15s,visibility .15s}
+.nmodal-overlay.open{opacity:1;visibility:visible}
+.nmodal{background:#fff;border-radius:14px;width:min(500px,94vw);box-shadow:0 8px 40px rgba(15,23,42,.18);transform:translateY(8px) scale(.97);transition:transform .15s}
+.nmodal-overlay.open .nmodal{transform:none}
+.nmodal-head{padding:1.1rem 1.4rem .85rem;border-bottom:1px solid #f0f4f8;display:flex;justify-content:space-between;align-items:center}
+.nmodal-head h3{margin:0;font-size:1rem}
+.nmodal-close{background:none;border:none;cursor:pointer;color:#94a3b8;font-size:1.1rem;padding:4px 7px;border-radius:6px}.nmodal-close:hover{background:#f1f5f9}
+.nmodal-body{padding:1.1rem 1.4rem}
+.nmodal-foot{padding:.85rem 1.4rem;border-top:1px solid #f0f4f8;display:flex;justify-content:flex-end;gap:.5rem}
+.nfield{margin-bottom:.8rem}
+.nfield label{display:block;font-size:.79rem;font-weight:600;color:#475569;margin-bottom:.25rem}
+.nfield input,.nfield select{width:100%;border:1px solid #d1d5db;border-radius:7px;padding:.42rem .62rem;font-size:.85rem;background:#fff;transition:border .12s;box-sizing:border-box}
+.nfield input:focus,.nfield select:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.1)}
+.nerror{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:7px;padding:.5rem .7rem;font-size:.82rem;margin-bottom:.75rem;display:none}
+.nerror.show{display:block}
+.badge-compliance-compliant{background:#d1fae5;color:#065f46}
+.badge-compliance-non_compliant{background:#fee2e2;color:#991b1b}
+.badge-compliance-warning{background:#fef3c7;color:#92400e}
+.badge-compliance-unknown{background:#f1f5f9;color:#64748b}
+.badge-compliance-blocked{background:#fce7f3;color:#9d174d}
+</style>
+
+<section class="page-header">
+  <div>
+    <h2>{{if .Instance.Name}}{{.Instance.Name}}{{else}}{{.Instance.ID}}{{end}}</h2>
+    <p>
+      {{if eq .Instance.Type "product_instance"}}Product Instance{{else}}Service Instance{{end}}
+      {{if .Instance.OwningProductInstance}} · Teil von <a href="/instances/{{.Instance.OwningProductInstance}}">{{.Instance.OwningProductInstance}}</a>{{end}}
+    </p>
+  </div>
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+    <a class="btn btn-secondary" href="/api/v1/instances/{{.Instance.ID}}"><span class="mi">code</span> API JSON</a>
+    <button class="btn btn-secondary" id="btn-edit"><span class="mi">edit</span> Bearbeiten</button>
+    <button class="btn btn-danger" id="btn-delete"><span class="mi">delete</span> Löschen</button>
+  </div>
+</section>
+
+<div class="id-layout">
+
+  {{/* Left column: metadata + sub-services */}}
+  <div style="display:flex;flex-direction:column;gap:1rem">
+
+    <div class="id-card">
+      <div class="id-card-head">
+        <h3><span class="mi">info</span> Details</h3>
+      </div>
+      <div class="id-card-body">
+        <dl class="id-props">
+          <dt>ID</dt><dd><code>{{.Instance.ID}}</code></dd>
+          <dt>Typ</dt><dd>{{.Instance.Type}}</dd>
+          <dt>Blueprint</dt><dd><code>{{.Instance.BlueprintRef}}</code>{{if .Instance.BlueprintVersion}} @ {{.Instance.BlueprintVersion}}{{end}}</dd>
+          <dt>Status</dt><dd><span class="badge">{{.Instance.Status}}</span></dd>
+          <dt>Owner</dt><dd>{{if .Instance.Owner}}{{.Instance.Owner}}{{else}}&ndash;{{end}}</dd>
+          {{if .Instance.ProviderRef}}<dt>Provider</dt><dd><code>{{.Instance.ProviderRef}}</code></dd>{{end}}
+          <dt>Pfad</dt><dd><code>{{.Instance.Path}}</code></dd>
+        </dl>
+      </div>
+    </div>
+
+    {{if .Instance.Inputs}}
+    <div class="id-card">
+      <div class="id-card-head"><h3><span class="mi">tune</span> Inputs</h3></div>
+      <div class="id-card-body">
+        <dl class="id-props">
+          {{range $k,$v := .Instance.Inputs}}<dt>{{$k}}</dt><dd><code>{{$v}}</code></dd>{{end}}
+        </dl>
+      </div>
+    </div>
+    {{end}}
+
+    {{/* Sub-Services (only for product instances) */}}
+    {{if eq .Instance.Type "product_instance"}}
+    <div class="id-card">
+      <div class="id-card-head">
+        <h3><span class="mi">settings</span> Service Instances</h3>
+        <button class="btn btn-primary btn-sm" id="btn-add-svc"><span class="mi">add_circle</span> Service hinzufügen</button>
+      </div>
+      <div class="id-card-body">
+        {{if .SubInstances}}
+        <div class="svc-list">
+          {{range .SubInstances}}
+          <a class="svc-item" href="/instances/{{.ID}}">
+            <div class="svc-item-icon">settings</div>
+            <div class="svc-item-main">
+              <div class="svc-item-title">{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</div>
+              <div class="svc-item-sub">{{.ID}} · <code style="font-size:.7rem">{{.BlueprintRef}}</code></div>
+            </div>
+            <span class="badge badge-compliance-{{.ComplianceStatus}}">{{if .ComplianceStatus}}{{.ComplianceStatus}}{{else}}unknown{{end}}</span>
+          </a>
+          {{end}}
+        </div>
+        {{else}}
+        <div class="svc-empty">Noch keine Service Instances vorhanden.<br>Klicke «Service hinzufügen» um eine zu erstellen.</div>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
+
+  </div>
+
+  {{/* Right column: compliance */}}
+  <div style="display:flex;flex-direction:column;gap:1rem">
+
+    <div class="id-card">
+      <div class="id-card-head">
+        <h3><span class="mi">verified_user</span> Compliance</h3>
+        <button class="btn btn-secondary btn-sm" id="btn-verify"><span class="mi">check_circle</span> Verifizieren</button>
+      </div>
+      <div class="id-card-body">
+        <p style="margin:0 0 .75rem;font-size:.85rem">
+          Status: <span class="badge badge-compliance-{{.Compliance.Status}}">{{if .Compliance.Status}}{{.Compliance.Status}}{{else}}unknown{{end}}</span>
+        </p>
+        <h4 style="font-size:.82rem;font-weight:700;color:#475569;margin:.75rem 0 .4rem">Evidence</h4>
+        {{range .Compliance.Evidence}}
+        <div style="padding:.4rem .6rem;background:#f8fafc;border-radius:6px;font-size:.82rem;margin-bottom:.3rem">
+          <strong>{{.ID}}</strong> · {{.Type}}<br><span style="color:#64748b">{{.Summary}}</span>
+        </div>
+        {{else}}<p style="color:#94a3b8;font-size:.83rem;font-style:italic">Kein Evidence vorhanden</p>{{end}}
+
+        <h4 style="font-size:.82rem;font-weight:700;color:#475569;margin:.75rem 0 .4rem">Findings</h4>
+        {{range .Compliance.Findings}}
+        <div class="finding-row {{.Severity}}">
+          <strong>{{.Severity}}</strong>{{if .Category}} · {{.Category}}{{end}}<br>
+          {{if .Summary}}{{.Summary}}{{end}}{{if .Message}}<span style="color:#64748b"> — {{.Message}}</span>{{end}}
+        </div>
+        {{else}}<p style="color:#94a3b8;font-size:.83rem;font-style:italic">Keine Findings</p>{{end}}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{{/* Edit Modal */}}
+<div id="edit-modal" class="nmodal-overlay">
+  <div class="nmodal">
+    <div class="nmodal-head"><h3>Instanz bearbeiten</h3><button class="nmodal-close" id="edit-close">&#x2715;</button></div>
+    <div class="nmodal-body">
+      <div id="edit-error" class="nerror"></div>
+      <div class="nfield"><label>Name</label><input id="ef-name" value="{{.Instance.Name}}" /></div>
+      <div class="nfield"><label>Owner</label><input id="ef-owner" value="{{.Instance.Owner}}" /></div>
+      <div class="nfield">
+        <label>Status</label>
+        <select id="ef-status">
+            <option value="draft"{{if eq .Instance.Status "draft"}} selected{{end}}>draft</option>
+          <option value="active"{{if eq .Instance.Status "active"}} selected{{end}}>active</option>
+          <option value="deprecated"{{if eq .Instance.Status "deprecated"}} selected{{end}}>deprecated</option>
+        </select>
+      </div>
+    </div>
+    <div class="nmodal-foot">
+      <button class="btn btn-secondary" id="edit-cancel">Abbrechen</button>
+      <button class="btn btn-primary" id="edit-confirm">Speichern</button>
+    </div>
+  </div>
+</div>
+
+{{/* Add Service Instance Modal (only for product instances) */}}
+{{if eq .Instance.Type "product_instance"}}
+<div id="svc-modal" class="nmodal-overlay">
+  <div class="nmodal">
+    <div class="nmodal-head"><h3>Service Instance hinzufügen</h3><button class="nmodal-close" id="svc-close">&#x2715;</button></div>
+    <div class="nmodal-body">
+      <div id="svc-error" class="nerror"></div>
+      <div class="nfield"><label>ID</label><input id="sf-id" placeholder="z.B. SVC-MAILBOX-001" /></div>
+      <div class="nfield"><label>Name</label><input id="sf-name" placeholder="Anzeigename" /></div>
+      <div class="nfield">
+        <label>Service Blueprint</label>
+        <select id="sf-blueprint">
+          <option value="">— Blueprint wählen —</option>
+          {{range .Blueprints}}{{if eq .Type "service_blueprint"}}
+          <option value="{{.ID}}">{{.ID}}{{if .Name}} · {{.Name}}{{end}}</option>
+          {{end}}{{end}}
+        </select>
+      </div>
+      <div class="nfield"><label>Owner</label><input id="sf-owner" placeholder="Team oder Person" /></div>
+    </div>
+    <div class="nmodal-foot">
+      <button class="btn btn-secondary" id="svc-cancel">Abbrechen</button>
+      <button class="btn btn-primary" id="svc-confirm">Service hinzufügen</button>
+    </div>
+  </div>
+</div>
+{{end}}
+
+<script>
+(function(){
+'use strict';
+const productID={{.Instance.ID | printf "%q"}};
+const isProduct={{if eq .Instance.Type "product_instance"}}true{{else}}false{{end}};
+
+// Edit modal
+const editModal=document.getElementById('edit-modal');
+function openEdit(){editModal.classList.add('open');}
+function closeEdit(){editModal.classList.remove('open');}
+document.getElementById('btn-edit').addEventListener('click',openEdit);
+document.getElementById('edit-close').addEventListener('click',closeEdit);
+document.getElementById('edit-cancel').addEventListener('click',closeEdit);
+editModal.addEventListener('click',e=>{if(e.target===editModal)closeEdit();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeEdit();if(isProduct)closeSvc();}});
+
+document.getElementById('edit-confirm').addEventListener('click',async()=>{
+  const err=document.getElementById('edit-error');
+  const btn=document.getElementById('edit-confirm');
+  btn.disabled=true;btn.textContent='Speichert…';
+  try{
+    const body={name:document.getElementById('ef-name').value.trim(),owner:document.getElementById('ef-owner').value.trim()||'unknown',status:document.getElementById('ef-status').value};
+    const r=await fetch('/api/v1/instances/'+encodeURIComponent(productID),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok){location.reload();}
+    else{const d=await r.json().catch(()=>({}));err.textContent=d.error?.message||'Speichern fehlgeschlagen';err.classList.add('show');}
+  }finally{btn.disabled=false;btn.textContent='Speichern';}
+});
+
+// Delete
+document.getElementById('btn-delete').addEventListener('click',async()=>{
+  if(!confirm('Instanz "'+productID+'" wirklich löschen?'))return;
+  const r=await fetch('/api/v1/instances/'+encodeURIComponent(productID),{method:'DELETE'});
+  if(r.ok)location.href='/instances';
+  else{const d=await r.json().catch(()=>({}));alert(d.error?.message||'Löschen fehlgeschlagen');}
+});
+
+// Verify
+document.getElementById('btn-verify').addEventListener('click',async()=>{
+  const r=await fetch('/api/v1/instances/'+encodeURIComponent(productID)+'/verify',{method:'POST'});
+  const d=await r.json().catch(()=>({}));
+  if(r.ok)location.reload();
+  else alert(d.error?.message||'Verifizierung fehlgeschlagen');
+});
+
+// Add Service Instance (product only)
+if(isProduct){
+  const svcModal=document.getElementById('svc-modal');
+  function openSvc(){svcModal.classList.add('open');}
+  function closeSvc(){svcModal.classList.remove('open');}
+  document.getElementById('btn-add-svc').addEventListener('click',openSvc);
+  document.getElementById('svc-close').addEventListener('click',closeSvc);
+  document.getElementById('svc-cancel').addEventListener('click',closeSvc);
+  svcModal.addEventListener('click',e=>{if(e.target===svcModal)closeSvc();});
+
+  document.getElementById('svc-confirm').addEventListener('click',async()=>{
+    const err=document.getElementById('svc-error');
+    const btn=document.getElementById('svc-confirm');
+    const id=document.getElementById('sf-id').value.trim();
+    const name=document.getElementById('sf-name').value.trim();
+    const bp=document.getElementById('sf-blueprint').value;
+    const owner=document.getElementById('sf-owner').value.trim()||'unknown';
+    err.classList.remove('show');
+    if(!id){err.textContent='ID ist erforderlich';err.classList.add('show');return;}
+    if(!bp){err.textContent='Blueprint ist erforderlich';err.classList.add('show');return;}
+    btn.disabled=true;btn.textContent='Erstelle…';
+    try{
+      const payload={id,name,blueprint_ref:bp,blueprint_version:'0.1.0',status:'draft',owner};
+      const r=await fetch('/api/v1/product-instances/'+encodeURIComponent(productID)+'/service-instances',
+        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const d=await r.json().catch(()=>({}));
+      if(r.ok){location.href='/instances/'+encodeURIComponent(id);}
+      else{err.textContent=d.error?.message||'Erstellen fehlgeschlagen';err.classList.add('show');}
+    }finally{btn.disabled=false;btn.textContent='Service hinzufügen';}
+  });
+}
+})();
+</script>
+{{end}}
