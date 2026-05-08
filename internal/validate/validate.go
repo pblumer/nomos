@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/nomos/nomos/internal/cosmosfs"
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/model"
 	"github.com/nomos/nomos/internal/storage"
@@ -14,10 +15,13 @@ import (
 )
 
 type Finding struct {
-	Code     string `json:"code"`
-	Severity string `json:"severity"`
-	Message  string `json:"message"`
-	Path     string `json:"path,omitempty"`
+	Code         string `json:"code"`
+	Severity     string `json:"severity"`
+	Message      string `json:"message"`
+	Path         string `json:"path,omitempty"`
+	ArtifactType string `json:"artifact_type,omitempty"`
+	ArtifactID   string `json:"artifact_id,omitempty"`
+	Suggestion   string `json:"suggestion,omitempty"`
 }
 type Result struct {
 	Status   string    `json:"status"`
@@ -40,6 +44,9 @@ func Validate(path string) (Result, error) {
 	if err := validateCatalogArtifacts(path, &res); err != nil {
 		return res, err
 	}
+	if tree, err := cosmosfs.LoadTree(path); err == nil {
+		validateCrossArtifacts(tree, &res)
+	}
 	for _, f := range res.Findings {
 		if f.Severity == "error" {
 			res.Status = "failed"
@@ -47,6 +54,124 @@ func Validate(path string) (Result, error) {
 		}
 	}
 	return res, nil
+}
+
+func validateCrossArtifacts(tree cosmosfs.Tree, res *Result) {
+	// Build lookup sets
+	serviceRefs := make(map[string]bool)
+	for _, d := range tree.Domains {
+		for _, svc := range d.Services {
+			domainName := d.Name
+			serviceRefs[domainName+"/"+svc.Name] = true
+		}
+	}
+	blueprintIDs := make(map[string]string) // id → type
+	for _, b := range tree.Blueprints {
+		blueprintIDs[b.Metadata.ID] = b.Metadata.Type
+	}
+
+	// Check: blueprint namespace_service_ref must resolve to an existing domain/service
+	// (only when ref has the correct domain/service format — malformed refs get a shape warning from validateBlueprint)
+	for _, b := range tree.Blueprints {
+		ref := strings.TrimSpace(b.Metadata.NamespaceServiceRef)
+		if ref != "" && strings.Contains(ref, "/") && !serviceRefs[ref] {
+			res.addTyped(
+				"BLUEPRINT_SERVICE_REF_MISSING", "error",
+				"Blueprint "+b.Metadata.ID+" referenziert unbekannten Service: "+ref,
+				relPath(tree.Path, b.Path),
+				b.Metadata.Type, b.Metadata.ID,
+				"Prüfe ob der Service '"+ref+"' im Cosmos existiert (nomos service list --domain <domain>)",
+			)
+		}
+		// Check required_services refs
+		for _, svc := range b.Metadata.RequiredServices {
+			if svc.ServiceRef != "" && !serviceRefs[svc.ServiceRef] {
+				res.addTyped(
+					"BLUEPRINT_REQUIRED_SERVICE_REF_MISSING", "warning",
+					"Blueprint "+b.Metadata.ID+": required_services service_ref nicht gefunden: "+svc.ServiceRef,
+					relPath(tree.Path, b.Path),
+					b.Metadata.Type, b.Metadata.ID,
+					"Erstelle den Service mit 'nomos service add "+svc.ServiceRef+"'",
+				)
+			}
+			if svc.ServiceBlueprintRef != "" {
+				if _, ok := blueprintIDs[svc.ServiceBlueprintRef]; !ok {
+					res.addTyped(
+						"BLUEPRINT_SERVICE_BLUEPRINT_REF_MISSING", "error",
+						"Blueprint "+b.Metadata.ID+": required_services service_blueprint_ref nicht gefunden: "+svc.ServiceBlueprintRef,
+						relPath(tree.Path, b.Path),
+						b.Metadata.Type, b.Metadata.ID,
+						"Erstelle den Service Blueprint mit ID '"+svc.ServiceBlueprintRef+"'",
+					)
+				}
+			}
+		}
+	}
+
+	// Check: instance blueprint_ref must point to an existing blueprint
+	for _, inst := range tree.Instances {
+		if inst.Metadata.BlueprintRef == "" {
+			continue
+		}
+		bpType, ok := blueprintIDs[inst.Metadata.BlueprintRef]
+		if !ok {
+			res.addTyped(
+				"INSTANCE_BLUEPRINT_REF_MISSING", "error",
+				"Instance "+inst.Metadata.ID+": blueprint_ref nicht gefunden: "+inst.Metadata.BlueprintRef,
+				relPath(tree.Path, inst.Path),
+				inst.Metadata.Type, inst.Metadata.ID,
+				"Erstelle den Blueprint mit 'nomos blueprint create --id "+inst.Metadata.BlueprintRef+"'",
+			)
+			continue
+		}
+		// Check: instance type must match blueprint type
+		expectedInstType := "product_instance"
+		if bpType == "service_blueprint" {
+			expectedInstType = "service_instance"
+		}
+		if inst.Metadata.Type != expectedInstType {
+			res.addTyped(
+				"INSTANCE_TYPE_MISMATCH", "error",
+				"Instance "+inst.Metadata.ID+": type '"+inst.Metadata.Type+"' passt nicht zu Blueprint-Typ '"+bpType+"' (erwartet: "+expectedInstType+")",
+				relPath(tree.Path, inst.Path),
+				inst.Metadata.Type, inst.Metadata.ID,
+				"Setze type: "+expectedInstType+" in der Instance-YAML",
+			)
+		}
+		// Check: required_inputs from blueprint must all be present in instance
+		for _, bpNode := range tree.Blueprints {
+			if bpNode.Metadata.ID != inst.Metadata.BlueprintRef {
+				continue
+			}
+			for _, required := range bpNode.Metadata.RequiredInputs {
+				if _, filled := inst.Metadata.Inputs[required]; !filled {
+					res.addTyped(
+						"INSTANCE_REQUIRED_INPUT_MISSING", "warning",
+						"Instance "+inst.Metadata.ID+": required_input '"+required+"' nicht belegt",
+						relPath(tree.Path, inst.Path),
+						inst.Metadata.Type, inst.Metadata.ID,
+						"Füge inputs."+required+": <wert> zur Instance-YAML hinzu",
+					)
+				}
+			}
+			// Check: evidence_requirements from blueprint must be covered by instance evidence
+			evidenceIDs := make(map[string]bool)
+			for _, ev := range inst.Metadata.Evidence {
+				evidenceIDs[ev.ID] = true
+			}
+			for _, req := range bpNode.Metadata.EvidenceRequirements {
+				if !evidenceIDs[req] {
+					res.addTyped(
+						"INSTANCE_EVIDENCE_MISSING", "warning",
+						"Instance "+inst.Metadata.ID+": evidence_requirement '"+req+"' nicht belegt",
+						relPath(tree.Path, inst.Path),
+						inst.Metadata.Type, inst.Metadata.ID,
+						"Füge Evidence-Eintrag mit ID '"+req+"' hinzu oder führe 'nomos instance verify "+inst.Metadata.ID+"' aus",
+					)
+				}
+			}
+		}
+	}
 }
 
 func validateCatalogArtifacts(root string, res *Result) error {
@@ -258,6 +383,10 @@ func validateServicegraph(sg model.Servicegraph, path string, res *Result) {
 
 func (r *Result) add(code, severity, message, path string) {
 	r.Findings = append(r.Findings, Finding{Code: code, Severity: severity, Message: message, Path: path})
+}
+
+func (r *Result) addTyped(code, severity, message, path, artifactType, artifactID, suggestion string) {
+	r.Findings = append(r.Findings, Finding{Code: code, Severity: severity, Message: message, Path: path, ArtifactType: artifactType, ArtifactID: artifactID, Suggestion: suggestion})
 }
 
 func isYAML(path string) bool {

@@ -1,13 +1,62 @@
 name: ci
 on: [push, pull_request]
+
 jobs:
   go:
+    name: Go – build, vet, test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with: { go-version: '1.23.x' }
-      - run: test -z "$(gofmt -l .)"
-      - run: go vet ./...
-      - run: go test ./...
-      - run: go build ./cmd/nomos
+      - name: gofmt
+        run: test -z "$(gofmt -l .)"
+      - name: go vet
+        run: go vet ./...
+      - name: go test (with coverage)
+        run: go test -coverprofile=coverage.out ./...
+      - name: go build
+        run: go build -o nomos-ci ./cmd/nomos
+
+  nomos-validate:
+    name: Nomos – validate demo cosmos
+    runs-on: ubuntu-latest
+    needs: go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.23.x' }
+      - name: Build nomos
+        run: go build -o nomos-ci ./cmd/nomos
+      - name: Validate demo cosmos
+        run: ./nomos-ci validate --path examples/demo-cosmos --format json
+
+  python:
+    name: Python – test FastAPI backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt pytest pytest-cov httpx
+      - name: Run tests
+        run: pytest backend/tests/ --cov=backend/app --cov-report=term-missing -v
+        working-directory: .
+
+  frontend:
+    name: Frontend – build React app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Type-check
+        run: npx tsc --noEmit
+        working-directory: frontend
+      - name: Build
+        run: npm run build
+        working-directory: frontend

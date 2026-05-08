@@ -351,20 +351,53 @@ func (h *handler) apiBlueprintRoutes(w http.ResponseWriter, r *http.Request) {
 	rest := strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, "/api/v1/blueprints/"), "/api/blueprints/")
 	parts := strings.Split(rest, "/")
 	if len(parts) == 1 && parts[0] != "" {
-		if r.Method == http.MethodDelete {
+		switch r.Method {
+		case http.MethodDelete:
 			if err := app.DeleteBlueprint(h.cosmosPath, parts[0]); err != nil {
 				h.apiErr(w, err)
 				return
 			}
 			writeJSON(w, http.StatusOK, map[string]string{"deleted": parts[0]})
-			return
+		case http.MethodPatch:
+			var fields map[string]string
+			if err := json.NewDecoder(r.Body).Decode(&fields); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			dto, err := app.PatchBlueprint(h.cosmosPath, parts[0], fields)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+		default:
+			dto, err := app.GetBlueprint(h.cosmosPath, parts[0])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, 200, dto)
 		}
-		dto, err := app.GetBlueprint(h.cosmosPath, parts[0])
+		return
+	}
+	// /api/v1/blueprints/{id}/publish
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "publish" && r.Method == http.MethodPost {
+		dto, err := app.PublishBlueprint(h.cosmosPath, parts[0])
 		if err != nil {
 			h.apiErr(w, err)
 			return
 		}
-		writeJSON(w, 200, dto)
+		writeJSON(w, http.StatusOK, dto)
+		return
+	}
+	// /api/v1/blueprints/{id}/validate
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "validate" && r.Method == http.MethodGet {
+		dto, err := app.ValidateBlueprint(h.cosmosPath, parts[0])
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, dto)
 		return
 	}
 	http.NotFound(w, r)
@@ -372,6 +405,23 @@ func (h *handler) apiBlueprintRoutes(w http.ResponseWriter, r *http.Request) {
 func (h *handler) apiInstances(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/api/v1/instances" && r.URL.Path != "/api/instances" {
 		http.NotFound(w, r)
+		return
+	}
+	if r.Method == http.MethodPost {
+		var inst model.Instance
+		if err := json.NewDecoder(r.Body).Decode(&inst); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+			return
+		}
+		if err := app.CreateInstance(h.cosmosPath, inst); err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, inst)
+		return
+	}
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 	dto, err := app.ListInstances(h.cosmosPath)
@@ -385,22 +435,58 @@ func (h *handler) apiInstanceRoutes(w http.ResponseWriter, r *http.Request) {
 	rest := strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, "/api/v1/instances/"), "/api/instances/")
 	parts := strings.Split(rest, "/")
 	if len(parts) == 1 && parts[0] != "" {
-		dto, err := app.GetInstance(h.cosmosPath, parts[0])
-		if err != nil {
-			h.apiErr(w, err)
-			return
+		switch r.Method {
+		case http.MethodDelete:
+			if err := app.DeleteInstance(h.cosmosPath, parts[0]); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"deleted": parts[0]})
+		case http.MethodPatch:
+			var fields map[string]string
+			if err := json.NewDecoder(r.Body).Decode(&fields); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			dto, err := app.PatchInstance(h.cosmosPath, parts[0], fields)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+		default:
+			dto, err := app.GetInstance(h.cosmosPath, parts[0])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, 200, dto)
 		}
-		writeJSON(w, 200, dto)
 		return
 	}
-	if len(parts) == 2 && parts[0] != "" && parts[1] == "compliance" {
-		dto, err := app.GetInstanceCompliance(h.cosmosPath, parts[0])
-		if err != nil {
-			h.apiErr(w, err)
+	if len(parts) == 2 && parts[0] != "" {
+		switch parts[1] {
+		case "compliance":
+			dto, err := app.GetInstanceCompliance(h.cosmosPath, parts[0])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, 200, dto)
+			return
+		case "verify":
+			if r.Method != http.MethodPost {
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				return
+			}
+			dto, err := app.VerifyInstance(h.cosmosPath, parts[0])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
 			return
 		}
-		writeJSON(w, 200, dto)
-		return
 	}
 	http.NotFound(w, r)
 }
@@ -479,6 +565,10 @@ func (h *handler) routes(w http.ResponseWriter, r *http.Request) {
 		h.graphPage(w, r)
 	case r.URL.Path == "/validate":
 		h.validatePage(w, r)
+	case r.URL.Path == "/requirements":
+		h.requirementsPage(w, r)
+	case r.URL.Path == "/rules":
+		h.rulesPage(w, r)
 	case r.URL.Path == "/verify":
 		h.verifyPage(w, r)
 	case r.URL.Path == "/blueprints":
@@ -626,7 +716,71 @@ func (h *handler) validatePage(w http.ResponseWriter, r *http.Request) {
 		h.errorPage(w, r, statusOf(err), "Validation failed", err.Error())
 		return
 	}
-	h.page(w, "validate", map[string]any{"ActiveNav": "validate", "PageTitle": "Validation", "Validation": val})
+	var errFindings, warnFindings, infoFindings []app.FindingDTO
+	for _, f := range val.Findings {
+		switch f.Severity {
+		case "error":
+			errFindings = append(errFindings, f)
+		case "warning":
+			warnFindings = append(warnFindings, f)
+		default:
+			infoFindings = append(infoFindings, f)
+		}
+	}
+	h.page(w, "validate", map[string]any{
+		"ActiveNav": "validate", "PageTitle": "Validation",
+		"Validation":    val,
+		"ErrorFindings": errFindings,
+		"WarnFindings":  warnFindings,
+		"InfoFindings":  infoFindings,
+	})
+}
+
+type requirementRow struct {
+	RequirementID   string
+	BlueprintID     string
+	BlueprintType   string
+	BlueprintStatus string
+}
+
+func (h *handler) requirementsPage(w http.ResponseWriter, r *http.Request) {
+	bp, err := app.ListBlueprints(h.cosmosPath)
+	if err != nil {
+		h.errorPage(w, r, statusOf(err), "Requirements unavailable", err.Error())
+		return
+	}
+	var rows []requirementRow
+	for _, b := range bp.Blueprints {
+		for _, req := range b.EvidenceRequirements {
+			rows = append(rows, requirementRow{RequirementID: req, BlueprintID: b.ID, BlueprintType: b.Type, BlueprintStatus: b.Status})
+		}
+	}
+	h.page(w, "requirements", map[string]any{"ActiveNav": "requirements", "PageTitle": "Requirements", "RequirementRows": rows})
+}
+
+type ruleRow struct {
+	RuleID          string
+	BlueprintID     string
+	BlueprintType   string
+	BlueprintStatus string
+}
+
+func (h *handler) rulesPage(w http.ResponseWriter, r *http.Request) {
+	bp, err := app.ListBlueprints(h.cosmosPath)
+	if err != nil {
+		h.errorPage(w, r, statusOf(err), "Rules unavailable", err.Error())
+		return
+	}
+	var ruleRows, qualityRows []ruleRow
+	for _, b := range bp.Blueprints {
+		for _, rule := range b.Rules {
+			ruleRows = append(ruleRows, ruleRow{RuleID: rule, BlueprintID: b.ID, BlueprintType: b.Type, BlueprintStatus: b.Status})
+		}
+		for _, qc := range b.QualityCriteria {
+			qualityRows = append(qualityRows, ruleRow{RuleID: qc, BlueprintID: b.ID, BlueprintType: b.Type, BlueprintStatus: b.Status})
+		}
+	}
+	h.page(w, "rules", map[string]any{"ActiveNav": "rules", "PageTitle": "Rules", "RuleRows": ruleRows, "QualityCriteriaRows": qualityRows})
 }
 func (h *handler) verifyPage(w http.ResponseWriter, r *http.Request) {
 	ev, err := app.ListVerificationEvidence(h.cosmosPath)

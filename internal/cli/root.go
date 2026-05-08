@@ -426,7 +426,59 @@ func blueprintCmd() *cobra.Command {
 	}}
 	delete.Flags().String("path", ".", "Path to the Cosmos repository")
 
-	c.AddCommand(list, show, create, delete)
+	validate := &cobra.Command{Use: "validate <id>", Args: cobra.ExactArgs(1), Short: "Validate a single blueprint", RunE: func(cmd *cobra.Command, args []string) error {
+		p, _ := cmd.Flags().GetString("path")
+		outFmt, _ := cmd.Flags().GetString("format")
+		if err := validateFormat(outFmt); err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		res, err := app.ValidateBlueprint(p, args[0])
+		if err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		if outFmt == "json" {
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(res)
+		}
+		if len(res.Findings) == 0 {
+			fmt.Fprintf(cmd.OutOrStdout(), "Blueprint %s: OK\n", args[0])
+			return nil
+		}
+		for _, f := range res.Findings {
+			fmt.Fprintf(cmd.OutOrStdout(), "%s %s: %s\n", strings.ToUpper(f.Severity), f.Code, f.Message)
+			if f.Suggestion != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "  Suggestion: %s\n", f.Suggestion)
+			}
+		}
+		for _, f := range res.Findings {
+			if f.Severity == "error" {
+				return fmt.Errorf("blueprint validation failed with error-severity findings")
+			}
+		}
+		return nil
+	}}
+	validate.Flags().String("path", ".", "Path to the Cosmos repository")
+	validate.Flags().String("format", "text", "Output format: text or json")
+
+	publish := &cobra.Command{Use: "publish <id>", Args: cobra.ExactArgs(1), Short: "Publish a blueprint (draft → published)", RunE: func(cmd *cobra.Command, args []string) error {
+		p, _ := cmd.Flags().GetString("path")
+		outFmt, _ := cmd.Flags().GetString("format")
+		if err := validateFormat(outFmt); err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		bp, err := app.PublishBlueprint(p, args[0])
+		if err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		if outFmt == "json" {
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(bp)
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "Blueprint published: %s (status: %s)\n", bp.ID, bp.Status)
+		return nil
+	}}
+	publish.Flags().String("path", ".", "Path to the Cosmos repository")
+	publish.Flags().String("format", "text", "Output format: text or json")
+
+	c.AddCommand(list, show, create, delete, validate, publish)
 	return c
 }
 
@@ -435,12 +487,43 @@ func instanceCmd() *cobra.Command {
 	list := &cobra.Command{Use: "list", RunE: func(cmd *cobra.Command, args []string) error {
 		p, _ := cmd.Flags().GetString("path")
 		outFmt, _ := cmd.Flags().GetString("format")
+		filter, _ := cmd.Flags().GetString("filter")
 		if err := validateFormat(outFmt); err != nil {
 			return writeCLIError(cmd, outFmt, err)
 		}
 		items, err := app.ListInstances(p)
 		if err != nil {
 			return writeCLIError(cmd, outFmt, err)
+		}
+		// Apply --filter key=value pairs
+		if filter != "" {
+			filtered := make([]app.InstanceDTO, 0, len(items.Instances))
+			for _, kv := range strings.Split(filter, ",") {
+				parts := strings.SplitN(strings.TrimSpace(kv), "=", 2)
+				if len(parts) != 2 {
+					return fmt.Errorf("invalid filter %q: expected key=value", kv)
+				}
+				key, val := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+				for _, i := range items.Instances {
+					var match bool
+					switch key {
+					case "status":
+						match = strings.EqualFold(i.Status, val)
+					case "compliance_status":
+						match = strings.EqualFold(i.ComplianceStatus, val)
+					case "blueprint_ref":
+						match = strings.EqualFold(i.BlueprintRef, val)
+					case "type":
+						match = strings.EqualFold(i.Type, val)
+					}
+					if match {
+						filtered = append(filtered, i)
+					}
+				}
+				items.Instances = filtered
+				items.Count = len(filtered)
+				filtered = make([]app.InstanceDTO, 0, len(items.Instances))
+			}
 		}
 		if outFmt == "json" {
 			return json.NewEncoder(cmd.OutOrStdout()).Encode(items)
@@ -452,6 +535,8 @@ func instanceCmd() *cobra.Command {
 	}}
 	list.Flags().String("path", ".", "Path to the Cosmos repository")
 	list.Flags().String("format", "text", "Output format: text or json")
+	list.Flags().String("filter", "", "Filter: comma-separated key=value pairs (e.g. status=active,type=product_instance)")
+
 	show := &cobra.Command{Use: "show <id>", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		p, _ := cmd.Flags().GetString("path")
 		outFmt, _ := cmd.Flags().GetString("format")
@@ -470,7 +555,73 @@ func instanceCmd() *cobra.Command {
 	}}
 	show.Flags().String("path", ".", "Path to the Cosmos repository")
 	show.Flags().String("format", "text", "Output format: text or json")
-	c.AddCommand(list, show)
+
+	create := &cobra.Command{Use: "create", Short: "Create a new instance from a blueprint", RunE: func(cmd *cobra.Command, args []string) error {
+		p, _ := cmd.Flags().GetString("path")
+		id, _ := cmd.Flags().GetString("id")
+		blueprintRef, _ := cmd.Flags().GetString("blueprint-ref")
+		blueprintVersion, _ := cmd.Flags().GetString("blueprint-version")
+		instType, _ := cmd.Flags().GetString("type")
+		name, _ := cmd.Flags().GetString("name")
+		owner, _ := cmd.Flags().GetString("owner")
+		outFmt, _ := cmd.Flags().GetString("format")
+		if err := validateFormat(outFmt); err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		if id == "" || blueprintRef == "" {
+			return fmt.Errorf("--id and --blueprint-ref are required")
+		}
+		if name == "" {
+			name = id
+		}
+		inst := model.Instance{
+			ID:               id,
+			Type:             instType,
+			Name:             name,
+			BlueprintRef:     blueprintRef,
+			BlueprintVersion: blueprintVersion,
+			Status:           "draft",
+			Owner:            owner,
+			ComplianceStatus: "unknown",
+			Inputs:           map[string]string{},
+			Evidence:         []model.Evidence{},
+			Findings:         []model.Finding{},
+		}
+		if err := app.CreateInstance(p, inst); err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "Instance created: %s\n", id)
+		return nil
+	}}
+	create.Flags().String("path", ".", "Path to the Cosmos repository")
+	create.Flags().String("id", "", "Instance ID (required)")
+	create.Flags().String("blueprint-ref", "", "Blueprint ID to instantiate (required)")
+	create.Flags().String("blueprint-version", "0.1.0", "Blueprint version")
+	create.Flags().String("type", "product_instance", "Instance type: product_instance or service_instance")
+	create.Flags().String("name", "", "Instance name (defaults to id)")
+	create.Flags().String("owner", "unknown", "Owner")
+	create.Flags().String("format", "text", "Output format: text or json")
+
+	verify := &cobra.Command{Use: "verify <id>", Args: cobra.ExactArgs(1), Short: "Write manual verification evidence for an instance", RunE: func(cmd *cobra.Command, args []string) error {
+		p, _ := cmd.Flags().GetString("path")
+		outFmt, _ := cmd.Flags().GetString("format")
+		if err := validateFormat(outFmt); err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		inst, err := app.VerifyInstance(p, args[0])
+		if err != nil {
+			return writeCLIError(cmd, outFmt, err)
+		}
+		if outFmt == "json" {
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(inst)
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "Instance %s verified. Compliance: %s. Evidence entries: %d\n", inst.ID, inst.ComplianceStatus, len(inst.Evidence))
+		return nil
+	}}
+	verify.Flags().String("path", ".", "Path to the Cosmos repository")
+	verify.Flags().String("format", "text", "Output format: text or json")
+
+	c.AddCommand(list, show, create, verify)
 	return c
 }
 
@@ -491,14 +642,21 @@ func validateCmd() *cobra.Command {
 		}
 		if outFmt == "json" {
 			return json.NewEncoder(cmd.OutOrStdout()).Encode(res)
-		} else {
-			fmt.Fprintln(cmd.OutOrStdout(), "Nomos Validierung")
-			for _, f := range res.Findings {
-				fmt.Fprintf(cmd.OutOrStdout(), "%s %s\n", strings.ToUpper(f.Severity), f.Message)
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), "Nomos Validierung")
+		for _, f := range res.Findings {
+			fmt.Fprintf(cmd.OutOrStdout(), "%s %s: %s\n", strings.ToUpper(f.Severity), f.Code, f.Message)
+			if f.Suggestion != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "  Suggestion: %s\n", f.Suggestion)
 			}
 		}
-		if len(res.Findings) > 0 {
-			return fmt.Errorf("validation failed with %d finding(s)", len(res.Findings))
+		if len(res.Findings) == 0 {
+			fmt.Fprintln(cmd.OutOrStdout(), "OK no findings")
+		}
+		for _, f := range res.Findings {
+			if f.Severity == "error" {
+				return fmt.Errorf("validation failed with error-severity findings")
+			}
 		}
 		return nil
 	}}

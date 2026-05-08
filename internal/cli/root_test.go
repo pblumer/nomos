@@ -829,3 +829,216 @@ func TestServiceDeleteCLI(t *testing.T) {
 		t.Fatalf("expected remaining service in output: %s", out)
 	}
 }
+
+func TestBlueprintPublishCLI(t *testing.T) {
+	p := t.TempDir()
+	_, _, _ = executeCommand(t, "cosmos", "init", p)
+	_, _, _ = executeCommand(t, "blueprint", "create", "--path", p,
+		"--id", "PB-PUB-001",
+		"--type", "product_blueprint",
+		"--name", "To Publish",
+	)
+
+	out, _, err := executeCommand(t, "blueprint", "show", "PB-PUB-001", "--path", p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "Status: draft") {
+		t.Fatalf("expected draft status before publish: %s", out)
+	}
+
+	out, _, err = executeCommand(t, "blueprint", "publish", "PB-PUB-001", "--path", p)
+	if err != nil {
+		t.Fatalf("blueprint publish failed: %v", err)
+	}
+	if !strings.Contains(out, "PB-PUB-001") {
+		t.Fatalf("expected blueprint ID in publish output: %s", out)
+	}
+
+	out, _, err = executeCommand(t, "blueprint", "show", "PB-PUB-001", "--path", p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "Status: published") {
+		t.Fatalf("expected published status after publish: %s", out)
+	}
+}
+
+func TestBlueprintValidateCLI(t *testing.T) {
+	p := t.TempDir()
+	_, _, _ = executeCommand(t, "cosmos", "init", p)
+	mustWriteCLI(t, filepath.Join(storage.CatalogDir(p), "blueprints", "products", "valid.yaml"), `id: PB-VALID-001
+type: product_blueprint
+name: Valid Blueprint
+version: 0.1.0
+status: draft
+owner: Team
+required_inputs:
+  - person_reference
+required_service_blueprints:
+  - SB-1
+required_services:
+  - service_ref: identity.blumer.cloud/user-account
+    service_blueprint_ref: SB-1
+    required: true
+`)
+
+	// validate on a blueprint that has cross-ref errors (service not in cosmos): should fail
+	_, _, err := executeCommand(t, "blueprint", "validate", "PB-VALID-001", "--path", p)
+	if err == nil {
+		t.Fatal("expected validation error for missing service ref")
+	}
+
+	// validate with --format json returns valid JSON
+	out, _, _ := executeCommand(t, "blueprint", "validate", "PB-VALID-001", "--path", p, "--format", "json")
+	var res map[string]any
+	if err := json.Unmarshal([]byte(out), &res); err != nil {
+		t.Fatalf("expected JSON output from blueprint validate: %v (%s)", err, out)
+	}
+
+	// blueprint that does not exist returns error
+	_, _, err = executeCommand(t, "blueprint", "validate", "DOES-NOT-EXIST", "--path", p)
+	if err == nil {
+		t.Fatal("expected error for non-existent blueprint")
+	}
+}
+
+func TestInstanceCreateCLI(t *testing.T) {
+	p := t.TempDir()
+	_, _, _ = executeCommand(t, "cosmos", "init", p)
+	mustWriteCLI(t, filepath.Join(storage.CatalogDir(p), "blueprints", "products", "bp.yaml"), "id: PB-IC-001\ntype: product_blueprint\nname: BP\nversion: 0.1.0\nstatus: draft\nowner: Team\nrequired_inputs: []\nrequired_service_blueprints: []\nquality_criteria: []\nevidence_requirements: []\n")
+
+	out, _, err := executeCommand(t, "instance", "create", "--path", p,
+		"--id", "PI-IC-001",
+		"--blueprint-ref", "PB-IC-001",
+		"--type", "product_instance",
+		"--owner", "Test Team",
+	)
+	if err != nil {
+		t.Fatalf("instance create failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "PI-IC-001") {
+		t.Fatalf("expected instance ID in output: %s", out)
+	}
+
+	out, _, err = executeCommand(t, "instance", "show", "PI-IC-001", "--path", p)
+	if err != nil {
+		t.Fatalf("instance show after create failed: %v", err)
+	}
+	if !strings.Contains(out, "PB-IC-001") {
+		t.Fatalf("expected blueprint ref in show output: %s", out)
+	}
+
+	// Duplicate should fail
+	_, _, err = executeCommand(t, "instance", "create", "--path", p,
+		"--id", "PI-IC-001",
+		"--blueprint-ref", "PB-IC-001",
+	)
+	if err == nil {
+		t.Fatal("expected duplicate ID error")
+	}
+
+	// Missing --id should fail
+	_, _, err = executeCommand(t, "instance", "create", "--path", p, "--blueprint-ref", "PB-IC-001")
+	if err == nil {
+		t.Fatal("expected error for missing --id")
+	}
+}
+
+func TestInstanceVerifyCLI(t *testing.T) {
+	p := t.TempDir()
+	_, _, _ = executeCommand(t, "cosmos", "init", p)
+	_, _, _ = executeCommand(t, "instance", "create", "--path", p,
+		"--id", "PI-VERIFY-001",
+		"--blueprint-ref", "PB-ANYTHING",
+		"--type", "product_instance",
+	)
+
+	out, _, err := executeCommand(t, "instance", "verify", "PI-VERIFY-001", "--path", p)
+	if err != nil {
+		t.Fatalf("instance verify failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "PI-VERIFY-001") {
+		t.Fatalf("expected instance ID in verify output: %s", out)
+	}
+	if !strings.Contains(out, "compliant") {
+		t.Fatalf("expected compliant status in verify output: %s", out)
+	}
+
+	// After verify, instance show should reflect evidence
+	out, _, err = executeCommand(t, "instance", "show", "PI-VERIFY-001", "--path", p, "--format", "json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var inst map[string]any
+	if err := json.Unmarshal([]byte(out), &inst); err != nil {
+		t.Fatalf("invalid JSON from instance show: %v", err)
+	}
+	evidence, _ := inst["evidence"].([]any)
+	if len(evidence) == 0 {
+		t.Fatalf("expected evidence entries after verify, got none: %s", out)
+	}
+}
+
+func TestInstanceListFilterCLI(t *testing.T) {
+	p := t.TempDir()
+	_, _, _ = executeCommand(t, "cosmos", "init", p)
+	mustWriteCLI(t, filepath.Join(storage.CatalogDir(p), "instances", "products", "active.yaml"), "id: PI-ACTIVE-001\ntype: product_instance\nname: Active\nblueprint_ref: PB-X\nblueprint_version: 0.1.0\nstatus: active\ncompliance_status: compliant\nfindings: []\n")
+	mustWriteCLI(t, filepath.Join(storage.CatalogDir(p), "instances", "products", "draft.yaml"), "id: PI-DRAFT-001\ntype: product_instance\nname: Draft\nblueprint_ref: PB-X\nblueprint_version: 0.1.0\nstatus: draft\ncompliance_status: unknown\nfindings: []\n")
+
+	out, _, err := executeCommand(t, "instance", "list", "--path", p, "--filter", "status=active")
+	if err != nil {
+		t.Fatalf("instance list --filter failed: %v", err)
+	}
+	if !strings.Contains(out, "PI-ACTIVE-001") {
+		t.Fatalf("expected active instance in filtered output: %s", out)
+	}
+	if strings.Contains(out, "PI-DRAFT-001") {
+		t.Fatalf("draft instance should be filtered out: %s", out)
+	}
+
+	// Invalid filter format should fail
+	_, _, err = executeCommand(t, "instance", "list", "--path", p, "--filter", "badfilter")
+	if err == nil {
+		t.Fatal("expected error for invalid filter format")
+	}
+}
+
+func TestValidateCmdExitCodes(t *testing.T) {
+	p := t.TempDir()
+	_, _, _ = executeCommand(t, "cosmos", "init", p)
+
+	// Empty cosmos with no findings should succeed (exit 0)
+	_, _, err := executeCommand(t, "validate", "--path", p)
+	if err != nil {
+		t.Fatalf("validate on empty cosmos should succeed, got: %v", err)
+	}
+
+	// Blueprint with only warnings should also succeed (exit 0)
+	mustWriteCLI(t, filepath.Join(storage.CatalogDir(p), "blueprints", "services", "warn.yaml"), `id: SB-WARN-001
+type: service_blueprint
+name: Warn Blueprint
+version: 0.1.0
+status: draft
+owner: Team
+capabilities:
+  - email
+`)
+	_, _, err = executeCommand(t, "validate", "--path", p)
+	if err != nil {
+		t.Fatalf("validate with warnings only should succeed, got: %v", err)
+	}
+
+	// Blueprint with error-severity findings should fail (exit 1)
+	mustWriteCLI(t, filepath.Join(storage.CatalogDir(p), "blueprints", "products", "bad.yaml"), `id: PB-BAD-001
+type: product_blueprint
+name: Bad Blueprint
+version: 0.1.0
+status: draft
+owner: Team
+`)
+	_, _, err = executeCommand(t, "validate", "--path", p)
+	if err == nil {
+		t.Fatal("expected validate to fail on error-severity findings")
+	}
+}

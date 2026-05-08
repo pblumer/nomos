@@ -1,1 +1,65 @@
-{{define "validate"}}{{template "layout" .}}{{end}}{{define "content_validate"}}<section class="page-header"><div><h2>Validation</h2><p>Findings grouped by severity.</p></div><div class="button-row"><a class="button button-primary" href="/validate">Refresh</a><a class="button button-secondary" href="/api/v1/validate">Raw JSON</a></div></section><section class="card"><h3>Overall status <span class="badge">{{.Validation.Status}}</span></h3>{{if eq (len .Validation.Findings) 0}}<p class="empty-state">No findings</p>{{else}}<table class="data-table"><thead><tr><th>Severity</th><th>Code</th><th>Message</th><th>Path</th></tr></thead><tbody>{{range .Validation.Findings}}<tr><td><span class="badge badge-{{.Severity}}">{{.Severity}}</span></td><td>{{.Code}}</td><td>{{.Message}}</td><td><code>{{.Path}}</code></td></tr>{{end}}</tbody></table>{{end}}</section>{{end}}
+{{define "validate"}}{{template "layout" .}}{{end}}{{define "content_validate"}}
+<section class="page-header">
+  <div><h2>Validation</h2><p>Findings grouped by severity. Exit code 0 = no errors; warnings do not block.</p></div>
+  <div class="button-row">
+    <a class="button button-primary" href="/validate">Refresh</a>
+    <a class="button button-secondary" href="/api/v1/validate">Raw JSON</a>
+  </div>
+</section>
+<section class="card">
+  <h3>Overall status <span class="badge badge-{{.Validation.Status}}">{{.Validation.Status}}</span>
+    &nbsp;·&nbsp; {{len .Validation.Findings}} finding(s)</h3>
+</section>
+{{if .ErrorFindings}}
+<section class="card">
+  <h3><span class="badge badge-error">error</span> Errors — must be fixed</h3>
+  <table class="data-table">
+    <thead><tr><th>Code</th><th>Artifact</th><th>Message</th><th>Suggestion</th><th>Path</th></tr></thead>
+    <tbody>
+    {{range .ErrorFindings}}
+    <tr>
+      <td><code>{{.Code}}</code></td>
+      <td>{{if .ArtifactID}}<a href="/{{.ArtifactType}}s/{{.ArtifactID}}">{{.ArtifactID}}</a>{{else}}—{{end}}</td>
+      <td>{{.Message}}</td>
+      <td class="muted">{{if .Suggestion}}{{.Suggestion}}{{else}}—{{end}}</td>
+      <td><code>{{.Path}}</code></td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+</section>
+{{end}}
+{{if .WarnFindings}}
+<section class="card">
+  <h3><span class="badge badge-warning">warning</span> Warnings</h3>
+  <table class="data-table">
+    <thead><tr><th>Code</th><th>Artifact</th><th>Message</th><th>Suggestion</th><th>Path</th></tr></thead>
+    <tbody>
+    {{range .WarnFindings}}
+    <tr>
+      <td><code>{{.Code}}</code></td>
+      <td>{{if .ArtifactID}}<a href="/{{.ArtifactType}}s/{{.ArtifactID}}">{{.ArtifactID}}</a>{{else}}—{{end}}</td>
+      <td>{{.Message}}</td>
+      <td class="muted">{{if .Suggestion}}{{.Suggestion}}{{else}}—{{end}}</td>
+      <td><code>{{.Path}}</code></td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+</section>
+{{end}}
+{{if .InfoFindings}}
+<section class="card">
+  <h3><span class="badge">info</span> Info</h3>
+  <table class="data-table">
+    <thead><tr><th>Code</th><th>Message</th><th>Path</th></tr></thead>
+    <tbody>
+    {{range .InfoFindings}}
+    <tr><td><code>{{.Code}}</code></td><td>{{.Message}}</td><td><code>{{.Path}}</code></td></tr>
+    {{end}}
+    </tbody>
+  </table>
+</section>
+{{end}}
+{{if and (eq (len .Validation.Findings) 0) (eq .Validation.Status "ok")}}<section class="card"><p class="empty-state">✓ No findings — cosmos is valid.</p></section>{{end}}
+{{end}}
