@@ -82,6 +82,7 @@ var validRuleTypes = map[string]bool{
 	"ends_with":   true,
 	"one_of":      true,
 	"manual":      true,
+	"reference":   true,
 }
 
 func AddAttributeRule(path, bpID, attrID, label, ruleType, value string) (BlueprintDTO, error) {
@@ -95,6 +96,9 @@ func AddAttributeRule(path, bpID, attrID, label, ruleType, value string) (Bluepr
 		if _, err := regexp.Compile(value); err != nil {
 			return BlueprintDTO{}, Error(CodeInvalidInput, "invalid regex: "+err.Error(), http.StatusBadRequest, err)
 		}
+	}
+	if ruleType == "reference" && strings.TrimSpace(value) == "" {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "reference rule requires a blueprint id as value", http.StatusBadRequest, nil)
 	}
 	bp, err := GetBlueprint(path, bpID)
 	if err != nil {
@@ -200,7 +204,7 @@ func ValidateInstanceAttributes(path, instanceID string) (AttributeValidationDTO
 	overallOK := true
 	for _, attr := range bp.Attributes {
 		value, present := inst.AttributeValues[attr.ID]
-		result := validateAttributeValue(attr, value, present)
+		result := validateAttributeValue(attr, value, present, path)
 		results = append(results, result)
 		if result.Status != "valid" {
 			overallOK = false
@@ -213,7 +217,7 @@ func ValidateInstanceAttributes(path, instanceID string) (AttributeValidationDTO
 	return AttributeValidationDTO{Status: status, Attributes: results}, nil
 }
 
-func validateAttributeValue(attr BlueprintAttributeDTO, value string, present bool) AttrValidationResult {
+func validateAttributeValue(attr BlueprintAttributeDTO, value string, present bool, path string) AttrValidationResult {
 	result := AttrValidationResult{
 		AttributeID: attr.ID,
 		Label:       attr.Label,
@@ -230,7 +234,7 @@ func validateAttributeValue(attr BlueprintAttributeDTO, value string, present bo
 	ruleResults := make([]RuleResultDTO, 0, len(attr.Rules))
 	allPass := true
 	for _, rule := range attr.Rules {
-		rr := evalRule(rule, value)
+		rr := evalRule(rule, value, path)
 		ruleResults = append(ruleResults, rr)
 		if rr.Status == "fail" {
 			allPass = false
@@ -245,7 +249,7 @@ func validateAttributeValue(attr BlueprintAttributeDTO, value string, present bo
 	return result
 }
 
-func evalRule(rule AttributeRuleDTO, value string) RuleResultDTO {
+func evalRule(rule AttributeRuleDTO, value, path string) RuleResultDTO {
 	rr := RuleResultDTO{RuleID: rule.ID, Label: rule.Label, Type: rule.Type}
 	switch rule.Type {
 	case "regex":
@@ -302,6 +306,24 @@ func evalRule(rule AttributeRuleDTO, value string) RuleResultDTO {
 	case "manual":
 		rr.Status = "manual"
 		rr.Message = "requires manual verification"
+	case "reference":
+		if path == "" {
+			rr.Status = "manual"
+			rr.Message = "reference check not available without cosmos path"
+			break
+		}
+		inst, err := GetInstance(path, value)
+		if err != nil {
+			rr.Status = "fail"
+			rr.Message = fmt.Sprintf("instance %q not found", value)
+			break
+		}
+		if inst.BlueprintRef != rule.Value {
+			rr.Status = "fail"
+			rr.Message = fmt.Sprintf("instance %q has blueprint %q, expected %q", value, inst.BlueprintRef, rule.Value)
+			break
+		}
+		rr.Status = "pass"
 	default:
 		rr.Status = "manual"
 		rr.Message = "unknown rule type: " + rule.Type

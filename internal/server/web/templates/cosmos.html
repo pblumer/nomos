@@ -453,8 +453,8 @@ function renderReqs(reqs,bpId){if(!reqs||!reqs.length)return`<div style="color:#
 function renderAttrs(attrs,bpId){
   if(!attrs||!attrs.length)return`<div style="color:#94a3b8;font-size:.78rem;font-style:italic;padding:.25rem 0">Keine Attribute.</div>`;
   return attrs.map(a=>{
-    const rulesHtml=(a.rules||[]).map(r=>`<div class="rule-row"><span class="rule-type-badge">${esc(r.type)}</span><span style="flex:1">${esc(r.label)}${r.value?' <span style="color:#94a3b8">('+esc(r.value)+')</span>':''}</span><button class="btn btn-danger btn-sm rule-del-btn" data-attr-id="${esc(a.id)}" data-rule-id="${esc(r.id)}" title="Regel löschen" style="padding:1px 5px">&#x2715;</button></div>`).join('')||`<div style="color:#94a3b8;font-size:.75rem;font-style:italic">Keine Regeln</div>`;
-    const typeSelect=`<select class="rule-new-type" data-attr-id="${esc(a.id)}" style="border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><option value="regex">regex</option><option value="max_length">max_length</option><option value="min_length">min_length</option><option value="starts_with">starts_with</option><option value="ends_with">ends_with</option><option value="one_of">one_of</option><option value="manual">manual</option></select>`;
+    const rulesHtml=(a.rules||[]).map(r=>{const refBadge=r.type==='reference'?` <span style="background:#ede9fe;color:#5b21b6;padding:1px 5px;border-radius:4px;font-size:.72rem;font-family:monospace">${esc(r.value)}</span>`:(r.value?` <span style="color:#94a3b8">(${esc(r.value)})</span>`:'');return`<div class="rule-row"><span class="rule-type-badge">${esc(r.type)}</span><span style="flex:1">${esc(r.label)}${refBadge}</span><button class="btn btn-danger btn-sm rule-del-btn" data-attr-id="${esc(a.id)}" data-rule-id="${esc(r.id)}" title="Regel löschen" style="padding:1px 5px">&#x2715;</button></div>`}).join('')||`<div style="color:#94a3b8;font-size:.75rem;font-style:italic">Keine Regeln</div>`;
+    const typeSelect=`<select class="rule-new-type" data-attr-id="${esc(a.id)}" style="border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><option value="regex">regex</option><option value="max_length">max_length</option><option value="min_length">min_length</option><option value="starts_with">starts_with</option><option value="ends_with">ends_with</option><option value="one_of">one_of</option><option value="manual">manual</option><option value="reference">reference</option></select>`;
     return`<div class="attr-row" data-attr-id="${esc(a.id)}"><div class="attr-row-head"><span class="attr-name">${esc(a.label)}</span><span class="attr-badge">${esc(a.type)}${a.required?' · required':''}</span><button class="btn btn-danger btn-sm attr-del-btn" data-attr-id="${esc(a.id)}" title="Attribut löschen" style="padding:1px 5px">&#x2715;</button></div><div class="rule-list">${rulesHtml}</div><div class="rule-add-row"><input class="rule-new-label" data-attr-id="${esc(a.id)}" placeholder="Regelbezeichnung…" style="flex:1;min-width:80px" />${typeSelect}<input class="rule-new-value" data-attr-id="${esc(a.id)}" placeholder="Wert…" style="width:75px" /><button class="btn btn-secondary btn-sm rule-add-btn" data-attr-id="${esc(a.id)}">+ Regel</button></div></div>`;
   }).join('');
 }
@@ -483,6 +483,29 @@ function wireAttrs(container,bpId){
         if(!label)return;btn.disabled=true;
         const r=await fetch('/api/v1/blueprints/'+encodeURIComponent(bpId)+'/attributes/'+encodeURIComponent(aid)+'/rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({label,type,value})});
         if(r.ok){if(labelEl)labelEl.value='';if(valueEl)valueEl.value='';refresh(await r.json());}else btn.disabled=false;
+      });
+    });
+    container.querySelectorAll('.rule-new-type').forEach(typeEl=>{
+      typeEl.addEventListener('change',async()=>{
+        const aid=typeEl.dataset.attrId;
+        const oldVal=container.querySelector(`.rule-new-value[data-attr-id="${CSS.escape(aid)}"]`);
+        if(!oldVal)return;
+        if(typeEl.value==='reference'){
+          const sel=document.createElement('select');
+          sel.className='rule-new-value';sel.dataset.attrId=aid;
+          sel.style.cssText='border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem;width:150px';
+          sel.innerHTML='<option value="">Lade Blueprints…</option>';
+          oldVal.replaceWith(sel);
+          const res=await fetch('/api/v1/blueprints');
+          if(res.ok){const data=await res.json();sel.innerHTML='<option value="">— Blueprint wählen —</option>'+(data.blueprints||[]).map(b=>`<option value="${esc(b.id)}">${esc(b.name||b.id)}</option>`).join('');}
+        }else{
+          if(oldVal.tagName==='SELECT'){
+            const inp=document.createElement('input');
+            inp.className='rule-new-value';inp.dataset.attrId=aid;
+            inp.placeholder='Wert…';inp.style.cssText='border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem;width:75px';
+            oldVal.replaceWith(inp);
+          }
+        }
       });
     });
   }
