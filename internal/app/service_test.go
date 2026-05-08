@@ -203,3 +203,50 @@ func TestDeleteService_NotFound(t *testing.T) {
 		t.Fatalf("expected SERVICE_NOT_FOUND, got %v", err)
 	}
 }
+
+func TestBuildNamespaceTreeMarksVirtualAndPersistedDomains(t *testing.T) {
+	p := createAppTestCosmos(t)
+	if err := DeleteDomain(p, "blumer.cloud"); err != nil {
+		// The demo fixture may not include this parent in older layouts.
+		if !strings.Contains(err.Error(), CodeDomainNotFound) {
+			t.Fatal(err)
+		}
+	}
+	tree, err := BuildNamespaceTree(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blumer := findTreePath(tree.Root, []string{"Namespaces", "cloud", "blumer"})
+	if blumer == nil {
+		t.Fatalf("missing virtual blumer node: %+v", tree.Root)
+	}
+	if !blumer.Virtual || blumer.Persisted || !blumer.CanCreateChildDomain || blumer.CanAddService || blumer.CanOpenDetails {
+		t.Fatalf("blumer node metadata=%+v", *blumer)
+	}
+	identity := findTreePath(tree.Root, []string{"Namespaces", "cloud", "blumer", "identity"})
+	if identity == nil {
+		t.Fatalf("missing identity node: %+v", tree.Root)
+	}
+	if !identity.Persisted || identity.Virtual || !identity.CanAddService || !identity.CanOpenDetails {
+		t.Fatalf("identity node metadata=%+v", *identity)
+	}
+	cosmos, err := GetCosmos(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cosmos.VirtualDomainCount < 1 {
+		t.Fatalf("expected virtual parent count, got %+v", cosmos)
+	}
+}
+
+func findTreePath(n NamespaceTreeNodeDTO, labels []string) *NamespaceTreeNodeDTO {
+	if len(labels) == 0 {
+		return &n
+	}
+	for i := range n.Children {
+		if n.Children[i].Label == labels[0] {
+			return findTreePath(n.Children[i], labels[1:])
+		}
+	}
+	return nil
+}

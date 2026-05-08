@@ -27,10 +27,25 @@ func GetCosmos(path string) (CosmosDTO, error) {
 		return CosmosDTO{}, err
 	}
 	serviceCount := 0
+	persisted := map[string]bool{}
+	virtual := map[string]bool{}
 	for _, d := range tree.Domains {
+		canonical := namespace.Canonical(d.Name)
+		persisted[canonical] = true
 		serviceCount += len(d.Services)
+		parts := namespace.Parts(canonical)
+		for len(parts) > 2 {
+			parts = parts[1:]
+			parent := strings.Join(parts, ".")
+			if !persisted[parent] {
+				virtual[parent] = true
+			}
+		}
 	}
-	return CosmosDTO{Path: path, ID: tree.Cosmos.ID, Name: tree.Cosmos.Name, Version: tree.Cosmos.Version, Status: tree.Cosmos.Status, Owner: tree.Cosmos.Owner, DomainCount: len(tree.Domains), ServiceCount: serviceCount}, nil
+	for canonical := range persisted {
+		delete(virtual, canonical)
+	}
+	return CosmosDTO{Path: path, ID: tree.Cosmos.ID, Name: tree.Cosmos.Name, Version: tree.Cosmos.Version, Status: tree.Cosmos.Status, Owner: tree.Cosmos.Owner, DomainCount: len(tree.Domains), VirtualDomainCount: len(virtual), ServiceCount: serviceCount}, nil
 }
 
 func ListDomains(path string) (DomainsDTO, error) {
@@ -115,7 +130,7 @@ func BuildNamespaceTree(path string) (NamespaceTreeDTO, error) {
 	if err != nil {
 		return NamespaceTreeDTO{}, err
 	}
-	root := NamespaceTreeNodeDTO{Label: fallback(cosmos.Name, "Local Cosmos"), Kind: "cosmos"}
+	root := NamespaceTreeNodeDTO{Label: fallback(cosmos.Name, "Local Cosmos"), Kind: "cosmos", CanOpenDetails: true}
 	namespaces := NamespaceTreeNodeDTO{Label: "Namespaces", Kind: "namespace-parent"}
 	for _, d := range domains.Domains {
 		full, err := GetDomain(path, d.Canonical)
@@ -132,7 +147,7 @@ func BuildNamespaceTree(path string) (NamespaceTreeDTO, error) {
 func domainDTO(d cosmosfs.DomainNode, includeServices bool) DomainDTO {
 	canonical := namespace.Canonical(d.Name)
 	v := namespace.View(canonical)
-	dto := DomainDTO{Name: canonical, Canonical: canonical, CanonicalName: canonical, Namespace: namespaceDTO(v), Label: v.Label, NamespaceName: v.Namespace, ParentCanonical: v.ParentCanonical, ParentTreePath: v.ParentTreePath, TreePath: v.TreePath, GitPath: v.GitPath, VerificationStatus: verificationStatus(fallback(d.Metadata.Status, "unknown")), DisplayName: v.Label, Owner: fallback(d.Metadata.Owner, "unknown"), Status: fallback(d.Metadata.Status, "unknown"), Path: d.Path, ServiceCount: len(d.Services)}
+	dto := DomainDTO{Name: canonical, Canonical: canonical, CanonicalName: canonical, Namespace: namespaceDTO(v), Label: v.Label, NamespaceName: v.Namespace, ParentCanonical: v.ParentCanonical, ParentTreePath: v.ParentTreePath, TreePath: v.TreePath, GitPath: v.GitPath, VerificationStatus: verificationStatus(fallback(d.Metadata.Status, "unknown")), DisplayName: v.Label, Owner: fallback(d.Metadata.Owner, "unknown"), Status: fallback(d.Metadata.Status, "unknown"), Path: d.Path, ServiceCount: len(d.Services), Persisted: true, Virtual: false}
 	if includeServices {
 		dto.Services = make([]ServiceDTO, 0, len(d.Services))
 		for _, s := range d.Services {
@@ -206,6 +221,9 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 				child.DisplayPath = label
 				child.TreePath = "/" + label
 			} else {
+				child.Virtual = true
+				child.CanCreateChildDomain = true
+				child.CanMaterializeDomain = true
 				canonical, err := namespace.ComposeCanonical(parts[0], parts[1:i+1]...)
 				if err == nil {
 					child.Canonical = canonical
@@ -220,6 +238,13 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 			idx = len(node.Children) - 1
 		}
 		if kind == "domain" && i == len(parts)-1 {
+			node.Children[idx].Persisted = true
+			node.Children[idx].Virtual = false
+			node.Children[idx].CanCreateChildDomain = true
+			node.Children[idx].CanAddService = true
+			node.Children[idx].CanOpenDetails = true
+			node.Children[idx].CanVerifyDomain = true
+			node.Children[idx].CanMaterializeDomain = false
 			node.Children[idx].Canonical = d.Canonical
 			node.Children[idx].CanonicalName = d.Canonical
 			node.Children[idx].DisplayPath = d.Namespace.DisplayPath
@@ -239,7 +264,7 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 		serviceParent := &node.Children[idx]
 		for _, svc := range d.Services {
 			s := svc
-			serviceParent.Children = append(serviceParent.Children, NamespaceTreeNodeDTO{Label: svc.Name, Kind: "service", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s})
+			serviceParent.Children = append(serviceParent.Children, NamespaceTreeNodeDTO{Label: svc.Name, Kind: "service", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, Persisted: true, CanOpenDetails: true})
 		}
 	}
 }
@@ -392,6 +417,10 @@ func domainDirFromTreePath(workspace, treePath string) string {
 }
 
 func AddDomain(path, dns, owner string, force bool) (DomainDTO, error) {
+	return addDomain(path, dns, owner, force, false)
+}
+
+func addDomain(path, dns, owner string, force bool, materializedFromTree bool) (DomainDTO, error) {
 	dns = namespace.Canonical(strings.TrimSpace(dns))
 	identity, err := namespace.Identity(dns)
 	if err != nil || strings.ContainsAny(dns, `/\`) {
@@ -402,14 +431,15 @@ func AddDomain(path, dns, owner string, force bool) (DomainDTO, error) {
 		owner = "unknown"
 	}
 	ddir := domainDirFromTreePath(path, identity.TreePath)
-	if _, err := os.Stat(ddir); err == nil && !force {
+	domainFile := filepath.Join(ddir, "domain.yaml")
+	if _, err := os.Stat(domainFile); err == nil && !force {
 		return DomainDTO{}, Error(CodeInvalidNamespace, "Domain already exists: "+dns, http.StatusConflict, nil)
 	}
 	if err := os.MkdirAll(filepath.Join(ddir, "services"), 0o755); err != nil {
 		return DomainDTO{}, err
 	}
-	d := model.Domain{ID: dns, Type: "domain", Name: dns, Version: "0.1.0", Status: "draft", Owner: owner, DNSName: dns, Namespace: identity.Namespace, Label: identity.Label, Labels: identity.Labels, CanonicalName: dns, TreePath: identity.TreePath, ParentCanonical: identity.ParentCanonical, ParentTreePath: identity.ParentTreePath, Summary: "Nomos Domain " + dns + "."}
-	if err := fsx.WriteYAML(filepath.Join(ddir, "domain.yaml"), d); err != nil {
+	d := model.Domain{ID: dns, Type: "domain", Name: dns, Version: "0.1.0", Status: "draft", Owner: owner, DNSName: dns, Namespace: identity.Namespace, Label: identity.Label, Labels: identity.Labels, CanonicalName: dns, TreePath: identity.TreePath, ParentCanonical: identity.ParentCanonical, ParentTreePath: identity.ParentTreePath, MaterializedFromTree: materializedFromTree, Summary: "Nomos Domain " + dns + "."}
+	if err := fsx.WriteYAML(domainFile, d); err != nil {
 		return DomainDTO{}, err
 	}
 	if err := os.WriteFile(filepath.Join(ddir, "README.md"), []byte("# Domain\n"), 0o644); err != nil {

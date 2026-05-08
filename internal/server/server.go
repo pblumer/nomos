@@ -168,10 +168,11 @@ func (h *handler) apiDomainRoutes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var req struct {
-			Label   string `json:"label"`
-			Segment string `json:"segment"`
-			Owner   string `json:"owner"`
-			Force   bool   `json:"force"`
+			Label             string `json:"label"`
+			Segment           string `json:"segment"`
+			Owner             string `json:"owner"`
+			Force             bool   `json:"force"`
+			MaterializeParent bool   `json:"materializeParent"`
 		}
 		if ct := r.Header.Get("Content-Type"); strings.Contains(ct, "application/json") {
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

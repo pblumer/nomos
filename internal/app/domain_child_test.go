@@ -1,8 +1,12 @@
 package app
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/nomos/nomos/internal/storage"
 )
 
 func TestAddDomainInNamespaceComposesCanonicalName(t *testing.T) {
@@ -90,5 +94,30 @@ func TestAddChildDomainCreatesTreeOrderedGitPathAndLoadsByCanonical(t *testing.T
 	}
 	if loaded.Canonical != leaf.Canonical || loaded.Path == "" {
 		t.Fatalf("loaded=%+v leaf=%+v", loaded, leaf)
+	}
+}
+
+func TestAddChildDomainMaterializesVirtualParent(t *testing.T) {
+	p := createAppTestCosmos(t)
+	child, err := AddChildDomain(p, "blumer.cloud", "products", "Patrick Blumer", false)
+	if err != nil {
+		t.Fatalf("AddChildDomain under virtual parent: %v", err)
+	}
+	if child.Canonical != "products.blumer.cloud" {
+		t.Fatalf("canonical=%q", child.Canonical)
+	}
+	parent, err := GetDomain(p, "blumer.cloud")
+	if err != nil {
+		t.Fatalf("parent should be materialized: %v", err)
+	}
+	if parent.GitPath != ".nomos/domains/cloud/blumer/domain.yaml" || child.GitPath != ".nomos/domains/cloud/blumer/products/domain.yaml" {
+		t.Fatalf("unexpected paths: parent=%q child=%q", parent.GitPath, child.GitPath)
+	}
+	body, err := os.ReadFile(filepath.Join(storage.DomainsDir(p), "cloud", "blumer", "domain.yaml"))
+	if err != nil {
+		t.Fatalf("read materialized parent: %v", err)
+	}
+	if !strings.Contains(string(body), "materializedFromTree: true") {
+		t.Fatalf("parent was not marked materializedFromTree: %s", body)
 	}
 }
