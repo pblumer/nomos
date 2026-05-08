@@ -402,7 +402,7 @@ func (h *handler) apiBlueprintRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// /api/v1/blueprints/{id}/requirements              POST   → add requirement
-	// /api/v1/blueprints/{id}/requirements/{reqID}      PATCH  → set fulfilled
+	// /api/v1/blueprints/{id}/requirements/{reqID}      PATCH  → set status (open/fulfilled)
 	// /api/v1/blueprints/{id}/requirements/{reqID}      DELETE → remove requirement
 	if len(parts) >= 2 && parts[0] != "" && parts[1] == "requirements" {
 		if len(parts) == 2 && r.Method == http.MethodPost {
@@ -423,13 +423,13 @@ func (h *handler) apiBlueprintRoutes(w http.ResponseWriter, r *http.Request) {
 		}
 		if len(parts) == 3 && parts[2] != "" && r.Method == http.MethodPatch {
 			var body struct {
-				Fulfilled bool `json:"fulfilled"`
+				Status string `json:"status"`
 			}
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Status == "" {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "status required (open or fulfilled)"})
 				return
 			}
-			dto, err := app.SetBlueprintRequirementFulfilled(h.cosmosPath, parts[0], parts[2], body.Fulfilled)
+			dto, err := app.SetBlueprintRequirementStatus(h.cosmosPath, parts[0], parts[2], body.Status)
 			if err != nil {
 				h.apiErr(w, err)
 				return

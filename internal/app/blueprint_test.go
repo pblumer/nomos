@@ -302,8 +302,8 @@ func TestAddBlueprintRequirement_Success(t *testing.T) {
 	if req.Label != "Datenschutz-Konzept liegt vor" {
 		t.Fatalf("unexpected label: %s", req.Label)
 	}
-	if req.Fulfilled {
-		t.Fatal("new requirement should not be fulfilled")
+	if req.Status != "open" {
+		t.Fatalf("new requirement should have status 'open', got %q", req.Status)
 	}
 	if req.ID == "" {
 		t.Fatal("requirement should have a non-empty ID")
@@ -343,9 +343,9 @@ func TestAddBlueprintRequirement_BlueprintNotFound(t *testing.T) {
 	}
 }
 
-// ── SetBlueprintRequirementFulfilled ────────────────────────────────────────
+// ── SetBlueprintRequirementStatus ────────────────────────────────────────────
 
-func TestSetBlueprintRequirementFulfilled_ToggleTrue(t *testing.T) {
+func TestSetBlueprintRequirementStatus_ToFulfilled(t *testing.T) {
 	p, productID, _ := createProductAndService(t)
 
 	added, err := AddBlueprintRequirement(p, productID, "Sicherheitstest bestanden")
@@ -354,41 +354,88 @@ func TestSetBlueprintRequirementFulfilled_ToggleTrue(t *testing.T) {
 	}
 	reqID := added.Requirements[0].ID
 
-	got, err := SetBlueprintRequirementFulfilled(p, productID, reqID, true)
+	got, err := SetBlueprintRequirementStatus(p, productID, reqID, "fulfilled")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !got.Requirements[0].Fulfilled {
-		t.Fatal("requirement should be fulfilled after setting to true")
+	if got.Requirements[0].Status != "fulfilled" {
+		t.Fatalf("expected status fulfilled, got %q", got.Requirements[0].Status)
+	}
+	if got.RequirementsStatus != "fulfilled" {
+		t.Fatalf("expected requirements_status fulfilled, got %q", got.RequirementsStatus)
 	}
 }
 
-func TestSetBlueprintRequirementFulfilled_ToggleFalse(t *testing.T) {
+func TestSetBlueprintRequirementStatus_BackToOpen(t *testing.T) {
 	p, productID, _ := createProductAndService(t)
 
 	added, _ := AddBlueprintRequirement(p, productID, "Test")
 	reqID := added.Requirements[0].ID
 
-	fulfilled, _ := SetBlueprintRequirementFulfilled(p, productID, reqID, true)
-	if !fulfilled.Requirements[0].Fulfilled {
+	fulfilled, _ := SetBlueprintRequirementStatus(p, productID, reqID, "fulfilled")
+	if fulfilled.Requirements[0].Status != "fulfilled" {
 		t.Fatal("should be fulfilled")
 	}
 
-	got, err := SetBlueprintRequirementFulfilled(p, productID, reqID, false)
+	got, err := SetBlueprintRequirementStatus(p, productID, reqID, "open")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got.Requirements[0].Fulfilled {
-		t.Fatal("requirement should be open after toggling back to false")
+	if got.Requirements[0].Status != "open" {
+		t.Fatalf("expected status open, got %q", got.Requirements[0].Status)
+	}
+	if got.RequirementsStatus != "open" {
+		t.Fatalf("expected requirements_status open, got %q", got.RequirementsStatus)
 	}
 }
 
-func TestSetBlueprintRequirementFulfilled_RequirementNotFound(t *testing.T) {
+func TestSetBlueprintRequirementStatus_InvalidStatus(t *testing.T) {
 	p, productID, _ := createProductAndService(t)
 
-	_, err := SetBlueprintRequirementFulfilled(p, productID, "req-nonexistent", true)
+	added, _ := AddBlueprintRequirement(p, productID, "Test")
+	reqID := added.Requirements[0].ID
+
+	_, err := SetBlueprintRequirementStatus(p, productID, reqID, "invalid")
+	if err == nil {
+		t.Fatal("expected error for invalid status")
+	}
+}
+
+func TestSetBlueprintRequirementStatus_RequirementNotFound(t *testing.T) {
+	p, productID, _ := createProductAndService(t)
+
+	_, err := SetBlueprintRequirementStatus(p, productID, "req-nonexistent", "fulfilled")
 	if err == nil {
 		t.Fatal("expected error for non-existent requirement ID")
+	}
+}
+
+func TestRequirementsStatus_Derived(t *testing.T) {
+	p, productID, _ := createProductAndService(t)
+
+	// no requirements → status empty
+	bp, _ := GetBlueprint(p, productID)
+	if bp.RequirementsStatus != "" {
+		t.Fatalf("expected empty requirements_status with no requirements, got %q", bp.RequirementsStatus)
+	}
+
+	// add one → status open
+	added, _ := AddBlueprintRequirement(p, productID, "Req A")
+	if added.RequirementsStatus != "open" {
+		t.Fatalf("expected open after adding requirement, got %q", added.RequirementsStatus)
+	}
+
+	// add second, fulfill first → still open
+	added2, _ := AddBlueprintRequirement(p, productID, "Req B")
+	partFulfilled, _ := SetBlueprintRequirementStatus(p, productID, added2.Requirements[0].ID, "fulfilled")
+	if partFulfilled.RequirementsStatus != "open" {
+		t.Fatalf("expected open with one unfulfilled requirement, got %q", partFulfilled.RequirementsStatus)
+	}
+
+	// fulfill remaining → all fulfilled
+	allFulfilled, _ := SetBlueprintRequirementStatus(p, productID, added2.Requirements[1].ID, "fulfilled")
+	if allFulfilled.RequirementsStatus != "fulfilled" {
+		t.Fatalf("expected fulfilled when all requirements done, got %q", allFulfilled.RequirementsStatus)
 	}
 }
 

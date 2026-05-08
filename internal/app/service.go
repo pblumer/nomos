@@ -363,9 +363,23 @@ func blueprintDTO(b cosmosfs.BlueprintNode) BlueprintDTO {
 	}
 	requirements := make([]BlueprintRequirementDTO, 0, len(b.Metadata.Requirements))
 	for _, r := range b.Metadata.Requirements {
-		requirements = append(requirements, BlueprintRequirementDTO{ID: r.ID, Label: r.Label, Fulfilled: r.Fulfilled})
+		requirements = append(requirements, BlueprintRequirementDTO{ID: r.ID, Label: r.Label, Status: r.Status})
 	}
-	return BlueprintDTO{ID: b.Metadata.ID, Type: b.Metadata.Type, Name: b.Metadata.Name, Version: b.Metadata.Version, Status: b.Metadata.Status, Owner: b.Metadata.Owner, Summary: b.Metadata.Summary, Path: b.Path, Variants: variants, Capabilities: b.Metadata.Capabilities, TargetSystems: b.Metadata.TargetSystems, RequiredInputs: b.Metadata.RequiredInputs, RequiredServiceBlueprints: b.Metadata.RequiredServiceBlueprints, RequiredServices: requiredServices, NamespaceServiceRef: b.Metadata.NamespaceServiceRef, Rules: b.Metadata.Rules, QualityCriteria: b.Metadata.QualityCriteria, EvidenceRequirements: b.Metadata.EvidenceRequirements, Requirements: requirements}
+	return BlueprintDTO{ID: b.Metadata.ID, Type: b.Metadata.Type, Name: b.Metadata.Name, Version: b.Metadata.Version, Status: b.Metadata.Status, Owner: b.Metadata.Owner, Summary: b.Metadata.Summary, Path: b.Path, Variants: variants, Capabilities: b.Metadata.Capabilities, TargetSystems: b.Metadata.TargetSystems, RequiredInputs: b.Metadata.RequiredInputs, RequiredServiceBlueprints: b.Metadata.RequiredServiceBlueprints, RequiredServices: requiredServices, NamespaceServiceRef: b.Metadata.NamespaceServiceRef, Rules: b.Metadata.Rules, QualityCriteria: b.Metadata.QualityCriteria, EvidenceRequirements: b.Metadata.EvidenceRequirements, Requirements: requirements, RequirementsStatus: requirementsStatus(b.Metadata.Requirements)}
+}
+
+// requirementsStatus derives the overall status from a set of requirements:
+// no requirements → "" (null), any open → "open", all fulfilled → "fulfilled"
+func requirementsStatus(reqs []model.BlueprintRequirement) string {
+	if len(reqs) == 0 {
+		return ""
+	}
+	for _, r := range reqs {
+		if r.Status != "fulfilled" {
+			return "open"
+		}
+	}
+	return "fulfilled"
 }
 
 func instanceDTO(i cosmosfs.InstanceNode) InstanceDTO {
@@ -758,14 +772,17 @@ func AddBlueprintRequirement(path, id, label string) (BlueprintDTO, error) {
 		return BlueprintDTO{}, Error(CodeInternalError, "Failed to read blueprint: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	reqID := fmt.Sprintf("req-%d", time.Now().UnixNano())
-	raw.Requirements = append(raw.Requirements, model.BlueprintRequirement{ID: reqID, Label: label, Fulfilled: false})
+	raw.Requirements = append(raw.Requirements, model.BlueprintRequirement{ID: reqID, Label: label, Status: "open"})
 	if err := fsx.WriteYAML(bp.Path, raw); err != nil {
 		return BlueprintDTO{}, Error(CodeInternalError, "Failed to write blueprint: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	return GetBlueprint(path, id)
 }
 
-func SetBlueprintRequirementFulfilled(path, id, reqID string, fulfilled bool) (BlueprintDTO, error) {
+func SetBlueprintRequirementStatus(path, id, reqID, status string) (BlueprintDTO, error) {
+	if status != "open" && status != "fulfilled" {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "status must be 'open' or 'fulfilled'", http.StatusBadRequest, nil)
+	}
 	bp, err := GetBlueprint(path, id)
 	if err != nil {
 		return BlueprintDTO{}, err
@@ -777,7 +794,7 @@ func SetBlueprintRequirementFulfilled(path, id, reqID string, fulfilled bool) (B
 	found := false
 	for i := range raw.Requirements {
 		if raw.Requirements[i].ID == reqID {
-			raw.Requirements[i].Fulfilled = fulfilled
+			raw.Requirements[i].Status = status
 			found = true
 			break
 		}

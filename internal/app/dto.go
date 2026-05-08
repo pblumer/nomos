@@ -134,12 +134,13 @@ type BlueprintDTO struct {
 	QualityCriteria           []string                  `json:"quality_criteria"`
 	EvidenceRequirements      []string                  `json:"evidence_requirements"`
 	Requirements              []BlueprintRequirementDTO `json:"requirements,omitempty"`
+	RequirementsStatus        string                    `json:"requirements_status,omitempty"`
 }
 
 type BlueprintRequirementDTO struct {
-	ID        string `json:"id"`
-	Label     string `json:"label"`
-	Fulfilled bool   `json:"fulfilled"`
+	ID     string `json:"id"`
+	Label  string `json:"label"`
+	Status string `json:"status"`
 }
 
 type VariantDTO struct {

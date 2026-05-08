@@ -76,10 +76,12 @@ type Blueprint struct {
 	Requirements              []BlueprintRequirement `yaml:"requirements,omitempty" json:"requirements,omitempty"`
 }
 
+// BlueprintRequirement represents a design-time check on a blueprint.
+// Status: "" (not yet assessed) → "open" → "fulfilled"
 type BlueprintRequirement struct {
-	ID        string `yaml:"id" json:"id"`
-	Label     string `yaml:"label" json:"label"`
-	Fulfilled bool   `yaml:"fulfilled" json:"fulfilled"`
+	ID     string `yaml:"id" json:"id"`
+	Label  string `yaml:"label" json:"label"`
+	Status string `yaml:"status" json:"status"`
 }
 
 type Instance struct {
