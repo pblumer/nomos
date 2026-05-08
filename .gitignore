@@ -18,3 +18,4 @@ deploy/.env
 # Built binaries
 /bin/nomos
 /nomos
+coverage.out

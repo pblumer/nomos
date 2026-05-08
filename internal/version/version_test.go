@@ -22,6 +22,14 @@ func TestGetReturnsDefaultVersionInfo(t *testing.T) {
 	}
 }
 
+func TestOSArch(t *testing.T) {
+	info := Get()
+	got := info.OSArch()
+	if got != info.OS+"/"+info.Arch {
+		t.Fatalf("expected %s/%s, got %s", info.OS, info.Arch, got)
+	}
+}
+
 func TestGetReturnsConfiguredVersionInfo(t *testing.T) {
 	origVersion, origCommit, origDate, origDirty, origBuiltBy := Version, Commit, Date, Dirty, BuiltBy
 	defer func() {

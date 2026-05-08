@@ -401,6 +401,52 @@ func (h *handler) apiBlueprintRoutes(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, dto)
 		return
 	}
+	// /api/v1/blueprints/{id}/requirements              POST   → add requirement
+	// /api/v1/blueprints/{id}/requirements/{reqID}      PATCH  → set fulfilled
+	// /api/v1/blueprints/{id}/requirements/{reqID}      DELETE → remove requirement
+	if len(parts) >= 2 && parts[0] != "" && parts[1] == "requirements" {
+		if len(parts) == 2 && r.Method == http.MethodPost {
+			var body struct {
+				Label string `json:"label"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Label == "" {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "label required"})
+				return
+			}
+			dto, err := app.AddBlueprintRequirement(h.cosmosPath, parts[0], body.Label)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+			return
+		}
+		if len(parts) == 3 && parts[2] != "" && r.Method == http.MethodPatch {
+			var body struct {
+				Fulfilled bool `json:"fulfilled"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			dto, err := app.SetBlueprintRequirementFulfilled(h.cosmosPath, parts[0], parts[2], body.Fulfilled)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+			return
+		}
+		if len(parts) == 3 && parts[2] != "" && r.Method == http.MethodDelete {
+			dto, err := app.DeleteBlueprintRequirement(h.cosmosPath, parts[0], parts[2])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+			return
+		}
+	}
 	// /api/v1/blueprints/{id}/service-blueprints        POST  → add service blueprint
 	// /api/v1/blueprints/{id}/service-blueprints/{svcID} DELETE → remove service blueprint
 	if len(parts) >= 2 && parts[0] != "" && parts[1] == "service-blueprints" {
