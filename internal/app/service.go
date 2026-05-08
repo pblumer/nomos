@@ -685,6 +685,62 @@ func DeleteBlueprint(path, id string) error {
 	return nil
 }
 
+func AddServiceBlueprintToProduct(path, productID, serviceID string) (BlueprintDTO, error) {
+	product, err := GetBlueprint(path, productID)
+	if err != nil {
+		return BlueprintDTO{}, err
+	}
+	if product.Type != "product_blueprint" {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "target blueprint is not a product_blueprint", http.StatusBadRequest, nil)
+	}
+	svc, err := GetBlueprint(path, serviceID)
+	if err != nil {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "service blueprint not found: "+serviceID, http.StatusBadRequest, nil)
+	}
+	if svc.Type != "service_blueprint" {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "referenced blueprint is not a service_blueprint", http.StatusBadRequest, nil)
+	}
+	for _, existing := range product.RequiredServiceBlueprints {
+		if existing == serviceID {
+			return product, nil
+		}
+	}
+	var raw model.Blueprint
+	if err := fsx.ReadYAML(product.Path, &raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to read blueprint: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	raw.RequiredServiceBlueprints = append(raw.RequiredServiceBlueprints, serviceID)
+	if err := fsx.WriteYAML(product.Path, raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to write blueprint: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetBlueprint(path, productID)
+}
+
+func RemoveServiceBlueprintFromProduct(path, productID, serviceID string) (BlueprintDTO, error) {
+	product, err := GetBlueprint(path, productID)
+	if err != nil {
+		return BlueprintDTO{}, err
+	}
+	if product.Type != "product_blueprint" {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "target blueprint is not a product_blueprint", http.StatusBadRequest, nil)
+	}
+	var raw model.Blueprint
+	if err := fsx.ReadYAML(product.Path, &raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to read blueprint: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	filtered := raw.RequiredServiceBlueprints[:0]
+	for _, s := range raw.RequiredServiceBlueprints {
+		if s != serviceID {
+			filtered = append(filtered, s)
+		}
+	}
+	raw.RequiredServiceBlueprints = filtered
+	if err := fsx.WriteYAML(product.Path, raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to write blueprint: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetBlueprint(path, productID)
+}
+
 func PublishBlueprint(path, id string) (BlueprintDTO, error) {
 	bp, err := GetBlueprint(path, id)
 	if err != nil {

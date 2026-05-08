@@ -1,1 +1,345 @@
-{{define "blueprint_detail"}}{{template "layout" .}}{{end}}{{define "content_blueprint_detail"}}<section class="page-header"><div><h2>{{.Blueprint.ID}}</h2><p>{{.Blueprint.Name}}</p></div><a class="button button-secondary" href="/api/v1/blueprints/{{.Blueprint.ID}}">API JSON</a></section><section class="split-grid"><article class="card"><h3>Metadata</h3><dl class="details-list"><dt>Type</dt><dd>{{.Blueprint.Type}}</dd><dt>Version</dt><dd>{{.Blueprint.Version}}</dd><dt>Status</dt><dd><span class="badge">{{.Blueprint.Status}}</span></dd><dt>Owner</dt><dd>{{.Blueprint.Owner}}</dd><dt>Summary</dt><dd>{{.Blueprint.Summary}}</dd><dt>Path</dt><dd><code>{{.Blueprint.Path}}</code></dd><dt>Namespace service ref</dt><dd>{{.Blueprint.NamespaceServiceRef}}</dd></dl></article><article class="card"><h3>Requirements</h3><h4>Required inputs</h4><ul>{{range .Blueprint.RequiredInputs}}<li>{{.}}</li>{{else}}<li class="empty-state">None</li>{{end}}</ul><h4>Required services</h4><ul>{{range .Blueprint.RequiredServices}}<li>{{.ServiceRef}} → {{.ServiceBlueprintRef}}</li>{{else}}<li class="empty-state">None</li>{{end}}</ul></article></section><section class="card"><h3>Controls and evidence</h3><p><strong>Capabilities:</strong> {{range .Blueprint.Capabilities}}<span class="badge">{{.}}</span> {{end}}</p><p><strong>Target systems:</strong> {{range .Blueprint.TargetSystems}}<span class="badge">{{.}}</span> {{end}}</p><p><strong>Rules:</strong> {{range .Blueprint.Rules}}<span class="badge">{{.}}</span> {{end}}</p><p><strong>Quality criteria:</strong> {{range .Blueprint.QualityCriteria}}<span class="badge">{{.}}</span> {{end}}</p><p><strong>Evidence requirements:</strong> {{range .Blueprint.EvidenceRequirements}}<span class="badge">{{.}}</span> {{end}}</p></section>{{end}}
+{{define "blueprint_detail"}}{{template "layout" .}}{{end}}
+
+{{define "content_blueprint_detail"}}
+<style>
+.bp-layout{display:grid;grid-template-columns:340px 1fr;gap:1.25rem;margin-top:1rem;align-items:start}
+@media(max-width:900px){.bp-layout{grid-template-columns:1fr}}
+.bp-card{background:#fff;border:1px solid #e8edf4;border-radius:12px;padding:1.1rem 1.2rem}
+.bp-card h3{margin:0 0 .85rem;font-size:.9rem;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:.4rem}
+.bp-card h3 .mi{font-size:17px;font-family:'Material Symbols Outlined'}
+.dl{display:grid;grid-template-columns:auto 1fr;gap:.28rem .75rem;font-size:.82rem}
+.dl dt{color:#64748b;font-weight:600;white-space:nowrap}
+.dl dd{color:#0f172a;margin:0;word-break:break-word}
+.dl code{background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:.78rem}
+.tag-list{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.15rem}
+.tag{background:#f1f5f9;color:#475569;border-radius:6px;padding:1px 8px;font-size:.75rem;font-weight:500}
+.badge-draft{background:#f1f5f9;color:#475569}
+.badge-active{background:#d1fae5;color:#065f46}
+.badge-deprecated{background:#fef3c7;color:#92400e}
+
+/* Service blueprint cards in product view */
+.svc-list{display:flex;flex-direction:column;gap:.65rem}
+.svc-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:.75rem .9rem;display:flex;align-items:flex-start;gap:.75rem}
+.svc-card-icon{width:30px;height:30px;border-radius:7px;background:#ede9fe;color:#5b21b6;display:grid;place-items:center;flex-shrink:0;font-family:'Material Symbols Outlined';font-size:15px}
+.svc-card-body{flex:1;min-width:0}
+.svc-card-title{font-size:.85rem;font-weight:700;color:#0f172a}
+.svc-card-sub{font-size:.73rem;color:#64748b;margin-top:1px}
+.svc-card-stats{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.4rem}
+.stat-chip{font-size:.71rem;font-weight:600;padding:1px 7px;border-radius:6px;background:#e0e7ff;color:#3730a3}
+.stat-chip.ok{background:#d1fae5;color:#065f46}
+.stat-chip.warn{background:#fef3c7;color:#92400e}
+.stat-chip.empty{background:#f1f5f9;color:#94a3b8}
+.svc-card-actions{display:flex;gap:.3rem;align-items:center;flex-shrink:0}
+.svc-empty{padding:1.5rem;text-align:center;color:#94a3b8;font-size:.84rem;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:9px}
+
+.btn{display:inline-flex;align-items:center;gap:.3rem;padding:.35rem .75rem;border-radius:7px;font-size:.82rem;font-weight:600;cursor:pointer;border:none;transition:background .12s;text-decoration:none;line-height:1.4}
+.btn .mi{font-size:15px;font-family:'Material Symbols Outlined'}
+.btn-primary{background:#4f46e5;color:#fff}.btn-primary:hover{background:#4338ca}
+.btn-secondary{background:#f1f5f9;color:#334155;border:1px solid #e2e8f0}.btn-secondary:hover{background:#e2e8f0}
+.btn-danger{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}.btn-danger:hover{background:#fecaca}
+.btn-sm{padding:.2rem .5rem;font-size:.76rem}
+.btn-icon{padding:.25rem;border-radius:6px;background:none;color:#94a3b8;border:none;cursor:pointer;display:grid;place-items:center}.btn-icon:hover{background:#fee2e2;color:#991b1b}
+.btn-icon .mi{font-size:16px;font-family:'Material Symbols Outlined'}
+
+.nmodal-overlay{position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.45);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .15s,visibility .15s}
+.nmodal-overlay.open{opacity:1;visibility:visible}
+.nmodal{background:#fff;border-radius:14px;width:min(500px,94vw);box-shadow:0 8px 40px rgba(15,23,42,.18);transform:translateY(8px) scale(.97);transition:transform .15s}
+.nmodal-overlay.open .nmodal{transform:none}
+.nmodal-head{padding:1rem 1.4rem .8rem;border-bottom:1px solid #f0f4f8;display:flex;justify-content:space-between;align-items:center}
+.nmodal-head h3{margin:0;font-size:.95rem}
+.nmodal-close{background:none;border:none;cursor:pointer;color:#94a3b8;padding:4px 7px;border-radius:6px}.nmodal-close:hover{background:#f1f5f9;color:#334155}
+.nmodal-body{padding:1.1rem 1.4rem}
+.nmodal-foot{padding:.8rem 1.4rem;border-top:1px solid #f0f4f8;display:flex;justify-content:flex-end;gap:.5rem}
+.nfield{margin-bottom:.75rem}
+.nfield label{display:block;font-size:.79rem;font-weight:600;color:#475569;margin-bottom:.25rem}
+.nfield input,.nfield select,.nfield textarea{width:100%;border:1px solid #d1d5db;border-radius:7px;padding:.42rem .6rem;font-size:.85rem;background:#fff;transition:border .12s;box-sizing:border-box}
+.nfield input:focus,.nfield select:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.1)}
+.nfield-hint{font-size:.73rem;color:#64748b;margin-top:.18rem}
+.nerror{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:7px;padding:.5rem .7rem;font-size:.82rem;margin-bottom:.75rem;display:none}
+.nerror.show{display:block}
+
+.type-tabs{display:flex;gap:.35rem;margin-bottom:.9rem}
+.type-tab{flex:1;padding:.38rem;border:1.5px solid #e2e8f0;border-radius:7px;background:#fff;cursor:pointer;font-size:.8rem;font-weight:600;color:#64748b;text-align:center;transition:all .12s}
+.type-tab.active{border-color:#4f46e5;background:#eef2ff;color:#4338ca}
+
+/* requirements section */
+.req-section{margin-top:1rem}
+.req-section h4{font-size:.8rem;font-weight:700;color:#475569;margin:0 0 .4rem;text-transform:uppercase;letter-spacing:.03em}
+.req-tags{display:flex;flex-wrap:wrap;gap:.25rem}
+.req-tag{background:#f1f5f9;color:#475569;border-radius:5px;padding:1px 7px;font-size:.74rem}
+.req-empty{font-size:.78rem;color:#94a3b8;font-style:italic}
+</style>
+
+<section class="page-header">
+  <div>
+    <h2>{{.Blueprint.ID}}</h2>
+    <p>{{if .Blueprint.Name}}{{.Blueprint.Name}}{{else}}{{.Blueprint.Type}}{{end}}</p>
+  </div>
+  <div style="display:flex;gap:.5rem;align-items:center">
+    <a class="btn btn-secondary" href="/api/v1/blueprints/{{.Blueprint.ID}}"><span class="mi" style="font-family:'Material Symbols Outlined'">code</span> API JSON</a>
+    {{if eq .Blueprint.Type "product_blueprint"}}
+    <button class="btn btn-primary" id="btn-add-svc"><span class="mi" style="font-family:'Material Symbols Outlined'">add_circle</span> Service hinzufügen</button>
+    {{end}}
+  </div>
+</section>
+
+<div class="bp-layout">
+  {{/* Left column: metadata + requirements */}}
+  <div style="display:flex;flex-direction:column;gap:1rem">
+    <div class="bp-card">
+      <h3><span class="mi">info</span> Metadata</h3>
+      <dl class="dl">
+        <dt>Type</dt><dd><span class="badge badge-{{.Blueprint.Type}}">{{.Blueprint.Type}}</span></dd>
+        <dt>Version</dt><dd>{{.Blueprint.Version}}</dd>
+        <dt>Status</dt><dd><span class="badge badge-{{.Blueprint.Status}}">{{if .Blueprint.Status}}{{.Blueprint.Status}}{{else}}draft{{end}}</span></dd>
+        <dt>Owner</dt><dd>{{if .Blueprint.Owner}}{{.Blueprint.Owner}}{{else}}<span style="color:#94a3b8">—</span>{{end}}</dd>
+        {{if .Blueprint.Summary}}<dt>Summary</dt><dd>{{.Blueprint.Summary}}</dd>{{end}}
+        <dt>Path</dt><dd><code>{{.Blueprint.Path}}</code></dd>
+        {{if .Blueprint.NamespaceServiceRef}}<dt>NS ref</dt><dd><code>{{.Blueprint.NamespaceServiceRef}}</code></dd>{{end}}
+      </dl>
+    </div>
+
+    <div class="bp-card">
+      <h3><span class="mi">checklist</span> Requirements & Controls</h3>
+      {{if .Blueprint.RequiredInputs}}
+      <div class="req-section">
+        <h4>Required Inputs</h4>
+        <div class="req-tags">{{range .Blueprint.RequiredInputs}}<span class="req-tag">{{.}}</span>{{end}}</div>
+      </div>
+      {{end}}
+      {{if .Blueprint.Rules}}
+      <div class="req-section">
+        <h4>Rules</h4>
+        <div class="req-tags">{{range .Blueprint.Rules}}<span class="req-tag">{{.}}</span>{{end}}</div>
+      </div>
+      {{end}}
+      {{if .Blueprint.QualityCriteria}}
+      <div class="req-section">
+        <h4>Quality Criteria</h4>
+        <div class="req-tags">{{range .Blueprint.QualityCriteria}}<span class="req-tag">{{.}}</span>{{end}}</div>
+      </div>
+      {{end}}
+      {{if .Blueprint.EvidenceRequirements}}
+      <div class="req-section">
+        <h4>Evidence Requirements</h4>
+        <div class="req-tags">{{range .Blueprint.EvidenceRequirements}}<span class="req-tag">{{.}}</span>{{end}}</div>
+      </div>
+      {{end}}
+      {{if .Blueprint.Capabilities}}
+      <div class="req-section">
+        <h4>Capabilities</h4>
+        <div class="req-tags">{{range .Blueprint.Capabilities}}<span class="req-tag">{{.}}</span>{{end}}</div>
+      </div>
+      {{end}}
+      {{if and (not .Blueprint.RequiredInputs) (not .Blueprint.Rules) (not .Blueprint.QualityCriteria) (not .Blueprint.EvidenceRequirements) (not .Blueprint.Capabilities)}}
+      <span class="req-empty">Keine Requirements definiert.</span>
+      {{end}}
+    </div>
+  </div>
+
+  {{/* Right column */}}
+  <div style="display:flex;flex-direction:column;gap:1rem">
+    {{if eq .Blueprint.Type "product_blueprint"}}
+    <div class="bp-card">
+      <h3><span class="mi">settings</span> Service Blueprints
+        <span style="font-size:.75rem;background:#eef2ff;color:#4338ca;padding:1px 8px;border-radius:8px;font-weight:600;margin-left:.3rem">{{len .ServiceBlueprints}}</span>
+      </h3>
+      <div class="svc-list" id="svc-list">
+        {{range .ServiceBlueprints}}
+        <div class="svc-card" data-id="{{.ID}}">
+          <div class="svc-card-icon">settings</div>
+          <div class="svc-card-body">
+            <div class="svc-card-title">{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</div>
+            <div class="svc-card-sub">{{.ID}} · v{{.Version}}</div>
+            <div class="svc-card-stats">
+              <span class="badge badge-{{.Status}} stat-chip">{{if .Status}}{{.Status}}{{else}}draft{{end}}</span>
+              {{if .Rules}}<span class="stat-chip ok">{{len .Rules}} Rules</span>{{else}}<span class="stat-chip empty">0 Rules</span>{{end}}
+              {{if .EvidenceRequirements}}<span class="stat-chip ok">{{len .EvidenceRequirements}} Evidence</span>{{else}}<span class="stat-chip warn">0 Evidence</span>{{end}}
+              {{if .QualityCriteria}}<span class="stat-chip">{{len .QualityCriteria}} QC</span>{{end}}
+            </div>
+          </div>
+          <div class="svc-card-actions">
+            <a class="btn btn-secondary btn-sm" href="/blueprints/{{.ID}}">Details</a>
+            <button class="btn-icon btn-remove-svc" data-id="{{.ID}}" title="Entfernen"><span class="mi">delete</span></button>
+          </div>
+        </div>
+        {{else}}
+        <div class="svc-empty" id="svc-empty">Noch keine Service Blueprints verknüpft.<br>Klicke auf „Service hinzufügen" um Services zu verknüpfen.</div>
+        {{end}}
+      </div>
+    </div>
+    {{else}}
+    {{/* Service blueprint: show required services */}}
+    <div class="bp-card">
+      <h3><span class="mi">account_tree</span> Required Service Blueprints</h3>
+      {{if .Blueprint.RequiredServiceBlueprints}}
+      <div class="svc-list">
+        {{range .Blueprint.RequiredServiceBlueprints}}
+        <div class="svc-card">
+          <div class="svc-card-icon">inventory_2</div>
+          <div class="svc-card-body">
+            <div class="svc-card-title">{{.}}</div>
+          </div>
+          <div class="svc-card-actions">
+            <a class="btn btn-secondary btn-sm" href="/blueprints/{{.}}">Details</a>
+          </div>
+        </div>
+        {{end}}
+      </div>
+      {{else}}
+      <div class="svc-empty">Kein übergeordnetes Produkt definiert.</div>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+</div>
+
+{{if eq .Blueprint.Type "product_blueprint"}}
+{{/* Add Service Modal */}}
+<div id="add-svc-modal" class="nmodal-overlay">
+  <div class="nmodal">
+    <div class="nmodal-head">
+      <h3>Service Blueprint hinzufügen</h3>
+      <button class="nmodal-close" id="add-modal-close">&#x2715;</button>
+    </div>
+    <div class="nmodal-body">
+      <div id="add-modal-error" class="nerror"></div>
+      <div class="type-tabs">
+        <button class="type-tab active" id="tab-existing" data-mode="existing">Bestehend verknüpfen</button>
+        <button class="type-tab" id="tab-new" data-mode="new">Neu erstellen &amp; verknüpfen</button>
+      </div>
+
+      {{/* existing mode */}}
+      <div id="mode-existing">
+        <div class="nfield">
+          <label>Service Blueprint</label>
+          <select id="f-existing-svc">
+            <option value="">— Service Blueprint wählen —</option>
+            {{range .AllBlueprints}}{{if eq .Type "service_blueprint"}}
+            <option value="{{.ID}}">{{.ID}}{{if .Name}} · {{.Name}}{{end}}</option>
+            {{end}}{{end}}
+          </select>
+        </div>
+      </div>
+
+      {{/* new mode */}}
+      <div id="mode-new" style="display:none">
+        <div class="nfield">
+          <label>ID</label>
+          <input id="f-new-id" placeholder="z.B. SVC-AUTH-001" />
+          <div class="nfield-hint">Eindeutige Blueprint-ID</div>
+        </div>
+        <div class="nfield">
+          <label>Name</label>
+          <input id="f-new-name" placeholder="Anzeigename" />
+        </div>
+        <div class="nfield">
+          <label>Owner</label>
+          <input id="f-new-owner" placeholder="Team oder Person" />
+        </div>
+      </div>
+    </div>
+    <div class="nmodal-foot">
+      <button class="btn btn-secondary" id="add-modal-cancel">Abbrechen</button>
+      <button class="btn btn-primary" id="add-modal-confirm">Hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+const productID = {{.Blueprint.ID | printf "%q"}};
+let addMode = 'existing';
+
+// Mode tabs
+document.querySelectorAll('.type-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.type-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    addMode = tab.dataset.mode;
+    document.getElementById('mode-existing').style.display = addMode === 'existing' ? '' : 'none';
+    document.getElementById('mode-new').style.display = addMode === 'new' ? '' : 'none';
+    document.getElementById('add-modal-confirm').textContent = addMode === 'new' ? 'Erstellen & verknüpfen' : 'Hinzufügen';
+  });
+});
+
+// Modal open/close
+const modal = document.getElementById('add-svc-modal');
+const err = document.getElementById('add-modal-error');
+function openModal() { modal.classList.add('open'); err.classList.remove('show'); err.textContent = ''; }
+function closeModal() { modal.classList.remove('open'); }
+document.getElementById('btn-add-svc').addEventListener('click', openModal);
+document.getElementById('add-modal-close').addEventListener('click', closeModal);
+document.getElementById('add-modal-cancel').addEventListener('click', closeModal);
+modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// Confirm
+document.getElementById('add-modal-confirm').addEventListener('click', async () => {
+  err.classList.remove('show');
+  const btn = document.getElementById('add-modal-confirm');
+  btn.disabled = true;
+
+  try {
+    let serviceID;
+    if (addMode === 'existing') {
+      serviceID = document.getElementById('f-existing-svc').value;
+      if (!serviceID) { err.textContent = 'Bitte einen Service Blueprint wählen'; err.classList.add('show'); return; }
+    } else {
+      const newID = document.getElementById('f-new-id').value.trim();
+      const newName = document.getElementById('f-new-name').value.trim();
+      const newOwner = document.getElementById('f-new-owner').value.trim();
+      if (!newID) { err.textContent = 'ID ist erforderlich'; err.classList.add('show'); return; }
+      btn.textContent = 'Erstelle…';
+      const cr = await fetch('/api/v1/blueprints', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: newID, name: newName, owner: newOwner || 'unknown', type: 'service_blueprint', version: '0.1.0', status: 'draft'})
+      });
+      const cd = await cr.json().catch(() => ({}));
+      if (!cr.ok) { err.textContent = cd.error?.message || cd.error || 'Erstellen fehlgeschlagen'; err.classList.add('show'); return; }
+      serviceID = newID;
+    }
+
+    btn.textContent = 'Verknüpfe…';
+    const r = await fetch('/api/v1/blueprints/' + encodeURIComponent(productID) + '/service-blueprints', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({service_id: serviceID})
+    });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) {
+      location.reload();
+    } else {
+      err.textContent = d.error?.message || d.error || 'Hinzufügen fehlgeschlagen';
+      err.classList.add('show');
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = addMode === 'new' ? 'Erstellen & verknüpfen' : 'Hinzufügen';
+  }
+});
+
+// Remove buttons
+document.querySelectorAll('.btn-remove-svc').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const id = btn.dataset.id;
+    if (!confirm('Service Blueprint "' + id + '" aus diesem Produkt entfernen?')) return;
+    btn.disabled = true;
+    const r = await fetch('/api/v1/blueprints/' + encodeURIComponent(productID) + '/service-blueprints/' + encodeURIComponent(id), {
+      method: 'DELETE'
+    });
+    if (r.ok) {
+      location.reload();
+    } else {
+      const d = await r.json().catch(() => ({}));
+      alert(d.error?.message || d.error || 'Entfernen fehlgeschlagen');
+      btn.disabled = false;
+    }
+  });
+});
+})();
+</script>
+{{end}}
+{{end}}
