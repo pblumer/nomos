@@ -18,7 +18,7 @@
 
 {{define "content_cosmos"}}
 <style>
-.ex-layout{display:grid;grid-template-columns:minmax(300px,370px) 1fr;gap:1rem;margin-top:1rem;align-items:start}
+.ex-layout{display:grid;grid-template-columns:minmax(420px,500px) 1fr;gap:1rem;margin-top:1rem;align-items:start}
 .ex-tree-card{background:#fff;border:1px solid #e8edf4;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.06)}
 .ex-tree-head{display:flex;justify-content:space-between;align-items:center;padding:.75rem 1rem;border-bottom:1px solid #f0f4f8;background:#f8fafc}
 .ex-tree-head h3{margin:0;font-size:.9rem;font-weight:700;color:#1e293b}
@@ -66,6 +66,10 @@
 .cn-badge-service-parent{background:#f1f5f9;color:#64748b}
 .cn-badge-blueprint{background:#d1fae5;color:#065f46}
 .cn-badge-blueprint-parent{background:#f1f5f9;color:#475569}
+.cn-badge-blueprint-attr{background:#eef2ff;color:#4338ca}
+.cn-row[data-kind="blueprint-attr"] .cn-icon{color:#6366f1}
+.cn-row[data-kind="blueprint-attr"] .cn-label{color:#3730a3;font-size:.8rem}
+.attr-ref-link{font-size:.68rem;color:#7c3aed;margin-left:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px}
 .ex-detail-card{background:#fff;border:1px solid #e8edf4;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.06);position:sticky;top:80px}
 .detail-head{padding:1rem 1.2rem .75rem;border-bottom:1px solid #f0f4f8;display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem}
 .detail-head-left{display:flex;align-items:center;gap:.6rem}
@@ -144,7 +148,7 @@
 </style>
 
 <section class="page-header">
-  <div><h2>Cosmos Explorer</h2><p>Knoten anklicken für Details &amp; Aktionen &middot; Rechtsklick f&uuml;r Kontextmen&uuml;</p></div>
+  <div><h2>Cosmos Explorer</h2><p>Knoten anklicken f&#252;r Details &amp; Aktionen &middot; Rechtsklick f&uuml;r Kontextmen&uuml;</p></div>
   <div class="stack"><span class="badge badge-{{.Cosmos.Status}}">{{.Cosmos.Status}}</span><a class="btn btn-secondary" href="/api/v1/cosmos">API JSON</a></div>
 </section>
 
@@ -190,19 +194,19 @@
                   </div>
                   <ul class="cn-children collapsed">
                     {{range .Blueprints}}{{if eq .Type "product_blueprint"}}
+                    {{$bpID := .ID}}{{$bpAttrs := .Attributes}}
                     <li class="cn" data-kind="blueprint" data-id="{{.ID}}" data-type="{{.Type}}">
                       <div class="cn-row" data-kind="blueprint" data-id="{{.ID}}" data-type="{{.Type}}">
-                        {{if .RequiredServiceBlueprints}}<button class="cn-toggle" aria-label="toggle">&#9658;</button>{{else}}<span class="cn-leaf"></span>{{end}}
+                        {{if or .RequiredServiceBlueprints .Attributes}}<button class="cn-toggle" aria-label="toggle">&#9658;</button>{{else}}<span class="cn-leaf"></span>{{end}}
                         <span class="cn-icon mi" style="color:#4338ca">inventory_2</span>
                         <span class="cn-label">{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</span>
                         <span class="cn-badge cn-badge-domain">product</span>
                       </div>
-                      {{if .RequiredServiceBlueprints}}
+                      {{if or .RequiredServiceBlueprints .Attributes}}
                       <ul class="cn-children collapsed">
                         {{$allBPs := $.Blueprints}}
                         {{range .RequiredServiceBlueprints}}
-                        {{$refID := .}}
-                        {{$refName := $refID}}
+                        {{$refID := .}}{{$refName := $refID}}
                         {{range $allBPs}}{{if eq .ID $refID}}{{if .Name}}{{$refName = .Name}}{{end}}{{end}}{{end}}
                         <li class="cn" data-kind="blueprint" data-id="{{$refID}}" data-type="service_blueprint">
                           <div class="cn-row" data-kind="blueprint" data-id="{{$refID}}" data-type="service_blueprint">
@@ -210,6 +214,17 @@
                             <span class="cn-icon mi" style="color:#059669">assignment</span>
                             <span class="cn-label">{{$refName}}</span>
                             <span class="cn-badge cn-badge-blueprint">service</span>
+                          </div>
+                        </li>
+                        {{end}}
+                        {{range $bpAttrs}}
+                        <li class="cn" data-kind="blueprint-attr" data-id="{{.ID}}" data-bp-id="{{$bpID}}">
+                          <div class="cn-row" data-kind="blueprint-attr" data-id="{{.ID}}" data-bp-id="{{$bpID}}">
+                            <span class="cn-leaf"></span>
+                            <span class="cn-icon mi">tune</span>
+                            <span class="cn-label">{{.Label}}</span>
+                            <span class="cn-badge cn-badge-blueprint-attr">{{.Type}}{{if .Required}} &middot;req{{end}}</span>
+                            {{range .Rules}}{{if eq .Type "reference"}}{{$refID := .Value}}{{$refName := $refID}}{{range $allBPs}}{{if eq .ID $refID}}{{if .Name}}{{$refName = .Name}}{{end}}{{end}}{{end}}<span class="attr-ref-link" title="&#x2192; {{$refName}}">&#x2192;&nbsp;{{$refName}}</span>{{end}}{{end}}
                           </div>
                         </li>
                         {{end}}
@@ -230,13 +245,30 @@
                   </div>
                   <ul class="cn-children collapsed">
                     {{range .Blueprints}}{{if eq .Type "service_blueprint"}}
+                    {{$bpID := .ID}}{{$bpAttrs := .Attributes}}
                     <li class="cn" data-kind="blueprint" data-id="{{.ID}}" data-type="{{.Type}}">
                       <div class="cn-row" data-kind="blueprint" data-id="{{.ID}}" data-type="{{.Type}}">
-                        <span class="cn-leaf"></span>
+                        {{if .Attributes}}<button class="cn-toggle" aria-label="toggle">&#9658;</button>{{else}}<span class="cn-leaf"></span>{{end}}
                         <span class="cn-icon mi" style="color:#059669">assignment</span>
                         <span class="cn-label">{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</span>
                         <span class="cn-badge cn-badge-blueprint">service</span>
                       </div>
+                      {{if .Attributes}}
+                      <ul class="cn-children collapsed">
+                        {{$allBPs := $.Blueprints}}
+                        {{range $bpAttrs}}
+                        <li class="cn" data-kind="blueprint-attr" data-id="{{.ID}}" data-bp-id="{{$bpID}}">
+                          <div class="cn-row" data-kind="blueprint-attr" data-id="{{.ID}}" data-bp-id="{{$bpID}}">
+                            <span class="cn-leaf"></span>
+                            <span class="cn-icon mi">tune</span>
+                            <span class="cn-label">{{.Label}}</span>
+                            <span class="cn-badge cn-badge-blueprint-attr">{{.Type}}{{if .Required}} &middot;req{{end}}</span>
+                            {{range .Rules}}{{if eq .Type "reference"}}{{$refID := .Value}}{{$refName := $refID}}{{range $allBPs}}{{if eq .ID $refID}}{{if .Name}}{{$refName = .Name}}{{end}}{{end}}{{end}}<span class="attr-ref-link" title="&#x2192; {{$refName}}">&#x2192;&nbsp;{{$refName}}</span>{{end}}{{end}}
+                          </div>
+                        </li>
+                        {{end}}
+                      </ul>
+                      {{end}}
                     </li>
                     {{end}}{{end}}
                   </ul>
@@ -384,6 +416,19 @@ async function loadDetail(row){const kind=row.dataset.kind,id=row.dataset.id,can
   if(kind==='blueprint-parent'){detail.innerHTML=`<div class="detail-head"><div class="detail-head-left">${iconDiv('blueprint')}<div><div class="detail-title">Blueprint Catalog</div><div class="detail-subtitle">Gruppe</div></div></div></div><div class="detail-body"></div><div class="detail-footer"><button class="btn btn-primary" id="det-add-bp"><span class="mi" style="font-family:'Material Symbols Outlined'">add_circle</span> Blueprint hinzuf&uuml;gen</button></div>`;detail.querySelector('#det-add-bp')?.addEventListener('click',()=>doAddBlueprint(row));return;}
   if(kind==='namespace'){detail.innerHTML=`<div class="detail-head"><div class="detail-head-left">${iconDiv('namespace')}<div><div class="detail-title">${esc(id)}</div><div class="detail-subtitle">Namespace</div></div></div></div><div class="detail-body"><dl class="detail-props"><dt>Namespace</dt><dd><code>${esc(id)}</code></dd><dt>Beschreibung</dt><dd>Domains erhalten <code>*.${esc(id)}</code> Namen.</dd></dl></div><div class="detail-footer"><button class="btn btn-primary" id="det-add-domain"><span class="mi" style="font-family:'Material Symbols Outlined'">add_circle</span> Domain hinzuf&uuml;gen</button></div>`;detail.querySelector('#det-add-domain')?.addEventListener('click',()=>doAddDomain(row));return;}
   if(kind==='service-parent'){detail.innerHTML=`<div class="detail-head"><div class="detail-head-left">${iconDiv('service')}<div><div class="detail-title">Services</div><div class="detail-subtitle">${esc(row.dataset.domain)}</div></div></div></div><div class="detail-footer"><button class="btn btn-primary" id="det-add-svc"><span class="mi" style="font-family:'Material Symbols Outlined'">add_circle</span> Service hinzuf&uuml;gen</button></div>`;detail.querySelector('#det-add-svc')?.addEventListener('click',()=>doAddService(row));return;}
+  if(kind==='blueprint-attr'){
+    const bpId=row.dataset.bpId;
+    detail.innerHTML='<div class="detail-empty">Lade…</div>';
+    try{
+      const res=await fetch('/api/v1/blueprints/'+encodeURIComponent(bpId));
+      const bp=await res.json();
+      const attr=(bp.attributes||[]).find(a=>a.id===id);
+      if(!attr){detail.innerHTML='<div class="detail-empty">Attribut nicht gefunden.</div>';return;}
+      detail.innerHTML=attrDetail(attr,bp);
+      detail.querySelector('#det-goto-bp')?.addEventListener('click',()=>{const bpRow=tree.querySelector(`.cn-row[data-kind="blueprint"][data-id="${CSS.escape(bpId)}"]`);if(bpRow){expandToRow(bpRow);bpRow.classList.add('selected');loadDetail(bpRow);}});
+    }catch(err){detail.innerHTML=`<div style="padding:1rem"><div class="nerror show">${esc(err.message)}</div></div>`;}
+    return;
+  }
   let url='';
   if(kind==='domain')url='/api/v1/domains/'+encodeURIComponent(canonical||id);
   else if(kind==='service')url='/api/v1/domains/'+encodeURIComponent(row.dataset.domain)+'/services/'+encodeURIComponent(id.split('/').pop());
@@ -448,6 +493,10 @@ function wireReqs(container,bpId){
   addBtn?.addEventListener('click',doAddReq);
   addInput?.addEventListener('keydown',e=>{if(e.key==='Enter')doAddReq();});
 }
+function attrDetail(attr,bp){
+  const rulesHtml=(attr.rules&&attr.rules.length)?attr.rules.map(r=>`<div class="rule-row"><span class="rule-type-badge">${esc(r.type)}</span><span style="flex:1">${esc(r.label)}</span>${r.value?`<span style="font-size:.72rem;background:#ede9fe;color:#5b21b6;padding:1px 5px;border-radius:4px;font-family:monospace">${esc(r.value)}</span>`:''}</div>`).join(''):`<div style="color:#94a3b8;font-size:.78rem;font-style:italic">Keine Regeln</div>`;
+  return `<div class="detail-head"><div class="detail-head-left"><div class="detail-kind-icon" style="background:#eef2ff;color:#4338ca;font-family:'Material Symbols Outlined';font-size:18px;width:36px;height:36px;border-radius:8px;display:grid;place-items:center">tune</div><div><div class="detail-title">${esc(attr.label)}</div><div class="detail-subtitle">Attribut &middot; ${esc(bp.name||bp.id)}</div></div></div></div><div class="detail-body"><dl class="detail-props"><dt>Typ</dt><dd><code>${esc(attr.type)}</code></dd><dt>Pflicht</dt><dd>${attr.required?'<span class="badge badge-active">ja</span>':'<span style="color:#94a3b8">nein</span>'}</dd><dt>ID</dt><dd><code style="font-size:.75rem">${esc(attr.id)}</code></dd></dl><div style="margin-top:.65rem"><div style="font-size:.78rem;font-weight:700;color:#475569;margin-bottom:.3rem">Regeln (${(attr.rules||[]).length})</div>${rulesHtml}</div></div><div class="detail-footer"><button class="btn btn-secondary" id="det-goto-bp"><span class="mi" style="font-family:'Material Symbols Outlined'">assignment</span> Blueprint öffnen</button></div>`;}
+
 function renderReqs(reqs,bpId){if(!reqs||!reqs.length)return`<div style="color:#94a3b8;font-size:.78rem;font-style:italic;padding:.25rem 0">Noch keine Anforderungen.</div>`;return reqs.map(r=>{const done=r.status==='fulfilled';return`<div class="req-row" data-req-id="${esc(r.id)}"><button class="req-check ${done?'fulfilled':''}" data-req-id="${esc(r.id)}" data-status="${esc(r.status||'open')}" title="${done?'Als offen markieren':'Als erfüllt markieren'}"><span class="mi" style="font-family:'Material Symbols Outlined'">${done?'check_circle':'radio_button_unchecked'}</span></button><span class="req-label ${done?'req-done':''}">${esc(r.label)}</span><button class="req-del" data-req-id="${esc(r.id)}" title="Löschen"><span class="mi" style="font-family:'Material Symbols Outlined'">close</span></button></div>`;}).join('');}
 
 function renderAttrs(attrs,bpId){
