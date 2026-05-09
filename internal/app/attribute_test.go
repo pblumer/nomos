@@ -299,7 +299,7 @@ func TestEvalRule_AllTypes(t *testing.T) {
 	}
 	for _, tc := range cases {
 		rule := AttributeRuleDTO{ID: "r1", Label: "test", Type: tc.ruleType, Value: tc.ruleVal}
-		got := evalRule(rule, tc.value)
+		got := evalRule(rule, tc.value, "")
 		if got.Status != tc.want {
 			t.Errorf("type=%s value=%q ruleVal=%q: want %s got %s (msg:%s)",
 				tc.ruleType, tc.value, tc.ruleVal, tc.want, got.Status, got.Message)
@@ -425,6 +425,73 @@ func TestSetInstanceAttributeValues_NotFound(t *testing.T) {
 	_, err := SetInstanceAttributeValues(p, "NO-SUCH-INST", map[string]string{"k": "v"})
 	if err == nil {
 		t.Fatal("expected error for non-existent instance")
+	}
+}
+
+// ── evalRule reference ────────────────────────────────────────────────────────
+
+func TestEvalRule_Reference_Pass(t *testing.T) {
+	p, bpID, _ := createProductAndService(t)
+	makeInstance(t, p, bpID, "PI-REF-001")
+
+	rule := AttributeRuleDTO{ID: "r1", Label: "test", Type: "reference", Value: bpID}
+	got := evalRule(rule, "PI-REF-001", p)
+	if got.Status != "pass" {
+		t.Errorf("expected pass, got %s: %s", got.Status, got.Message)
+	}
+}
+
+func TestEvalRule_Reference_WrongBlueprint(t *testing.T) {
+	p, bpID, _ := createProductAndService(t)
+	makeInstance(t, p, bpID, "PI-REF-002")
+
+	rule := AttributeRuleDTO{ID: "r1", Label: "test", Type: "reference", Value: "OTHER-BLUEPRINT"}
+	got := evalRule(rule, "PI-REF-002", p)
+	if got.Status != "fail" {
+		t.Errorf("expected fail for wrong blueprint, got %s", got.Status)
+	}
+}
+
+func TestEvalRule_Reference_NotFound(t *testing.T) {
+	p, bpID, _ := createProductAndService(t)
+
+	rule := AttributeRuleDTO{ID: "r1", Label: "test", Type: "reference", Value: bpID}
+	got := evalRule(rule, "PI-NONEXISTENT", p)
+	if got.Status != "fail" {
+		t.Errorf("expected fail for missing instance, got %s", got.Status)
+	}
+}
+
+func TestEvalRule_Reference_NoPath(t *testing.T) {
+	rule := AttributeRuleDTO{ID: "r1", Label: "test", Type: "reference", Value: "SOME-BP"}
+	got := evalRule(rule, "PI-001", "")
+	if got.Status != "manual" {
+		t.Errorf("expected manual without path, got %s", got.Status)
+	}
+}
+
+func TestAddAttributeRule_Reference(t *testing.T) {
+	p, productID, _ := createProductAndService(t)
+	added, _ := AddBlueprintAttribute(p, productID, "Owner", "text", true)
+	attrID := added.Attributes[0].ID
+
+	got, err := AddAttributeRule(p, productID, attrID, "Must be Primary Account", "reference", "PB-PRIMARY")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Attributes[0].Rules[0].Type != "reference" {
+		t.Fatalf("expected reference rule type, got %s", got.Attributes[0].Rules[0].Type)
+	}
+}
+
+func TestAddAttributeRule_Reference_EmptyValue(t *testing.T) {
+	p, productID, _ := createProductAndService(t)
+	added, _ := AddBlueprintAttribute(p, productID, "Owner", "text", true)
+	attrID := added.Attributes[0].ID
+
+	_, err := AddAttributeRule(p, productID, attrID, "ref", "reference", "")
+	if err == nil {
+		t.Fatal("expected error for empty reference value")
 	}
 }
 
