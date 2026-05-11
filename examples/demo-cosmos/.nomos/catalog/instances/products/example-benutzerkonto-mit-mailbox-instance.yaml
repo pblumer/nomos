@@ -1,7 +1,7 @@
 id: PI-ACC-MBX-EXAMPLE-001
 type: product_instance
 name: Beispielinstanz Benutzerkonto mit Mailbox
-blueprint_ref: PB-ACC-MBX-001
+blueprint_ref: PROD-ACC-MBX-001
 blueprint_version: 0.1.0
 status: active
 owner: Identity & Collaboration

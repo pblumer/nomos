@@ -116,3 +116,57 @@ attributes:
 		t.Fatalf("expected service_ref attribute mapping: %#v", bp.Attributes)
 	}
 }
+
+func TestProductBlueprintOwnershipFulfillmentYAMLParsing(t *testing.T) {
+	raw := []byte(`
+id: PROD-ACC-MBX-001
+type: product_blueprint
+name: Benutzerkonto mit Mailbox
+version: 0.1.0
+status: draft
+owner: Identity & Collaboration
+offered_by: cloud.blumer.identity
+owning_domain: cloud.blumer.identity
+fulfillment:
+  required_services:
+    - service_ref: cloud.blumer.identity/user-account
+      role: primary
+      required: true
+      description: Creates or manages the identity account.
+`)
+	var bp Blueprint
+	if err := yaml.Unmarshal(raw, &bp); err != nil {
+		t.Fatalf("unmarshal blueprint: %v", err)
+	}
+	if bp.OfferedBy != "cloud.blumer.identity" || bp.OwningDomain != "cloud.blumer.identity" {
+		t.Fatalf("expected ownership fields: %#v", bp)
+	}
+	if len(bp.Fulfillment.RequiredServices) != 1 || bp.Fulfillment.RequiredServices[0].Role != "primary" || !bp.Fulfillment.RequiredServices[0].Required {
+		t.Fatalf("expected fulfillment services: %#v", bp.Fulfillment)
+	}
+}
+
+func TestServiceOwnershipYAMLParsing(t *testing.T) {
+	raw := []byte(`
+id: service-user-account
+type: service
+name: user-account
+version: 0.1.0
+status: draft
+owner: Identity Team
+owned_by: cloud.blumer.identity
+operated_by:
+  - cloud.blumer.identity
+capabilities:
+  - user-account-management
+supported_products:
+  - PROD-ACC-MBX-001
+`)
+	var svc Service
+	if err := yaml.Unmarshal(raw, &svc); err != nil {
+		t.Fatalf("unmarshal service: %v", err)
+	}
+	if svc.OwnedBy != "cloud.blumer.identity" || len(svc.OperatedBy) != 1 || len(svc.Capabilities) != 1 || len(svc.SupportedProducts) != 1 {
+		t.Fatalf("expected service ownership metadata: %#v", svc)
+	}
+}

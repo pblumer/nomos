@@ -68,6 +68,15 @@ echo "==> Erstelle DNS-ähnliche Domänen"
   --owner "Swiss Example Team"
 
 echo ""
+
+"$NOMOS_BIN" domain add cloud.blumer.identity \
+  --path "$COSMOS_PATH" \
+  --owner "Identity Domain Team"
+
+"$NOMOS_BIN" domain add cloud.blumer.collaboration \
+  --path "$COSMOS_PATH" \
+  --owner "Collaboration Domain Team"
+
 echo "==> Erstelle Services"
 
 "$NOMOS_BIN" service add user-account \
@@ -90,11 +99,78 @@ echo "==> Erstelle Services"
   --path "$COSMOS_PATH" \
   --owner "Zytlog Team"
 
+
+"$NOMOS_BIN" service add user-account \
+  --domain cloud.blumer.identity \
+  --path "$COSMOS_PATH" \
+  --owner "Identity Domain Team"
+
+"$NOMOS_BIN" service add mailbox \
+  --domain cloud.blumer.collaboration \
+  --path "$COSMOS_PATH" \
+  --owner "Collaboration Domain Team"
+
+"$NOMOS_BIN" service add license-assignment \
+  --domain cloud.blumer.collaboration \
+  --path "$COSMOS_PATH" \
+  --owner "Collaboration Domain Team"
+
 echo ""
 echo "==> Kopiere Blueprint- und Instance-Beispielkatalog"
 mkdir -p "$COSMOS_PATH/.nomos/catalog"
 cp -R examples/demo-cosmos/.nomos/catalog/blueprints "$COSMOS_PATH/.nomos/catalog/"
 cp -R examples/demo-cosmos/.nomos/catalog/instances "$COSMOS_PATH/.nomos/catalog/"
+
+echo "==> Ergänze Service-Ownership-Metadaten"
+cat > "$COSMOS_PATH/.nomos/domains/identity/blumer/cloud/services/user-account/service.yaml" <<'YAML'
+id: service-user-account
+type: service
+name: user-account
+version: 0.1.0
+status: draft
+owner: Identity Domain Team
+owned_by: cloud.blumer.identity
+operated_by:
+  - cloud.blumer.identity
+capabilities:
+  - user-account-management
+supported_products:
+  - PROD-ACC-MBX-001
+summary: Domain-owned service capability for identity account management.
+YAML
+cat > "$COSMOS_PATH/.nomos/domains/collaboration/blumer/cloud/services/mailbox/service.yaml" <<'YAML'
+id: service-mailbox
+type: service
+name: mailbox
+version: 0.1.0
+status: draft
+owner: Collaboration Domain Team
+owned_by: cloud.blumer.collaboration
+operated_by:
+  - cloud.blumer.collaboration
+capabilities:
+  - mailbox-provisioning
+supported_products:
+  - PROD-ACC-MBX-001
+summary: Domain-owned service capability for mailbox provisioning.
+YAML
+cat > "$COSMOS_PATH/.nomos/domains/collaboration/blumer/cloud/services/license-assignment/service.yaml" <<'YAML'
+id: service-license-assignment
+type: service
+name: license-assignment
+version: 0.1.0
+status: draft
+owner: Collaboration Domain Team
+owned_by: cloud.blumer.collaboration
+operated_by:
+  - cloud.blumer.collaboration
+capabilities:
+  - license-assignment
+supported_products:
+  - PROD-ACC-MBX-001
+summary: Domain-owned service capability for license assignment.
+YAML
+
 
 echo ""
 echo "==> Cosmos Info"

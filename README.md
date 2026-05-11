@@ -247,7 +247,7 @@ Open `http://127.0.0.1:8080`.
 
 ## Blueprint relationships in the demo cosmos
 
-The demo Product Blueprint `PB-ACC-MBX-001` (`Benutzerkonto mit Mailbox`) keeps `required_service_blueprints` for backward compatibility and adds `required_services` to make concrete provisioning dependencies explicit. Each entry maps a concrete Namespace Service, such as `identity.blumer.cloud/user-account` or `collaboration.blumer.cloud/license-assignment`, to the Service Blueprint used for provisioning it. Service Blueprints expose the reverse context with `namespace_service_ref`.
+The demo Product Blueprint `PROD-ACC-MBX-001` (`Benutzerkonto mit Mailbox`) declares `offered_by`, optional `owning_domain`, and `fulfillment.required_services` so product ownership and cross-domain fulfillment are explicit. It keeps legacy `required_service_blueprints`/`required_services` for backward compatibility. Each fulfillment entry maps a concrete domain service, such as `cloud.blumer.identity/user-account` or `cloud.blumer.collaboration/license-assignment`, to the service capability used for provisioning it. Service Blueprints expose the reverse context with `namespace_service_ref`.
 
 ## CLI/REST parity and namespace display
 

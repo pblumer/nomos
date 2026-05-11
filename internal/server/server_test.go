@@ -20,6 +20,7 @@ func createTestCosmos(t *testing.T) string {
 		}
 	}
 	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/services/user-account"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "collaboration.blumer.cloud/services/mailbox"), 0o755))
 	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/services/rule-validation-api"), 0o755))
 	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "blumer.com/services"), 0o755))
 	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "identity.blumer.com/services/user-account"), 0o755))
@@ -34,6 +35,7 @@ func createTestCosmos(t *testing.T) string {
 	must(os.WriteFile(storage.CosmosFile(p), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: unknown\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud", "domain.yaml"), []byte("name: identity.blumer.cloud\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/domain.yaml"), []byte("name: platform.blumer.cloud\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "collaboration.blumer.cloud/domain.yaml"), []byte("name: collaboration.blumer.cloud\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "blumer.com/domain.yaml"), []byte("name: blumer.com\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.com/domain.yaml"), []byte("name: identity.blumer.com\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "governance.blumer.com/domain.yaml"), []byte("name: governance.blumer.com\n"), 0o644))
@@ -41,13 +43,14 @@ func createTestCosmos(t *testing.T) string {
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "home.blumer.cloud/domain.yaml"), []byte("name: home.blumer.cloud\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "zytlog.blumer.cloud/domain.yaml"), []byte("name: zytlog.blumer.cloud\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "beispiel.ch/domain.yaml"), []byte("name: beispiel.ch\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/services/user-account/service.yaml"), []byte("name: user-account\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/services/user-account/service.yaml"), []byte("name: user-account\nowned_by: identity.blumer.cloud\ncapabilities:\n  - user-account-management\nsupported_products:\n  - PROD-ACC-MBX-001\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "collaboration.blumer.cloud/services/mailbox/service.yaml"), []byte("name: mailbox\nowned_by: collaboration.blumer.cloud\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/services/rule-validation-api/service.yaml"), []byte("name: rule-validation-api\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.com/services/user-account/service.yaml"), []byte("name: user-account\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "governance.blumer.com/services/provisioning-rules/service.yaml"), []byte("name: provisioning-rules\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "home.blumer.cloud/services/home-dashboard/service.yaml"), []byte("name: home-dashboard\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "zytlog.blumer.cloud/services/zytlog-api/service.yaml"), []byte("name: zytlog-api\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "blueprints/products/account.yaml"), []byte("id: PB-ACC-MBX-001\ntype: product_blueprint\nname: Benutzerkonto mit Mailbox\nversion: 0.1.0\nstatus: draft\nowner: Team\nrequired_inputs:\n  - person_reference\nrequired_service_blueprints:\n  - SB-1\nrequired_services:\n  - service_ref: identity.blumer.cloud/user-account\n    service_blueprint_ref: SB-1\n    required: true\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "blueprints/products/account.yaml"), []byte("id: PB-ACC-MBX-001\ntype: product_blueprint\nname: Benutzerkonto mit Mailbox\nversion: 0.1.0\nstatus: draft\nowner: Team\noffered_by: identity.blumer.cloud\nowning_domain: identity.blumer.cloud\nrequired_inputs:\n  - person_reference\nrequired_service_blueprints:\n  - SB-1\nrequired_services:\n  - service_ref: identity.blumer.cloud/user-account\n    service_blueprint_ref: SB-1\n    required: true\nfulfillment:\n  required_services:\n    - service_ref: identity.blumer.cloud/user-account\n      role: primary\n      required: true\n      description: Creates the account.\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "blueprints/services/account-service.yaml"), []byte("id: SB-1\ntype: service_blueprint\nname: Account Service\nversion: 0.1.0\nstatus: draft\nowner: Team\nnamespace_service_ref: identity.blumer.cloud/user-account\ncapabilities:\n  - create_account\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "instances/products/account-instance.yaml"), []byte("id: PI-ACC-MBX-EXAMPLE-001\ntype: product_instance\nname: Beispielinstanz Benutzerkonto mit Mailbox\nblueprint_ref: PB-ACC-MBX-001\nblueprint_version: 0.1.0\ncompliance_status: compliant\nfindings: []\n"), 0o644))
 	return p
@@ -253,12 +256,12 @@ func TestBlueprintAndInstanceAPIRoutes(t *testing.T) {
 	if rr := get(h, "/api/v1/blueprints"); rr.Code != 200 {
 		t.Fatalf("blueprints status=%d", rr.Code)
 	} else {
-		hasAll(t, rr.Body.String(), "PB-ACC-MBX-001", "Benutzerkonto mit Mailbox", "required_services", "identity.blumer.cloud/user-account")
+		hasAll(t, rr.Body.String(), "PB-ACC-MBX-001", "Benutzerkonto mit Mailbox", "offered_by", "fulfillment", "resolution_status", "identity.blumer.cloud/user-account")
 	}
 	if rr := get(h, "/api/blueprints/PB-ACC-MBX-001"); rr.Code != 200 {
 		t.Fatalf("blueprint detail status=%d", rr.Code)
 	} else {
-		hasAll(t, rr.Body.String(), "product_blueprint", "required_services", "identity.blumer.cloud/user-account")
+		hasAll(t, rr.Body.String(), "product_blueprint", "offered_by", "fulfillment", "resolved", "identity.blumer.cloud/user-account")
 	}
 	if rr := get(h, "/api/v1/blueprints/SB-1"); rr.Code != 200 {
 		t.Fatalf("service blueprint detail status=%d", rr.Code)
@@ -281,7 +284,7 @@ func TestExtendedWebPages(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	pages := map[string][]string{
 		"/cosmos":                           {"Cosmos"},
-		"/services":                         {"Services", "Create service", "provisioning-rules"},
+		"/services":                         {"Services", "Create service"},
 		"/namespaces":                       {"Namespace Tree", "identity.blumer.cloud", "user-account"},
 		"/blueprints":                       {"Blueprints", "PB-ACC-MBX-001", "SB-1"},
 		"/blueprints/PB-ACC-MBX-001":        {"PB-ACC-MBX-001", "Required inputs", "identity.blumer.cloud/user-account"},

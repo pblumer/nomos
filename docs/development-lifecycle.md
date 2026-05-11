@@ -13,3 +13,7 @@ Recommended ignores:
 
 - Dedicated Cosmos repository: `.nomos/cache/` and `.nomos/index/`.
 - Local-only Nomos data in another repository: `.nomos/`.
+
+## Domain-owned product offering foundation
+
+When changing catalog, validation, CLI or REST behavior, keep the ADR-0001 foundation intact: product blueprints load with explicit `offered_by`, services load with explicit `owned_by`, fulfillment references resolve to `<domain>/<service>`, and CLI/REST DTOs expose the same JSON fields. Existing legacy catalog files must continue to load and should produce validation findings rather than load errors.

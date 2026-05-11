@@ -51,11 +51,15 @@ type DomainDTO struct {
 }
 
 type ServiceDTO struct {
-	Name   string `json:"name"`
-	Domain string `json:"domain"`
-	Owner  string `json:"owner"`
-	Status string `json:"status"`
-	Path   string `json:"path"`
+	Name              string   `json:"name"`
+	Domain            string   `json:"domain"`
+	Owner             string   `json:"owner"`
+	OwnedBy           string   `json:"owned_by,omitempty"`
+	OperatedBy        []string `json:"operated_by,omitempty"`
+	Capabilities      []string `json:"capabilities,omitempty"`
+	SupportedProducts []string `json:"supported_products,omitempty"`
+	Status            string   `json:"status"`
+	Path              string   `json:"path"`
 }
 
 type DomainsDTO struct {
@@ -114,6 +118,18 @@ type RequiredServiceRefDTO struct {
 	Required            bool   `json:"required"`
 }
 
+type ProductFulfillmentDTO struct {
+	RequiredServices []ProductRequiredServiceDTO `json:"required_services,omitempty"`
+}
+
+type ProductRequiredServiceDTO struct {
+	ServiceRef       string `json:"service_ref"`
+	Role             string `json:"role,omitempty"`
+	Required         bool   `json:"required"`
+	Description      string `json:"description,omitempty"`
+	ResolutionStatus string `json:"resolution_status"`
+}
+
 type BlueprintDTO struct {
 	ID                        string                    `json:"id"`
 	Type                      string                    `json:"type"`
@@ -121,6 +137,9 @@ type BlueprintDTO struct {
 	Version                   string                    `json:"version"`
 	Status                    string                    `json:"status"`
 	Owner                     string                    `json:"owner"`
+	OfferedBy                 string                    `json:"offered_by,omitempty"`
+	OwningDomain              string                    `json:"owning_domain,omitempty"`
+	Fulfillment               ProductFulfillmentDTO     `json:"fulfillment,omitempty"`
 	Summary                   string                    `json:"summary"`
 	Path                      string                    `json:"path"`
 	Variants                  []VariantDTO              `json:"variants,omitempty"`

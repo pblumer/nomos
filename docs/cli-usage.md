@@ -561,3 +561,7 @@ Read-only pages: dashboard, Cosmos metadata/doctor, namespace tree, graph, valid
 Write/create operations: domain creation and service creation are supported through UI forms and explicit POST endpoints. Domain verification can be triggered from `/verify`; it performs DNS TXT lookup and writes evidence in `.nomos/evidence` using the CLI-compatible format.
 
 Known limitations: the doctor function currently lives in the application layer rather than as a dedicated public API endpoint, and verification does not yet expose a stable read endpoint beyond the `/verify` page.
+
+### Domain-owned products and fulfillment validation
+
+`nomos validate --path <cosmos>` now reports missing or unresolved product offering domains, service ownership, and fulfillment service references. Product blueprint JSON from `nomos blueprint list --format json` and `nomos blueprint show --format json` includes `offered_by`, `owning_domain`, and `fulfillment.required_services[].resolution_status`. Service JSON includes `owned_by`, `operated_by`, `capabilities`, and `supported_products` when present.

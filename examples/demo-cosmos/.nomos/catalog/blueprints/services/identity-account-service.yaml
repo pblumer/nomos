@@ -4,7 +4,7 @@ name: Identity Account Service
 version: 0.1.0
 status: draft
 owner: Identity & Collaboration
-namespace_service_ref: identity.blumer.cloud/user-account
+namespace_service_ref: cloud.blumer.identity/user-account
 summary: Blueprint fuer die Bereitstellung eines Identitaetskontos.
 capabilities:
   - create_account

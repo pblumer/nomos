@@ -23,9 +23,9 @@ func createAppTestCosmos(t *testing.T) string {
 	must(os.WriteFile(storage.CosmosFile(p), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: Platform Team\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud", "domain.yaml"), []byte("name: identity.blumer.cloud\nowner: Identity Team\nstatus: draft\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/domain.yaml"), []byte("name: platform.blumer.cloud\nowner: Platform Team\nstatus: draft\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/services/user-account/service.yaml"), []byte("name: user-account\nowner: Identity Team\nstatus: draft\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/services/privileged-account/service.yaml"), []byte("name: privileged-account\nowner: Identity Team\nstatus: draft\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/services/rule-validation-api/service.yaml"), []byte("name: rule-validation-api\nowner: Platform Team\nstatus: draft\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/services/user-account/service.yaml"), []byte("name: user-account\nowner: Identity Team\nowned_by: identity.blumer.cloud\nstatus: draft\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/services/privileged-account/service.yaml"), []byte("name: privileged-account\nowner: Identity Team\nowned_by: identity.blumer.cloud\nstatus: draft\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/services/rule-validation-api/service.yaml"), []byte("name: rule-validation-api\nowner: Platform Team\nowned_by: platform.blumer.cloud\nstatus: draft\n"), 0o644))
 	return p
 }
 
@@ -249,4 +249,65 @@ func findTreePath(n NamespaceTreeNodeDTO, labels []string) *NamespaceTreeNodeDTO
 		}
 	}
 	return nil
+}
+
+func TestProductOfferingAndServiceDTOs(t *testing.T) {
+	p := createAppTestCosmos(t)
+	must := func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(os.MkdirAll(filepath.Join(storage.CatalogDir(p), "blueprints", "products"), 0o755))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud", "services", "user-account", "service.yaml"), []byte(`name: user-account
+owner: Identity Team
+owned_by: identity.blumer.cloud
+operated_by:
+  - identity.blumer.cloud
+capabilities:
+  - user-account-management
+supported_products:
+  - PROD-ACC-MBX-001
+status: draft
+`), 0o644))
+	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "blueprints", "products", "account.yaml"), []byte(`id: PROD-ACC-MBX-001
+type: product_blueprint
+name: Benutzerkonto mit Mailbox
+version: 0.1.0
+status: draft
+owner: Identity Team
+offered_by: identity.blumer.cloud
+owning_domain: identity.blumer.cloud
+required_inputs:
+  - person_reference
+fulfillment:
+  required_services:
+    - service_ref: identity.blumer.cloud/user-account
+      role: primary
+      required: true
+      description: Creates the account.
+`), 0o644))
+
+	blueprints, err := ListBlueprints(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(blueprints.Blueprints) != 1 {
+		t.Fatalf("expected one blueprint: %+v", blueprints)
+	}
+	bp := blueprints.Blueprints[0]
+	if bp.OfferedBy != "identity.blumer.cloud" || bp.OwningDomain != "identity.blumer.cloud" {
+		t.Fatalf("expected ownership in DTO: %+v", bp)
+	}
+	if len(bp.Fulfillment.RequiredServices) != 1 || bp.Fulfillment.RequiredServices[0].ResolutionStatus != "resolved" {
+		t.Fatalf("expected resolved fulfillment DTO: %+v", bp.Fulfillment)
+	}
+
+	svc, err := GetService(p, "identity.blumer.cloud", "user-account")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if svc.OwnedBy != "identity.blumer.cloud" || len(svc.OperatedBy) != 1 || len(svc.Capabilities) != 1 || len(svc.SupportedProducts) != 1 {
+		t.Fatalf("expected service metadata in DTO: %+v", svc)
+	}
 }

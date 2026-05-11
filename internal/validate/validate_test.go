@@ -3,6 +3,7 @@ package validate
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/nomos/nomos/internal/storage"
@@ -119,10 +120,8 @@ required_service_blueprints:
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	if res.Status != "ok" {
-		t.Fatalf("warning-only validation should stay ok, got %#v", res)
-	}
 	assertFinding(t, res, "PRODUCT_BLUEPRINT_REQUIRED_SERVICES_RECOMMENDED")
+	assertFinding(t, res, "PRODUCT_OFFERED_BY_MISSING")
 }
 
 func TestValidateServiceBlueprintNamespaceServiceRefShapeWarning(t *testing.T) {
@@ -167,4 +166,99 @@ func assertFinding(t *testing.T, res Result, code string) {
 		}
 	}
 	t.Fatalf("finding %s not found in %#v", code, res.Findings)
+}
+
+func TestValidateDomainOwnedProductFulfillment(t *testing.T) {
+	t.Run("valid cross-domain fulfillment", func(t *testing.T) {
+		dir := t.TempDir()
+		writeValidFulfillmentCosmos(t, dir)
+		res, err := Validate(dir)
+		if err != nil {
+			t.Fatalf("validate: %v", err)
+		}
+		if res.Status != "ok" {
+			t.Fatalf("expected valid cosmos, got %#v", res)
+		}
+	})
+	t.Run("product without offered_by", func(t *testing.T) {
+		dir := t.TempDir()
+		writeValidFulfillmentCosmos(t, dir)
+		rewriteBlueprint(t, dir, "offered_by: identity.blumer.cloud\n", "")
+		res, _ := Validate(dir)
+		assertFinding(t, res, "PRODUCT_OFFERED_BY_MISSING")
+	})
+	t.Run("product with unresolved offered_by", func(t *testing.T) {
+		dir := t.TempDir()
+		writeValidFulfillmentCosmos(t, dir)
+		rewriteBlueprint(t, dir, "offered_by: identity.blumer.cloud", "offered_by: missing.blumer.cloud")
+		res, _ := Validate(dir)
+		assertFinding(t, res, "PRODUCT_OFFERED_BY_UNRESOLVED")
+	})
+	t.Run("missing required service domain", func(t *testing.T) {
+		dir := t.TempDir()
+		writeValidFulfillmentCosmos(t, dir)
+		rewriteBlueprint(t, dir, "collaboration.blumer.cloud/mailbox", "missing.blumer.cloud/mailbox")
+		res, _ := Validate(dir)
+		assertFinding(t, res, "FULFILLMENT_SERVICE_DOMAIN_UNRESOLVED")
+	})
+	t.Run("missing required service below existing domain", func(t *testing.T) {
+		dir := t.TempDir()
+		writeValidFulfillmentCosmos(t, dir)
+		rewriteBlueprint(t, dir, "collaboration.blumer.cloud/mailbox", "collaboration.blumer.cloud/missing")
+		res, _ := Validate(dir)
+		assertFinding(t, res, "FULFILLMENT_SERVICE_UNRESOLVED")
+	})
+	t.Run("service without owned_by", func(t *testing.T) {
+		dir := t.TempDir()
+		writeValidFulfillmentCosmos(t, dir)
+		servicePath := filepath.Join(storage.DomainsDir(dir), "cloud", "blumer", "identity", "services", "user-account", "service.yaml")
+		b, _ := os.ReadFile(servicePath)
+		mustWrite(t, servicePath, strings.Replace(string(b), "owned_by: identity.blumer.cloud\n", "", 1))
+		res, _ := Validate(dir)
+		assertFinding(t, res, "SERVICE_OWNED_BY_MISSING")
+	})
+	t.Run("service with unresolved owned_by", func(t *testing.T) {
+		dir := t.TempDir()
+		writeValidFulfillmentCosmos(t, dir)
+		servicePath := filepath.Join(storage.DomainsDir(dir), "cloud", "blumer", "identity", "services", "user-account", "service.yaml")
+		b, _ := os.ReadFile(servicePath)
+		mustWrite(t, servicePath, strings.Replace(string(b), "owned_by: identity.blumer.cloud", "owned_by: missing.blumer.cloud", 1))
+		res, _ := Validate(dir)
+		assertFinding(t, res, "SERVICE_OWNED_BY_UNRESOLVED")
+	})
+}
+
+func writeValidFulfillmentCosmos(t *testing.T, dir string) {
+	t.Helper()
+	mustWrite(t, storage.CosmosFile(dir), "id: test\ntype: cosmos\n")
+	mustWrite(t, filepath.Join(storage.DomainsDir(dir), "cloud", "blumer", "identity", "domain.yaml"), "name: identity.blumer.cloud\n")
+	mustWrite(t, filepath.Join(storage.DomainsDir(dir), "cloud", "blumer", "collaboration", "domain.yaml"), "name: collaboration.blumer.cloud\n")
+	mustWrite(t, filepath.Join(storage.DomainsDir(dir), "cloud", "blumer", "identity", "services", "user-account", "service.yaml"), "name: user-account\nowned_by: identity.blumer.cloud\n")
+	mustWrite(t, filepath.Join(storage.DomainsDir(dir), "cloud", "blumer", "collaboration", "services", "mailbox", "service.yaml"), "name: mailbox\nowned_by: collaboration.blumer.cloud\n")
+	mustWrite(t, filepath.Join(storage.CatalogDir(dir), "blueprints", "products", "account.yaml"), `id: PROD-ACC-MBX-001
+type: product_blueprint
+name: Benutzerkonto mit Mailbox
+version: 0.1.0
+status: draft
+owner: Identity Team
+offered_by: identity.blumer.cloud
+required_inputs:
+  - person_reference
+fulfillment:
+  required_services:
+    - service_ref: identity.blumer.cloud/user-account
+      required: true
+    - service_ref: collaboration.blumer.cloud/mailbox
+      required: true
+`)
+}
+
+func rewriteBlueprint(t *testing.T, dir, old, new string) {
+	t.Helper()
+	path := filepath.Join(storage.CatalogDir(dir), "blueprints", "products", "account.yaml")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, path, strings.Replace(string(b), old, new, 1))
 }
