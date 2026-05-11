@@ -29,25 +29,27 @@ type NamespaceDTO struct {
 }
 
 type DomainDTO struct {
-	Name               string       `json:"name"`
-	Canonical          string       `json:"canonical"`
-	CanonicalName      string       `json:"canonicalName"`
-	Namespace          NamespaceDTO `json:"namespace"`
-	Label              string       `json:"label"`
-	NamespaceName      string       `json:"namespaceName"`
-	ParentCanonical    string       `json:"parentCanonical"`
-	ParentTreePath     string       `json:"parentTreePath"`
-	TreePath           string       `json:"treePath"`
-	GitPath            string       `json:"gitPath"`
-	VerificationStatus string       `json:"verificationStatus"`
-	DisplayName        string       `json:"displayName"`
-	Owner              string       `json:"owner"`
-	Status             string       `json:"status"`
-	Path               string       `json:"path"`
-	ServiceCount       int          `json:"serviceCount"`
-	Persisted          bool         `json:"persisted"`
-	Virtual            bool         `json:"virtual"`
-	Services           []ServiceDTO `json:"services,omitempty"`
+	Name               string              `json:"name"`
+	Canonical          string              `json:"canonical"`
+	CanonicalName      string              `json:"canonicalName"`
+	Namespace          NamespaceDTO        `json:"namespace"`
+	Label              string              `json:"label"`
+	NamespaceName      string              `json:"namespaceName"`
+	ParentCanonical    string              `json:"parentCanonical"`
+	ParentTreePath     string              `json:"parentTreePath"`
+	TreePath           string              `json:"treePath"`
+	GitPath            string              `json:"gitPath"`
+	VerificationStatus string              `json:"verificationStatus"`
+	DisplayName        string              `json:"displayName"`
+	Owner              string              `json:"owner"`
+	Status             string              `json:"status"`
+	Path               string              `json:"path"`
+	ServiceCount       int                 `json:"serviceCount"`
+	ProductCount       int                 `json:"productCount"`
+	Persisted          bool                `json:"persisted"`
+	Virtual            bool                `json:"virtual"`
+	Products           []ProductSummaryDTO `json:"products,omitempty"`
+	Services           []ServiceDTO        `json:"services,omitempty"`
 }
 
 type ServiceDTO struct {
@@ -101,6 +103,7 @@ type NamespaceTreeNodeDTO struct {
 	TreePath             string                 `json:"treePath,omitempty"`
 	Domain               *DomainDTO             `json:"domain,omitempty"`
 	Service              *ServiceDTO            `json:"service,omitempty"`
+	Product              *ProductSummaryDTO     `json:"product,omitempty"`
 	Persisted            bool                   `json:"persisted"`
 	Virtual              bool                   `json:"virtual"`
 	CanCreateChildDomain bool                   `json:"canCreateChildDomain"`
@@ -118,6 +121,46 @@ type RequiredServiceRefDTO struct {
 	Required            bool   `json:"required"`
 }
 
+type ProductSummaryDTO struct {
+	ID                               string `json:"id"`
+	Name                             string `json:"name"`
+	Version                          string `json:"version"`
+	Status                           string `json:"status"`
+	OfferedBy                        string `json:"offered_by"`
+	OwningDomain                     string `json:"owning_domain"`
+	FulfillmentRequiredServicesCount int    `json:"fulfillment_required_services_count"`
+	FulfillmentUnresolvedCount       int    `json:"fulfillment_unresolved_count"`
+}
+
+type ServiceRefDTO struct {
+	Domain     string `json:"domain"`
+	Service    string `json:"service"`
+	ServiceRef string `json:"service_ref"`
+}
+
+type ServiceRefsDTO struct {
+	Services []ServiceRefDTO `json:"services"`
+}
+
+type CreateProductOfferingRequest struct {
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Version      string   `json:"version"`
+	Status       string   `json:"status"`
+	Summary      string   `json:"summary"`
+	Description  string   `json:"description"`
+	Owner        string   `json:"owner"`
+	OwningDomain string   `json:"owning_domain"`
+	Tags         []string `json:"tags"`
+}
+
+type AddFulfillmentServiceRequest struct {
+	ServiceRef  string `json:"service_ref"`
+	Role        string `json:"role"`
+	Required    bool   `json:"required"`
+	Description string `json:"description"`
+}
+
 type ProductFulfillmentDTO struct {
 	RequiredServices []ProductRequiredServiceDTO `json:"required_services,omitempty"`
 }
@@ -128,6 +171,8 @@ type ProductRequiredServiceDTO struct {
 	Required         bool   `json:"required"`
 	Description      string `json:"description,omitempty"`
 	ResolutionStatus string `json:"resolution_status"`
+	ResolvedDomain   string `json:"resolved_domain,omitempty"`
+	ResolvedService  string `json:"resolved_service,omitempty"`
 }
 
 type BlueprintDTO struct {

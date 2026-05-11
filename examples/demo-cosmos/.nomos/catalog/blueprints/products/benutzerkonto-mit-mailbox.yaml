@@ -4,8 +4,8 @@ name: Benutzerkonto mit Mailbox
 version: 0.1.0
 status: draft
 owner: Identity & Collaboration
-offered_by: cloud.blumer.identity
-owning_domain: cloud.blumer.identity
+offered_by: identity.blumer.cloud
+owning_domain: identity.blumer.cloud
 summary: >
   Bereitstellung eines Benutzerkontos mit zugehoeriger Mailbox.
 variants:
@@ -24,29 +24,29 @@ required_service_blueprints:
   - SB-MAILBOX-001
   - SB-LICENSE-ASSIGNMENT-001
 required_services:
-  - service_ref: cloud.blumer.identity/user-account
+  - service_ref: identity.blumer.cloud/user-account
     service_blueprint_ref: SB-IDENTITY-ACCOUNT-001
     purpose: Erstellt und verwaltet das Benutzerkonto.
     required: true
-  - service_ref: cloud.blumer.collaboration/mailbox
+  - service_ref: collaboration.blumer.cloud/mailbox
     service_blueprint_ref: SB-MAILBOX-001
     purpose: Erstellt und verwaltet die Mailbox.
     required: true
-  - service_ref: cloud.blumer.collaboration/license-assignment
+  - service_ref: collaboration.blumer.cloud/license-assignment
     service_blueprint_ref: SB-LICENSE-ASSIGNMENT-001
     purpose: Weist die fuer Konto und Mailbox benoetigte Lizenz zu.
     required: true
 fulfillment:
   required_services:
-    - service_ref: cloud.blumer.identity/user-account
+    - service_ref: identity.blumer.cloud/user-account
       role: primary
       required: true
       description: Creates the account in the identity domain.
-    - service_ref: cloud.blumer.collaboration/mailbox
+    - service_ref: collaboration.blumer.cloud/mailbox
       role: supporting
       required: true
       description: Provides the mailbox capability.
-    - service_ref: cloud.blumer.collaboration/license-assignment
+    - service_ref: collaboration.blumer.cloud/license-assignment
       role: supporting
       required: true
       description: Assigns the required license.

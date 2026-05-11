@@ -32,6 +32,14 @@ var openAPISpec = map[string]any{
 			"get":    operation("Domains", "Get domain", "Returns one domain by canonical name.", []map[string]any{pathParam("domain", "Canonical domain name.")}, schemaRef("Domain")),
 			"delete": operation("Domains", "Delete domain", "Deletes one domain by canonical name.", []map[string]any{pathParam("domain", "Canonical domain name.")}, schemaRef("DeletedResponse")),
 		},
+		"/api/v1/domains/{domain}/products": map[string]any{
+			"get":  operation("Domains", "List domain products", "Returns product offerings whose offered_by matches the domain.", []map[string]any{pathParam("domain", "Canonical domain name.")}, map[string]any{"type": "object", "additionalProperties": true}),
+			"post": operationWithRequest("Domains", "Create domain product", "Creates a product offering with offered_by defaulted from the domain path.", []map[string]any{pathParam("domain", "Canonical domain name.")}, jsonRequestBody(map[string]any{"type": "object", "additionalProperties": true}), map[string]any{"201": response("Created product.", schemaRef("Blueprint")), "400": errorResponse(), "404": errorResponse(), "409": errorResponse()}),
+		},
+		"/api/v1/products/{product}/fulfillment-services": map[string]any{
+			"post": operationWithRequest("Catalog", "Add fulfillment service", "Appends a required fulfillment service reference to a product offering.", []map[string]any{pathParam("product", "Product id.")}, jsonRequestBody(map[string]any{"type": "object", "additionalProperties": true}), map[string]any{"200": response("Updated product.", schemaRef("Blueprint")), "400": errorResponse(), "404": errorResponse()}),
+		},
+		"/api/v1/services/refs": pathItem("Domains", "List service refs", "Returns canonical service references grouped by domain fields.", nil, map[string]any{"type": "object", "additionalProperties": true}),
 		"/api/v1/domains/{domain}/services": map[string]any{
 			"get":  operation("Domains", "List domain services", "Returns services below a domain.", []map[string]any{pathParam("domain", "Canonical domain name.")}, schemaRef("ServicesResponse")),
 			"post": operationWithRequest("Domains", "Create service", "Creates a service below a domain.", []map[string]any{pathParam("domain", "Canonical domain name.")}, formRequestBody(map[string]any{"name": stringSchema("Service name."), "owner": stringSchema("Service owner."), "force": map[string]any{"type": "boolean"}}), map[string]any{"201": response("Created service.", schemaRef("Service")), "400": errorResponse(), "409": errorResponse()}),

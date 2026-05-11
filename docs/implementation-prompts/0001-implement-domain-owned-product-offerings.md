@@ -192,14 +192,14 @@ Example:
 ```yaml
 product:
   name: Benutzerkonto mit Mailbox
-  offered_by: cloud.blumer.identity
+  offered_by: identity.blumer.cloud
   fulfillment:
     required_services:
-      - service_ref: cloud.blumer.identity/user-account
+      - service_ref: identity.blumer.cloud/user-account
         role: primary
-      - service_ref: cloud.blumer.collaboration/mailbox
+      - service_ref: collaboration.blumer.cloud/mailbox
         role: supporting
-      - service_ref: cloud.blumer.collaboration/license-assignment
+      - service_ref: collaboration.blumer.cloud/license-assignment
         role: supporting
 ```
 

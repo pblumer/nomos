@@ -35,6 +35,7 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/v1/cosmos", h.apiCosmos)
 	mux.HandleFunc("/api/v1/domains", h.apiDomains)
 	mux.HandleFunc("/api/v1/domains/", h.apiDomainRoutes)
+	mux.HandleFunc("/api/v1/services/refs", h.apiServiceRefs)
 	mux.HandleFunc("/api/v1/services/", h.apiLegacyService)
 	mux.HandleFunc("/api/v1/namespaces", h.apiNamespaces)
 	mux.HandleFunc("/api/v1/namespaces/", h.apiNamespaceRoutes)
@@ -42,6 +43,7 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/v1/validate", h.apiValidate)
 	mux.HandleFunc("/api/v1/blueprints", h.apiBlueprints)
 	mux.HandleFunc("/api/v1/blueprints/", h.apiBlueprintRoutes)
+	mux.HandleFunc("/api/v1/products/", h.apiProductRoutes)
 	mux.HandleFunc("/api/v1/instances", h.apiInstances)
 	mux.HandleFunc("/api/v1/instances/", h.apiInstanceRoutes)
 	mux.HandleFunc("/api/v1/product-instances/", h.apiProvisionServiceInstance)
@@ -196,6 +198,44 @@ func (h *handler) apiDomainRoutes(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusCreated, dto)
 		return
 	}
+	if len(parts) == 2 && parts[1] == "products" {
+		if r.Method == http.MethodPost {
+			var req app.CreateProductOfferingRequest
+			if ct := r.Header.Get("Content-Type"); strings.Contains(ct, "application/json") {
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+					writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+					return
+				}
+			} else {
+				_ = r.ParseForm()
+				req.ID = r.FormValue("id")
+				req.Name = r.FormValue("name")
+				req.Version = r.FormValue("version")
+				req.Status = r.FormValue("status")
+				req.Summary = r.FormValue("summary")
+				req.Owner = r.FormValue("owner")
+				req.OwningDomain = r.FormValue("owning_domain")
+			}
+			dto, err := app.CreateProductOffering(h.cosmosPath, parts[0], req)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusCreated, dto)
+			return
+		}
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		products, err := app.ProductsOfferedBy(h.cosmosPath, parts[0])
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, 200, map[string]any{"domain": parts[0], "products": products})
+		return
+	}
 	if len(parts) == 2 && parts[1] == "services" {
 		if r.Method == http.MethodPost {
 			h.createService(w, r, parts[0])
@@ -251,6 +291,56 @@ func (h *handler) apiDomainRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 	htmlNotFound(w, r)
 }
+func (h *handler) apiServiceRefs(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/services/refs" {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	dto, err := app.AllServiceRefs(h.cosmosPath)
+	if err != nil {
+		h.apiErr(w, err)
+		return
+	}
+	writeJSON(w, 200, dto)
+}
+
+func (h *handler) apiProductRoutes(w http.ResponseWriter, r *http.Request) {
+	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/products/")
+	parts := strings.Split(rest, "/")
+	if len(parts) == 1 && parts[0] != "" {
+		dto, err := app.GetBlueprint(h.cosmosPath, parts[0])
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, 200, dto)
+		return
+	}
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "fulfillment-services" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var req app.AddFulfillmentServiceRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+			return
+		}
+		dto, err := app.AddProductFulfillmentService(h.cosmosPath, parts[0], req)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, dto)
+		return
+	}
+	http.NotFound(w, r)
+}
+
 func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/services/")
 	parts := strings.Split(rest, "/")
@@ -772,6 +862,23 @@ func (h *handler) formPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		http.Redirect(w, r, "/services?domain="+r.FormValue("domain")+"&service="+r.FormValue("name"), 303)
+	case "/products/create":
+		domain := r.FormValue("domain")
+		req := app.CreateProductOfferingRequest{ID: r.FormValue("id"), Name: r.FormValue("name"), Version: r.FormValue("version"), Status: r.FormValue("status"), Summary: r.FormValue("summary"), Owner: r.FormValue("owner"), OwningDomain: r.FormValue("owning_domain")}
+		dto, err := app.CreateProductOffering(h.cosmosPath, domain, req)
+		if err != nil {
+			h.errorPage(w, r, statusOf(err), "Create product failed", err.Error())
+			return
+		}
+		http.Redirect(w, r, "/domains?selected=product:"+dto.ID, 303)
+	case "/products/fulfillment":
+		req := app.AddFulfillmentServiceRequest{ServiceRef: first(r.FormValue("service_ref"), r.FormValue("service_ref_manual")), Role: r.FormValue("role"), Required: r.FormValue("required") != "", Description: r.FormValue("description")}
+		dto, err := app.AddProductFulfillmentService(h.cosmosPath, r.FormValue("product_id"), req)
+		if err != nil {
+			h.errorPage(w, r, statusOf(err), "Add fulfillment service failed", err.Error())
+			return
+		}
+		http.Redirect(w, r, "/domains?selected=product:"+dto.ID+"#fulfillment", 303)
 	case "/verify":
 		_, err := app.VerifyDomain(r.Context(), h.cosmosPath, r.FormValue("domain"))
 		if err != nil {

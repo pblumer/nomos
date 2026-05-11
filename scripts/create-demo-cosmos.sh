@@ -69,11 +69,11 @@ echo "==> Erstelle DNS-ähnliche Domänen"
 
 echo ""
 
-"$NOMOS_BIN" domain add cloud.blumer.identity \
+"$NOMOS_BIN" domain add identity.blumer.cloud \
   --path "$COSMOS_PATH" \
   --owner "Identity Domain Team"
 
-"$NOMOS_BIN" domain add cloud.blumer.collaboration \
+"$NOMOS_BIN" domain add collaboration.blumer.cloud \
   --path "$COSMOS_PATH" \
   --owner "Collaboration Domain Team"
 
@@ -101,17 +101,17 @@ echo "==> Erstelle Services"
 
 
 "$NOMOS_BIN" service add user-account \
-  --domain cloud.blumer.identity \
+  --domain identity.blumer.cloud \
   --path "$COSMOS_PATH" \
   --owner "Identity Domain Team"
 
 "$NOMOS_BIN" service add mailbox \
-  --domain cloud.blumer.collaboration \
+  --domain collaboration.blumer.cloud \
   --path "$COSMOS_PATH" \
   --owner "Collaboration Domain Team"
 
 "$NOMOS_BIN" service add license-assignment \
-  --domain cloud.blumer.collaboration \
+  --domain collaboration.blumer.cloud \
   --path "$COSMOS_PATH" \
   --owner "Collaboration Domain Team"
 
@@ -122,48 +122,48 @@ cp -R examples/demo-cosmos/.nomos/catalog/blueprints "$COSMOS_PATH/.nomos/catalo
 cp -R examples/demo-cosmos/.nomos/catalog/instances "$COSMOS_PATH/.nomos/catalog/"
 
 echo "==> Ergänze Service-Ownership-Metadaten"
-cat > "$COSMOS_PATH/.nomos/domains/identity/blumer/cloud/services/user-account/service.yaml" <<'YAML'
+cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/identity/services/user-account/service.yaml" <<'YAML'
 id: service-user-account
 type: service
 name: user-account
 version: 0.1.0
 status: draft
 owner: Identity Domain Team
-owned_by: cloud.blumer.identity
+owned_by: identity.blumer.cloud
 operated_by:
-  - cloud.blumer.identity
+  - identity.blumer.cloud
 capabilities:
   - user-account-management
 supported_products:
   - PROD-ACC-MBX-001
 summary: Domain-owned service capability for identity account management.
 YAML
-cat > "$COSMOS_PATH/.nomos/domains/collaboration/blumer/cloud/services/mailbox/service.yaml" <<'YAML'
+cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/collaboration/services/mailbox/service.yaml" <<'YAML'
 id: service-mailbox
 type: service
 name: mailbox
 version: 0.1.0
 status: draft
 owner: Collaboration Domain Team
-owned_by: cloud.blumer.collaboration
+owned_by: collaboration.blumer.cloud
 operated_by:
-  - cloud.blumer.collaboration
+  - collaboration.blumer.cloud
 capabilities:
   - mailbox-provisioning
 supported_products:
   - PROD-ACC-MBX-001
 summary: Domain-owned service capability for mailbox provisioning.
 YAML
-cat > "$COSMOS_PATH/.nomos/domains/collaboration/blumer/cloud/services/license-assignment/service.yaml" <<'YAML'
+cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/collaboration/services/license-assignment/service.yaml" <<'YAML'
 id: service-license-assignment
 type: service
 name: license-assignment
 version: 0.1.0
 status: draft
 owner: Collaboration Domain Team
-owned_by: cloud.blumer.collaboration
+owned_by: collaboration.blumer.cloud
 operated_by:
-  - cloud.blumer.collaboration
+  - collaboration.blumer.cloud
 capabilities:
   - license-assignment
 supported_products:

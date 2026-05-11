@@ -85,24 +85,24 @@ Cosmos
 Products must support at least the following ownership and fulfillment fields:
 
 ```yaml
-offered_by: cloud.blumer.identity
+offered_by: identity.blumer.cloud
 
 fulfillment:
   required_services:
-    - service_ref: cloud.blumer.identity/user-account
+    - service_ref: identity.blumer.cloud/user-account
       role: primary
-    - service_ref: cloud.blumer.collaboration/mailbox
+    - service_ref: collaboration.blumer.cloud/mailbox
       role: supporting
-    - service_ref: cloud.blumer.collaboration/license-assignment
+    - service_ref: collaboration.blumer.cloud/license-assignment
       role: supporting
 ```
 
 Services must support at least the following ownership fields:
 
 ```yaml
-owned_by: cloud.blumer.identity
+owned_by: identity.blumer.cloud
 operated_by:
-  - cloud.blumer.identity
+  - identity.blumer.cloud
 ```
 
 ## Consequences

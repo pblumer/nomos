@@ -34,10 +34,10 @@ func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesDNSLikeDemo(t *te
 	for _, rel := range []string{
 		filepath.Join(".nomos", "domains", "com", "blumer", "domain.yaml"),
 		filepath.Join(".nomos", "domains", "com", "blumer", "identity", "services", "user-account", "service.yaml"),
-		filepath.Join(".nomos", "domains", "identity", "blumer", "cloud", "domain.yaml"),
-		filepath.Join(".nomos", "domains", "identity", "blumer", "cloud", "services", "user-account", "service.yaml"),
-		filepath.Join(".nomos", "domains", "collaboration", "blumer", "cloud", "services", "mailbox", "service.yaml"),
-		filepath.Join(".nomos", "domains", "collaboration", "blumer", "cloud", "services", "license-assignment", "service.yaml"),
+		filepath.Join(".nomos", "domains", "cloud", "blumer", "identity", "domain.yaml"),
+		filepath.Join(".nomos", "domains", "cloud", "blumer", "identity", "services", "user-account", "service.yaml"),
+		filepath.Join(".nomos", "domains", "cloud", "blumer", "collaboration", "services", "mailbox", "service.yaml"),
+		filepath.Join(".nomos", "domains", "cloud", "blumer", "collaboration", "services", "license-assignment", "service.yaml"),
 		filepath.Join(".nomos", "domains", "com", "blumer", "governance", "services", "provisioning-rules", "service.yaml"),
 		filepath.Join(".nomos", "domains", "cloud", "blumer", "home", "services", "home-dashboard", "service.yaml"),
 		filepath.Join(".nomos", "domains", "cloud", "blumer", "zytlog", "services", "zytlog-api", "service.yaml"),
@@ -52,7 +52,7 @@ func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesDNSLikeDemo(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"id: PROD-ACC-MBX-001", "offered_by: cloud.blumer.identity", "fulfillment:", "cloud.blumer.identity/user-account", "cloud.blumer.collaboration/mailbox", "cloud.blumer.collaboration/license-assignment"} {
+	for _, want := range []string{"id: PROD-ACC-MBX-001", "offered_by: identity.blumer.cloud", "fulfillment:", "identity.blumer.cloud/user-account", "collaboration.blumer.cloud/mailbox", "collaboration.blumer.cloud/license-assignment"} {
 		if !strings.Contains(string(product), want) {
 			t.Fatalf("demo product blueprint missing %q", want)
 		}

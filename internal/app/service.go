@@ -55,7 +55,7 @@ func ListDomains(path string) (DomainsDTO, error) {
 	}
 	out := DomainsDTO{Domains: []DomainDTO{}}
 	for _, d := range tree.Domains {
-		out.Domains = append(out.Domains, domainDTO(d, false))
+		out.Domains = append(out.Domains, domainDTO(tree, d, false))
 	}
 	sort.Slice(out.Domains, func(i, j int) bool { return out.Domains[i].Canonical < out.Domains[j].Canonical })
 	return out, nil
@@ -74,7 +74,7 @@ func GetDomain(path, domainName string) (DomainDTO, error) {
 	}
 	for _, d := range tree.Domains {
 		if strings.EqualFold(d.Name, canonical) {
-			return domainDTO(d, true), nil
+			return domainDTO(tree, d, true), nil
 		}
 	}
 	return DomainDTO{}, Error(CodeDomainNotFound, "Domain not found: "+canonical, http.StatusNotFound, nil)
@@ -144,11 +144,13 @@ func BuildNamespaceTree(path string) (NamespaceTreeDTO, error) {
 	return NamespaceTreeDTO{Root: root}, nil
 }
 
-func domainDTO(d cosmosfs.DomainNode, includeServices bool) DomainDTO {
+func domainDTO(tree cosmosfs.Tree, d cosmosfs.DomainNode, includeServices bool) DomainDTO {
 	canonical := namespace.Canonical(d.Name)
 	v := namespace.View(canonical)
-	dto := DomainDTO{Name: canonical, Canonical: canonical, CanonicalName: canonical, Namespace: namespaceDTO(v), Label: v.Label, NamespaceName: v.Namespace, ParentCanonical: v.ParentCanonical, ParentTreePath: v.ParentTreePath, TreePath: v.TreePath, GitPath: v.GitPath, VerificationStatus: verificationStatus(fallback(d.Metadata.Status, "unknown")), DisplayName: v.Label, Owner: fallback(d.Metadata.Owner, "unknown"), Status: fallback(d.Metadata.Status, "unknown"), Path: d.Path, ServiceCount: len(d.Services), Persisted: true, Virtual: false}
+	products := productSummariesOfferedBy(tree, canonical)
+	dto := DomainDTO{Name: canonical, Canonical: canonical, CanonicalName: canonical, Namespace: namespaceDTO(v), Label: v.Label, NamespaceName: v.Namespace, ParentCanonical: v.ParentCanonical, ParentTreePath: v.ParentTreePath, TreePath: v.TreePath, GitPath: v.GitPath, VerificationStatus: verificationStatus(fallback(d.Metadata.Status, "unknown")), DisplayName: v.Label, Owner: fallback(d.Metadata.Owner, "unknown"), Status: fallback(d.Metadata.Status, "unknown"), Path: d.Path, ServiceCount: len(d.Services), ProductCount: len(products), Persisted: true, Virtual: false}
 	if includeServices {
+		dto.Products = products
 		dto.Services = make([]ServiceDTO, 0, len(d.Services))
 		for _, s := range d.Services {
 			dto.Services = append(dto.Services, serviceDTO(canonical, s))
@@ -160,6 +162,65 @@ func domainDTO(d cosmosfs.DomainNode, includeServices bool) DomainDTO {
 func serviceDTO(domain string, s cosmosfs.ServiceNode) ServiceDTO {
 	ownedBy := firstNonEmpty(s.Metadata.OwnedBy, domain, s.Metadata.Owner)
 	return ServiceDTO{Name: s.Name, Domain: domain, Owner: fallback(s.Metadata.Owner, "unknown"), OwnedBy: ownedBy, OperatedBy: s.Metadata.OperatedBy, Capabilities: s.Metadata.Capabilities, SupportedProducts: s.Metadata.SupportedProducts, Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path}
+}
+
+func productSummariesOfferedBy(tree cosmosfs.Tree, domainCanonical string) []ProductSummaryDTO {
+	canonical := namespace.Canonical(domainCanonical)
+	out := []ProductSummaryDTO{}
+	for _, b := range tree.Blueprints {
+		if b.Metadata.Type != "product_blueprint" || namespace.Canonical(b.Metadata.OfferedBy) != canonical {
+			continue
+		}
+		out = append(out, productSummaryDTO(tree, b.Metadata))
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}
+
+func productSummaryDTO(tree cosmosfs.Tree, bp model.Blueprint) ProductSummaryDTO {
+	fulfillment := fulfillmentDTO(tree, bp)
+	unresolved := 0
+	for _, svc := range fulfillment.RequiredServices {
+		if svc.ResolutionStatus != "resolved" {
+			unresolved++
+		}
+	}
+	return ProductSummaryDTO{ID: bp.ID, Name: bp.Name, Version: bp.Version, Status: bp.Status, OfferedBy: bp.OfferedBy, OwningDomain: firstNonEmpty(bp.OwningDomain, bp.OfferedBy), FulfillmentRequiredServicesCount: len(fulfillment.RequiredServices), FulfillmentUnresolvedCount: unresolved}
+}
+
+func ProductsOfferedBy(path, domainCanonical string) ([]ProductSummaryDTO, error) {
+	tree, err := load(path)
+	if err != nil {
+		return nil, err
+	}
+	if !resolveDomain(tree, domainCanonical) {
+		return nil, Error(CodeDomainNotFound, "Domain not found: "+namespace.Canonical(domainCanonical), http.StatusNotFound, nil)
+	}
+	return productSummariesOfferedBy(tree, domainCanonical), nil
+}
+
+func ServicesOwnedBy(path, domainCanonical string) ([]ServiceDTO, error) {
+	d, err := GetDomain(path, domainCanonical)
+	if err != nil {
+		return nil, err
+	}
+	return d.Services, nil
+}
+
+func AllServiceRefs(path string) (ServiceRefsDTO, error) {
+	tree, err := load(path)
+	if err != nil {
+		return ServiceRefsDTO{}, err
+	}
+	out := ServiceRefsDTO{Services: []ServiceRefDTO{}}
+	for _, d := range tree.Domains {
+		domain := namespace.Canonical(d.Name)
+		for _, s := range d.Services {
+			out.Services = append(out.Services, ServiceRefDTO{Domain: domain, Service: s.Name, ServiceRef: domain + "/" + s.Name})
+		}
+	}
+	sort.Slice(out.Services, func(i, j int) bool { return out.Services[i].ServiceRef < out.Services[j].ServiceRef })
+	return out, nil
 }
 
 func load(path string) (cosmosfs.Tree, error) {
@@ -255,6 +316,18 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 			node.Children[idx].Domain = &dd
 		}
 		node = &node.Children[idx]
+	}
+	if len(d.Products) > 0 {
+		idx := findTreeChild(node, "Products", "product-parent")
+		if idx == -1 {
+			node.Children = append(node.Children, NamespaceTreeNodeDTO{Label: "Products", Kind: "product-parent", Canonical: d.Canonical, CanonicalName: d.Canonical, DisplayPath: d.Namespace.DisplayPath + " / Products", TreePath: d.Namespace.TreePath + "/products", GitPath: d.GitPath})
+			idx = len(node.Children) - 1
+		}
+		productParent := &node.Children[idx]
+		for _, product := range d.Products {
+			p := product
+			productParent.Children = append(productParent.Children, NamespaceTreeNodeDTO{Label: product.Name, Kind: "product", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true})
+		}
 	}
 	if len(d.Services) > 0 {
 		idx := findTreeChild(node, "Services", "service-parent")
@@ -390,11 +463,13 @@ func blueprintDTO(tree cosmosfs.Tree, b cosmosfs.BlueprintNode) BlueprintDTO {
 func fulfillmentDTO(tree cosmosfs.Tree, bp model.Blueprint) ProductFulfillmentDTO {
 	required := make([]ProductRequiredServiceDTO, 0, len(bp.Fulfillment.RequiredServices)+len(bp.RequiredServices))
 	for _, svc := range bp.Fulfillment.RequiredServices {
-		required = append(required, ProductRequiredServiceDTO{ServiceRef: svc.ServiceRef, Role: svc.Role, Required: svc.Required, Description: svc.Description, ResolutionStatus: resolveService(tree, svc.ServiceRef).Status})
+		res := resolveService(tree, svc.ServiceRef)
+		required = append(required, ProductRequiredServiceDTO{ServiceRef: svc.ServiceRef, Role: svc.Role, Required: svc.Required, Description: svc.Description, ResolutionStatus: res.Status, ResolvedDomain: res.Domain, ResolvedService: res.Service})
 	}
 	if len(required) == 0 {
 		for _, svc := range bp.RequiredServices {
-			required = append(required, ProductRequiredServiceDTO{ServiceRef: svc.ServiceRef, Required: svc.Required, Description: svc.Purpose, ResolutionStatus: resolveService(tree, svc.ServiceRef).Status})
+			res := resolveService(tree, svc.ServiceRef)
+			required = append(required, ProductRequiredServiceDTO{ServiceRef: svc.ServiceRef, Required: svc.Required, Description: svc.Purpose, ResolutionStatus: res.Status, ResolvedDomain: res.Domain, ResolvedService: res.Service})
 		}
 	}
 	return ProductFulfillmentDTO{RequiredServices: required}
@@ -771,6 +846,63 @@ func CreateBlueprint(path string, bp model.Blueprint) error {
 		return Error(CodeInternalError, "Failed to write blueprint: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	return nil
+}
+
+func CreateProductOffering(path, domainCanonical string, req CreateProductOfferingRequest) (BlueprintDTO, error) {
+	canonical := namespace.Canonical(strings.TrimSpace(domainCanonical))
+	tree, err := load(path)
+	if err != nil {
+		return BlueprintDTO{}, err
+	}
+	if !resolveDomain(tree, canonical) {
+		return BlueprintDTO{}, Error(CodeDomainNotFound, "Domain not found: "+canonical, http.StatusNotFound, nil)
+	}
+	id := strings.TrimSpace(req.ID)
+	if id == "" {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "Product ID is required", http.StatusBadRequest, nil)
+	}
+	version := firstNonEmpty(strings.TrimSpace(req.Version), "0.1.0")
+	status := firstNonEmpty(strings.TrimSpace(req.Status), "draft")
+	owner := firstNonEmpty(strings.TrimSpace(req.Owner), canonical)
+	owning := firstNonEmpty(strings.TrimSpace(req.OwningDomain), canonical)
+	bp := model.Blueprint{ID: id, Type: "product_blueprint", Name: strings.TrimSpace(req.Name), Version: version, Status: status, Owner: owner, OfferedBy: canonical, OwningDomain: namespace.Canonical(owning), Summary: strings.TrimSpace(req.Summary), Fulfillment: model.ProductFulfillment{RequiredServices: []model.ProductRequiredService{}}}
+	if bp.Name == "" {
+		bp.Name = id
+	}
+	if err := CreateBlueprint(path, bp); err != nil {
+		return BlueprintDTO{}, err
+	}
+	return GetBlueprint(path, id)
+}
+
+func AddProductFulfillmentService(path, productID string, req AddFulfillmentServiceRequest) (BlueprintDTO, error) {
+	serviceRef := strings.TrimSpace(req.ServiceRef)
+	if serviceRef == "" {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "service_ref is required", http.StatusBadRequest, nil)
+	}
+	product, err := GetBlueprint(path, productID)
+	if err != nil {
+		return BlueprintDTO{}, err
+	}
+	if product.Type != "product_blueprint" {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "target blueprint is not a product_blueprint", http.StatusBadRequest, nil)
+	}
+	var raw model.Blueprint
+	if err := fsx.ReadYAML(product.Path, &raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to read product: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	normalized, _, _ := normalizeServiceRef(serviceRef)
+	for _, existing := range raw.Fulfillment.RequiredServices {
+		if strings.EqualFold(strings.TrimSpace(existing.ServiceRef), normalized) || strings.EqualFold(strings.TrimSpace(existing.ServiceRef), serviceRef) {
+			return GetBlueprint(path, productID)
+		}
+	}
+	role := firstNonEmpty(strings.TrimSpace(req.Role), "supporting")
+	raw.Fulfillment.RequiredServices = append(raw.Fulfillment.RequiredServices, model.ProductRequiredService{ServiceRef: normalized, Role: role, Required: req.Required, Description: strings.TrimSpace(req.Description)})
+	if err := fsx.WriteYAML(product.Path, raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to write product: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetBlueprint(path, productID)
 }
 
 func DeleteBlueprint(path, id string) error {

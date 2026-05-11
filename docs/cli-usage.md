@@ -565,3 +565,14 @@ Known limitations: the doctor function currently lives in the application layer 
 ### Domain-owned products and fulfillment validation
 
 `nomos validate --path <cosmos>` now reports missing or unresolved product offering domains, service ownership, and fulfillment service references. Product blueprint JSON from `nomos blueprint list --format json` and `nomos blueprint show --format json` includes `offered_by`, `owning_domain`, and `fulfillment.required_services[].resolution_status`. Service JSON includes `owned_by`, `operated_by`, `capabilities`, and `supported_products` when present.
+
+## Domain-owned product offering workflow
+
+The REST/app DTOs now expose product offerings from the domain perspective. `GET /api/v1/domains/{domain}` includes products offered by the domain and services owned by or contained in it. Product files remain catalog blueprints, and the catalog endpoint remains a global index.
+
+Useful endpoints:
+
+- `GET /api/v1/domains/{domain}/products` lists product offerings for a domain.
+- `POST /api/v1/domains/{domain}/products` creates a product with `offered_by` set from the domain path and `owning_domain` defaulted to the domain.
+- `POST /api/v1/products/{id}/fulfillment-services` appends a required fulfillment service ref.
+- `GET /api/v1/services/refs` lists canonical service refs for forms and automation.

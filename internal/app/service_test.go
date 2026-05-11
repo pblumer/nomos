@@ -311,3 +311,100 @@ fulfillment:
 		t.Fatalf("expected service metadata in DTO: %+v", svc)
 	}
 }
+
+func TestDomainOwnedProductWorkflowDTOs(t *testing.T) {
+	p := createAppTestCosmos(t)
+	must := func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "collaboration.blumer.cloud", "services", "mailbox"), 0o755))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "collaboration.blumer.cloud", "domain.yaml"), []byte("name: collaboration.blumer.cloud\nowner: Collaboration Team\nstatus: draft\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "collaboration.blumer.cloud", "services", "mailbox", "service.yaml"), []byte("name: mailbox\nowned_by: collaboration.blumer.cloud\nstatus: draft\n"), 0o644))
+	must(os.MkdirAll(filepath.Join(storage.CatalogDir(p), "blueprints", "products"), 0o755))
+	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "blueprints", "products", "account.yaml"), []byte(`id: PROD-ACC-MBX-001
+type: product_blueprint
+name: Benutzerkonto mit Mailbox
+version: 0.1.0
+status: draft
+owner: Identity Team
+offered_by: identity.blumer.cloud
+owning_domain: identity.blumer.cloud
+summary: Product owned by the identity domain.
+fulfillment:
+  required_services:
+    - service_ref: identity.blumer.cloud/user-account
+      role: primary
+      required: true
+    - service_ref: collaboration.blumer.cloud/mailbox
+      role: supporting
+      required: true
+    - service_ref: missing.blumer.cloud/ghost
+      role: dependency
+      required: true
+`), 0o644))
+
+	domain, err := GetDomain(p, "identity.blumer.cloud")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(domain.Products) != 1 || domain.Products[0].ID != "PROD-ACC-MBX-001" {
+		t.Fatalf("expected domain product offering: %+v", domain.Products)
+	}
+	foundUserAccount := false
+	for _, svc := range domain.Services {
+		if svc.Name == "user-account" {
+			foundUserAccount = true
+		}
+	}
+	if !foundUserAccount {
+		t.Fatalf("expected services on domain detail: %+v", domain.Services)
+	}
+	if domain.Products[0].FulfillmentRequiredServicesCount != 3 || domain.Products[0].FulfillmentUnresolvedCount != 1 {
+		t.Fatalf("expected fulfillment summary counts: %+v", domain.Products[0])
+	}
+
+	product, err := GetBlueprint(p, "PROD-ACC-MBX-001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	statuses := map[string]string{}
+	for _, svc := range product.Fulfillment.RequiredServices {
+		statuses[svc.ServiceRef] = svc.ResolutionStatus
+	}
+	if statuses["identity.blumer.cloud/user-account"] != "resolved" || statuses["collaboration.blumer.cloud/mailbox"] != "resolved" || statuses["missing.blumer.cloud/ghost"] != "unresolved_domain" {
+		t.Fatalf("unexpected resolution statuses: %+v", statuses)
+	}
+
+	refs, err := AllServiceRefs(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, ref := range refs.Services {
+		seen[ref.ServiceRef] = true
+	}
+	if !seen["identity.blumer.cloud/user-account"] || !seen["collaboration.blumer.cloud/mailbox"] {
+		t.Fatalf("missing canonical service refs: %+v", refs.Services)
+	}
+}
+
+func TestCreateProductOfferingAndAppendFulfillment(t *testing.T) {
+	p := createAppTestCosmos(t)
+	product, err := CreateProductOffering(p, "identity.blumer.cloud", CreateProductOfferingRequest{ID: "PROD-NEW-001", Name: "New Product", Summary: "Created from the domain."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if product.OfferedBy != "identity.blumer.cloud" || product.OwningDomain != "identity.blumer.cloud" || product.Version != "0.1.0" || product.Status != "draft" {
+		t.Fatalf("unexpected created product defaults: %+v", product)
+	}
+
+	updated, err := AddProductFulfillmentService(p, "PROD-NEW-001", AddFulfillmentServiceRequest{ServiceRef: "identity.blumer.cloud/user-account", Role: "primary", Required: true, Description: "Create account."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.Fulfillment.RequiredServices) != 1 || updated.Fulfillment.RequiredServices[0].ResolutionStatus != "resolved" {
+		t.Fatalf("expected resolved fulfillment service: %+v", updated.Fulfillment)
+	}
+}
