@@ -54,3 +54,25 @@ For dedicated Cosmos repositories, commit source-of-truth files under `.nomos/` 
 ADR-0001 introduces explicit product ownership and service-based fulfillment. Product blueprints in the catalog can declare `offered_by`, optional `owning_domain`, and `fulfillment.required_services`. Services below domains can declare `owned_by`, `operated_by`, `capabilities`, and `supported_products`.
 
 The catalog remains a global index view. Semantic ownership is expressed by the domain references in YAML. See [architecture note 016](architecture/016-domain-owned-product-offerings.md) for examples and validation codes.
+
+## Domain-owned product offering workflow
+
+In the Cosmos Explorer, domains are the primary place to create and manage product offerings. Products are still persisted as catalog YAML artifacts so Git remains the source of truth, but the catalog is presented as a global index rather than the semantic owner.
+
+A domain-owned product uses `offered_by` to point to the offering domain. `owning_domain` defaults to that same domain during domain-level product creation. Required fulfillment services use canonical service references and may point to services in the same or another domain.
+
+```yaml
+id: PROD-ACC-MBX-001
+type: product_blueprint
+name: Benutzerkonto mit Mailbox
+offered_by: identity.blumer.cloud
+owning_domain: identity.blumer.cloud
+fulfillment:
+  required_services:
+    - service_ref: identity.blumer.cloud/user-account
+      role: primary
+      required: true
+    - service_ref: collaboration.blumer.cloud/mailbox
+      role: supporting
+      required: true
+```

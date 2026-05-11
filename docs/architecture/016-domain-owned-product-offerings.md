@@ -15,9 +15,9 @@ A product blueprint is the versioned definition of a product. It describes input
 Services are reusable production capabilities below domains. A service can now declare explicit ownership and operating metadata:
 
 ```yaml
-owned_by: cloud.blumer.identity
+owned_by: identity.blumer.cloud
 operated_by:
-  - cloud.blumer.identity
+  - identity.blumer.cloud
 capabilities:
   - user-account-management
 supported_products:
@@ -37,15 +37,15 @@ name: Benutzerkonto mit Mailbox
 version: 0.1.0
 status: draft
 owner: Identity & Collaboration
-offered_by: cloud.blumer.identity
-owning_domain: cloud.blumer.identity
+offered_by: identity.blumer.cloud
+owning_domain: identity.blumer.cloud
 fulfillment:
   required_services:
-    - service_ref: cloud.blumer.identity/user-account
+    - service_ref: identity.blumer.cloud/user-account
       role: primary
       required: true
       description: Creates the account in the identity domain.
-    - service_ref: cloud.blumer.collaboration/mailbox
+    - service_ref: collaboration.blumer.cloud/mailbox
       role: supporting
       required: true
       description: Provides the mailbox capability.
@@ -55,7 +55,7 @@ The app DTO adds a `resolution_status` for each required service. Values are `re
 
 ## Cross-domain fulfillment
 
-Required services may belong to the offering domain or another domain. For example, an identity product can be offered by `cloud.blumer.identity` while using mailbox and license services from `cloud.blumer.collaboration`. This makes dependencies explicit without moving service ownership.
+Required services may belong to the offering domain or another domain. For example, an identity product can be offered by `identity.blumer.cloud` while using mailbox and license services from `collaboration.blumer.cloud`. This makes dependencies explicit without moving service ownership.
 
 ## Global catalog as index view
 
@@ -91,3 +91,27 @@ Nomos validates ownership and fulfillment without failing YAML loading:
 2. Add product detail pages that show ownership, fulfillment and unresolved references.
 3. Add service detail pages showing dependent products and capabilities.
 4. Add guided migration or authoring helpers for old catalog files.
+
+## Domain-owned product offering workflow
+
+Domains are the primary ownership context for product offerings in the Cosmos Explorer. Product YAML artifacts continue to be stored in the catalog (`.nomos/catalog/blueprints/products`) so the repository remains file-first and Git-friendly, but the catalog is an index, not the semantic owner of a product.
+
+A product offering is linked to its domain with `offered_by`. When a product is created from a selected domain in the Explorer, `offered_by` is set automatically and `owning_domain` defaults to the same canonical domain. Fulfillment services are referenced by canonical service refs in the form `<domain>/<service>`, and cross-domain fulfillment is allowed.
+
+The UI therefore shows products below their offering domain under `Products`, while the global Catalog Index remains useful for search and overview. Fulfillment references are resolved in the app layer and shown as `resolved`, `missing`, `unresolved_domain`, or `unresolved_service`.
+
+```yaml
+id: PROD-ACC-MBX-001
+type: product_blueprint
+name: Benutzerkonto mit Mailbox
+offered_by: identity.blumer.cloud
+owning_domain: identity.blumer.cloud
+fulfillment:
+  required_services:
+    - service_ref: identity.blumer.cloud/user-account
+      role: primary
+      required: true
+    - service_ref: collaboration.blumer.cloud/mailbox
+      role: supporting
+      required: true
+```

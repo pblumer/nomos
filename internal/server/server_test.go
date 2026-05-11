@@ -997,3 +997,71 @@ func TestNamespaceRoutesAPI(t *testing.T) {
 		t.Fatalf("expected 404 for unknown namespace sub-path, got %d", rr3.Code)
 	}
 }
+
+func TestDomainProductOfferingAPI(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	list := get(h, "/api/v1/domains/identity.blumer.cloud/products")
+	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), "PB-ACC-MBX-001") {
+		t.Fatalf("expected domain products response, status=%d body=%s", list.Code, list.Body.String())
+	}
+
+	body := strings.NewReader(`{"id":"PROD-API-001","name":"API Product","summary":"Created through domain endpoint"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/domains/identity.blumer.cloud/products", body)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("create status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	var created struct {
+		ID           string `json:"id"`
+		OfferedBy    string `json:"offered_by"`
+		OwningDomain string `json:"owning_domain"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.OfferedBy != "identity.blumer.cloud" || created.OwningDomain != "identity.blumer.cloud" {
+		t.Fatalf("expected domain ownership defaults: %+v", created)
+	}
+
+	dup := httptest.NewRecorder()
+	dupReq := httptest.NewRequest(http.MethodPost, "/api/v1/domains/identity.blumer.cloud/products", strings.NewReader(`{"id":"PROD-API-001","name":"Duplicate"}`))
+	dupReq.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(dup, dupReq)
+	if dup.Code != http.StatusConflict {
+		t.Fatalf("duplicate status=%d body=%s", dup.Code, dup.Body.String())
+	}
+
+	add := httptest.NewRecorder()
+	addReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PROD-API-001/fulfillment-services", strings.NewReader(`{"service_ref":"collaboration.blumer.cloud/mailbox","role":"supporting","required":true,"description":"Mailbox"}`))
+	addReq.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(add, addReq)
+	if add.Code != http.StatusOK || !strings.Contains(add.Body.String(), "resolved") || !strings.Contains(add.Body.String(), "collaboration.blumer.cloud/mailbox") {
+		t.Fatalf("add fulfillment status=%d body=%s", add.Code, add.Body.String())
+	}
+}
+
+func TestDomainsExplorerShowsProductWorkflow(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	rr := get(h, "/domains?selected=domain:identity.blumer.cloud")
+	body := rr.Body.String()
+	for _, want := range []string{"Products / Offerings", "Create product", "PB-ACC-MBX-001"} {
+		if rr.Code != http.StatusOK || !strings.Contains(body, want) {
+			t.Fatalf("domain explorer missing %q status=%d body=%s", want, rr.Code, body)
+		}
+	}
+
+	product := get(h, "/domains?selected=product:PB-ACC-MBX-001")
+	for _, want := range []string{"Product Details", "Fulfillment Services", "identity.blumer.cloud/user-account", "resolved"} {
+		if product.Code != http.StatusOK || !strings.Contains(product.Body.String(), want) {
+			t.Fatalf("product detail missing %q status=%d", want, product.Code)
+		}
+	}
+
+	catalog := get(h, "/blueprints")
+	if catalog.Code != http.StatusOK || !strings.Contains(catalog.Body.String(), "Catalog Index") {
+		t.Fatalf("catalog index label missing status=%d", catalog.Code)
+	}
+}
