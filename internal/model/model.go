@@ -32,13 +32,17 @@ type Domain struct {
 }
 
 type Service struct {
-	ID      string `yaml:"id" json:"id"`
-	Type    string `yaml:"type" json:"type"`
-	Name    string `yaml:"name" json:"name"`
-	Version string `yaml:"version" json:"version"`
-	Status  string `yaml:"status" json:"status"`
-	Owner   string `yaml:"owner" json:"owner"`
-	Summary string `yaml:"summary" json:"summary"`
+	ID                string   `yaml:"id" json:"id"`
+	Type              string   `yaml:"type" json:"type"`
+	Name              string   `yaml:"name" json:"name"`
+	Version           string   `yaml:"version" json:"version"`
+	Status            string   `yaml:"status" json:"status"`
+	Owner             string   `yaml:"owner" json:"owner"`
+	OwnedBy           string   `yaml:"owned_by,omitempty" json:"owned_by,omitempty"`
+	OperatedBy        []string `yaml:"operated_by,omitempty" json:"operated_by,omitempty"`
+	Capabilities      []string `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
+	SupportedProducts []string `yaml:"supported_products,omitempty" json:"supported_products,omitempty"`
+	Summary           string   `yaml:"summary" json:"summary"`
 }
 
 type Variant struct {
@@ -53,6 +57,17 @@ type RequiredServiceRef struct {
 	Required            bool   `yaml:"required" json:"required"`
 }
 
+type ProductFulfillment struct {
+	RequiredServices []ProductRequiredService `yaml:"required_services,omitempty" json:"required_services,omitempty"`
+}
+
+type ProductRequiredService struct {
+	ServiceRef  string `yaml:"service_ref" json:"service_ref"`
+	Role        string `yaml:"role,omitempty" json:"role,omitempty"`
+	Required    bool   `yaml:"required" json:"required"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+}
+
 type Blueprint struct {
 	ID                        string                 `yaml:"id" json:"id"`
 	Type                      string                 `yaml:"type" json:"type"`
@@ -60,6 +75,9 @@ type Blueprint struct {
 	Version                   string                 `yaml:"version" json:"version"`
 	Status                    string                 `yaml:"status" json:"status"`
 	Owner                     string                 `yaml:"owner" json:"owner"`
+	OfferedBy                 string                 `yaml:"offered_by,omitempty" json:"offered_by,omitempty"`
+	OwningDomain              string                 `yaml:"owning_domain,omitempty" json:"owning_domain,omitempty"`
+	Fulfillment               ProductFulfillment     `yaml:"fulfillment,omitempty" json:"fulfillment,omitempty"`
 	Summary                   string                 `yaml:"summary" json:"summary"`
 	Variants                  []Variant              `yaml:"variants" json:"variants,omitempty"`
 	Capabilities              []string               `yaml:"capabilities" json:"capabilities,omitempty"`

@@ -4,7 +4,7 @@ name: Mailbox Service
 version: 0.1.0
 status: draft
 owner: Identity & Collaboration
-namespace_service_ref: collaboration.blumer.cloud/mailbox
+namespace_service_ref: cloud.blumer.collaboration/mailbox
 summary: Blueprint fuer die Bereitstellung einer Mailbox.
 capabilities:
   - create_mailbox

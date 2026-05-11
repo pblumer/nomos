@@ -158,7 +158,8 @@ func domainDTO(d cosmosfs.DomainNode, includeServices bool) DomainDTO {
 }
 
 func serviceDTO(domain string, s cosmosfs.ServiceNode) ServiceDTO {
-	return ServiceDTO{Name: s.Name, Domain: domain, Owner: fallback(s.Metadata.Owner, "unknown"), Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path}
+	ownedBy := firstNonEmpty(s.Metadata.OwnedBy, domain, s.Metadata.Owner)
+	return ServiceDTO{Name: s.Name, Domain: domain, Owner: fallback(s.Metadata.Owner, "unknown"), OwnedBy: ownedBy, OperatedBy: s.Metadata.OperatedBy, Capabilities: s.Metadata.Capabilities, SupportedProducts: s.Metadata.SupportedProducts, Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path}
 }
 
 func load(path string) (cosmosfs.Tree, error) {
@@ -292,6 +293,15 @@ func fallback(v, d string) string {
 	return v
 }
 
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 func ListBlueprints(path string) (BlueprintsDTO, error) {
 	tree, err := load(path)
 	if err != nil {
@@ -299,7 +309,7 @@ func ListBlueprints(path string) (BlueprintsDTO, error) {
 	}
 	out := BlueprintsDTO{Blueprints: []BlueprintDTO{}}
 	for _, b := range tree.Blueprints {
-		out.Blueprints = append(out.Blueprints, blueprintDTO(b))
+		out.Blueprints = append(out.Blueprints, blueprintDTO(tree, b))
 	}
 	out.Count = len(out.Blueprints)
 	return out, nil
@@ -352,7 +362,7 @@ func GetInstanceCompliance(path, id string) (ComplianceDTO, error) {
 	return ComplianceDTO{InstanceID: inst.ID, Status: inst.ComplianceStatus, Evidence: inst.Evidence, Findings: inst.Findings}, nil
 }
 
-func blueprintDTO(b cosmosfs.BlueprintNode) BlueprintDTO {
+func blueprintDTO(tree cosmosfs.Tree, b cosmosfs.BlueprintNode) BlueprintDTO {
 	variants := make([]VariantDTO, 0, len(b.Metadata.Variants))
 	for _, v := range b.Metadata.Variants {
 		variants = append(variants, VariantDTO{ID: v.ID, Name: v.Name})
@@ -361,6 +371,7 @@ func blueprintDTO(b cosmosfs.BlueprintNode) BlueprintDTO {
 	for _, svc := range b.Metadata.RequiredServices {
 		requiredServices = append(requiredServices, RequiredServiceRefDTO{ServiceRef: svc.ServiceRef, ServiceBlueprintRef: svc.ServiceBlueprintRef, Purpose: svc.Purpose, Required: svc.Required})
 	}
+	fulfillment := fulfillmentDTO(tree, b.Metadata)
 	requirements := make([]BlueprintRequirementDTO, 0, len(b.Metadata.Requirements))
 	for _, r := range b.Metadata.Requirements {
 		requirements = append(requirements, BlueprintRequirementDTO{ID: r.ID, Label: r.Label, Status: r.Status, AttributeRefs: r.AttributeRefs})
@@ -373,7 +384,69 @@ func blueprintDTO(b cosmosfs.BlueprintNode) BlueprintDTO {
 		}
 		attributes = append(attributes, BlueprintAttributeDTO{ID: a.ID, Label: a.Label, Type: a.Type, Required: a.Required, ServiceRef: a.ServiceRef, Rules: rules})
 	}
-	return BlueprintDTO{ID: b.Metadata.ID, Type: b.Metadata.Type, Name: b.Metadata.Name, Version: b.Metadata.Version, Status: b.Metadata.Status, Owner: b.Metadata.Owner, Summary: b.Metadata.Summary, Path: b.Path, Variants: variants, Capabilities: b.Metadata.Capabilities, TargetSystems: b.Metadata.TargetSystems, RequiredInputs: b.Metadata.RequiredInputs, RequiredServiceBlueprints: b.Metadata.RequiredServiceBlueprints, RequiredServices: requiredServices, NamespaceServiceRef: b.Metadata.NamespaceServiceRef, Rules: b.Metadata.Rules, QualityCriteria: b.Metadata.QualityCriteria, EvidenceRequirements: b.Metadata.EvidenceRequirements, Requirements: requirements, RequirementsStatus: requirementsStatus(b.Metadata.Requirements), Attributes: attributes}
+	return BlueprintDTO{ID: b.Metadata.ID, Type: b.Metadata.Type, Name: b.Metadata.Name, Version: b.Metadata.Version, Status: b.Metadata.Status, Owner: b.Metadata.Owner, OfferedBy: b.Metadata.OfferedBy, OwningDomain: firstNonEmpty(b.Metadata.OwningDomain, b.Metadata.OfferedBy), Fulfillment: fulfillment, Summary: b.Metadata.Summary, Path: b.Path, Variants: variants, Capabilities: b.Metadata.Capabilities, TargetSystems: b.Metadata.TargetSystems, RequiredInputs: b.Metadata.RequiredInputs, RequiredServiceBlueprints: b.Metadata.RequiredServiceBlueprints, RequiredServices: requiredServices, NamespaceServiceRef: b.Metadata.NamespaceServiceRef, Rules: b.Metadata.Rules, QualityCriteria: b.Metadata.QualityCriteria, EvidenceRequirements: b.Metadata.EvidenceRequirements, Requirements: requirements, RequirementsStatus: requirementsStatus(b.Metadata.Requirements), Attributes: attributes}
+}
+
+func fulfillmentDTO(tree cosmosfs.Tree, bp model.Blueprint) ProductFulfillmentDTO {
+	required := make([]ProductRequiredServiceDTO, 0, len(bp.Fulfillment.RequiredServices)+len(bp.RequiredServices))
+	for _, svc := range bp.Fulfillment.RequiredServices {
+		required = append(required, ProductRequiredServiceDTO{ServiceRef: svc.ServiceRef, Role: svc.Role, Required: svc.Required, Description: svc.Description, ResolutionStatus: resolveService(tree, svc.ServiceRef).Status})
+	}
+	if len(required) == 0 {
+		for _, svc := range bp.RequiredServices {
+			required = append(required, ProductRequiredServiceDTO{ServiceRef: svc.ServiceRef, Required: svc.Required, Description: svc.Purpose, ResolutionStatus: resolveService(tree, svc.ServiceRef).Status})
+		}
+	}
+	return ProductFulfillmentDTO{RequiredServices: required}
+}
+
+type ServiceResolution struct {
+	Status  string
+	Domain  string
+	Service string
+}
+
+func normalizeServiceRef(serviceRef string) (string, string, string) {
+	serviceRef = strings.TrimSpace(serviceRef)
+	parts := strings.SplitN(serviceRef, "/", 2)
+	if len(parts) != 2 {
+		return serviceRef, "", ""
+	}
+	domain := namespace.Canonical(strings.TrimSpace(parts[0]))
+	service := strings.TrimSpace(parts[1])
+	return domain + "/" + service, domain, service
+}
+
+func resolveDomain(tree cosmosfs.Tree, canonical string) bool {
+	canonical = namespace.Canonical(strings.TrimSpace(canonical))
+	for _, d := range tree.Domains {
+		if namespace.Canonical(d.Name) == canonical {
+			return true
+		}
+	}
+	return false
+}
+
+func resolveService(tree cosmosfs.Tree, serviceRef string) ServiceResolution {
+	_, domain, service := normalizeServiceRef(serviceRef)
+	if strings.TrimSpace(serviceRef) == "" {
+		return ServiceResolution{Status: "missing"}
+	}
+	if domain == "" || service == "" {
+		return ServiceResolution{Status: "unresolved_domain"}
+	}
+	for _, d := range tree.Domains {
+		if namespace.Canonical(d.Name) != domain {
+			continue
+		}
+		for _, s := range d.Services {
+			if s.Name == service {
+				return ServiceResolution{Status: "resolved", Domain: domain, Service: service}
+			}
+		}
+		return ServiceResolution{Status: "unresolved_service", Domain: domain, Service: service}
+	}
+	return ServiceResolution{Status: "unresolved_domain", Domain: domain, Service: service}
 }
 
 // requirementsStatus derives the overall status from a set of requirements:
@@ -590,7 +663,7 @@ func AddService(path, domainName, name, owner string, force bool) (ServiceDTO, e
 			return ServiceDTO{}, err
 		}
 	}
-	s := model.Service{ID: "service-" + name, Type: "service", Name: name, Version: "0.1.0", Status: "draft", Owner: owner, Summary: "Nomos Service " + name + "."}
+	s := model.Service{ID: "service-" + name, Type: "service", Name: name, Version: "0.1.0", Status: "draft", Owner: owner, OwnedBy: d.Canonical, OperatedBy: []string{d.Canonical}, Summary: "Nomos Service " + name + "."}
 	if err := fsx.WriteYAML(filepath.Join(sdir, "service.yaml"), s); err != nil {
 		return ServiceDTO{}, err
 	}

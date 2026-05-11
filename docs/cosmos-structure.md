@@ -48,3 +48,9 @@ my-cosmos/
 ```
 
 For dedicated Cosmos repositories, commit source-of-truth files under `.nomos/` and ignore only `.nomos/cache/` and `.nomos/index/`. For local experiments inside another project, ignore `.nomos/` entirely.
+
+## Domain-owned product offerings
+
+ADR-0001 introduces explicit product ownership and service-based fulfillment. Product blueprints in the catalog can declare `offered_by`, optional `owning_domain`, and `fulfillment.required_services`. Services below domains can declare `owned_by`, `operated_by`, `capabilities`, and `supported_products`.
+
+The catalog remains a global index view. Semantic ownership is expressed by the domain references in YAML. See [architecture note 016](architecture/016-domain-owned-product-offerings.md) for examples and validation codes.

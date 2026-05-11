@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -33,6 +34,10 @@ func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesDNSLikeDemo(t *te
 	for _, rel := range []string{
 		filepath.Join(".nomos", "domains", "com", "blumer", "domain.yaml"),
 		filepath.Join(".nomos", "domains", "com", "blumer", "identity", "services", "user-account", "service.yaml"),
+		filepath.Join(".nomos", "domains", "identity", "blumer", "cloud", "domain.yaml"),
+		filepath.Join(".nomos", "domains", "identity", "blumer", "cloud", "services", "user-account", "service.yaml"),
+		filepath.Join(".nomos", "domains", "collaboration", "blumer", "cloud", "services", "mailbox", "service.yaml"),
+		filepath.Join(".nomos", "domains", "collaboration", "blumer", "cloud", "services", "license-assignment", "service.yaml"),
 		filepath.Join(".nomos", "domains", "com", "blumer", "governance", "services", "provisioning-rules", "service.yaml"),
 		filepath.Join(".nomos", "domains", "cloud", "blumer", "home", "services", "home-dashboard", "service.yaml"),
 		filepath.Join(".nomos", "domains", "cloud", "blumer", "zytlog", "services", "zytlog-api", "service.yaml"),
@@ -42,5 +47,19 @@ func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesDNSLikeDemo(t *te
 		if _, err := os.Stat(filepath.Join(target, rel)); err != nil {
 			t.Fatalf("missing %s in explicit target: %v", rel, err)
 		}
+	}
+	product, err := os.ReadFile(filepath.Join(target, ".nomos", "catalog", "blueprints", "products", "benutzerkonto-mit-mailbox.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"id: PROD-ACC-MBX-001", "offered_by: cloud.blumer.identity", "fulfillment:", "cloud.blumer.identity/user-account", "cloud.blumer.collaboration/mailbox", "cloud.blumer.collaboration/license-assignment"} {
+		if !strings.Contains(string(product), want) {
+			t.Fatalf("demo product blueprint missing %q", want)
+		}
+	}
+	validate := exec.Command(bin, "validate", "--path", target)
+	validate.Dir = repoRoot
+	if out, err := validate.CombinedOutput(); err != nil {
+		t.Fatalf("demo validation should have no errors: %v\n%s", err, out)
 	}
 }
