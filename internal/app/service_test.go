@@ -88,6 +88,84 @@ func TestBuildNamespaceTree(t *testing.T) {
 	}
 }
 
+func findTreeNode(n NamespaceTreeNodeDTO, kind, label string) *NamespaceTreeNodeDTO {
+	if n.Kind == kind && n.Label == label {
+		return &n
+	}
+	for _, c := range n.Children {
+		if found := findTreeNode(c, kind, label); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func TestBuildNamespaceTreeIncludesProductFulfillmentChildren(t *testing.T) {
+	p := createAppTestCosmos(t)
+	must := func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "blumer.cloud"), 0o755))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "blumer.cloud", "domain.yaml"), []byte("name: blumer.cloud\nowner: Cloud Team\nstatus: draft\n"), 0o644))
+	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "mailing.blumer.cloud", "services", "exchange"), 0o755))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "mailing.blumer.cloud", "domain.yaml"), []byte("name: mailing.blumer.cloud\nowner: Mailing Team\nstatus: draft\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "mailing.blumer.cloud", "services", "exchange", "service.yaml"), []byte("name: exchange\nowner: Mailing Team\nowned_by: mailing.blumer.cloud\nstatus: draft\n"), 0o644))
+	must(os.MkdirAll(filepath.Join(storage.CatalogDir(p), "blueprints", "products"), 0o755))
+	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "blueprints", "products", "account.yaml"), []byte(`id: PROD-ACC-MBX-001
+type: product_blueprint
+name: Benutzeraccount mit Mailbox
+offered_by: blumer.cloud
+owning_domain: blumer.cloud
+fulfillment:
+  required_services:
+    - service_ref: identity.blumer.cloud/user-account
+      role: primary
+      required: true
+      sla_ref: SLA-IDENTITY-ACCOUNT-STANDARD
+      ola_ref: OLA-IDENTITY-OPS-STANDARD
+    - service_ref: mailing.blumer.cloud/exchange
+      role: primary
+      required: true
+    - service_ref: missing.example.cloud/unknown-service
+      role: supporting
+      required: false
+`), 0o644))
+
+	tree, err := BuildNamespaceTree(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent := findTreeNode(tree.Root, "product-fulfillment-parent", "Fulfillment Services")
+	if parent == nil || parent.FulfillmentCount != 3 || len(parent.Children) != 3 {
+		t.Fatalf("expected fulfillment parent with three children: %+v", parent)
+	}
+	labels := strings.Join(flattenLabels(*parent), "|")
+	for _, want := range []string{"Fulfillment Services", "user-account", "exchange", "unknown-service"} {
+		if !strings.Contains(labels, want) {
+			t.Fatalf("missing %s in %s", want, labels)
+		}
+	}
+	if strings.Contains(labels, "No fulfillment services yet") {
+		t.Fatalf("unexpected empty state in %s", labels)
+	}
+	byRef := map[string]*ProductRequiredServiceDTO{}
+	for i := range parent.Children {
+		if parent.Children[i].Fulfillment != nil {
+			byRef[parent.Children[i].Fulfillment.ServiceRef] = parent.Children[i].Fulfillment
+		}
+	}
+	first := byRef["identity.blumer.cloud/user-account"]
+	if first == nil || first.TreeTarget != "service:identity.blumer.cloud/user-account" || first.FulfillmentType != "cross-domain" || first.SLARef == "" || first.OLARef == "" {
+		t.Fatalf("expected cross-domain resolved fulfillment target with SLA/OLA refs: %+v", first)
+	}
+	missing := byRef["missing.example.cloud/unknown-service"]
+	if missing == nil || missing.ResolutionStatus != "unresolved_domain" || missing.FulfillmentType != "unresolved" || missing.TreeTarget != "" {
+		t.Fatalf("expected unresolved fulfillment visible without target: %+v", missing)
+	}
+}
+
 func TestBuildNamespaceTreeGroupsDomainsUnderNamespaceNodes(t *testing.T) {
 	p := createAppTestCosmos(t)
 	if _, err := AddDomain(p, "blumer.com", "Web", false); err != nil {
@@ -286,6 +364,8 @@ fulfillment:
       role: primary
       required: true
       description: Creates the account.
+      sla_ref: SLA-IDENTITY-ACCOUNT-STANDARD
+      ola_ref: OLA-IDENTITY-OPS-STANDARD
 `), 0o644))
 
 	blueprints, err := ListBlueprints(p)
@@ -301,6 +381,10 @@ fulfillment:
 	}
 	if len(bp.Fulfillment.RequiredServices) != 1 || bp.Fulfillment.RequiredServices[0].ResolutionStatus != "resolved" {
 		t.Fatalf("expected resolved fulfillment DTO: %+v", bp.Fulfillment)
+	}
+	row := bp.Fulfillment.RequiredServices[0]
+	if row.ServiceRef != "identity.blumer.cloud/user-account" || row.ResolvedDomain != "identity.blumer.cloud" || row.ResolvedService != "user-account" || row.FulfillmentType != "local" || row.SLARef != "SLA-IDENTITY-ACCOUNT-STANDARD" || row.OLARef != "OLA-IDENTITY-OPS-STANDARD" || row.TreeTarget != "service:identity.blumer.cloud/user-account" {
+		t.Fatalf("expected normalized fulfillment row with refs and tree target: %+v", row)
 	}
 
 	svc, err := GetService(p, "identity.blumer.cloud", "user-account")
@@ -378,7 +462,7 @@ fulfillment:
 	if statuses["identity.blumer.cloud/user-account"] != "resolved" || statuses["collaboration.blumer.cloud/mailbox"] != "resolved" || statuses["missing.blumer.cloud/ghost"] != "unresolved_domain" {
 		t.Fatalf("unexpected resolution statuses: %+v", statuses)
 	}
-	if fulfillmentTypes["identity.blumer.cloud/user-account"] != "local service" || fulfillmentTypes["collaboration.blumer.cloud/mailbox"] != "cross-domain service" {
+	if fulfillmentTypes["identity.blumer.cloud/user-account"] != "local" || fulfillmentTypes["collaboration.blumer.cloud/mailbox"] != "cross-domain" {
 		t.Fatalf("unexpected fulfillment types: %+v", fulfillmentTypes)
 	}
 
@@ -409,7 +493,7 @@ func TestCreateProductOfferingAndAppendFulfillment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(updated.Fulfillment.RequiredServices) != 1 || updated.Fulfillment.RequiredServices[0].ResolutionStatus != "resolved" || updated.Fulfillment.RequiredServices[0].FulfillmentType != "local service" {
+	if len(updated.Fulfillment.RequiredServices) != 1 || updated.Fulfillment.RequiredServices[0].ResolutionStatus != "resolved" || updated.Fulfillment.RequiredServices[0].FulfillmentType != "local" {
 		t.Fatalf("expected resolved local fulfillment service: %+v", updated.Fulfillment)
 	}
 	if _, err := CreateProductOffering(p, "identity.blumer.cloud", CreateProductOfferingRequest{ID: "PROD-NEW-001", Name: "Duplicate"}); err == nil {
@@ -451,7 +535,7 @@ fulfillment:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if before.Fulfillment.RequiredServices[0].FulfillmentType != "cross-domain service" {
+	if before.Fulfillment.RequiredServices[0].FulfillmentType != "cross-domain" {
 		t.Fatalf("expected pre-move cross-domain fulfillment: %+v", before.Fulfillment.RequiredServices[0])
 	}
 
@@ -462,7 +546,7 @@ fulfillment:
 	if moved.OfferedBy != "identity.blumer.cloud" || moved.OwningDomain != "identity.blumer.cloud" || moved.Version != "1.2.3" || moved.Summary != "Preserve this summary." {
 		t.Fatalf("unexpected moved product: %+v", moved)
 	}
-	if moved.Fulfillment.RequiredServices[0].ServiceRef != "identity.blumer.cloud/user-account" || moved.Fulfillment.RequiredServices[0].FulfillmentType != "local service" {
+	if moved.Fulfillment.RequiredServices[0].ServiceRef != "identity.blumer.cloud/user-account" || moved.Fulfillment.RequiredServices[0].FulfillmentType != "local" {
 		t.Fatalf("expected unchanged ref and recomputed local fulfillment: %+v", moved.Fulfillment.RequiredServices[0])
 	}
 	raw, err := os.ReadFile(filepath.Join(storage.CatalogDir(p), "blueprints", "products", "move.yaml"))
@@ -574,13 +658,13 @@ fulfillment:
 	for _, svc := range bp.Fulfillment.RequiredServices {
 		byRef[svc.ServiceRef] = svc
 	}
-	if got := byRef["identity.blumer.cloud/user-account"]; got.FulfillmentType != "local service" || got.OLA == nil || got.OLA.Target != "2h" || got.ServiceLevelLabel != "OLA 2h" {
+	if got := byRef["identity.blumer.cloud/user-account"]; got.FulfillmentType != "local" || got.OLA == nil || got.OLA.Target != "2h" || got.ServiceLevelLabel != "OLA 2h" {
 		t.Fatalf("expected inline local OLA DTO, got %+v", got)
 	}
-	if got := byRef["platform.blumer.cloud/rule-validation-api"]; got.FulfillmentType != "cross-domain service" || got.SLA == nil || got.SLA.Target != "8h" || got.ServiceLevelLabel != "SLA 8h" {
+	if got := byRef["platform.blumer.cloud/rule-validation-api"]; got.FulfillmentType != "cross-domain" || got.SLA == nil || got.SLA.Target != "8h" || got.ServiceLevelLabel != "SLA 8h" {
 		t.Fatalf("expected fallback cross-domain SLA DTO, got %+v", got)
 	}
-	if got := byRef["identity.blumer.cloud/privileged-account"]; got.SLA != nil || got.OLA != nil || got.ServiceLevelLabel != "" || got.FulfillmentType != "local service" {
+	if got := byRef["identity.blumer.cloud/privileged-account"]; got.SLA != nil || got.OLA != nil || got.ServiceLevelLabel != "" || got.FulfillmentType != "local" {
 		t.Fatalf("expected valid DTO without service levels, got %+v", got)
 	}
 }

@@ -1099,7 +1099,7 @@ func TestCosmosProductCreationAndFulfillmentForms(t *testing.T) {
 	addReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PROD-COSMOS-001/fulfillment-services", strings.NewReader(`{"service_ref":"identity.blumer.cloud/user-account","role":"primary","required":true}`))
 	addReq.Header.Set("Content-Type", "application/json")
 	h.ServeHTTP(add, addReq)
-	if add.Code != http.StatusOK || !strings.Contains(add.Body.String(), "local service") {
+	if add.Code != http.StatusOK || !strings.Contains(add.Body.String(), "local") {
 		t.Fatalf("append local fulfillment status=%d body=%s", add.Code, add.Body.String())
 	}
 
@@ -1107,7 +1107,7 @@ func TestCosmosProductCreationAndFulfillmentForms(t *testing.T) {
 	crossReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PROD-COSMOS-001/fulfillment-services", strings.NewReader(`{"service_ref":"collaboration.blumer.cloud/mailbox","role":"supporting","required":true}`))
 	crossReq.Header.Set("Content-Type", "application/json")
 	h.ServeHTTP(cross, crossReq)
-	if cross.Code != http.StatusOK || !strings.Contains(cross.Body.String(), "cross-domain service") {
+	if cross.Code != http.StatusOK || !strings.Contains(cross.Body.String(), "cross-domain") {
 		t.Fatalf("append cross-domain fulfillment status=%d body=%s", cross.Code, cross.Body.String())
 	}
 
@@ -1161,7 +1161,7 @@ func TestCosmosTemplateContainsProductMoveWorkflowHooks(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	rr := get(h, "/cosmos?selected=product:PB-ACC-MBX-001")
 	body := rr.Body.String()
-	for _, want := range []string{"Produkt verschieben", "Fulfillment Services", "product-fulfillment-parent", "product-fulfillment-service", "identity.blumer.cloud/user-account", "collaboration.blumer.cloud/mailbox", "local service", "cross-domain service", "OLA 4h", "SLA 8h", "data-node-type=\"product\"", "data-node-type=\"domain\"", "data-product-id=\"PB-ACC-MBX-001\"", "move-product-form", "dragstart", "dragover", "drop", "/api/v1/products/", "/move"} {
+	for _, want := range []string{"Produkt verschieben", "Fulfillment Services", "product-fulfillment-parent", "product-fulfillment-service", "identity.blumer.cloud/user-account", "collaboration.blumer.cloud/mailbox", "2 svc", "local", "cross-domain", "OLA", "SLA", "data-tree-target", "service:identity.blumer.cloud/user-account", "data-node-type=\"product\"", "data-node-type=\"domain\"", "data-product-id=\"PB-ACC-MBX-001\"", "move-product-form", "dragstart", "dragover", "drop", "/api/v1/products/", "/move"} {
 		if rr.Code != http.StatusOK || !strings.Contains(body, want) {
 			t.Fatalf("cosmos move workflow missing %q status=%d", want, rr.Code)
 		}

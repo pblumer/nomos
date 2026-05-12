@@ -1,0 +1,10 @@
+id: domain-mailing-blumer-cloud
+type: domain
+name: mailing.blumer.cloud
+version: 0.1.0
+status: draft
+owner: Mailing Domain Team
+dns_name: mailing.blumer.cloud
+summary: Domain for mailing services.
+services:
+  - exchange

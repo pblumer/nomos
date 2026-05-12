@@ -28,7 +28,7 @@ required_services:
     service_blueprint_ref: SB-IDENTITY-ACCOUNT-001
     purpose: Erstellt und verwaltet das Benutzerkonto.
     required: true
-  - service_ref: collaboration.blumer.cloud/mailbox
+  - service_ref: mailing.blumer.cloud/exchange
     service_blueprint_ref: SB-MAILBOX-001
     purpose: Erstellt und verwaltet die Mailbox.
     required: true
@@ -41,27 +41,15 @@ fulfillment:
     - service_ref: identity.blumer.cloud/user-account
       role: primary
       required: true
-      description: Creates the account in the identity domain.
-      ola:
-        name: Identity Account OLA
-        target: 4h
-        availability: business-hours
-    - service_ref: collaboration.blumer.cloud/mailbox
-      role: supporting
+      description: Creates the identity account.
+      sla_ref: SLA-IDENTITY-ACCOUNT-STANDARD
+      ola_ref: OLA-IDENTITY-OPS-STANDARD
+    - service_ref: mailing.blumer.cloud/exchange
+      role: primary
       required: true
       description: Provides the mailbox capability.
-      sla:
-        name: Mailbox Provisioning SLA
-        target: 8h
-        availability: business-hours
-    - service_ref: collaboration.blumer.cloud/license-assignment
-      role: supporting
-      required: true
-      description: Assigns the required license.
-      ola:
-        name: License Assignment OLA
-        target: 4h
-        availability: business-hours
+      sla_ref: SLA-MAILBOX-STANDARD
+      ola_ref: OLA-MAILING-OPS-STANDARD
 rules:
   - RULE-ACC-001
   - RULE-ACC-003

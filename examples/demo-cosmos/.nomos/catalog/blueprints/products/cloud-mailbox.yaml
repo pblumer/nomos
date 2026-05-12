@@ -19,7 +19,7 @@ fulfillment:
         name: Identity Account OLA
         target: 4h
         availability: business-hours
-    - service_ref: collaboration.blumer.cloud/mailbox
+    - service_ref: mailing.blumer.cloud/exchange
       role: supporting
       required: true
       description: Creates the mailbox in the collaboration domain.
