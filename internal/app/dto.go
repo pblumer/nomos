@@ -112,8 +112,6 @@ type NamespaceTreeNodeDTO struct {
 	CanOpenDetails       bool                       `json:"canOpenDetails"`
 	CanVerifyDomain      bool                       `json:"canVerifyDomain"`
 	CanMaterializeDomain bool                       `json:"canMaterializeDomain"`
-	FulfillmentCount     int                        `json:"fulfillmentCount,omitempty"`
-	TreeTarget           string                     `json:"treeTarget,omitempty"`
 	Children             []NamespaceTreeNodeDTO     `json:"children,omitempty"`
 }
 
@@ -188,26 +186,18 @@ type ServiceLevelDTO struct {
 }
 
 type ProductRequiredServiceDTO struct {
-	Index                int              `json:"index"`
-	ServiceRef           string           `json:"service_ref"`
-	Label                string           `json:"label"`
-	Role                 string           `json:"role,omitempty"`
-	Required             bool             `json:"required"`
-	Description          string           `json:"description,omitempty"`
-	ResolutionStatus     string           `json:"resolution_status"`
-	ResolvedDomain       string           `json:"resolved_domain,omitempty"`
-	ResolvedService      string           `json:"resolved_service,omitempty"`
-	ResolvedLabel        string           `json:"resolved_label,omitempty"`
-	FulfillmentType      string           `json:"fulfillment_type"`
-	CrossDomain          bool             `json:"cross_domain"`
-	SLARef               string           `json:"sla_ref,omitempty"`
-	OLARef               string           `json:"ola_ref,omitempty"`
-	TreeTarget           string           `json:"tree_target,omitempty"`
-	ServiceSelection     string           `json:"service_selection,omitempty"`
-	FulfillmentSelection string           `json:"fulfillment_selection"`
-	SLA                  *ServiceLevelDTO `json:"sla,omitempty"`
-	OLA                  *ServiceLevelDTO `json:"ola,omitempty"`
-	ServiceLevelLabel    string           `json:"service_level_label,omitempty"`
+	ServiceRef        string           `json:"service_ref"`
+	Role              string           `json:"role,omitempty"`
+	Required          bool             `json:"required"`
+	Description       string           `json:"description,omitempty"`
+	ResolutionStatus  string           `json:"resolution_status"`
+	ResolvedDomain    string           `json:"resolved_domain,omitempty"`
+	ResolvedService   string           `json:"resolved_service,omitempty"`
+	FulfillmentType   string           `json:"fulfillment_type"`
+	CrossDomain       bool             `json:"cross_domain"`
+	SLA               *ServiceLevelDTO `json:"sla,omitempty"`
+	OLA               *ServiceLevelDTO `json:"ola,omitempty"`
+	ServiceLevelLabel string           `json:"service_level_label,omitempty"`
 }
 
 type BlueprintDTO struct {

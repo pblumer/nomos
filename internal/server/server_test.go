@@ -1099,7 +1099,7 @@ func TestCosmosProductCreationAndFulfillmentForms(t *testing.T) {
 	addReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PROD-COSMOS-001/fulfillment-services", strings.NewReader(`{"service_ref":"identity.blumer.cloud/user-account","role":"primary","required":true}`))
 	addReq.Header.Set("Content-Type", "application/json")
 	h.ServeHTTP(add, addReq)
-	if add.Code != http.StatusOK || !strings.Contains(add.Body.String(), "local") {
+	if add.Code != http.StatusOK || !strings.Contains(add.Body.String(), "local service") {
 		t.Fatalf("append local fulfillment status=%d body=%s", add.Code, add.Body.String())
 	}
 
@@ -1107,7 +1107,7 @@ func TestCosmosProductCreationAndFulfillmentForms(t *testing.T) {
 	crossReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PROD-COSMOS-001/fulfillment-services", strings.NewReader(`{"service_ref":"collaboration.blumer.cloud/mailbox","role":"supporting","required":true}`))
 	crossReq.Header.Set("Content-Type", "application/json")
 	h.ServeHTTP(cross, crossReq)
-	if cross.Code != http.StatusOK || !strings.Contains(cross.Body.String(), "cross-domain") {
+	if cross.Code != http.StatusOK || !strings.Contains(cross.Body.String(), "cross-domain service") {
 		t.Fatalf("append cross-domain fulfillment status=%d body=%s", cross.Code, cross.Body.String())
 	}
 
@@ -1117,35 +1117,6 @@ func TestCosmosProductCreationAndFulfillmentForms(t *testing.T) {
 	h.ServeHTTP(dup, dupReq)
 	if dup.Code != http.StatusConflict {
 		t.Fatalf("expected duplicate fulfillment conflict, got %d body=%s", dup.Code, dup.Body.String())
-	}
-}
-
-func TestCosmosFulfillmentFormRedirectRefreshesTree(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-
-	create := httptest.NewRecorder()
-	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/domains/identity.blumer.cloud/products", strings.NewReader(`{"id":"PROD-REFRESH-001","name":"Refresh Product","summary":"Created from Cosmos"}`))
-	createReq.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(create, createReq)
-	if create.Code != http.StatusCreated {
-		t.Fatalf("create product status=%d body=%s", create.Code, create.Body.String())
-	}
-
-	form := httptest.NewRecorder()
-	formReq := httptest.NewRequest(http.MethodPost, "/products/fulfillment", strings.NewReader("product_id=PROD-REFRESH-001&service_ref=collaboration.blumer.cloud%2Fmailbox&role=primary&required=on&return_to=cosmos"))
-	formReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	h.ServeHTTP(form, formReq)
-	wantLocation := "/cosmos?selected=product:PROD-REFRESH-001&expand=fulfillment#fulfillment"
-	if form.Code != http.StatusSeeOther || form.Header().Get("Location") != wantLocation {
-		t.Fatalf("fulfillment form redirect status=%d location=%q body=%s", form.Code, form.Header().Get("Location"), form.Body.String())
-	}
-
-	follow := get(h, wantLocation)
-	body := follow.Body.String()
-	for _, want := range []string{"Refresh Product", "Fulfillment Services", "collaboration.blumer.cloud/mailbox", "primary", "required", "resolved", "cross-domain", "data-tree-target", "service:collaboration.blumer.cloud/mailbox"} {
-		if follow.Code != http.StatusOK || !strings.Contains(body, want) {
-			t.Fatalf("refreshed cosmos tree missing %q status=%d", want, follow.Code)
-		}
 	}
 }
 
@@ -1186,150 +1157,11 @@ func TestProductMoveEndpointAndWebForm(t *testing.T) {
 	}
 }
 
-func TestCosmosFulfillmentSelectionIsStableAndUseful(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-
-	resolved := get(h, "/cosmos?selected=fulfillment:PB-ACC-MBX-001:0")
-	resolvedBody := resolved.Body.String()
-	for _, want := range []string{"Fulfillment Services", "identity.blumer.cloud/user-account", "data-selection=\"fulfillment:PB-ACC-MBX-001:0\"", "data-service-selection=\"service:identity.blumer.cloud/user-account\"", "function loadFulfillmentServiceDetail", "Open service"} {
-		if resolved.Code != http.StatusOK || !strings.Contains(resolvedBody, want) {
-			t.Fatalf("resolved fulfillment selection missing %q status=%d", want, resolved.Code)
-		}
-	}
-	for _, bad := range []string{"Unexpected non-whitespace character after JSON", "<span class=\"cn-label\">primary"} {
-		if strings.Contains(resolvedBody, bad) {
-			t.Fatalf("resolved fulfillment selection contains regression marker %q", bad)
-		}
-	}
-
-	create := httptest.NewRecorder()
-	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/domains/identity.blumer.cloud/products", strings.NewReader(`{"id":"PROD-MISSING-001","name":"Missing Fulfillment","summary":"Created from Cosmos"}`))
-	createReq.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(create, createReq)
-	if create.Code != http.StatusCreated {
-		t.Fatalf("create product status=%d body=%s", create.Code, create.Body.String())
-	}
-	add := httptest.NewRecorder()
-	addReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PROD-MISSING-001/fulfillment-services", strings.NewReader(`{"service_ref":"missing.example.cloud/unknown-service","role":"supporting","required":false}`))
-	addReq.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(add, addReq)
-	if add.Code != http.StatusOK {
-		t.Fatalf("add missing fulfillment status=%d body=%s", add.Code, add.Body.String())
-	}
-	unresolved := get(h, "/cosmos?selected=fulfillment:PROD-MISSING-001:0")
-	unresolvedBody := unresolved.Body.String()
-	for _, want := range []string{"Missing Fulfillment", "missing.example.cloud/unknown-service", "unresolved", "fulfillment:PROD-MISSING-001:0", "Create the missing service or correct the service_ref"} {
-		if unresolved.Code != http.StatusOK || !strings.Contains(unresolvedBody, want) {
-			t.Fatalf("unresolved fulfillment selection missing %q status=%d", want, unresolved.Code)
-		}
-	}
-	if strings.Contains(unresolvedBody, "Unexpected non-whitespace character after JSON") {
-		t.Fatal("unresolved fulfillment selection should not show JSON parse error")
-	}
-}
-
-func TestCosmosMoveDifferentTargetAndFulfillmentEditDelete(t *testing.T) {
-	p := createTestCosmos(t)
-	must := func(err error) {
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "account.blumer.cloud"), 0o755))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "account.blumer.cloud", "domain.yaml"), []byte("name: account.blumer.cloud\n"), 0o644))
-	h := NewHandler(p)
-
-	create := httptest.NewRecorder()
-	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/domains/blumer.cloud/products", strings.NewReader(`{"id":"PROD-MOVE-REG-001","name":"Move Regression","summary":"Move from cloud"}`))
-	createReq.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(create, createReq)
-	if create.Code != http.StatusCreated {
-		t.Fatalf("create product status=%d body=%s", create.Code, create.Body.String())
-	}
-	add := httptest.NewRecorder()
-	addReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PROD-MOVE-REG-001/fulfillment-services", strings.NewReader(`{"service_ref":"identity.blumer.cloud/user-account","role":"primary","required":true,"description":"Original"}`))
-	addReq.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(add, addReq)
-	if add.Code != http.StatusOK {
-		t.Fatalf("add fulfillment status=%d body=%s", add.Code, add.Body.String())
-	}
-
-	page := get(h, "/cosmos?selected=product:PROD-MOVE-REG-001&expand=fulfillment")
-	body := page.Body.String()
-	for _, want := range []string{"account.blumer.cloud", "cloud / blumer / account", "function cleanDomainValue", "Bearbeiten", "Entfernen"} {
-		if page.Code != http.StatusOK || !strings.Contains(body, want) {
-			t.Fatalf("move/edit UI missing %q status=%d", want, page.Code)
-		}
-	}
-	for _, bad := range []string{"&quot;account.blumer.cloud&quot;", `"account.blumer.cloud" — "cloud / blumer / account"`} {
-		if strings.Contains(body, bad) {
-			t.Fatalf("move UI contains quoted domain value %q", bad)
-		}
-	}
-
-	move := httptest.NewRecorder()
-	moveReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PROD-MOVE-REG-001/move", strings.NewReader(`{"target_domain":"account.blumer.cloud","update_owning_domain":true}`))
-	moveReq.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(move, moveReq)
-	if move.Code != http.StatusOK || strings.Contains(move.Body.String(), "Bitte eine andere Zieldomäne wählen.") || !strings.Contains(move.Body.String(), `"offered_by":"account.blumer.cloud"`) || !strings.Contains(move.Body.String(), `"owning_domain":"account.blumer.cloud"`) {
-		t.Fatalf("move regression status=%d body=%s", move.Code, move.Body.String())
-	}
-	movedPage := get(h, "/cosmos?selected=product:PROD-MOVE-REG-001")
-	movedBody := movedPage.Body.String()
-	if movedPage.Code != http.StatusOK || !strings.Contains(movedBody, "account.blumer.cloud") || !strings.Contains(movedBody, "Move Regression") || !strings.Contains(movedBody, "identity.blumer.cloud/user-account") {
-		t.Fatalf("moved product not visible with fulfillment status=%d", movedPage.Code)
-	}
-
-	same := httptest.NewRecorder()
-	sameReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PROD-MOVE-REG-001/move", strings.NewReader(`{"target_domain":"account.blumer.cloud"}`))
-	sameReq.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(same, sameReq)
-	if same.Code != http.StatusConflict || !strings.Contains(same.Body.String(), "Bitte eine andere Zieldomäne wählen.") {
-		t.Fatalf("same-domain move status=%d body=%s", same.Code, same.Body.String())
-	}
-
-	edit := httptest.NewRecorder()
-	editReq := httptest.NewRequest(http.MethodPut, "/api/v1/products/PROD-MOVE-REG-001/fulfillment-services/0", strings.NewReader(`{"service_ref":"collaboration.blumer.cloud/mailbox","role":"supporting","required":false,"description":"Edited mailbox"}`))
-	editReq.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(edit, editReq)
-	if edit.Code != http.StatusOK || !strings.Contains(edit.Body.String(), "collaboration.blumer.cloud/mailbox") || !strings.Contains(edit.Body.String(), "Edited mailbox") || !strings.Contains(edit.Body.String(), `"required":false`) {
-		t.Fatalf("edit fulfillment status=%d body=%s", edit.Code, edit.Body.String())
-	}
-
-	dupAdd := httptest.NewRecorder()
-	dupAddReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PROD-MOVE-REG-001/fulfillment-services", strings.NewReader(`{"service_ref":"identity.blumer.cloud/user-account","role":"primary","required":true}`))
-	dupAddReq.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(dupAdd, dupAddReq)
-	if dupAdd.Code != http.StatusOK {
-		t.Fatalf("add second fulfillment status=%d body=%s", dupAdd.Code, dupAdd.Body.String())
-	}
-	dupEdit := httptest.NewRecorder()
-	dupEditReq := httptest.NewRequest(http.MethodPut, "/api/v1/products/PROD-MOVE-REG-001/fulfillment-services/1", strings.NewReader(`{"service_ref":"collaboration.blumer.cloud/mailbox","role":"primary","required":true}`))
-	dupEditReq.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(dupEdit, dupEditReq)
-	if dupEdit.Code != http.StatusConflict {
-		t.Fatalf("expected duplicate edit conflict, got %d body=%s", dupEdit.Code, dupEdit.Body.String())
-	}
-
-	del := httptest.NewRecorder()
-	delReq := httptest.NewRequest(http.MethodDelete, "/api/v1/products/PROD-MOVE-REG-001/fulfillment-services/0", nil)
-	h.ServeHTTP(del, delReq)
-	if del.Code != http.StatusOK || strings.Contains(del.Body.String(), "collaboration.blumer.cloud/mailbox") {
-		t.Fatalf("delete fulfillment status=%d body=%s", del.Code, del.Body.String())
-	}
-	invalid := httptest.NewRecorder()
-	invalidReq := httptest.NewRequest(http.MethodDelete, "/api/v1/products/PROD-MOVE-REG-001/fulfillment-services/9", nil)
-	h.ServeHTTP(invalid, invalidReq)
-	if invalid.Code != http.StatusNotFound {
-		t.Fatalf("expected invalid index not found, got %d body=%s", invalid.Code, invalid.Body.String())
-	}
-}
-
 func TestCosmosTemplateContainsProductMoveWorkflowHooks(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	rr := get(h, "/cosmos?selected=product:PB-ACC-MBX-001")
 	body := rr.Body.String()
-	for _, want := range []string{"Produkt verschieben", "Fulfillment Services", "product-fulfillment-parent", "product-fulfillment-service", "identity.blumer.cloud/user-account", "collaboration.blumer.cloud/mailbox", "2 svc", "local", "cross-domain", "OLA", "SLA", "data-selection", "fulfillment:PB-ACC-MBX-001:0", "data-tree-target", "service:identity.blumer.cloud/user-account", "data-node-type=\"product\"", "data-node-type=\"domain\"", "data-product-id=\"PB-ACC-MBX-001\"", "--cosmos-tree-width", "minmax(520px,42vw)", "move-product-form", "dragstart", "dragover", "drop", "/api/v1/products/", "/move"} {
+	for _, want := range []string{"Produkt verschieben", "Fulfillment Services", "product-fulfillment-parent", "product-fulfillment-service", "identity.blumer.cloud/user-account", "collaboration.blumer.cloud/mailbox", "local service", "cross-domain service", "OLA 4h", "SLA 8h", "data-node-type=\"product\"", "data-node-type=\"domain\"", "data-product-id=\"PB-ACC-MBX-001\"", "move-product-form", "dragstart", "dragover", "drop", "/api/v1/products/", "/move"} {
 		if rr.Code != http.StatusOK || !strings.Contains(body, want) {
 			t.Fatalf("cosmos move workflow missing %q status=%d", want, rr.Code)
 		}

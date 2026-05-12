@@ -111,27 +111,3 @@ Product nodes in the Cosmos Explorer expose a `Fulfillment Services` pseudo-node
 Each fulfillment service row shows the referenced service, role, required/optional state, resolution status, and whether the service is local or cross-domain relative to the product offering. Cross-domain fulfillment is valid when the service resolves; unresolved domains or services remain visible so Product Managers can fix the reference or create the missing service.
 
 SLA/OLA metadata is optional and lightweight. It may be defined inline on a product fulfillment reference or on the resolved service as fallback metadata. The tree shows compact `SLA <target>` and `OLA <target>` badges where available, while the product and fulfillment detail panels can show the fuller name, target, availability, and description.
-
-## Product fulfillment visibility and refresh
-
-Product fulfillment is visible in two places in the Cosmos Explorer: the selected product detail table and the product subtree under `Fulfillment Services`. Both views use the same normalized app-layer fulfillment data, including service resolution status and local versus cross-domain classification.
-
-When a Product Manager adds a fulfillment service from the product detail panel, Nomos keeps the product YAML catalog-backed under `.nomos/catalog/blueprints/products`, reloads the Cosmos Explorer from the updated files, preserves the selected product, and expands the product fulfillment branch. The newly added service is therefore visible immediately in the tree as well as in the detail table.
-
-Typical workflow:
-
-1. Select the product under its offering domain.
-2. Inspect `Product → Fulfillment Services` in the tree.
-3. Add a fulfillment service from the product detail panel.
-4. Return to the same selected product with the fulfillment branch expanded.
-5. Confirm the new service reference appears as a tree child with secondary badges such as `primary`, `required`, `resolved`, and `cross-domain`.
-
-Cross-domain fulfillment is normal for products composed from capabilities owned by other domains. Unresolved references remain visible so the missing domain or service can be fixed without hiding the product composition.
-
-Fulfillment tree nodes are selectable using stable IDs such as `fulfillment:PROD-ACC-MBX-001:0`. These IDs are not display labels and are not parsed as JSON. The primary label is the linked service name or canonical service reference; metadata such as `primary`, `required`, `resolved`, and `cross-domain` is secondary. Resolved fulfillment selections can open the referenced service, while unresolved selections show a corrective detail panel instead of failing.
-
-## Moving products and maintaining fulfillment
-
-The Cosmos Explorer can reassign a product offering to another domain. The submitted target value is the canonical domain name, for example `account.blumer.cloud`; friendly display paths are shown only as labels. Moving updates `offered_by`, optionally updates `owning_domain`, keeps the product YAML in the Catalog Index, and leaves fulfillment service references unchanged while recomputing their local/cross-domain classification.
-
-Product fulfillment rows support maintenance actions. `Bearbeiten` updates the selected fulfillment entry by stable index without appending a duplicate. `Entfernen` deletes the selected entry after confirmation. After move, edit, or delete, the Cosmos Explorer redirects back to the product with the fulfillment branch expanded so the tree and detail table reflect the latest catalog-backed YAML state.
