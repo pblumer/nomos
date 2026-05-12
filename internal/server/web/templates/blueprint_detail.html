@@ -89,6 +89,7 @@
     <a class="btn btn-secondary" href="/api/v1/blueprints/{{.Blueprint.ID}}"><span class="mi" style="font-family:'Material Symbols Outlined'">code</span> API JSON</a>
     {{if .Blueprint.OfferedBy}}<a class="btn btn-secondary" href="/cosmos?selected=product:{{.Blueprint.ID}}"><span class="mi" style="font-family:'Material Symbols Outlined'">account_tree</span> Open in Cosmos domain</a>{{end}}
     {{if eq .Blueprint.Type "product_blueprint"}}
+    <a class="btn btn-secondary" href="/cosmos?selected=product:{{.Blueprint.ID}}"><span class="mi" style="font-family:'Material Symbols Outlined'">drive_file_move</span> Produkt verschieben</a>
     <button class="btn btn-primary" id="btn-add-svc"><span class="mi" style="font-family:'Material Symbols Outlined'">add_circle</span> Service hinzufügen</button>
     {{end}}
   </div>
@@ -194,7 +195,7 @@
           <div class="svc-card-body">
             <div class="svc-card-title"><code>{{.ServiceRef}}</code></div>
             <div class="svc-card-sub">Role: {{.Role}} · Required: {{.Required}}{{if .Description}} · {{.Description}}{{end}}</div>
-            <div class="svc-card-stats"><span class="stat-chip {{if eq .ResolutionStatus "resolved"}}ok{{else}}warn{{end}}">{{.ResolutionStatus}}</span>{{if .ResolvedDomain}}<span class="stat-chip">{{.ResolvedDomain}} / {{.ResolvedService}}</span>{{end}}<span class="stat-chip {{if .CrossDomain}}warn{{else if eq .ResolutionStatus "resolved"}}ok{{end}}">{{.FulfillmentType}}</span></div>{{if .CrossDomain}}<div class="svc-card-sub">This product is offered by {{$.Blueprint.OfferedBy}} and uses a service owned by {{.ResolvedDomain}}.</div>{{end}}
+            <div class="svc-card-stats"><span class="stat-chip {{if eq .ResolutionStatus "resolved"}}ok{{else}}warn{{end}}">{{.ResolutionStatus}}</span>{{if .ResolvedDomain}}<span class="stat-chip">{{.ResolvedDomain}} / {{.ResolvedService}}</span>{{end}}<span class="stat-chip {{if .CrossDomain}}warn{{else if eq .ResolutionStatus "resolved"}}ok{{end}}">{{.FulfillmentType}}</span>{{if .SLA}}<span class="stat-chip ok">SLA {{if .SLA.Target}}{{.SLA.Target}}{{else}}{{.SLA.Name}}{{end}}</span>{{end}}{{if .OLA}}<span class="stat-chip ok">OLA {{if .OLA.Target}}{{.OLA.Target}}{{else}}{{.OLA.Name}}{{end}}</span>{{end}}</div>{{if .CrossDomain}}<div class="svc-card-sub">This product is offered by {{$.Blueprint.OfferedBy}} and uses a service owned by {{.ResolvedDomain}}.</div>{{end}}
           </div>
         </div>
         {{else}}<div class="svc-empty">No fulfillment services yet.</div>{{end}}
@@ -208,6 +209,21 @@
         <button class="btn btn-primary" type="submit">Fulfillment Service hinzufügen</button>
       </form>
     </div>
+    <div class="bp-card">
+      <h3><span class="mi">drive_file_move</span> Produkt verschieben</h3>
+      <p style="color:#64748b;font-size:.84rem;margin-top:0">Ändert <code>offered_by</code> auf die Zieldomäne. Der Catalog Index bleibt unverändert.</p>
+      <form method="post" action="/products/move" style="display:grid;gap:.45rem">
+        <input type="hidden" name="product_id" value="{{.Blueprint.ID}}">
+        <label style="font-size:.8rem;font-weight:600;color:#475569">Zieldomäne
+          <select name="target_domain" required style="width:100%;border:1px solid #d1d5db;border-radius:7px;padding:.38rem .6rem;margin-top:.2rem">
+            {{range .Domains}}<option value="{{.Canonical}}" {{if eq .Canonical $.Blueprint.OfferedBy}}disabled{{end}}>{{.Canonical}}{{if .Namespace.DisplayPath}} — {{.Namespace.DisplayPath}}{{end}}{{if eq .Canonical $.Blueprint.OfferedBy}} (aktuell){{end}}</option>{{end}}
+          </select>
+        </label>
+        <label style="font-size:.8rem"><input type="checkbox" name="update_owning_domain" {{if eq .Blueprint.OwningDomain .Blueprint.OfferedBy}}checked{{end}}> Owning domain ebenfalls auf die Zieldomäne setzen</label>
+        <button class="btn btn-primary" type="submit">Verschieben</button>
+      </form>
+    </div>
+
     <div class="bp-card">
       <h3><span class="mi">settings</span> Service Blueprints
         <span style="font-size:.75rem;background:#eef2ff;color:#4338ca;padding:1px 8px;border-radius:8px;font-weight:600;margin-left:.3rem">{{len .ServiceBlueprints}}</span>

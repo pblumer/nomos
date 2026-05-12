@@ -42,14 +42,26 @@ fulfillment:
       role: primary
       required: true
       description: Creates the account in the identity domain.
+      ola:
+        name: Identity Account OLA
+        target: 4h
+        availability: business-hours
     - service_ref: collaboration.blumer.cloud/mailbox
       role: supporting
       required: true
       description: Provides the mailbox capability.
+      sla:
+        name: Mailbox Provisioning SLA
+        target: 8h
+        availability: business-hours
     - service_ref: collaboration.blumer.cloud/license-assignment
       role: supporting
       required: true
       description: Assigns the required license.
+      ola:
+        name: License Assignment OLA
+        target: 4h
+        availability: business-hours
 rules:
   - RULE-ACC-001
   - RULE-ACC-003

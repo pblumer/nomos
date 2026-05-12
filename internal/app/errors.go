@@ -22,6 +22,11 @@ const (
 	CodeInternalError             = "INTERNAL_ERROR"
 	CodeInvalidInput              = "INVALID_INPUT"
 	CodeBlueprintAlreadyExists    = "BLUEPRINT_ALREADY_EXISTS"
+	CodeProductNotFound           = "PRODUCT_NOT_FOUND"
+	CodeTargetDomainNotFound      = "TARGET_DOMAIN_NOT_FOUND"
+	CodeProductMoveNoop           = "PRODUCT_MOVE_NOOP"
+	CodeProductMoveInvalidTarget  = "PRODUCT_MOVE_INVALID_TARGET"
+	CodeProductMoveWriteFailed    = "PRODUCT_MOVE_WRITE_FAILED"
 )
 
 type AppError struct {

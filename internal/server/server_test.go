@@ -44,13 +44,13 @@ func createTestCosmos(t *testing.T) string {
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "zytlog.blumer.cloud/domain.yaml"), []byte("name: zytlog.blumer.cloud\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "beispiel.ch/domain.yaml"), []byte("name: beispiel.ch\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/services/user-account/service.yaml"), []byte("name: user-account\nowned_by: identity.blumer.cloud\ncapabilities:\n  - user-account-management\nsupported_products:\n  - PROD-ACC-MBX-001\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "collaboration.blumer.cloud/services/mailbox/service.yaml"), []byte("name: mailbox\nowned_by: collaboration.blumer.cloud\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "collaboration.blumer.cloud/services/mailbox/service.yaml"), []byte("name: mailbox\nowned_by: collaboration.blumer.cloud\nsla:\n  name: Mailbox SLA\n  target: 8h\n  availability: business-hours\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/services/rule-validation-api/service.yaml"), []byte("name: rule-validation-api\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.com/services/user-account/service.yaml"), []byte("name: user-account\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "governance.blumer.com/services/provisioning-rules/service.yaml"), []byte("name: provisioning-rules\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "home.blumer.cloud/services/home-dashboard/service.yaml"), []byte("name: home-dashboard\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "zytlog.blumer.cloud/services/zytlog-api/service.yaml"), []byte("name: zytlog-api\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "blueprints/products/account.yaml"), []byte("id: PB-ACC-MBX-001\ntype: product_blueprint\nname: Benutzerkonto mit Mailbox\nversion: 0.1.0\nstatus: draft\nowner: Team\noffered_by: identity.blumer.cloud\nowning_domain: identity.blumer.cloud\nrequired_inputs:\n  - person_reference\nrequired_service_blueprints:\n  - SB-1\nrequired_services:\n  - service_ref: identity.blumer.cloud/user-account\n    service_blueprint_ref: SB-1\n    required: true\nfulfillment:\n  required_services:\n    - service_ref: identity.blumer.cloud/user-account\n      role: primary\n      required: true\n      description: Creates the account.\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "blueprints/products/account.yaml"), []byte("id: PB-ACC-MBX-001\ntype: product_blueprint\nname: Benutzerkonto mit Mailbox\nversion: 0.1.0\nstatus: draft\nowner: Team\noffered_by: identity.blumer.cloud\nowning_domain: identity.blumer.cloud\nrequired_inputs:\n  - person_reference\nrequired_service_blueprints:\n  - SB-1\nrequired_services:\n  - service_ref: identity.blumer.cloud/user-account\n    service_blueprint_ref: SB-1\n    required: true\nfulfillment:\n  required_services:\n    - service_ref: identity.blumer.cloud/user-account\n      role: primary\n      required: true\n      description: Creates the account.\n      ola:\n        name: Identity Account OLA\n        target: 4h\n        availability: business-hours\n    - service_ref: collaboration.blumer.cloud/mailbox\n      role: supporting\n      required: true\n      description: Creates the mailbox.\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "blueprints/services/account-service.yaml"), []byte("id: SB-1\ntype: service_blueprint\nname: Account Service\nversion: 0.1.0\nstatus: draft\nowner: Team\nnamespace_service_ref: identity.blumer.cloud/user-account\ncapabilities:\n  - create_account\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "instances/products/account-instance.yaml"), []byte("id: PI-ACC-MBX-EXAMPLE-001\ntype: product_instance\nname: Beispielinstanz Benutzerkonto mit Mailbox\nblueprint_ref: PB-ACC-MBX-001\nblueprint_version: 0.1.0\ncompliance_status: compliant\nfindings: []\n"), 0o644))
 	return p
@@ -1117,5 +1117,63 @@ func TestCosmosProductCreationAndFulfillmentForms(t *testing.T) {
 	h.ServeHTTP(dup, dupReq)
 	if dup.Code != http.StatusConflict {
 		t.Fatalf("expected duplicate fulfillment conflict, got %d body=%s", dup.Code, dup.Body.String())
+	}
+}
+
+func TestProductMoveEndpointAndWebForm(t *testing.T) {
+	p := createTestCosmos(t)
+	h := NewHandler(p)
+
+	move := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/products/PB-ACC-MBX-001/move", strings.NewReader(`{"target_domain":"collaboration.blumer.cloud","update_owning_domain":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(move, req)
+	if move.Code != http.StatusOK || !strings.Contains(move.Body.String(), `"offered_by":"collaboration.blumer.cloud"`) || !strings.Contains(move.Body.String(), `"owning_domain":"collaboration.blumer.cloud"`) {
+		t.Fatalf("move status=%d body=%s", move.Code, move.Body.String())
+	}
+
+	missingProduct := httptest.NewRecorder()
+	missingReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/MISSING/move", strings.NewReader(`{"target_domain":"collaboration.blumer.cloud"}`))
+	missingReq.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(missingProduct, missingReq)
+	if missingProduct.Code != http.StatusNotFound || !strings.Contains(missingProduct.Body.String(), "PRODUCT_NOT_FOUND") {
+		t.Fatalf("missing product status=%d body=%s", missingProduct.Code, missingProduct.Body.String())
+	}
+
+	missingTarget := httptest.NewRecorder()
+	targetReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PB-ACC-MBX-001/move", strings.NewReader(`{"target_domain":"missing.blumer.cloud"}`))
+	targetReq.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(missingTarget, targetReq)
+	if missingTarget.Code != http.StatusNotFound || !strings.Contains(missingTarget.Body.String(), "TARGET_DOMAIN_NOT_FOUND") {
+		t.Fatalf("missing target status=%d body=%s", missingTarget.Code, missingTarget.Body.String())
+	}
+
+	form := httptest.NewRecorder()
+	formReq := httptest.NewRequest(http.MethodPost, "/products/move", strings.NewReader("product_id=PB-ACC-MBX-001&target_domain=identity.blumer.cloud&update_owning_domain=on"))
+	formReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	h.ServeHTTP(form, formReq)
+	if form.Code != http.StatusSeeOther || form.Header().Get("Location") != "/cosmos?selected=product:PB-ACC-MBX-001" {
+		t.Fatalf("form redirect status=%d location=%s body=%s", form.Code, form.Header().Get("Location"), form.Body.String())
+	}
+}
+
+func TestCosmosTemplateContainsProductMoveWorkflowHooks(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	rr := get(h, "/cosmos?selected=product:PB-ACC-MBX-001")
+	body := rr.Body.String()
+	for _, want := range []string{"Produkt verschieben", "Fulfillment Services", "product-fulfillment-parent", "product-fulfillment-service", "identity.blumer.cloud/user-account", "collaboration.blumer.cloud/mailbox", "local service", "cross-domain service", "OLA 4h", "SLA 8h", "data-node-type=\"product\"", "data-node-type=\"domain\"", "data-product-id=\"PB-ACC-MBX-001\"", "move-product-form", "dragstart", "dragover", "drop", "/api/v1/products/", "/move"} {
+		if rr.Code != http.StatusOK || !strings.Contains(body, want) {
+			t.Fatalf("cosmos move workflow missing %q status=%d", want, rr.Code)
+		}
+	}
+}
+
+func TestOpenAPIContainsProductMoveEndpoint(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	rr := get(h, "/openapi.json")
+	for _, want := range []string{"/api/v1/products/{product}/move", "MoveProductOfferingRequest", "target_domain", "update_owning_domain"} {
+		if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), want) {
+			t.Fatalf("openapi missing %q status=%d body=%s", want, rr.Code, rr.Body.String())
+		}
 	}
 }

@@ -95,3 +95,19 @@ Namespaces
 When creating a product from a selected domain, the selected canonical domain becomes `offered_by` and `owning_domain` defaults to the same value. Nomos still writes the product as a catalog blueprint under `.nomos/catalog/blueprints/products`; the domain is the semantic home, while the Catalog Index is a secondary index.
 
 Product detail in the Cosmos Explorer shows `Offered by`, `Owning domain`, source path, primary home, `Fulfillment Services`, and an `Add fulfillment service` form. Fulfillment services can be local to the offering domain or cross-domain. Cross-domain fulfillment is valid when the referenced service resolves; only missing domains or missing services are shown as unresolved warnings.
+
+## Moving product offerings between domains
+
+A product offering can be reassigned to another domain by changing its `offered_by` field. The Catalog Index remains the storage and index location; the domain-owned `Products` subtree is derived from `offered_by` and refreshes after the move.
+
+`offered_by` identifies the domain that offers the product in the Cosmos Explorer. `owning_domain` identifies the governance domain responsible for the product definition. During a normal move, when both values were the same before the move, both are updated to the target domain. If `owning_domain` intentionally differed from `offered_by`, it is preserved unless the Product Manager explicitly chooses to update it as well.
+
+Moving a product does not rewrite fulfillment service references. Their local or cross-domain classification is recalculated relative to the new `offered_by` domain, so a fulfillment service can change from cross-domain to local (or the reverse) without changing the YAML reference.
+
+## Visualizing product composition in the tree
+
+Product nodes in the Cosmos Explorer expose a `Fulfillment Services` pseudo-node. This subtree is derived from the product blueprint's `fulfillment.required_services` list and is a visualization of composition, not a separate storage location. The product YAML remains in the Catalog Index, and the Catalog Index remains the secondary index view.
+
+Each fulfillment service row shows the referenced service, role, required/optional state, resolution status, and whether the service is local or cross-domain relative to the product offering. Cross-domain fulfillment is valid when the service resolves; unresolved domains or services remain visible so Product Managers can fix the reference or create the missing service.
+
+SLA/OLA metadata is optional and lightweight. It may be defined inline on a product fulfillment reference or on the resolved service as fallback metadata. The tree shows compact `SLA <target>` and `OLA <target>` badges where available, while the product and fulfillment detail panels can show the fuller name, target, availability, and description.

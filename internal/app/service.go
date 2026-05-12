@@ -185,7 +185,7 @@ func productSummaryDTO(tree cosmosfs.Tree, bp model.Blueprint, sourcePath string
 			unresolved++
 		}
 	}
-	return ProductSummaryDTO{ID: bp.ID, Name: bp.Name, Version: bp.Version, Status: bp.Status, OfferedBy: bp.OfferedBy, OwningDomain: firstNonEmpty(bp.OwningDomain, bp.OfferedBy), SourcePath: sourcePath, CatalogPath: sourcePath, FulfillmentRequiredServicesCount: len(fulfillment.RequiredServices), FulfillmentUnresolvedCount: unresolved}
+	return ProductSummaryDTO{ID: bp.ID, Name: bp.Name, Version: bp.Version, Status: bp.Status, OfferedBy: bp.OfferedBy, OwningDomain: firstNonEmpty(bp.OwningDomain, bp.OfferedBy), SourcePath: sourcePath, CatalogPath: sourcePath, FulfillmentRequiredServicesCount: len(fulfillment.RequiredServices), FulfillmentUnresolvedCount: unresolved, Fulfillment: fulfillment}
 }
 
 func ProductsOfferedBy(path, domainCanonical string) ([]ProductSummaryDTO, error) {
@@ -326,7 +326,19 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 		productParent := &node.Children[idx]
 		for _, product := range d.Products {
 			p := product
-			productParent.Children = append(productParent.Children, NamespaceTreeNodeDTO{Label: product.Name, Kind: "product", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true})
+			productNode := NamespaceTreeNodeDTO{Label: product.Name, Kind: "product", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true}
+			fulfillmentParent := NamespaceTreeNodeDTO{Label: "Fulfillment Services", Kind: "product-fulfillment-parent", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true}
+			if len(product.Fulfillment.RequiredServices) == 0 {
+				fulfillmentParent.Children = append(fulfillmentParent.Children, NamespaceTreeNodeDTO{Label: "No fulfillment services yet", Kind: "product-fulfillment-empty", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true})
+			} else {
+				for _, svc := range product.Fulfillment.RequiredServices {
+					f := svc
+					label := firstNonEmpty(svc.ResolvedService, svc.ServiceRef)
+					fulfillmentParent.Children = append(fulfillmentParent.Children, NamespaceTreeNodeDTO{Label: label, Kind: "product-fulfillment-service", Canonical: svc.ServiceRef, CanonicalName: d.Canonical, Product: &p, Fulfillment: &f, Persisted: true, CanOpenDetails: true})
+				}
+			}
+			productNode.Children = append(productNode.Children, fulfillmentParent)
+			productParent.Children = append(productParent.Children, productNode)
 		}
 	}
 	if len(d.Services) > 0 {
@@ -464,12 +476,12 @@ func fulfillmentDTO(tree cosmosfs.Tree, bp model.Blueprint) ProductFulfillmentDT
 	required := make([]ProductRequiredServiceDTO, 0, len(bp.Fulfillment.RequiredServices)+len(bp.RequiredServices))
 	for _, svc := range bp.Fulfillment.RequiredServices {
 		res := resolveService(tree, svc.ServiceRef)
-		required = append(required, productRequiredServiceDTO(bp, svc.ServiceRef, svc.Role, svc.Required, svc.Description, res))
+		required = append(required, productRequiredServiceDTO(bp, svc.ServiceRef, svc.Role, svc.Required, svc.Description, svc.SLA, svc.OLA, res))
 	}
 	if len(required) == 0 {
 		for _, svc := range bp.RequiredServices {
 			res := resolveService(tree, svc.ServiceRef)
-			required = append(required, productRequiredServiceDTO(bp, svc.ServiceRef, "", svc.Required, svc.Purpose, res))
+			required = append(required, productRequiredServiceDTO(bp, svc.ServiceRef, "", svc.Required, svc.Purpose, nil, nil, res))
 		}
 	}
 	return ProductFulfillmentDTO{RequiredServices: required}
@@ -479,9 +491,11 @@ type ServiceResolution struct {
 	Status  string
 	Domain  string
 	Service string
+	SLA     *model.ServiceLevelInfo
+	OLA     *model.ServiceLevelInfo
 }
 
-func productRequiredServiceDTO(bp model.Blueprint, serviceRef, role string, required bool, description string, res ServiceResolution) ProductRequiredServiceDTO {
+func productRequiredServiceDTO(bp model.Blueprint, serviceRef, role string, required bool, description string, sla, ola *model.ServiceLevelInfo, res ServiceResolution) ProductRequiredServiceDTO {
 	offeredBy := namespace.Canonical(bp.OfferedBy)
 	fulfillmentType := "unresolved"
 	crossDomain := false
@@ -497,7 +511,46 @@ func productRequiredServiceDTO(bp model.Blueprint, serviceRef, role string, requ
 	} else if res.Status == "unresolved_service" || res.Status == "missing" {
 		fulfillmentType = "missing service"
 	}
-	return ProductRequiredServiceDTO{ServiceRef: serviceRef, Role: role, Required: required, Description: description, ResolutionStatus: res.Status, ResolvedDomain: res.Domain, ResolvedService: res.Service, FulfillmentType: fulfillmentType, CrossDomain: crossDomain}
+	slaDTO := serviceLevelDTO(firstServiceLevel(sla, res.SLA))
+	olaDTO := serviceLevelDTO(firstServiceLevel(ola, res.OLA))
+	return ProductRequiredServiceDTO{ServiceRef: serviceRef, Role: role, Required: required, Description: description, ResolutionStatus: res.Status, ResolvedDomain: res.Domain, ResolvedService: res.Service, FulfillmentType: fulfillmentType, CrossDomain: crossDomain, SLA: slaDTO, OLA: olaDTO, ServiceLevelLabel: serviceLevelLabel(slaDTO, olaDTO)}
+}
+
+func firstServiceLevel(values ...*model.ServiceLevelInfo) *model.ServiceLevelInfo {
+	for _, v := range values {
+		if v != nil && (strings.TrimSpace(v.Name) != "" || strings.TrimSpace(v.Target) != "" || strings.TrimSpace(v.Availability) != "" || strings.TrimSpace(v.Description) != "") {
+			return v
+		}
+	}
+	return nil
+}
+
+func serviceLevelDTO(info *model.ServiceLevelInfo) *ServiceLevelDTO {
+	if info == nil {
+		return nil
+	}
+	return &ServiceLevelDTO{Name: info.Name, Target: info.Target, Availability: info.Availability, Description: info.Description}
+}
+
+func serviceLevelLabel(sla, ola *ServiceLevelDTO) string {
+	parts := []string{}
+	if sla != nil {
+		parts = append(parts, compactServiceLevelLabel("SLA", sla))
+	}
+	if ola != nil {
+		parts = append(parts, compactServiceLevelLabel("OLA", ola))
+	}
+	return strings.Join(parts, " · ")
+}
+
+func compactServiceLevelLabel(kind string, info *ServiceLevelDTO) string {
+	if strings.TrimSpace(info.Target) != "" {
+		return kind + " " + strings.TrimSpace(info.Target)
+	}
+	if strings.TrimSpace(info.Name) != "" {
+		return kind + " " + strings.TrimSpace(info.Name)
+	}
+	return kind
 }
 
 func primaryProductHome(bp model.Blueprint) string {
@@ -543,7 +596,7 @@ func resolveService(tree cosmosfs.Tree, serviceRef string) ServiceResolution {
 		}
 		for _, s := range d.Services {
 			if s.Name == service {
-				return ServiceResolution{Status: "resolved", Domain: domain, Service: service}
+				return ServiceResolution{Status: "resolved", Domain: domain, Service: service, SLA: s.Metadata.SLA, OLA: s.Metadata.OLA}
 			}
 		}
 		return ServiceResolution{Status: "unresolved_service", Domain: domain, Service: service}
@@ -900,6 +953,59 @@ func CreateProductOffering(path, domainCanonical string, req CreateProductOfferi
 		return BlueprintDTO{}, err
 	}
 	return GetBlueprint(path, id)
+}
+
+func MoveProductOffering(path string, req MoveProductOfferingRequest) (BlueprintDTO, error) {
+	productID := strings.TrimSpace(firstNonEmpty(req.ProductID, ""))
+	if productID == "" {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "Product ID is required", http.StatusBadRequest, nil)
+	}
+	targetDomain := namespace.Canonical(strings.TrimSpace(req.TargetDomain))
+	if targetDomain == "" || strings.ContainsAny(targetDomain, `/\\`) {
+		return BlueprintDTO{}, Error(CodeProductMoveInvalidTarget, "Target domain is required", http.StatusBadRequest, nil)
+	}
+	tree, err := load(path)
+	if err != nil {
+		return BlueprintDTO{}, err
+	}
+	if !resolveDomain(tree, targetDomain) {
+		return BlueprintDTO{}, Error(CodeTargetDomainNotFound, "Target domain not found: "+targetDomain, http.StatusNotFound, nil)
+	}
+	var product *cosmosfs.BlueprintNode
+	for i := range tree.Blueprints {
+		b := &tree.Blueprints[i]
+		if b.Metadata.ID == productID && b.Metadata.Type == "product_blueprint" {
+			product = b
+			break
+		}
+	}
+	if product == nil {
+		return BlueprintDTO{}, Error(CodeProductNotFound, "Product not found: "+productID, http.StatusNotFound, nil)
+	}
+	oldOfferedBy := namespace.Canonical(strings.TrimSpace(product.Metadata.OfferedBy))
+	if oldOfferedBy == "" {
+		return BlueprintDTO{}, Error(CodeProductMoveInvalidTarget, "Product has no current offered_by domain", http.StatusBadRequest, nil)
+	}
+	if oldOfferedBy == targetDomain {
+		return BlueprintDTO{}, Error(CodeProductMoveNoop, "Product is already offered by "+targetDomain, http.StatusConflict, nil)
+	}
+
+	var raw model.Blueprint
+	if err := fsx.ReadYAML(product.Path, &raw); err != nil {
+		return BlueprintDTO{}, Error(CodeProductMoveWriteFailed, "Failed to read product: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	if raw.Type != "product_blueprint" {
+		return BlueprintDTO{}, Error(CodeProductNotFound, "Product not found: "+productID, http.StatusNotFound, nil)
+	}
+	raw.OfferedBy = targetDomain
+	oldOwning := namespace.Canonical(strings.TrimSpace(raw.OwningDomain))
+	if oldOwning == "" || oldOwning == oldOfferedBy || req.UpdateOwningDomain {
+		raw.OwningDomain = targetDomain
+	}
+	if err := fsx.WriteYAML(product.Path, raw); err != nil {
+		return BlueprintDTO{}, Error(CodeProductMoveWriteFailed, "Failed to write product: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetBlueprint(path, productID)
 }
 
 func AddProductFulfillmentService(path, productID string, req AddFulfillmentServiceRequest) (BlueprintDTO, error) {

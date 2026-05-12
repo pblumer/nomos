@@ -12,3 +12,7 @@ capabilities:
 supported_products:
   - PROD-ACC-MBX-001
 summary: Domain-owned service capability for mailbox provisioning.
+sla:
+  name: Mailbox Provisioning SLA
+  target: 8h
+  availability: business-hours

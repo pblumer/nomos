@@ -54,7 +54,7 @@ func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesDNSLikeDemo(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"id: PROD-ACC-MBX-001", "offered_by: identity.blumer.cloud", "fulfillment:", "identity.blumer.cloud/user-account", "collaboration.blumer.cloud/mailbox", "collaboration.blumer.cloud/license-assignment"} {
+	for _, want := range []string{"id: PROD-ACC-MBX-001", "offered_by: identity.blumer.cloud", "fulfillment:", "identity.blumer.cloud/user-account", "collaboration.blumer.cloud/mailbox", "collaboration.blumer.cloud/license-assignment", "ola:", "target: 4h", "sla:", "target: 8h"} {
 		if !strings.Contains(string(product), want) {
 			t.Fatalf("demo product blueprint missing %q", want)
 		}
@@ -63,10 +63,18 @@ func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesDNSLikeDemo(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"id: PROD-CLOUD-MAILBOX-001", "offered_by: blumer.net", "identity.blumer.cloud/user-account"} {
+	for _, want := range []string{"id: PROD-CLOUD-MAILBOX-001", "offered_by: blumer.net", "identity.blumer.cloud/user-account", "collaboration.blumer.cloud/mailbox", "ola:", "sla:"} {
 		if !strings.Contains(string(crossDomainProduct), want) {
 			t.Fatalf("demo cross-domain product missing %q", want)
 		}
+	}
+
+	mailboxService, err := os.ReadFile(filepath.Join(target, ".nomos", "domains", "cloud", "blumer", "collaboration", "services", "mailbox", "service.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(mailboxService), "sla:") || !strings.Contains(string(mailboxService), "target: 8h") {
+		t.Fatalf("demo mailbox service missing SLA fallback metadata")
 	}
 	validate := exec.Command(bin, "validate", "--path", target)
 	validate.Dir = repoRoot
