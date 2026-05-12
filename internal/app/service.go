@@ -327,14 +327,14 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 		for _, product := range d.Products {
 			p := product
 			productNode := NamespaceTreeNodeDTO{Label: product.Name, Kind: "product", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true}
-			fulfillmentParent := NamespaceTreeNodeDTO{Label: "Fulfillment Services", Kind: "product-fulfillment-parent", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true}
+			fulfillmentParent := NamespaceTreeNodeDTO{Label: "Fulfillment Services", Kind: "product-fulfillment-parent", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true, FulfillmentCount: len(product.Fulfillment.RequiredServices)}
 			if len(product.Fulfillment.RequiredServices) == 0 {
 				fulfillmentParent.Children = append(fulfillmentParent.Children, NamespaceTreeNodeDTO{Label: "No fulfillment services yet", Kind: "product-fulfillment-empty", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true})
 			} else {
 				for _, svc := range product.Fulfillment.RequiredServices {
 					f := svc
-					label := firstNonEmpty(svc.ResolvedService, svc.ServiceRef)
-					fulfillmentParent.Children = append(fulfillmentParent.Children, NamespaceTreeNodeDTO{Label: label, Kind: "product-fulfillment-service", Canonical: svc.ServiceRef, CanonicalName: d.Canonical, Product: &p, Fulfillment: &f, Persisted: true, CanOpenDetails: true})
+					label := firstNonEmpty(svc.ServiceRef, svc.ResolvedService)
+					fulfillmentParent.Children = append(fulfillmentParent.Children, NamespaceTreeNodeDTO{Label: label, Kind: "product-fulfillment-service", Canonical: svc.ServiceRef, CanonicalName: d.Canonical, Product: &p, Fulfillment: &f, Persisted: true, CanOpenDetails: true, TreeTarget: svc.TreeTarget})
 				}
 			}
 			productNode.Children = append(productNode.Children, fulfillmentParent)
@@ -476,12 +476,12 @@ func fulfillmentDTO(tree cosmosfs.Tree, bp model.Blueprint) ProductFulfillmentDT
 	required := make([]ProductRequiredServiceDTO, 0, len(bp.Fulfillment.RequiredServices)+len(bp.RequiredServices))
 	for _, svc := range bp.Fulfillment.RequiredServices {
 		res := resolveService(tree, svc.ServiceRef)
-		required = append(required, productRequiredServiceDTO(bp, svc.ServiceRef, svc.Role, svc.Required, svc.Description, svc.SLA, svc.OLA, res))
+		required = append(required, productRequiredServiceDTO(bp, svc.ServiceRef, svc.Role, svc.Required, svc.Description, svc.SLARef, svc.OLARef, svc.SLA, svc.OLA, res))
 	}
 	if len(required) == 0 {
 		for _, svc := range bp.RequiredServices {
 			res := resolveService(tree, svc.ServiceRef)
-			required = append(required, productRequiredServiceDTO(bp, svc.ServiceRef, "", svc.Required, svc.Purpose, nil, nil, res))
+			required = append(required, productRequiredServiceDTO(bp, svc.ServiceRef, "", svc.Required, svc.Purpose, "", "", nil, nil, res))
 		}
 	}
 	return ProductFulfillmentDTO{RequiredServices: required}
@@ -495,25 +495,29 @@ type ServiceResolution struct {
 	OLA     *model.ServiceLevelInfo
 }
 
-func productRequiredServiceDTO(bp model.Blueprint, serviceRef, role string, required bool, description string, sla, ola *model.ServiceLevelInfo, res ServiceResolution) ProductRequiredServiceDTO {
+func productRequiredServiceDTO(bp model.Blueprint, serviceRef, role string, required bool, description, slaRef, olaRef string, sla, ola *model.ServiceLevelInfo, res ServiceResolution) ProductRequiredServiceDTO {
 	offeredBy := namespace.Canonical(bp.OfferedBy)
 	fulfillmentType := "unresolved"
 	crossDomain := false
 	if res.Status == "resolved" {
 		if offeredBy != "" && res.Domain != "" && res.Domain != offeredBy {
-			fulfillmentType = "cross-domain service"
+			fulfillmentType = "cross-domain"
 			crossDomain = true
 		} else {
-			fulfillmentType = "local service"
+			fulfillmentType = "local"
 		}
 	} else if res.Status == "unresolved_domain" {
-		fulfillmentType = "unresolved domain"
+		fulfillmentType = "unresolved"
 	} else if res.Status == "unresolved_service" || res.Status == "missing" {
-		fulfillmentType = "missing service"
+		fulfillmentType = "unresolved"
 	}
 	slaDTO := serviceLevelDTO(firstServiceLevel(sla, res.SLA))
 	olaDTO := serviceLevelDTO(firstServiceLevel(ola, res.OLA))
-	return ProductRequiredServiceDTO{ServiceRef: serviceRef, Role: role, Required: required, Description: description, ResolutionStatus: res.Status, ResolvedDomain: res.Domain, ResolvedService: res.Service, FulfillmentType: fulfillmentType, CrossDomain: crossDomain, SLA: slaDTO, OLA: olaDTO, ServiceLevelLabel: serviceLevelLabel(slaDTO, olaDTO)}
+	treeTarget := ""
+	if res.Status == "resolved" {
+		treeTarget = "service:" + res.Domain + "/" + res.Service
+	}
+	return ProductRequiredServiceDTO{ServiceRef: serviceRef, Role: role, Required: required, Description: description, ResolutionStatus: res.Status, ResolvedDomain: res.Domain, ResolvedService: res.Service, FulfillmentType: fulfillmentType, CrossDomain: crossDomain, SLARef: slaRef, OLARef: olaRef, TreeTarget: treeTarget, SLA: slaDTO, OLA: olaDTO, ServiceLevelLabel: serviceLevelLabel(slaRef, olaRef, slaDTO, olaDTO)}
 }
 
 func firstServiceLevel(values ...*model.ServiceLevelInfo) *model.ServiceLevelInfo {
@@ -532,12 +536,16 @@ func serviceLevelDTO(info *model.ServiceLevelInfo) *ServiceLevelDTO {
 	return &ServiceLevelDTO{Name: info.Name, Target: info.Target, Availability: info.Availability, Description: info.Description}
 }
 
-func serviceLevelLabel(sla, ola *ServiceLevelDTO) string {
+func serviceLevelLabel(slaRef, olaRef string, sla, ola *ServiceLevelDTO) string {
 	parts := []string{}
-	if sla != nil {
+	if strings.TrimSpace(slaRef) != "" {
+		parts = append(parts, "SLA")
+	} else if sla != nil {
 		parts = append(parts, compactServiceLevelLabel("SLA", sla))
 	}
-	if ola != nil {
+	if strings.TrimSpace(olaRef) != "" {
+		parts = append(parts, "OLA")
+	} else if ola != nil {
 		parts = append(parts, compactServiceLevelLabel("OLA", ola))
 	}
 	return strings.Join(parts, " · ")

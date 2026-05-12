@@ -81,6 +81,10 @@ echo ""
   --path "$COSMOS_PATH" \
   --owner "Collaboration Domain Team"
 
+"$NOMOS_BIN" domain add mailing.blumer.cloud \
+  --path "$COSMOS_PATH" \
+  --owner "Mailing Domain Team"
+
 echo "==> Erstelle Services"
 
 "$NOMOS_BIN" service add user-account \
@@ -113,6 +117,11 @@ echo "==> Erstelle Services"
   --domain collaboration.blumer.cloud \
   --path "$COSMOS_PATH" \
   --owner "Collaboration Domain Team"
+
+"$NOMOS_BIN" service add exchange \
+  --domain mailing.blumer.cloud \
+  --path "$COSMOS_PATH" \
+  --owner "Mailing Domain Team"
 
 "$NOMOS_BIN" service add license-assignment \
   --domain collaboration.blumer.cloud \
@@ -165,6 +174,26 @@ supported_products:
 summary: Domain-owned service capability for mailbox provisioning.
 sla:
   name: Mailbox Provisioning SLA
+  target: 8h
+  availability: business-hours
+YAML
+cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/mailing/services/exchange/service.yaml" <<'YAML'
+id: service-exchange
+type: service
+name: exchange
+version: 0.1.0
+status: draft
+owner: Mailing Domain Team
+owned_by: mailing.blumer.cloud
+operated_by:
+  - mailing.blumer.cloud
+capabilities:
+  - exchange-mailbox-provisioning
+supported_products:
+  - PROD-ACC-MBX-001
+summary: Domain-owned service capability for Exchange mailbox provisioning.
+sla:
+  name: Exchange Mailbox SLA
   target: 8h
   availability: business-hours
 YAML

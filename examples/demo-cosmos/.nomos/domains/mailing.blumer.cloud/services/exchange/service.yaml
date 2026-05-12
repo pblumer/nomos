@@ -1,0 +1,18 @@
+id: service-exchange
+type: service
+name: exchange
+version: 0.1.0
+status: draft
+owner: Mailing Domain Team
+owned_by: mailing.blumer.cloud
+operated_by:
+  - mailing.blumer.cloud
+capabilities:
+  - exchange-mailbox-provisioning
+supported_products:
+  - PROD-ACC-MBX-001
+summary: Domain-owned service capability for Exchange mailbox provisioning.
+sla:
+  name: Exchange Mailbox SLA
+  target: 8h
+  availability: business-hours
