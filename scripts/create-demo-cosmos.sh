@@ -43,6 +43,10 @@ echo "==> Erstelle DNS-ähnliche Domänen"
   --path "$COSMOS_PATH" \
   --owner "Blumer Web Team"
 
+"$NOMOS_BIN" domain add blumer.net \
+  --path "$COSMOS_PATH" \
+  --owner "Blumer Network Team"
+
 "$NOMOS_BIN" domain add identity.blumer.com \
   --path "$COSMOS_PATH" \
   --owner "Identity Team"
@@ -136,6 +140,7 @@ capabilities:
   - user-account-management
 supported_products:
   - PROD-ACC-MBX-001
+  - PROD-CLOUD-MAILBOX-001
 summary: Domain-owned service capability for identity account management.
 YAML
 cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/collaboration/services/mailbox/service.yaml" <<'YAML'
@@ -152,6 +157,7 @@ capabilities:
   - mailbox-provisioning
 supported_products:
   - PROD-ACC-MBX-001
+  - PROD-CLOUD-MAILBOX-001
 summary: Domain-owned service capability for mailbox provisioning.
 YAML
 cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/collaboration/services/license-assignment/service.yaml" <<'YAML'

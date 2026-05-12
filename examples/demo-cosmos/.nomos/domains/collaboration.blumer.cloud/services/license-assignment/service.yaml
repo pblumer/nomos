@@ -1,0 +1,14 @@
+id: service-license-assignment
+type: service
+name: license-assignment
+version: 0.1.0
+status: draft
+owner: Collaboration Domain Team
+owned_by: collaboration.blumer.cloud
+operated_by:
+  - collaboration.blumer.cloud
+capabilities:
+  - license-assignment
+supported_products:
+  - PROD-ACC-MBX-001
+summary: Domain-owned service capability for license assignment.

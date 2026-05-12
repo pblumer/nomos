@@ -1,8 +1,15 @@
 id: SVC-001
 name: Static Website
+version: 0.1.0
+status: draft
+owner: Blumer Network Team
 type: service_blueprint
 category: hosting
 provider: aws
+capabilities:
+  - static_website_hosting
+target_systems:
+  - SYS-HOSTING-001
 parameters:
   - key: region
     type: string

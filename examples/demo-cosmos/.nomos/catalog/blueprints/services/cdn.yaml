@@ -1,8 +1,15 @@
 id: SVC-002
 name: CDN
+version: 0.1.0
+status: draft
+owner: Blumer Network Team
 type: service_blueprint
 category: networking
 provider: cloudflare
+capabilities:
+  - cdn_delivery
+target_systems:
+  - SYS-CDN-001
 parameters:
   - key: domain
     type: string

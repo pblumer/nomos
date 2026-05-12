@@ -370,11 +370,16 @@ fulfillment:
 		t.Fatal(err)
 	}
 	statuses := map[string]string{}
+	fulfillmentTypes := map[string]string{}
 	for _, svc := range product.Fulfillment.RequiredServices {
 		statuses[svc.ServiceRef] = svc.ResolutionStatus
+		fulfillmentTypes[svc.ServiceRef] = svc.FulfillmentType
 	}
 	if statuses["identity.blumer.cloud/user-account"] != "resolved" || statuses["collaboration.blumer.cloud/mailbox"] != "resolved" || statuses["missing.blumer.cloud/ghost"] != "unresolved_domain" {
 		t.Fatalf("unexpected resolution statuses: %+v", statuses)
+	}
+	if fulfillmentTypes["identity.blumer.cloud/user-account"] != "local service" || fulfillmentTypes["collaboration.blumer.cloud/mailbox"] != "cross-domain service" {
+		t.Fatalf("unexpected fulfillment types: %+v", fulfillmentTypes)
 	}
 
 	refs, err := AllServiceRefs(p)
@@ -404,7 +409,13 @@ func TestCreateProductOfferingAndAppendFulfillment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(updated.Fulfillment.RequiredServices) != 1 || updated.Fulfillment.RequiredServices[0].ResolutionStatus != "resolved" {
-		t.Fatalf("expected resolved fulfillment service: %+v", updated.Fulfillment)
+	if len(updated.Fulfillment.RequiredServices) != 1 || updated.Fulfillment.RequiredServices[0].ResolutionStatus != "resolved" || updated.Fulfillment.RequiredServices[0].FulfillmentType != "local service" {
+		t.Fatalf("expected resolved local fulfillment service: %+v", updated.Fulfillment)
+	}
+	if _, err := CreateProductOffering(p, "identity.blumer.cloud", CreateProductOfferingRequest{ID: "PROD-NEW-001", Name: "Duplicate"}); err == nil {
+		t.Fatal("expected duplicate product id to be rejected")
+	}
+	if _, err := AddProductFulfillmentService(p, "PROD-NEW-001", AddFulfillmentServiceRequest{ServiceRef: "identity.blumer.cloud/user-account", Role: "supporting", Required: true}); err == nil {
+		t.Fatal("expected duplicate fulfillment service ref to be rejected")
 	}
 }

@@ -870,12 +870,20 @@ func (h *handler) formPost(w http.ResponseWriter, r *http.Request) {
 			h.errorPage(w, r, statusOf(err), "Create product failed", err.Error())
 			return
 		}
+		if r.FormValue("return_to") == "cosmos" {
+			http.Redirect(w, r, "/cosmos?selected=product:"+dto.ID, 303)
+			return
+		}
 		http.Redirect(w, r, "/domains?selected=product:"+dto.ID, 303)
 	case "/products/fulfillment":
 		req := app.AddFulfillmentServiceRequest{ServiceRef: first(r.FormValue("service_ref"), r.FormValue("service_ref_manual")), Role: r.FormValue("role"), Required: r.FormValue("required") != "", Description: r.FormValue("description")}
 		dto, err := app.AddProductFulfillmentService(h.cosmosPath, r.FormValue("product_id"), req)
 		if err != nil {
 			h.errorPage(w, r, statusOf(err), "Add fulfillment service failed", err.Error())
+			return
+		}
+		if r.FormValue("return_to") == "cosmos" {
+			http.Redirect(w, r, "/cosmos?selected=product:"+dto.ID+"#fulfillment", 303)
 			return
 		}
 		http.Redirect(w, r, "/domains?selected=product:"+dto.ID+"#fulfillment", 303)
