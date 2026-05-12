@@ -3,10 +3,13 @@ type: service
 name: user-account
 version: 0.1.0
 status: draft
-owner: Identity Team
-summary: Nomos Service user-account.
-capabilities: []
-requirements: []
-rules: []
-processes: []
-skills: []
+owner: Identity Domain Team
+owned_by: identity.blumer.cloud
+operated_by:
+  - identity.blumer.cloud
+capabilities:
+  - user-account-management
+supported_products:
+  - PROD-ACC-MBX-001
+  - PROD-CLOUD-MAILBOX-001
+summary: Domain-owned service capability for identity account management.

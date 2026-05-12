@@ -87,6 +87,7 @@
   </div>
   <div style="display:flex;gap:.5rem;align-items:center">
     <a class="btn btn-secondary" href="/api/v1/blueprints/{{.Blueprint.ID}}"><span class="mi" style="font-family:'Material Symbols Outlined'">code</span> API JSON</a>
+    {{if .Blueprint.OfferedBy}}<a class="btn btn-secondary" href="/cosmos?selected=product:{{.Blueprint.ID}}"><span class="mi" style="font-family:'Material Symbols Outlined'">account_tree</span> Open in Cosmos domain</a>{{end}}
     {{if eq .Blueprint.Type "product_blueprint"}}
     <button class="btn btn-primary" id="btn-add-svc"><span class="mi" style="font-family:'Material Symbols Outlined'">add_circle</span> Service hinzufügen</button>
     {{end}}
@@ -104,7 +105,7 @@
         <dt>Status</dt><dd><span class="badge badge-{{.Blueprint.Status}}">{{if .Blueprint.Status}}{{.Blueprint.Status}}{{else}}draft{{end}}</span></dd>
         <dt>Owner</dt><dd>{{if .Blueprint.Owner}}{{.Blueprint.Owner}}{{else}}<span style="color:#94a3b8">—</span>{{end}}</dd>
         {{if .Blueprint.Summary}}<dt>Summary</dt><dd>{{.Blueprint.Summary}}</dd>{{end}}
-        {{if .Blueprint.OfferedBy}}<dt>Offered by</dt><dd><code>{{.Blueprint.OfferedBy}}</code></dd><dt>Primary home</dt><dd>Namespaces / {{.Blueprint.OfferedBy}} / Products</dd>{{end}}
+        {{if .Blueprint.OfferedBy}}<dt>Offered by</dt><dd><code>{{.Blueprint.OfferedBy}}</code></dd><dt>Primary home</dt><dd>{{if .Blueprint.PrimaryHome}}{{.Blueprint.PrimaryHome}}{{else}}{{.Blueprint.OfferedBy}} / Products / {{.Blueprint.Name}}{{end}}<br><a href="/cosmos?selected=product:{{.Blueprint.ID}}">Open in domain</a></dd>{{end}}
         {{if .Blueprint.OwningDomain}}<dt>Owning domain</dt><dd><code>{{.Blueprint.OwningDomain}}</code></dd>{{end}}
         <dt>Path</dt><dd><code>{{.Blueprint.Path}}</code></dd>
         {{if .Blueprint.NamespaceServiceRef}}<dt>NS ref</dt><dd><code>{{.Blueprint.NamespaceServiceRef}}</code></dd>{{end}}
@@ -193,7 +194,7 @@
           <div class="svc-card-body">
             <div class="svc-card-title"><code>{{.ServiceRef}}</code></div>
             <div class="svc-card-sub">Role: {{.Role}} · Required: {{.Required}}{{if .Description}} · {{.Description}}{{end}}</div>
-            <div class="svc-card-stats"><span class="stat-chip {{if eq .ResolutionStatus "resolved"}}ok{{else}}warn{{end}}">{{.ResolutionStatus}}</span>{{if .ResolvedDomain}}<span class="stat-chip">{{.ResolvedDomain}} / {{.ResolvedService}}</span>{{end}}</div>
+            <div class="svc-card-stats"><span class="stat-chip {{if eq .ResolutionStatus "resolved"}}ok{{else}}warn{{end}}">{{.ResolutionStatus}}</span>{{if .ResolvedDomain}}<span class="stat-chip">{{.ResolvedDomain}} / {{.ResolvedService}}</span>{{end}}<span class="stat-chip {{if .CrossDomain}}warn{{else if eq .ResolutionStatus "resolved"}}ok{{end}}">{{.FulfillmentType}}</span></div>{{if .CrossDomain}}<div class="svc-card-sub">This product is offered by {{$.Blueprint.OfferedBy}} and uses a service owned by {{.ResolvedDomain}}.</div>{{end}}
           </div>
         </div>
         {{else}}<div class="svc-empty">No fulfillment services yet.</div>{{end}}

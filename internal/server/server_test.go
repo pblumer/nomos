@@ -1065,3 +1065,57 @@ func TestDomainsExplorerShowsProductWorkflow(t *testing.T) {
 		t.Fatalf("catalog index label missing status=%d", catalog.Code)
 	}
 }
+
+func TestCosmosExplorerProductOfferingWorkflowLabels(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	rr := get(h, "/cosmos?selected=domain:identity.blumer.cloud")
+	body := rr.Body.String()
+	for _, want := range []string{"Products / Offerings", "Produkt hinzufügen", "Add fulfillment service", "Open in catalog index", "Offered by", "Owning domain", "Fulfillment Services", "Catalog Index", "1 prod · 1 svc", "PB-ACC-MBX-001"} {
+		if rr.Code != http.StatusOK || !strings.Contains(body, want) {
+			t.Fatalf("cosmos explorer missing %q status=%d", want, rr.Code)
+		}
+	}
+}
+
+func TestCosmosProductCreationAndFulfillmentForms(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	create := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/domains/identity.blumer.cloud/products", strings.NewReader(`{"id":"PROD-COSMOS-001","name":"Cosmos Product","summary":"Created from Cosmos"}`))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(create, req)
+	if create.Code != http.StatusCreated || !strings.Contains(create.Body.String(), `"offered_by":"identity.blumer.cloud"`) {
+		t.Fatalf("create product status=%d body=%s", create.Code, create.Body.String())
+	}
+
+	cosmos := get(h, "/cosmos?selected=product:PROD-COSMOS-001")
+	for _, want := range []string{"PROD-COSMOS-001", "Cosmos Product", "product", "identity.blumer.cloud"} {
+		if cosmos.Code != http.StatusOK || !strings.Contains(cosmos.Body.String(), want) {
+			t.Fatalf("created product not visible in cosmos tree/detail script, missing %q status=%d", want, cosmos.Code)
+		}
+	}
+
+	add := httptest.NewRecorder()
+	addReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PROD-COSMOS-001/fulfillment-services", strings.NewReader(`{"service_ref":"identity.blumer.cloud/user-account","role":"primary","required":true}`))
+	addReq.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(add, addReq)
+	if add.Code != http.StatusOK || !strings.Contains(add.Body.String(), "local service") {
+		t.Fatalf("append local fulfillment status=%d body=%s", add.Code, add.Body.String())
+	}
+
+	cross := httptest.NewRecorder()
+	crossReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PROD-COSMOS-001/fulfillment-services", strings.NewReader(`{"service_ref":"collaboration.blumer.cloud/mailbox","role":"supporting","required":true}`))
+	crossReq.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(cross, crossReq)
+	if cross.Code != http.StatusOK || !strings.Contains(cross.Body.String(), "cross-domain service") {
+		t.Fatalf("append cross-domain fulfillment status=%d body=%s", cross.Code, cross.Body.String())
+	}
+
+	dup := httptest.NewRecorder()
+	dupReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PROD-COSMOS-001/fulfillment-services", strings.NewReader(`{"service_ref":"collaboration.blumer.cloud/mailbox","role":"supporting","required":true}`))
+	dupReq.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(dup, dupReq)
+	if dup.Code != http.StatusConflict {
+		t.Fatalf("expected duplicate fulfillment conflict, got %d body=%s", dup.Code, dup.Body.String())
+	}
+}

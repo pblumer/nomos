@@ -128,6 +128,8 @@ type ProductSummaryDTO struct {
 	Status                           string `json:"status"`
 	OfferedBy                        string `json:"offered_by"`
 	OwningDomain                     string `json:"owning_domain"`
+	SourcePath                       string `json:"source_path,omitempty"`
+	CatalogPath                      string `json:"catalog_path,omitempty"`
 	FulfillmentRequiredServicesCount int    `json:"fulfillment_required_services_count"`
 	FulfillmentUnresolvedCount       int    `json:"fulfillment_unresolved_count"`
 }
@@ -173,6 +175,8 @@ type ProductRequiredServiceDTO struct {
 	ResolutionStatus string `json:"resolution_status"`
 	ResolvedDomain   string `json:"resolved_domain,omitempty"`
 	ResolvedService  string `json:"resolved_service,omitempty"`
+	FulfillmentType  string `json:"fulfillment_type"`
+	CrossDomain      bool   `json:"cross_domain"`
 }
 
 type BlueprintDTO struct {
@@ -187,6 +191,8 @@ type BlueprintDTO struct {
 	Fulfillment               ProductFulfillmentDTO     `json:"fulfillment,omitempty"`
 	Summary                   string                    `json:"summary"`
 	Path                      string                    `json:"path"`
+	PrimaryHome               string                    `json:"primary_home,omitempty"`
+	PrimaryHomeDomain         string                    `json:"primary_home_domain,omitempty"`
 	Variants                  []VariantDTO              `json:"variants,omitempty"`
 	Capabilities              []string                  `json:"capabilities,omitempty"`
 	TargetSystems             []string                  `json:"target_systems,omitempty"`

@@ -115,3 +115,27 @@ fulfillment:
       role: supporting
       required: true
 ```
+
+## Corrected Cosmos Explorer parity
+
+The Cosmos Explorer now supports the same domain-owned product offering workflow as the Domains Explorer:
+
+1. Select a domain in the namespace tree.
+2. Review `Products / Offerings` before the domain's services.
+3. Use `Produkt hinzufügen` / product creation from either the domain detail panel or the domain context menu.
+4. Nomos sets `offered_by` to the selected canonical domain and defaults `owning_domain` to the same domain.
+5. The product blueprint is written to `.nomos/catalog/blueprints/products`, because storage remains catalog-based.
+6. The new product appears under the selected domain's `Products` pseudo-node and also remains visible in the secondary `Catalog Index`.
+7. Product detail in the Cosmos Explorer shows ownership, source path, primary home, fulfillment resolution, and an add-fulfillment form.
+
+This keeps a single app-layer workflow for domain product lookup, product creation, service-reference listing, product detail DTOs, and fulfillment resolution. Templates and handlers do not infer ownership themselves; they render the DTOs returned by the app layer.
+
+## Local and cross-domain fulfillment in the UI
+
+Fulfillment service references resolve to canonical domain service refs. A resolved reference is shown as either `local service` or `cross-domain service`:
+
+- `local service` means the resolved service domain matches the product's `offered_by` domain.
+- `cross-domain service` means the product is validly offered by one domain while using a service owned by another domain.
+- unresolved refs remain warnings/errors such as `unresolved domain` or `missing service`.
+
+For example, a product offered by `blumer.net` may use `identity.blumer.cloud/user-account`. This is valid when the service exists, and the UI explains that the product is offered by `blumer.net` while the fulfillment service is owned by `identity.blumer.cloud`.

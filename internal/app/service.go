@@ -171,13 +171,13 @@ func productSummariesOfferedBy(tree cosmosfs.Tree, domainCanonical string) []Pro
 		if b.Metadata.Type != "product_blueprint" || namespace.Canonical(b.Metadata.OfferedBy) != canonical {
 			continue
 		}
-		out = append(out, productSummaryDTO(tree, b.Metadata))
+		out = append(out, productSummaryDTO(tree, b.Metadata, b.Path))
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
 }
 
-func productSummaryDTO(tree cosmosfs.Tree, bp model.Blueprint) ProductSummaryDTO {
+func productSummaryDTO(tree cosmosfs.Tree, bp model.Blueprint, sourcePath string) ProductSummaryDTO {
 	fulfillment := fulfillmentDTO(tree, bp)
 	unresolved := 0
 	for _, svc := range fulfillment.RequiredServices {
@@ -185,7 +185,7 @@ func productSummaryDTO(tree cosmosfs.Tree, bp model.Blueprint) ProductSummaryDTO
 			unresolved++
 		}
 	}
-	return ProductSummaryDTO{ID: bp.ID, Name: bp.Name, Version: bp.Version, Status: bp.Status, OfferedBy: bp.OfferedBy, OwningDomain: firstNonEmpty(bp.OwningDomain, bp.OfferedBy), FulfillmentRequiredServicesCount: len(fulfillment.RequiredServices), FulfillmentUnresolvedCount: unresolved}
+	return ProductSummaryDTO{ID: bp.ID, Name: bp.Name, Version: bp.Version, Status: bp.Status, OfferedBy: bp.OfferedBy, OwningDomain: firstNonEmpty(bp.OwningDomain, bp.OfferedBy), SourcePath: sourcePath, CatalogPath: sourcePath, FulfillmentRequiredServicesCount: len(fulfillment.RequiredServices), FulfillmentUnresolvedCount: unresolved}
 }
 
 func ProductsOfferedBy(path, domainCanonical string) ([]ProductSummaryDTO, error) {
@@ -457,19 +457,19 @@ func blueprintDTO(tree cosmosfs.Tree, b cosmosfs.BlueprintNode) BlueprintDTO {
 		}
 		attributes = append(attributes, BlueprintAttributeDTO{ID: a.ID, Label: a.Label, Type: a.Type, Required: a.Required, ServiceRef: a.ServiceRef, Rules: rules})
 	}
-	return BlueprintDTO{ID: b.Metadata.ID, Type: b.Metadata.Type, Name: b.Metadata.Name, Version: b.Metadata.Version, Status: b.Metadata.Status, Owner: b.Metadata.Owner, OfferedBy: b.Metadata.OfferedBy, OwningDomain: firstNonEmpty(b.Metadata.OwningDomain, b.Metadata.OfferedBy), Fulfillment: fulfillment, Summary: b.Metadata.Summary, Path: b.Path, Variants: variants, Capabilities: b.Metadata.Capabilities, TargetSystems: b.Metadata.TargetSystems, RequiredInputs: b.Metadata.RequiredInputs, RequiredServiceBlueprints: b.Metadata.RequiredServiceBlueprints, RequiredServices: requiredServices, NamespaceServiceRef: b.Metadata.NamespaceServiceRef, Rules: b.Metadata.Rules, QualityCriteria: b.Metadata.QualityCriteria, EvidenceRequirements: b.Metadata.EvidenceRequirements, Requirements: requirements, RequirementsStatus: requirementsStatus(b.Metadata.Requirements), Attributes: attributes}
+	return BlueprintDTO{ID: b.Metadata.ID, Type: b.Metadata.Type, Name: b.Metadata.Name, Version: b.Metadata.Version, Status: b.Metadata.Status, Owner: b.Metadata.Owner, OfferedBy: b.Metadata.OfferedBy, OwningDomain: firstNonEmpty(b.Metadata.OwningDomain, b.Metadata.OfferedBy), Fulfillment: fulfillment, Summary: b.Metadata.Summary, Path: b.Path, PrimaryHome: primaryProductHome(b.Metadata), PrimaryHomeDomain: namespace.Canonical(b.Metadata.OfferedBy), Variants: variants, Capabilities: b.Metadata.Capabilities, TargetSystems: b.Metadata.TargetSystems, RequiredInputs: b.Metadata.RequiredInputs, RequiredServiceBlueprints: b.Metadata.RequiredServiceBlueprints, RequiredServices: requiredServices, NamespaceServiceRef: b.Metadata.NamespaceServiceRef, Rules: b.Metadata.Rules, QualityCriteria: b.Metadata.QualityCriteria, EvidenceRequirements: b.Metadata.EvidenceRequirements, Requirements: requirements, RequirementsStatus: requirementsStatus(b.Metadata.Requirements), Attributes: attributes}
 }
 
 func fulfillmentDTO(tree cosmosfs.Tree, bp model.Blueprint) ProductFulfillmentDTO {
 	required := make([]ProductRequiredServiceDTO, 0, len(bp.Fulfillment.RequiredServices)+len(bp.RequiredServices))
 	for _, svc := range bp.Fulfillment.RequiredServices {
 		res := resolveService(tree, svc.ServiceRef)
-		required = append(required, ProductRequiredServiceDTO{ServiceRef: svc.ServiceRef, Role: svc.Role, Required: svc.Required, Description: svc.Description, ResolutionStatus: res.Status, ResolvedDomain: res.Domain, ResolvedService: res.Service})
+		required = append(required, productRequiredServiceDTO(bp, svc.ServiceRef, svc.Role, svc.Required, svc.Description, res))
 	}
 	if len(required) == 0 {
 		for _, svc := range bp.RequiredServices {
 			res := resolveService(tree, svc.ServiceRef)
-			required = append(required, ProductRequiredServiceDTO{ServiceRef: svc.ServiceRef, Required: svc.Required, Description: svc.Purpose, ResolutionStatus: res.Status, ResolvedDomain: res.Domain, ResolvedService: res.Service})
+			required = append(required, productRequiredServiceDTO(bp, svc.ServiceRef, "", svc.Required, svc.Purpose, res))
 		}
 	}
 	return ProductFulfillmentDTO{RequiredServices: required}
@@ -479,6 +479,33 @@ type ServiceResolution struct {
 	Status  string
 	Domain  string
 	Service string
+}
+
+func productRequiredServiceDTO(bp model.Blueprint, serviceRef, role string, required bool, description string, res ServiceResolution) ProductRequiredServiceDTO {
+	offeredBy := namespace.Canonical(bp.OfferedBy)
+	fulfillmentType := "unresolved"
+	crossDomain := false
+	if res.Status == "resolved" {
+		if offeredBy != "" && res.Domain != "" && res.Domain != offeredBy {
+			fulfillmentType = "cross-domain service"
+			crossDomain = true
+		} else {
+			fulfillmentType = "local service"
+		}
+	} else if res.Status == "unresolved_domain" {
+		fulfillmentType = "unresolved domain"
+	} else if res.Status == "unresolved_service" || res.Status == "missing" {
+		fulfillmentType = "missing service"
+	}
+	return ProductRequiredServiceDTO{ServiceRef: serviceRef, Role: role, Required: required, Description: description, ResolutionStatus: res.Status, ResolvedDomain: res.Domain, ResolvedService: res.Service, FulfillmentType: fulfillmentType, CrossDomain: crossDomain}
+}
+
+func primaryProductHome(bp model.Blueprint) string {
+	if bp.Type != "product_blueprint" || strings.TrimSpace(bp.OfferedBy) == "" {
+		return ""
+	}
+	name := firstNonEmpty(strings.TrimSpace(bp.Name), strings.TrimSpace(bp.ID))
+	return namespace.Canonical(bp.OfferedBy) + " / Products / " + name
 }
 
 func normalizeServiceRef(serviceRef string) (string, string, string) {
@@ -893,8 +920,9 @@ func AddProductFulfillmentService(path, productID string, req AddFulfillmentServ
 	}
 	normalized, _, _ := normalizeServiceRef(serviceRef)
 	for _, existing := range raw.Fulfillment.RequiredServices {
-		if strings.EqualFold(strings.TrimSpace(existing.ServiceRef), normalized) || strings.EqualFold(strings.TrimSpace(existing.ServiceRef), serviceRef) {
-			return GetBlueprint(path, productID)
+		existingNormalized, _, _ := normalizeServiceRef(existing.ServiceRef)
+		if strings.EqualFold(existingNormalized, normalized) || strings.EqualFold(strings.TrimSpace(existing.ServiceRef), serviceRef) {
+			return BlueprintDTO{}, Error(CodeInvalidInput, "Fulfillment service already exists for product: "+normalized, http.StatusConflict, nil)
 		}
 	}
 	role := firstNonEmpty(strings.TrimSpace(req.Role), "supporting")

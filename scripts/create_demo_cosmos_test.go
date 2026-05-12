@@ -33,6 +33,7 @@ func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesDNSLikeDemo(t *te
 	}
 	for _, rel := range []string{
 		filepath.Join(".nomos", "domains", "com", "blumer", "domain.yaml"),
+		filepath.Join(".nomos", "domains", "net", "blumer", "domain.yaml"),
 		filepath.Join(".nomos", "domains", "com", "blumer", "identity", "services", "user-account", "service.yaml"),
 		filepath.Join(".nomos", "domains", "cloud", "blumer", "identity", "domain.yaml"),
 		filepath.Join(".nomos", "domains", "cloud", "blumer", "identity", "services", "user-account", "service.yaml"),
@@ -43,6 +44,7 @@ func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesDNSLikeDemo(t *te
 		filepath.Join(".nomos", "domains", "cloud", "blumer", "zytlog", "services", "zytlog-api", "service.yaml"),
 		filepath.Join(".nomos", "domains", "ch", "beispiel", "domain.yaml"),
 		filepath.Join(".nomos", "catalog", "blueprints", "products", "benutzerkonto-mit-mailbox.yaml"),
+		filepath.Join(".nomos", "catalog", "blueprints", "products", "cloud-mailbox.yaml"),
 	} {
 		if _, err := os.Stat(filepath.Join(target, rel)); err != nil {
 			t.Fatalf("missing %s in explicit target: %v", rel, err)
@@ -55,6 +57,15 @@ func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesDNSLikeDemo(t *te
 	for _, want := range []string{"id: PROD-ACC-MBX-001", "offered_by: identity.blumer.cloud", "fulfillment:", "identity.blumer.cloud/user-account", "collaboration.blumer.cloud/mailbox", "collaboration.blumer.cloud/license-assignment"} {
 		if !strings.Contains(string(product), want) {
 			t.Fatalf("demo product blueprint missing %q", want)
+		}
+	}
+	crossDomainProduct, err := os.ReadFile(filepath.Join(target, ".nomos", "catalog", "blueprints", "products", "cloud-mailbox.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"id: PROD-CLOUD-MAILBOX-001", "offered_by: blumer.net", "identity.blumer.cloud/user-account"} {
+		if !strings.Contains(string(crossDomainProduct), want) {
+			t.Fatalf("demo cross-domain product missing %q", want)
 		}
 	}
 	validate := exec.Command(bin, "validate", "--path", target)
