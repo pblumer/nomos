@@ -12,3 +12,7 @@ capabilities:
 supported_products:
   - PROD-ACC-MBX-001
 summary: Domain-owned service capability for license assignment.
+ola:
+  name: License Assignment OLA
+  target: 4h
+  availability: business-hours

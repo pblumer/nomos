@@ -514,3 +514,73 @@ owning_domain: identity.blumer.cloud
 		t.Fatalf("expected explicit owning-domain move: %+v", movedBack)
 	}
 }
+
+func TestFulfillmentServiceLevelDTOsAndFallback(t *testing.T) {
+	p := createAppTestCosmos(t)
+	must := func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(os.MkdirAll(filepath.Join(storage.CatalogDir(p), "blueprints", "products"), 0o755))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud", "services", "user-account", "service.yaml"), []byte(`name: user-account
+owner: Identity Team
+owned_by: identity.blumer.cloud
+status: draft
+ola:
+  name: Identity Account OLA
+  target: 4h
+  availability: business-hours
+`), 0o644))
+	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud", "services", "rule-validation-api", "service.yaml"), []byte(`name: rule-validation-api
+owner: Platform Team
+owned_by: platform.blumer.cloud
+status: draft
+sla:
+  name: Rule Validation SLA
+  target: 8h
+  availability: business-hours
+`), 0o644))
+	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "blueprints", "products", "levels.yaml"), []byte(`id: PROD-LEVELS-001
+type: product_blueprint
+name: Product With Levels
+offered_by: identity.blumer.cloud
+owning_domain: identity.blumer.cloud
+fulfillment:
+  required_services:
+    - service_ref: identity.blumer.cloud/user-account
+      role: primary
+      required: true
+      description: Inline OLA wins.
+      ola:
+        name: Inline Identity OLA
+        target: 2h
+        availability: business-hours
+    - service_ref: platform.blumer.cloud/rule-validation-api
+      role: supporting
+      required: false
+      description: Falls back to service SLA.
+    - service_ref: identity.blumer.cloud/privileged-account
+      role: optional
+      required: false
+      description: Existing product without SLA or OLA remains valid.
+`), 0o644))
+
+	bp, err := GetBlueprint(p, "PROD-LEVELS-001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	byRef := map[string]ProductRequiredServiceDTO{}
+	for _, svc := range bp.Fulfillment.RequiredServices {
+		byRef[svc.ServiceRef] = svc
+	}
+	if got := byRef["identity.blumer.cloud/user-account"]; got.FulfillmentType != "local service" || got.OLA == nil || got.OLA.Target != "2h" || got.ServiceLevelLabel != "OLA 2h" {
+		t.Fatalf("expected inline local OLA DTO, got %+v", got)
+	}
+	if got := byRef["platform.blumer.cloud/rule-validation-api"]; got.FulfillmentType != "cross-domain service" || got.SLA == nil || got.SLA.Target != "8h" || got.ServiceLevelLabel != "SLA 8h" {
+		t.Fatalf("expected fallback cross-domain SLA DTO, got %+v", got)
+	}
+	if got := byRef["identity.blumer.cloud/privileged-account"]; got.SLA != nil || got.OLA != nil || got.ServiceLevelLabel != "" || got.FulfillmentType != "local service" {
+		t.Fatalf("expected valid DTO without service levels, got %+v", got)
+	}
+}

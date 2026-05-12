@@ -94,24 +94,25 @@ type NamespaceTreeDTO struct {
 	Root NamespaceTreeNodeDTO `json:"root"`
 }
 type NamespaceTreeNodeDTO struct {
-	Label                string                 `json:"label"`
-	Kind                 string                 `json:"kind"`
-	Canonical            string                 `json:"canonical,omitempty"`
-	CanonicalName        string                 `json:"canonicalName,omitempty"`
-	GitPath              string                 `json:"gitPath,omitempty"`
-	DisplayPath          string                 `json:"displayPath,omitempty"`
-	TreePath             string                 `json:"treePath,omitempty"`
-	Domain               *DomainDTO             `json:"domain,omitempty"`
-	Service              *ServiceDTO            `json:"service,omitempty"`
-	Product              *ProductSummaryDTO     `json:"product,omitempty"`
-	Persisted            bool                   `json:"persisted"`
-	Virtual              bool                   `json:"virtual"`
-	CanCreateChildDomain bool                   `json:"canCreateChildDomain"`
-	CanAddService        bool                   `json:"canAddService"`
-	CanOpenDetails       bool                   `json:"canOpenDetails"`
-	CanVerifyDomain      bool                   `json:"canVerifyDomain"`
-	CanMaterializeDomain bool                   `json:"canMaterializeDomain"`
-	Children             []NamespaceTreeNodeDTO `json:"children,omitempty"`
+	Label                string                     `json:"label"`
+	Kind                 string                     `json:"kind"`
+	Canonical            string                     `json:"canonical,omitempty"`
+	CanonicalName        string                     `json:"canonicalName,omitempty"`
+	GitPath              string                     `json:"gitPath,omitempty"`
+	DisplayPath          string                     `json:"displayPath,omitempty"`
+	TreePath             string                     `json:"treePath,omitempty"`
+	Domain               *DomainDTO                 `json:"domain,omitempty"`
+	Service              *ServiceDTO                `json:"service,omitempty"`
+	Product              *ProductSummaryDTO         `json:"product,omitempty"`
+	Fulfillment          *ProductRequiredServiceDTO `json:"fulfillment,omitempty"`
+	Persisted            bool                       `json:"persisted"`
+	Virtual              bool                       `json:"virtual"`
+	CanCreateChildDomain bool                       `json:"canCreateChildDomain"`
+	CanAddService        bool                       `json:"canAddService"`
+	CanOpenDetails       bool                       `json:"canOpenDetails"`
+	CanVerifyDomain      bool                       `json:"canVerifyDomain"`
+	CanMaterializeDomain bool                       `json:"canMaterializeDomain"`
+	Children             []NamespaceTreeNodeDTO     `json:"children,omitempty"`
 }
 
 type RequiredServiceRefDTO struct {
@@ -122,16 +123,17 @@ type RequiredServiceRefDTO struct {
 }
 
 type ProductSummaryDTO struct {
-	ID                               string `json:"id"`
-	Name                             string `json:"name"`
-	Version                          string `json:"version"`
-	Status                           string `json:"status"`
-	OfferedBy                        string `json:"offered_by"`
-	OwningDomain                     string `json:"owning_domain"`
-	SourcePath                       string `json:"source_path,omitempty"`
-	CatalogPath                      string `json:"catalog_path,omitempty"`
-	FulfillmentRequiredServicesCount int    `json:"fulfillment_required_services_count"`
-	FulfillmentUnresolvedCount       int    `json:"fulfillment_unresolved_count"`
+	ID                               string                `json:"id"`
+	Name                             string                `json:"name"`
+	Version                          string                `json:"version"`
+	Status                           string                `json:"status"`
+	OfferedBy                        string                `json:"offered_by"`
+	OwningDomain                     string                `json:"owning_domain"`
+	SourcePath                       string                `json:"source_path,omitempty"`
+	CatalogPath                      string                `json:"catalog_path,omitempty"`
+	FulfillmentRequiredServicesCount int                   `json:"fulfillment_required_services_count"`
+	FulfillmentUnresolvedCount       int                   `json:"fulfillment_unresolved_count"`
+	Fulfillment                      ProductFulfillmentDTO `json:"fulfillment,omitempty"`
 }
 
 type ServiceRefDTO struct {
@@ -173,16 +175,26 @@ type ProductFulfillmentDTO struct {
 	RequiredServices []ProductRequiredServiceDTO `json:"required_services,omitempty"`
 }
 
+type ServiceLevelDTO struct {
+	Name         string `json:"name,omitempty"`
+	Target       string `json:"target,omitempty"`
+	Availability string `json:"availability,omitempty"`
+	Description  string `json:"description,omitempty"`
+}
+
 type ProductRequiredServiceDTO struct {
-	ServiceRef       string `json:"service_ref"`
-	Role             string `json:"role,omitempty"`
-	Required         bool   `json:"required"`
-	Description      string `json:"description,omitempty"`
-	ResolutionStatus string `json:"resolution_status"`
-	ResolvedDomain   string `json:"resolved_domain,omitempty"`
-	ResolvedService  string `json:"resolved_service,omitempty"`
-	FulfillmentType  string `json:"fulfillment_type"`
-	CrossDomain      bool   `json:"cross_domain"`
+	ServiceRef        string           `json:"service_ref"`
+	Role              string           `json:"role,omitempty"`
+	Required          bool             `json:"required"`
+	Description       string           `json:"description,omitempty"`
+	ResolutionStatus  string           `json:"resolution_status"`
+	ResolvedDomain    string           `json:"resolved_domain,omitempty"`
+	ResolvedService   string           `json:"resolved_service,omitempty"`
+	FulfillmentType   string           `json:"fulfillment_type"`
+	CrossDomain       bool             `json:"cross_domain"`
+	SLA               *ServiceLevelDTO `json:"sla,omitempty"`
+	OLA               *ServiceLevelDTO `json:"ola,omitempty"`
+	ServiceLevelLabel string           `json:"service_level_label,omitempty"`
 }
 
 type BlueprintDTO struct {

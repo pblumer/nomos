@@ -142,6 +142,10 @@ supported_products:
   - PROD-ACC-MBX-001
   - PROD-CLOUD-MAILBOX-001
 summary: Domain-owned service capability for identity account management.
+ola:
+  name: Identity Account OLA
+  target: 4h
+  availability: business-hours
 YAML
 cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/collaboration/services/mailbox/service.yaml" <<'YAML'
 id: service-mailbox
@@ -159,6 +163,10 @@ supported_products:
   - PROD-ACC-MBX-001
   - PROD-CLOUD-MAILBOX-001
 summary: Domain-owned service capability for mailbox provisioning.
+sla:
+  name: Mailbox Provisioning SLA
+  target: 8h
+  availability: business-hours
 YAML
 cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/collaboration/services/license-assignment/service.yaml" <<'YAML'
 id: service-license-assignment
@@ -175,6 +183,10 @@ capabilities:
 supported_products:
   - PROD-ACC-MBX-001
 summary: Domain-owned service capability for license assignment.
+ola:
+  name: License Assignment OLA
+  target: 4h
+  availability: business-hours
 YAML
 
 

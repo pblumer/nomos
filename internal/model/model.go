@@ -31,18 +31,27 @@ type Domain struct {
 	Services             []string `yaml:"services" json:"services"`
 }
 
+type ServiceLevelInfo struct {
+	Name         string `yaml:"name,omitempty" json:"name,omitempty"`
+	Target       string `yaml:"target,omitempty" json:"target,omitempty"`
+	Availability string `yaml:"availability,omitempty" json:"availability,omitempty"`
+	Description  string `yaml:"description,omitempty" json:"description,omitempty"`
+}
+
 type Service struct {
-	ID                string   `yaml:"id" json:"id"`
-	Type              string   `yaml:"type" json:"type"`
-	Name              string   `yaml:"name" json:"name"`
-	Version           string   `yaml:"version" json:"version"`
-	Status            string   `yaml:"status" json:"status"`
-	Owner             string   `yaml:"owner" json:"owner"`
-	OwnedBy           string   `yaml:"owned_by,omitempty" json:"owned_by,omitempty"`
-	OperatedBy        []string `yaml:"operated_by,omitempty" json:"operated_by,omitempty"`
-	Capabilities      []string `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
-	SupportedProducts []string `yaml:"supported_products,omitempty" json:"supported_products,omitempty"`
-	Summary           string   `yaml:"summary" json:"summary"`
+	ID                string            `yaml:"id" json:"id"`
+	Type              string            `yaml:"type" json:"type"`
+	Name              string            `yaml:"name" json:"name"`
+	Version           string            `yaml:"version" json:"version"`
+	Status            string            `yaml:"status" json:"status"`
+	Owner             string            `yaml:"owner" json:"owner"`
+	OwnedBy           string            `yaml:"owned_by,omitempty" json:"owned_by,omitempty"`
+	OperatedBy        []string          `yaml:"operated_by,omitempty" json:"operated_by,omitempty"`
+	Capabilities      []string          `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
+	SupportedProducts []string          `yaml:"supported_products,omitempty" json:"supported_products,omitempty"`
+	Summary           string            `yaml:"summary" json:"summary"`
+	SLA               *ServiceLevelInfo `yaml:"sla,omitempty" json:"sla,omitempty"`
+	OLA               *ServiceLevelInfo `yaml:"ola,omitempty" json:"ola,omitempty"`
 }
 
 type Variant struct {
@@ -62,10 +71,12 @@ type ProductFulfillment struct {
 }
 
 type ProductRequiredService struct {
-	ServiceRef  string `yaml:"service_ref" json:"service_ref"`
-	Role        string `yaml:"role,omitempty" json:"role,omitempty"`
-	Required    bool   `yaml:"required" json:"required"`
-	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+	ServiceRef  string            `yaml:"service_ref" json:"service_ref"`
+	Role        string            `yaml:"role,omitempty" json:"role,omitempty"`
+	Required    bool              `yaml:"required" json:"required"`
+	Description string            `yaml:"description,omitempty" json:"description,omitempty"`
+	SLA         *ServiceLevelInfo `yaml:"sla,omitempty" json:"sla,omitempty"`
+	OLA         *ServiceLevelInfo `yaml:"ola,omitempty" json:"ola,omitempty"`
 }
 
 type Blueprint struct {

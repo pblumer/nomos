@@ -195,7 +195,7 @@
           <div class="svc-card-body">
             <div class="svc-card-title"><code>{{.ServiceRef}}</code></div>
             <div class="svc-card-sub">Role: {{.Role}} · Required: {{.Required}}{{if .Description}} · {{.Description}}{{end}}</div>
-            <div class="svc-card-stats"><span class="stat-chip {{if eq .ResolutionStatus "resolved"}}ok{{else}}warn{{end}}">{{.ResolutionStatus}}</span>{{if .ResolvedDomain}}<span class="stat-chip">{{.ResolvedDomain}} / {{.ResolvedService}}</span>{{end}}<span class="stat-chip {{if .CrossDomain}}warn{{else if eq .ResolutionStatus "resolved"}}ok{{end}}">{{.FulfillmentType}}</span></div>{{if .CrossDomain}}<div class="svc-card-sub">This product is offered by {{$.Blueprint.OfferedBy}} and uses a service owned by {{.ResolvedDomain}}.</div>{{end}}
+            <div class="svc-card-stats"><span class="stat-chip {{if eq .ResolutionStatus "resolved"}}ok{{else}}warn{{end}}">{{.ResolutionStatus}}</span>{{if .ResolvedDomain}}<span class="stat-chip">{{.ResolvedDomain}} / {{.ResolvedService}}</span>{{end}}<span class="stat-chip {{if .CrossDomain}}warn{{else if eq .ResolutionStatus "resolved"}}ok{{end}}">{{.FulfillmentType}}</span>{{if .SLA}}<span class="stat-chip ok">SLA {{if .SLA.Target}}{{.SLA.Target}}{{else}}{{.SLA.Name}}{{end}}</span>{{end}}{{if .OLA}}<span class="stat-chip ok">OLA {{if .OLA.Target}}{{.OLA.Target}}{{else}}{{.OLA.Name}}{{end}}</span>{{end}}</div>{{if .CrossDomain}}<div class="svc-card-sub">This product is offered by {{$.Blueprint.OfferedBy}} and uses a service owned by {{.ResolvedDomain}}.</div>{{end}}
           </div>
         </div>
         {{else}}<div class="svc-empty">No fulfillment services yet.</div>{{end}}

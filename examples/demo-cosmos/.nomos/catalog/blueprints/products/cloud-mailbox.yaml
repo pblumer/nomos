@@ -15,7 +15,15 @@ fulfillment:
       role: primary
       required: true
       description: Creates the user account in the identity domain.
+      ola:
+        name: Identity Account OLA
+        target: 4h
+        availability: business-hours
     - service_ref: collaboration.blumer.cloud/mailbox
       role: supporting
       required: true
       description: Creates the mailbox in the collaboration domain.
+      sla:
+        name: Mailbox Provisioning SLA
+        target: 8h
+        availability: business-hours

@@ -13,3 +13,7 @@ supported_products:
   - PROD-ACC-MBX-001
   - PROD-CLOUD-MAILBOX-001
 summary: Domain-owned service capability for identity account management.
+ola:
+  name: Identity Account OLA
+  target: 4h
+  availability: business-hours
