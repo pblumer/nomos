@@ -162,7 +162,7 @@ The Cosmos Explorer tree and the product detail panel both consume the app-layer
 
 Fulfillment nodes use the canonical service reference as the primary tree label when no richer service display name is available. Role, required/optional state, resolution, `local`/`cross-domain`/`unresolved`, and optional SLA/OLA indicators remain secondary badges. Cross-domain fulfillment is valid and is shown as `cross-domain`, not as an error. The Catalog Index remains the storage location for product blueprints and the secondary index view; domain product subtrees are derived from `offered_by` and normalized fulfillment references.
 
-Fulfillment tree selection uses stable technical identifiers such as `fulfillment:<product-id>:<index>` instead of visible labels or metadata text. The visible tree label remains the linked service reference or resolved service label, while role, required/optional state, resolution and locality are secondary. Selecting a fulfillment node opens a fulfillment-context detail panel; resolved entries include an `Open service` action, and unresolved entries explain whether the domain or service reference is missing.
+Fulfillment tree selection uses stable technical identifiers such as `fulfillment:PROD-ACC-MBX-001:0` instead of visible labels or metadata text. The visible tree label remains the linked service reference or resolved service label, while role, required/optional state, resolution and locality are secondary. Selecting a fulfillment node opens a fulfillment-context detail panel; resolved entries include an `Open service` action, and unresolved entries explain whether the domain or service reference is missing.
 
 ## Product move and fulfillment maintenance
 

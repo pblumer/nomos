@@ -128,7 +128,7 @@ Typical workflow:
 
 Cross-domain fulfillment is normal for products composed from capabilities owned by other domains. Unresolved references remain visible so the missing domain or service can be fixed without hiding the product composition.
 
-Fulfillment tree nodes are selectable using stable IDs such as `fulfillment:<product-id>:<index>`. These IDs are not display labels and are not parsed as JSON. The primary label is the linked service name or canonical service reference; metadata such as `primary`, `required`, `resolved`, and `cross-domain` is secondary. Resolved fulfillment selections can open the referenced service, while unresolved selections show a corrective detail panel instead of failing.
+Fulfillment tree nodes are selectable using stable IDs such as `fulfillment:PROD-ACC-MBX-001:0`. These IDs are not display labels and are not parsed as JSON. The primary label is the linked service name or canonical service reference; metadata such as `primary`, `required`, `resolved`, and `cross-domain` is secondary. Resolved fulfillment selections can open the referenced service, while unresolved selections show a corrective detail panel instead of failing.
 
 ## Moving products and maintaining fulfillment
 
