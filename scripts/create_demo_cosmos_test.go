@@ -38,6 +38,7 @@ func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesDNSLikeDemo(t *te
 		filepath.Join(".nomos", "domains", "cloud", "blumer", "identity", "domain.yaml"),
 		filepath.Join(".nomos", "domains", "cloud", "blumer", "identity", "services", "user-account", "service.yaml"),
 		filepath.Join(".nomos", "domains", "cloud", "blumer", "collaboration", "services", "mailbox", "service.yaml"),
+		filepath.Join(".nomos", "domains", "cloud", "blumer", "mailing", "services", "exchange", "service.yaml"),
 		filepath.Join(".nomos", "domains", "cloud", "blumer", "collaboration", "services", "license-assignment", "service.yaml"),
 		filepath.Join(".nomos", "domains", "com", "blumer", "governance", "services", "provisioning-rules", "service.yaml"),
 		filepath.Join(".nomos", "domains", "cloud", "blumer", "home", "services", "home-dashboard", "service.yaml"),
@@ -54,7 +55,7 @@ func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesDNSLikeDemo(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"id: PROD-ACC-MBX-001", "offered_by: identity.blumer.cloud", "fulfillment:", "identity.blumer.cloud/user-account", "collaboration.blumer.cloud/mailbox", "collaboration.blumer.cloud/license-assignment", "ola:", "target: 4h", "sla:", "target: 8h"} {
+	for _, want := range []string{"id: PROD-ACC-MBX-001", "offered_by: identity.blumer.cloud", "fulfillment:", "identity.blumer.cloud/user-account", "mailing.blumer.cloud/exchange", "sla_ref: SLA-IDENTITY-ACCOUNT-STANDARD", "ola_ref: OLA-IDENTITY-OPS-STANDARD", "sla_ref: SLA-MAILBOX-STANDARD", "ola_ref: OLA-MAILING-OPS-STANDARD"} {
 		if !strings.Contains(string(product), want) {
 			t.Fatalf("demo product blueprint missing %q", want)
 		}
@@ -63,7 +64,7 @@ func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesDNSLikeDemo(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"id: PROD-CLOUD-MAILBOX-001", "offered_by: blumer.net", "identity.blumer.cloud/user-account", "collaboration.blumer.cloud/mailbox", "ola:", "sla:"} {
+	for _, want := range []string{"id: PROD-CLOUD-MAILBOX-001", "offered_by: blumer.net", "identity.blumer.cloud/user-account", "mailing.blumer.cloud/exchange", "ola:", "sla:"} {
 		if !strings.Contains(string(crossDomainProduct), want) {
 			t.Fatalf("demo cross-domain product missing %q", want)
 		}

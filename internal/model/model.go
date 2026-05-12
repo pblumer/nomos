@@ -75,6 +75,8 @@ type ProductRequiredService struct {
 	Role        string            `yaml:"role,omitempty" json:"role,omitempty"`
 	Required    bool              `yaml:"required" json:"required"`
 	Description string            `yaml:"description,omitempty" json:"description,omitempty"`
+	SLARef      string            `yaml:"sla_ref,omitempty" json:"sla_ref,omitempty"`
+	OLARef      string            `yaml:"ola_ref,omitempty" json:"ola_ref,omitempty"`
 	SLA         *ServiceLevelInfo `yaml:"sla,omitempty" json:"sla,omitempty"`
 	OLA         *ServiceLevelInfo `yaml:"ola,omitempty" json:"ola,omitempty"`
 }
