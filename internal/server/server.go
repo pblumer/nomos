@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/nomos/nomos/internal/app"
@@ -350,6 +351,38 @@ func (h *handler) apiProductRoutes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		dto, err := app.AddProductFulfillmentService(h.cosmosPath, parts[0], req)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, dto)
+		return
+	}
+	if len(parts) == 3 && parts[0] != "" && parts[1] == "fulfillment-services" {
+		idx, err := strconv.Atoi(parts[2])
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, app.ErrorResponse(app.Error(app.CodeInvalidInput, "fulfillment index is invalid", http.StatusBadRequest, err)))
+			return
+		}
+		if r.Method == http.MethodDelete {
+			dto, err := app.RemoveProductFulfillmentService(h.cosmosPath, parts[0], idx)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+			return
+		}
+		if r.Method != http.MethodPut && r.Method != http.MethodPatch && r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var req app.UpdateFulfillmentServiceRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+			return
+		}
+		dto, err := app.UpdateProductFulfillmentService(h.cosmosPath, parts[0], idx, req)
 		if err != nil {
 			h.apiErr(w, err)
 			return
@@ -914,6 +947,31 @@ func (h *handler) formPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		http.Redirect(w, r, "/domains?selected=product:"+dto.ID+"#fulfillment", 303)
+	case "/products/fulfillment/update":
+		idx, err := strconv.Atoi(r.FormValue("index"))
+		if err != nil {
+			h.errorPage(w, r, http.StatusBadRequest, "Update fulfillment service failed", "fulfillment index is invalid")
+			return
+		}
+		req := app.UpdateFulfillmentServiceRequest{ServiceRef: first(r.FormValue("service_ref"), r.FormValue("service_ref_manual")), Role: r.FormValue("role"), Required: r.FormValue("required") != "", Description: r.FormValue("description")}
+		dto, err := app.UpdateProductFulfillmentService(h.cosmosPath, r.FormValue("product_id"), idx, req)
+		if err != nil {
+			h.errorPage(w, r, statusOf(err), "Update fulfillment service failed", err.Error())
+			return
+		}
+		http.Redirect(w, r, "/cosmos?selected=product:"+dto.ID+"&expand=fulfillment#fulfillment", 303)
+	case "/products/fulfillment/delete":
+		idx, err := strconv.Atoi(r.FormValue("index"))
+		if err != nil {
+			h.errorPage(w, r, http.StatusBadRequest, "Remove fulfillment service failed", "fulfillment index is invalid")
+			return
+		}
+		dto, err := app.RemoveProductFulfillmentService(h.cosmosPath, r.FormValue("product_id"), idx)
+		if err != nil {
+			h.errorPage(w, r, statusOf(err), "Remove fulfillment service failed", err.Error())
+			return
+		}
+		http.Redirect(w, r, "/cosmos?selected=product:"+dto.ID+"&expand=fulfillment#fulfillment", 303)
 	case "/verify":
 		_, err := app.VerifyDomain(r.Context(), h.cosmosPath, r.FormValue("domain"))
 		if err != nil {

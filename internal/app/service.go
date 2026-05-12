@@ -963,21 +963,52 @@ func CreateProductOffering(path, domainCanonical string, req CreateProductOfferi
 	return GetBlueprint(path, id)
 }
 
+func normalizeDomainInput(value string) string {
+	v := strings.TrimSpace(value)
+	v = strings.Trim(v, `"'`)
+	return namespace.Canonical(strings.TrimSpace(v))
+}
+
+func validCanonicalDomain(value string) bool {
+	if value == "" || strings.ContainsAny(value, `/\\`) || strings.ContainsAny(value, ` "'`) {
+		return false
+	}
+	parts := strings.Split(value, ".")
+	if len(parts) < 2 {
+		return false
+	}
+	for _, part := range parts {
+		if part == "" || strings.HasPrefix(part, "-") || strings.HasSuffix(part, "-") {
+			return false
+		}
+		for _, r := range part {
+			if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '-' {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func MoveProductOffering(path string, req MoveProductOfferingRequest) (BlueprintDTO, error) {
 	productID := strings.TrimSpace(firstNonEmpty(req.ProductID, ""))
 	if productID == "" {
 		return BlueprintDTO{}, Error(CodeInvalidInput, "Product ID is required", http.StatusBadRequest, nil)
 	}
-	targetDomain := namespace.Canonical(strings.TrimSpace(req.TargetDomain))
-	if targetDomain == "" || strings.ContainsAny(targetDomain, `/\\`) {
-		return BlueprintDTO{}, Error(CodeProductMoveInvalidTarget, "Target domain is required", http.StatusBadRequest, nil)
+	rawTarget := strings.TrimSpace(req.TargetDomain)
+	if rawTarget == "" {
+		return BlueprintDTO{}, Error(CodeProductMoveInvalidTarget, "Bitte eine Zieldomäne wählen.", http.StatusBadRequest, nil)
+	}
+	targetDomain := normalizeDomainInput(rawTarget)
+	if !validCanonicalDomain(targetDomain) {
+		return BlueprintDTO{}, Error(CodeProductMoveInvalidTarget, "Die gewählte Zieldomäne ist keine gültige kanonische Domäne.", http.StatusBadRequest, nil)
 	}
 	tree, err := load(path)
 	if err != nil {
 		return BlueprintDTO{}, err
 	}
 	if !resolveDomain(tree, targetDomain) {
-		return BlueprintDTO{}, Error(CodeTargetDomainNotFound, "Target domain not found: "+targetDomain, http.StatusNotFound, nil)
+		return BlueprintDTO{}, Error(CodeTargetDomainNotFound, "Die gewählte Zieldomäne existiert nicht.", http.StatusNotFound, nil)
 	}
 	var product *cosmosfs.BlueprintNode
 	for i := range tree.Blueprints {
@@ -995,7 +1026,7 @@ func MoveProductOffering(path string, req MoveProductOfferingRequest) (Blueprint
 		return BlueprintDTO{}, Error(CodeProductMoveInvalidTarget, "Product has no current offered_by domain", http.StatusBadRequest, nil)
 	}
 	if oldOfferedBy == targetDomain {
-		return BlueprintDTO{}, Error(CodeProductMoveNoop, "Product is already offered by "+targetDomain, http.StatusConflict, nil)
+		return BlueprintDTO{}, Error(CodeProductMoveNoop, "Bitte eine andere Zieldomäne wählen.", http.StatusConflict, nil)
 	}
 
 	var raw model.Blueprint
@@ -1045,6 +1076,84 @@ func AddProductFulfillmentService(path, productID string, req AddFulfillmentServ
 		return BlueprintDTO{}, Error(CodeInternalError, "Failed to write product: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	return GetBlueprint(path, productID)
+}
+
+func UpdateProductFulfillmentService(path, productID string, index int, req UpdateFulfillmentServiceRequest) (BlueprintDTO, error) {
+	if index < 0 {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "fulfillment index is invalid", http.StatusBadRequest, nil)
+	}
+	serviceRef := strings.TrimSpace(req.ServiceRef)
+	if serviceRef == "" {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "service_ref is required", http.StatusBadRequest, nil)
+	}
+	product, err := GetBlueprint(path, productID)
+	if err != nil {
+		return BlueprintDTO{}, err
+	}
+	if product.Type != "product_blueprint" {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "target blueprint is not a product_blueprint", http.StatusBadRequest, nil)
+	}
+	var raw model.Blueprint
+	if err := fsx.ReadYAML(product.Path, &raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to read product: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	materializeLegacyFulfillment(&raw)
+	if index >= len(raw.Fulfillment.RequiredServices) {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "fulfillment index not found", http.StatusNotFound, nil)
+	}
+	normalized, _, _ := normalizeServiceRef(serviceRef)
+	for i, existing := range raw.Fulfillment.RequiredServices {
+		if i == index {
+			continue
+		}
+		existingNormalized, _, _ := normalizeServiceRef(existing.ServiceRef)
+		if strings.EqualFold(existingNormalized, normalized) || strings.EqualFold(strings.TrimSpace(existing.ServiceRef), serviceRef) {
+			return BlueprintDTO{}, Error(CodeInvalidInput, "Fulfillment service already exists for product: "+normalized, http.StatusConflict, nil)
+		}
+	}
+	role := firstNonEmpty(strings.TrimSpace(req.Role), "supporting")
+	old := raw.Fulfillment.RequiredServices[index]
+	raw.Fulfillment.RequiredServices[index] = model.ProductRequiredService{ServiceRef: normalized, Role: role, Required: req.Required, Description: strings.TrimSpace(req.Description), SLARef: old.SLARef, OLARef: old.OLARef, SLA: old.SLA, OLA: old.OLA}
+	if err := fsx.WriteYAML(product.Path, raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to write product: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetBlueprint(path, productID)
+}
+
+func RemoveProductFulfillmentService(path, productID string, index int) (BlueprintDTO, error) {
+	if index < 0 {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "fulfillment index is invalid", http.StatusBadRequest, nil)
+	}
+	product, err := GetBlueprint(path, productID)
+	if err != nil {
+		return BlueprintDTO{}, err
+	}
+	if product.Type != "product_blueprint" {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "target blueprint is not a product_blueprint", http.StatusBadRequest, nil)
+	}
+	var raw model.Blueprint
+	if err := fsx.ReadYAML(product.Path, &raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to read product: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	materializeLegacyFulfillment(&raw)
+	if index >= len(raw.Fulfillment.RequiredServices) {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "fulfillment index not found", http.StatusNotFound, nil)
+	}
+	raw.Fulfillment.RequiredServices = append(raw.Fulfillment.RequiredServices[:index], raw.Fulfillment.RequiredServices[index+1:]...)
+	if err := fsx.WriteYAML(product.Path, raw); err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to write product: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetBlueprint(path, productID)
+}
+
+func materializeLegacyFulfillment(bp *model.Blueprint) {
+	if len(bp.Fulfillment.RequiredServices) > 0 || len(bp.RequiredServices) == 0 {
+		return
+	}
+	bp.Fulfillment.RequiredServices = make([]model.ProductRequiredService, 0, len(bp.RequiredServices))
+	for _, svc := range bp.RequiredServices {
+		bp.Fulfillment.RequiredServices = append(bp.Fulfillment.RequiredServices, model.ProductRequiredService{ServiceRef: svc.ServiceRef, Required: svc.Required, Description: svc.Purpose})
+	}
 }
 
 func DeleteBlueprint(path, id string) error {

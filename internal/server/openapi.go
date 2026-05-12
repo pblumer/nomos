@@ -42,6 +42,10 @@ var openAPISpec = map[string]any{
 		"/api/v1/products/{product}/fulfillment-services": map[string]any{
 			"post": operationWithRequest("Catalog", "Add fulfillment service", "Appends a required fulfillment service reference to a product offering.", []map[string]any{pathParam("product", "Product id.")}, jsonRequestBody(map[string]any{"type": "object", "additionalProperties": true}), map[string]any{"200": response("Updated product.", schemaRef("Blueprint")), "400": errorResponse(), "404": errorResponse()}),
 		},
+		"/api/v1/products/{product}/fulfillment-services/{index}": map[string]any{
+			"put":    operationWithRequest("Catalog", "Update fulfillment service", "Updates an existing fulfillment service entry by index.", []map[string]any{pathParam("product", "Product id."), pathParam("index", "Fulfillment entry index.")}, jsonRequestBody(map[string]any{"type": "object", "additionalProperties": true}), map[string]any{"200": response("Updated product.", schemaRef("Blueprint")), "400": errorResponse(), "404": errorResponse(), "409": errorResponse()}),
+			"delete": operation("Catalog", "Remove fulfillment service", "Removes an existing fulfillment service entry by index.", []map[string]any{pathParam("product", "Product id."), pathParam("index", "Fulfillment entry index.")}, schemaRef("Blueprint")),
+		},
 		"/api/v1/services/refs": pathItem("Domains", "List service refs", "Returns canonical service references grouped by domain fields.", nil, map[string]any{"type": "object", "additionalProperties": true}),
 		"/api/v1/domains/{domain}/services": map[string]any{
 			"get":  operation("Domains", "List domain services", "Returns services below a domain.", []map[string]any{pathParam("domain", "Canonical domain name.")}, schemaRef("ServicesResponse")),

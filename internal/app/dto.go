@@ -173,6 +173,9 @@ type AddFulfillmentServiceRequest struct {
 	Description string `json:"description"`
 }
 
+// UpdateFulfillmentServiceRequest updates an existing product fulfillment entry by stable index.
+type UpdateFulfillmentServiceRequest = AddFulfillmentServiceRequest
+
 type ProductFulfillmentDTO struct {
 	RequiredServices []ProductRequiredServiceDTO `json:"required_services,omitempty"`
 }
