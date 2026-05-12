@@ -333,7 +333,7 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 			} else {
 				for _, svc := range product.Fulfillment.RequiredServices {
 					f := svc
-					label := firstNonEmpty(svc.ResolvedService, shortServiceRef(svc.ServiceRef))
+					label := firstNonEmpty(svc.ServiceRef, svc.ResolvedService)
 					fulfillmentParent.Children = append(fulfillmentParent.Children, NamespaceTreeNodeDTO{Label: label, Kind: "product-fulfillment-service", Canonical: svc.ServiceRef, CanonicalName: d.Canonical, Product: &p, Fulfillment: &f, Persisted: true, CanOpenDetails: true, TreeTarget: svc.TreeTarget})
 				}
 			}
@@ -567,14 +567,6 @@ func primaryProductHome(bp model.Blueprint) string {
 	}
 	name := firstNonEmpty(strings.TrimSpace(bp.Name), strings.TrimSpace(bp.ID))
 	return namespace.Canonical(bp.OfferedBy) + " / Products / " + name
-}
-
-func shortServiceRef(serviceRef string) string {
-	_, _, service := normalizeServiceRef(serviceRef)
-	if service != "" {
-		return service
-	}
-	return strings.TrimSpace(serviceRef)
 }
 
 func normalizeServiceRef(serviceRef string) (string, string, string) {

@@ -496,6 +496,18 @@ func TestCreateProductOfferingAndAppendFulfillment(t *testing.T) {
 	if len(updated.Fulfillment.RequiredServices) != 1 || updated.Fulfillment.RequiredServices[0].ResolutionStatus != "resolved" || updated.Fulfillment.RequiredServices[0].FulfillmentType != "local" {
 		t.Fatalf("expected resolved local fulfillment service: %+v", updated.Fulfillment)
 	}
+	tree, err := BuildNamespaceTree(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent := findTreeNode(tree.Root, "product-fulfillment-parent", "Fulfillment Services")
+	if parent == nil || parent.FulfillmentCount != 1 || len(parent.Children) != 1 {
+		t.Fatalf("expected appended fulfillment in tree summary: %+v", parent)
+	}
+	child := parent.Children[0]
+	if child.Label != "identity.blumer.cloud/user-account" || child.Fulfillment == nil || child.Fulfillment.ResolutionStatus != "resolved" || child.Fulfillment.FulfillmentType != "local" {
+		t.Fatalf("expected tree child to use normalized fulfillment DTO: %+v", child)
+	}
 	if _, err := CreateProductOffering(p, "identity.blumer.cloud", CreateProductOfferingRequest{ID: "PROD-NEW-001", Name: "Duplicate"}); err == nil {
 		t.Fatal("expected duplicate product id to be rejected")
 	}

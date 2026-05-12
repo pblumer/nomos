@@ -18,12 +18,13 @@
 
 {{define "content_cosmos"}}
 <style>
-.ex-layout{display:grid;grid-template-columns:minmax(420px,500px) 1fr;gap:1rem;margin-top:1rem;align-items:start}
+:root{--cosmos-tree-width:minmax(520px,42vw)}
+.ex-layout{display:grid;grid-template-columns:var(--cosmos-tree-width) minmax(0,1fr);gap:1rem;margin-top:1rem;align-items:start}
 .ex-tree-card{background:#fff;border:1px solid #e8edf4;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.06)}
 .ex-tree-head{display:flex;justify-content:space-between;align-items:center;padding:.75rem 1rem;border-bottom:1px solid #f0f4f8;background:#f8fafc}
 .ex-tree-head h3{margin:0;font-size:.9rem;font-weight:700;color:#1e293b}
 .ex-tree-meta{font-size:.78rem;color:#64748b}
-.ex-tree-body{padding:.5rem .25rem .5rem .5rem;max-height:calc(100vh - 220px);overflow-y:auto}
+.ex-tree-body{padding:.5rem .25rem .5rem .5rem;max-height:calc(100vh - 220px);overflow-y:auto;overflow-x:hidden}
 .cn-tree,.cn-tree ul,.cn-children{list-style:none;margin:0;padding:0}
 .cn{position:relative}
 /* .cn-tree .cn-children has specificity (0,2,0) > .cn-tree ul (0,1,1) → wins over the reset above */
@@ -35,7 +36,7 @@
 /* horizontal branch from the vertical line to the toggle/leaf (8 px = gap to toggle left edge) */
 .cn-children > .cn::after{content:"";position:absolute;left:-6px;top:10px;width:8px;height:1px;background:#c0cdd8}
 .cn-children.collapsed{display:none}
-.cn-row{display:flex;align-items:center;gap:5px;padding:3px 6px 3px 2px;border-radius:7px;cursor:pointer;user-select:none;transition:background .1s;position:relative}
+.cn-row{display:flex;align-items:flex-start;gap:5px;padding:3px 6px 3px 2px;border-radius:7px;cursor:pointer;user-select:none;transition:background .1s;position:relative;min-width:0}
 .cn-row:hover{background:#f1f5f9}
 .cn-row.selected{background:#eef2ff;box-shadow:inset 3px 0 0 #6366f1}
 .cn-row.selected .cn-label{color:#3730a3;font-weight:600}
@@ -62,9 +63,9 @@
 .cn-row[data-kind="service-parent"] .cn-icon{color:#94a3b8}
 .cn-row[data-kind="blueprint"] .cn-icon{color:#059669}
 .cn-row[data-kind="blueprint-parent"] .cn-icon{color:#475569}
-.cn-label{font-size:.84rem;color:#1e293b;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cn-label{font-size:.84rem;color:#1e293b;flex:1 1 auto;min-width:0;overflow-wrap:anywhere;word-break:normal;line-height:1.25}
 .cn-row[data-kind="service-parent"] .cn-label,.cn-row[data-kind="product-parent"] .cn-label{color:#64748b;font-style:italic;font-size:.8rem}
-.cn-badge{font-size:.68rem;font-weight:600;padding:1px 6px;border-radius:4px;white-space:nowrap;flex-shrink:0}
+.cn-badge{font-size:.68rem;font-weight:600;padding:1px 6px;border-radius:4px;white-space:normal;overflow-wrap:anywhere;flex:0 1 auto;max-width:48%;line-height:1.25}
 .cn-badge-cosmos{background:#eef2ff;color:#4338ca}
 .cn-badge-namespace{background:#e0f2fe;color:#0369a1}
 .cn-badge-domain{background:#dbeafe;color:#1d4ed8}
@@ -76,7 +77,8 @@
 .cn-badge-blueprint-attr{background:#eef2ff;color:#4338ca}
 .cn-row[data-kind="blueprint-attr"] .cn-icon{color:#6366f1}
 .cn-row[data-kind="blueprint-attr"] .cn-label{color:#3730a3;font-size:.8rem}
-.attr-ref-link{font-size:.68rem;color:#7c3aed;margin-left:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px}
+.attr-ref-link{font-size:.68rem;color:#7c3aed;margin-left:3px;white-space:normal;overflow-wrap:anywhere;max-width:140px}
+@media (max-width: 980px){.ex-layout{grid-template-columns:1fr}.ex-tree-card{min-width:0}.cn-badge{max-width:52%}}
 .ex-detail-card{background:#fff;border:1px solid #e8edf4;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.06);position:sticky;top:80px}
 .detail-head{padding:1rem 1.2rem .75rem;border-bottom:1px solid #f0f4f8;display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem}
 .detail-head-left{display:flex;align-items:center;gap:.6rem}
@@ -366,9 +368,12 @@ $('tree-collapse-all').addEventListener('click',()=>{
   rootLi?.querySelector(':scope > .cn-row .cn-toggle')?.classList.add('open');
 });
 
-const sel=new URLSearchParams(location.search).get('selected');
-if(sel){const[kind,...rest]=sel.split(':');const id=rest.join(':');const row=tree.querySelector(`.cn-row[data-kind="${kind}"][data-canonical="${CSS.escape(id)}"],.cn-row[data-kind="${kind}"][data-id="${CSS.escape(id)}"]`);if(row){expandToRow(row);row.classList.add('selected');loadDetail(row);}}
+const params=new URLSearchParams(location.search);
+const sel=params.get('selected');
+if(sel){const[kind,...rest]=sel.split(':');const id=rest.join(':');const row=tree.querySelector(`.cn-row[data-kind="${kind}"][data-canonical="${CSS.escape(id)}"],.cn-row[data-kind="${kind}"][data-id="${CSS.escape(id)}"]`);if(row){expandToRow(row);if(kind==='product'&&params.get('expand')==='fulfillment')expandProductFulfillment(row);row.classList.add('selected');loadDetail(row);}}
 function expandToRow(row){let ul=row.closest('.cn-children');while(ul){ul.classList.remove('collapsed');const btn=ul.previousElementSibling?.querySelector('.cn-toggle');if(btn)btn.classList.add('open');ul=ul.parentElement?.closest('.cn-children');}}
+function expandOwnChildren(row){const ul=row.closest('.cn')?.querySelector(':scope > .cn-children');if(ul){ul.classList.remove('collapsed');row.querySelector('.cn-toggle')?.classList.add('open');}}
+function expandProductFulfillment(productRow){expandOwnChildren(productRow);const fulfillmentRow=productRow.closest('.cn')?.querySelector(':scope > .cn-children > .cn > .cn-row[data-kind="product-fulfillment-parent"]');if(fulfillmentRow)expandOwnChildren(fulfillmentRow);}
 
 const ctx=$('nctx');let ctxRow=null;
 const CTX={cosmos:['add-domain'],namespace:['add-domain'],'domain-parent':['add-domain'],'namespace-parent':['add-domain'],domain:['add-subdomain','add-product','add-service','verify-domain','edit','delete'],'product-parent':['add-product'],'service-parent':['add-service'],service:['edit','delete'],product:['move-product','edit','delete'],'product-fulfillment-service':['copy-service-ref'],'blueprint-parent':['add-blueprint'],blueprint:['edit','delete']};
@@ -520,7 +525,7 @@ async function loadFulfillmentServiceDetail(row){
 
 function productDetail(d){const unresolved=(d.fulfillment?.required_services||[]).filter(s=>s.resolution_status!=='resolved').length;return `<div class="detail-head"><div class="detail-head-left">${iconDiv('blueprint')}<div><div class="detail-title">${esc(d.name||d.id)}</div><div class="detail-subtitle">Product offering</div></div></div><div class="detail-actions-head"><button class="btn btn-secondary btn-sm" id="det-move-product"><span class="mi" style="font-family:'Material Symbols Outlined'">drive_file_move</span> Produkt verschieben</button><a class="btn btn-secondary btn-sm" href="/blueprints/${encodeURIComponent(d.id)}">Open in catalog index</a></div></div><div class="detail-body"><p><span class="badge node-kind">Product offering</span> Offered by <code>${esc(d.offered_by||'')}</code>${unresolved?` <span class="badge badge-warning">${unresolved} unresolved fulfillment refs</span>`:''}</p><dl class="detail-props"><dt>Name</dt><dd>${esc(d.name||'')}</dd><dt>ID</dt><dd><code>${esc(d.id)}</code></dd><dt>Version</dt><dd>${esc(d.version||'')}</dd><dt>Status</dt><dd>${esc(d.status||'')}</dd><dt>Offered by</dt><dd><code>${esc(d.offered_by||'')}</code></dd><dt>Owning domain</dt><dd><code>${esc(d.owning_domain||'')}</code></dd><dt>Source path</dt><dd><code>${esc(d.path||'')}</code></dd><dt>Primary home</dt><dd>${d.primary_home?esc(d.primary_home):`${esc(d.offered_by||'')} / Products / ${esc(d.name||d.id)}`}</dd></dl><h4 id="fulfillment" style="margin-top:1rem">Fulfillment Services</h4><table class="data-table"><thead><tr><th>service_ref</th><th>Role</th><th>Required</th><th>Description</th><th>Resolution</th><th>Resolved service</th><th>Type</th><th>Service level</th></tr></thead><tbody id="fulfillment-rows">${fulfillmentRows(d.fulfillment?.required_services||[],d.offered_by||'')}</tbody></table><div class="context-form" style="margin-top:1rem"><h4>Add fulfillment service</h4><div class="form-grid"><label>Known service<select id="fulfillment-known"><option value="">— enter manually below —</option></select></label><label>Manual service_ref<input id="fulfillment-manual" placeholder="identity.blumer.cloud/user-account"></label><label>Role<select id="fulfillment-role"><option>primary</option><option>supporting</option><option>optional</option></select></label><label class="check"><input type="checkbox" id="fulfillment-required" checked> Required</label><label>Description<input id="fulfillment-description"></label><button class="btn btn-primary" id="fulfillment-add">Add fulfillment service</button></div><div class="nerror" id="fulfillment-error"></div></div></div><div class="detail-footer"><a class="btn btn-secondary" href="/blueprints/${encodeURIComponent(d.id)}">Open in catalog index</a><button class="btn btn-primary" id="det-move-product-footer">Produkt verschieben</button><a class="btn btn-secondary" href="/api/v1/products/${encodeURIComponent(d.id)}">API JSON</a></div>`;}
 
-function wireFulfillment(container,bpId){const select=container.querySelector('#fulfillment-known');fetch('/api/v1/services/refs').then(r=>r.json()).then(d=>{(d.services||[]).forEach(ref=>{const o=document.createElement('option');o.value=ref.service_ref;o.textContent=ref.service_ref;select?.appendChild(o);});});container.querySelector('#fulfillment-manual')?.addEventListener('input',e=>{if(select)select.value=e.target.value;});container.querySelector('#fulfillment-add')?.addEventListener('click',async()=>{const err=container.querySelector('#fulfillment-error');if(err){err.textContent='';err.classList.remove('show');}const service_ref=(container.querySelector('#fulfillment-manual')?.value.trim()||select?.value||'');const body={service_ref,role:container.querySelector('#fulfillment-role')?.value||'supporting',required:container.querySelector('#fulfillment-required')?.checked||false,description:container.querySelector('#fulfillment-description')?.value.trim()||''};const r=await fetch('/api/v1/products/'+encodeURIComponent(bpId)+'/fulfillment-services',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(r.ok){container.querySelector('#fulfillment-rows').innerHTML=fulfillmentRows(d.fulfillment?.required_services||[],d.offered_by||'');container.querySelector('#fulfillment-manual').value='';container.querySelector('#fulfillment-description').value='';}else if(err){err.textContent=d.error?.message||'Add fulfillment service failed';err.classList.add('show');}});}
+function wireFulfillment(container,bpId){const select=container.querySelector('#fulfillment-known');fetch('/api/v1/services/refs').then(r=>r.json()).then(d=>{(d.services||[]).forEach(ref=>{const o=document.createElement('option');o.value=ref.service_ref;o.textContent=ref.service_ref;select?.appendChild(o);});});container.querySelector('#fulfillment-manual')?.addEventListener('input',e=>{if(select)select.value=e.target.value;});container.querySelector('#fulfillment-add')?.addEventListener('click',async()=>{const err=container.querySelector('#fulfillment-error');if(err){err.textContent='';err.classList.remove('show');}const service_ref=(container.querySelector('#fulfillment-manual')?.value.trim()||select?.value||'');const body={service_ref,role:container.querySelector('#fulfillment-role')?.value||'supporting',required:container.querySelector('#fulfillment-required')?.checked||false,description:container.querySelector('#fulfillment-description')?.value.trim()||''};const r=await fetch('/api/v1/products/'+encodeURIComponent(bpId)+'/fulfillment-services',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(r.ok){location.href='/cosmos?selected=product:'+encodeURIComponent(d.id||bpId)+'&expand=fulfillment#fulfillment';}else if(err){err.textContent=d.error?.message||'Add fulfillment service failed';err.classList.add('show');}});}
 
 function serviceDetail(d){return `<div class="detail-head"><div class="detail-head-left">${iconDiv('service')}<div><div class="detail-title">${esc(d.name)}</div><div class="detail-subtitle">Service &middot; ${esc(d.domain)}</div></div></div><div class="detail-actions-head"><button class="btn btn-secondary btn-sm" id="det-edit" title="Bearbeiten"><span class="mi" style="font-family:'Material Symbols Outlined'">edit</span></button><button class="btn btn-danger btn-sm" id="det-delete" title="L&ouml;schen"><span class="mi" style="font-family:'Material Symbols Outlined'">delete</span></button></div></div><div class="detail-body"><dl class="detail-props"><dt>Name</dt><dd>${esc(d.name)}</dd><dt>Domain</dt><dd><code>${esc(d.domain)}</code></dd><dt>Owner</dt><dd>${esc(d.owner||'&ndash;')}</dd><dt>Status</dt><dd><span class="badge badge-${d.status}">${esc(d.status)}</span></dd><dt>Pfad</dt><dd><code>${esc(d.path)}</code></dd></dl></div><div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/domains/${encodeURIComponent(d.domain)}/services/${encodeURIComponent(d.name)}">API JSON</a></div>`;}
 

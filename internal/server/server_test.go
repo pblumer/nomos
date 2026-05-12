@@ -1120,6 +1120,35 @@ func TestCosmosProductCreationAndFulfillmentForms(t *testing.T) {
 	}
 }
 
+func TestCosmosFulfillmentFormRedirectRefreshesTree(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	create := httptest.NewRecorder()
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/domains/identity.blumer.cloud/products", strings.NewReader(`{"id":"PROD-REFRESH-001","name":"Refresh Product","summary":"Created from Cosmos"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(create, createReq)
+	if create.Code != http.StatusCreated {
+		t.Fatalf("create product status=%d body=%s", create.Code, create.Body.String())
+	}
+
+	form := httptest.NewRecorder()
+	formReq := httptest.NewRequest(http.MethodPost, "/products/fulfillment", strings.NewReader("product_id=PROD-REFRESH-001&service_ref=collaboration.blumer.cloud%2Fmailbox&role=primary&required=on&return_to=cosmos"))
+	formReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	h.ServeHTTP(form, formReq)
+	wantLocation := "/cosmos?selected=product:PROD-REFRESH-001&expand=fulfillment#fulfillment"
+	if form.Code != http.StatusSeeOther || form.Header().Get("Location") != wantLocation {
+		t.Fatalf("fulfillment form redirect status=%d location=%q body=%s", form.Code, form.Header().Get("Location"), form.Body.String())
+	}
+
+	follow := get(h, wantLocation)
+	body := follow.Body.String()
+	for _, want := range []string{"Refresh Product", "Fulfillment Services", "collaboration.blumer.cloud/mailbox", "primary", "required", "resolved", "cross-domain", "data-tree-target", "service:collaboration.blumer.cloud/mailbox"} {
+		if follow.Code != http.StatusOK || !strings.Contains(body, want) {
+			t.Fatalf("refreshed cosmos tree missing %q status=%d", want, follow.Code)
+		}
+	}
+}
+
 func TestProductMoveEndpointAndWebForm(t *testing.T) {
 	p := createTestCosmos(t)
 	h := NewHandler(p)
@@ -1161,7 +1190,7 @@ func TestCosmosTemplateContainsProductMoveWorkflowHooks(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	rr := get(h, "/cosmos?selected=product:PB-ACC-MBX-001")
 	body := rr.Body.String()
-	for _, want := range []string{"Produkt verschieben", "Fulfillment Services", "product-fulfillment-parent", "product-fulfillment-service", "identity.blumer.cloud/user-account", "collaboration.blumer.cloud/mailbox", "2 svc", "local", "cross-domain", "OLA", "SLA", "data-tree-target", "service:identity.blumer.cloud/user-account", "data-node-type=\"product\"", "data-node-type=\"domain\"", "data-product-id=\"PB-ACC-MBX-001\"", "move-product-form", "dragstart", "dragover", "drop", "/api/v1/products/", "/move"} {
+	for _, want := range []string{"Produkt verschieben", "Fulfillment Services", "product-fulfillment-parent", "product-fulfillment-service", "identity.blumer.cloud/user-account", "collaboration.blumer.cloud/mailbox", "2 svc", "local", "cross-domain", "OLA", "SLA", "data-tree-target", "service:identity.blumer.cloud/user-account", "data-node-type=\"product\"", "data-node-type=\"domain\"", "data-product-id=\"PB-ACC-MBX-001\"", "--cosmos-tree-width", "minmax(520px,42vw)", "move-product-form", "dragstart", "dragover", "drop", "/api/v1/products/", "/move"} {
 		if rr.Code != http.StatusOK || !strings.Contains(body, want) {
 			t.Fatalf("cosmos move workflow missing %q status=%d", want, rr.Code)
 		}

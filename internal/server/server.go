@@ -910,7 +910,7 @@ func (h *handler) formPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if r.FormValue("return_to") == "cosmos" {
-			http.Redirect(w, r, "/cosmos?selected=product:"+dto.ID+"#fulfillment", 303)
+			http.Redirect(w, r, "/cosmos?selected=product:"+dto.ID+"&expand=fulfillment#fulfillment", 303)
 			return
 		}
 		http.Redirect(w, r, "/domains?selected=product:"+dto.ID+"#fulfillment", 303)
