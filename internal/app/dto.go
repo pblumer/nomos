@@ -156,6 +156,12 @@ type CreateProductOfferingRequest struct {
 	Tags         []string `json:"tags"`
 }
 
+type MoveProductOfferingRequest struct {
+	ProductID          string `json:"product_id"`
+	TargetDomain       string `json:"target_domain"`
+	UpdateOwningDomain bool   `json:"update_owning_domain"`
+}
+
 type AddFulfillmentServiceRequest struct {
 	ServiceRef  string `json:"service_ref"`
 	Role        string `json:"role"`

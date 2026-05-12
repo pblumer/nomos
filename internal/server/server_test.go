@@ -1119,3 +1119,61 @@ func TestCosmosProductCreationAndFulfillmentForms(t *testing.T) {
 		t.Fatalf("expected duplicate fulfillment conflict, got %d body=%s", dup.Code, dup.Body.String())
 	}
 }
+
+func TestProductMoveEndpointAndWebForm(t *testing.T) {
+	p := createTestCosmos(t)
+	h := NewHandler(p)
+
+	move := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/products/PB-ACC-MBX-001/move", strings.NewReader(`{"target_domain":"collaboration.blumer.cloud","update_owning_domain":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(move, req)
+	if move.Code != http.StatusOK || !strings.Contains(move.Body.String(), `"offered_by":"collaboration.blumer.cloud"`) || !strings.Contains(move.Body.String(), `"owning_domain":"collaboration.blumer.cloud"`) {
+		t.Fatalf("move status=%d body=%s", move.Code, move.Body.String())
+	}
+
+	missingProduct := httptest.NewRecorder()
+	missingReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/MISSING/move", strings.NewReader(`{"target_domain":"collaboration.blumer.cloud"}`))
+	missingReq.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(missingProduct, missingReq)
+	if missingProduct.Code != http.StatusNotFound || !strings.Contains(missingProduct.Body.String(), "PRODUCT_NOT_FOUND") {
+		t.Fatalf("missing product status=%d body=%s", missingProduct.Code, missingProduct.Body.String())
+	}
+
+	missingTarget := httptest.NewRecorder()
+	targetReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PB-ACC-MBX-001/move", strings.NewReader(`{"target_domain":"missing.blumer.cloud"}`))
+	targetReq.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(missingTarget, targetReq)
+	if missingTarget.Code != http.StatusNotFound || !strings.Contains(missingTarget.Body.String(), "TARGET_DOMAIN_NOT_FOUND") {
+		t.Fatalf("missing target status=%d body=%s", missingTarget.Code, missingTarget.Body.String())
+	}
+
+	form := httptest.NewRecorder()
+	formReq := httptest.NewRequest(http.MethodPost, "/products/move", strings.NewReader("product_id=PB-ACC-MBX-001&target_domain=identity.blumer.cloud&update_owning_domain=on"))
+	formReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	h.ServeHTTP(form, formReq)
+	if form.Code != http.StatusSeeOther || form.Header().Get("Location") != "/cosmos?selected=product:PB-ACC-MBX-001" {
+		t.Fatalf("form redirect status=%d location=%s body=%s", form.Code, form.Header().Get("Location"), form.Body.String())
+	}
+}
+
+func TestCosmosTemplateContainsProductMoveWorkflowHooks(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	rr := get(h, "/cosmos?selected=product:PB-ACC-MBX-001")
+	body := rr.Body.String()
+	for _, want := range []string{"Produkt verschieben", "data-node-type=\"product\"", "data-node-type=\"domain\"", "data-product-id=\"PB-ACC-MBX-001\"", "move-product-form", "dragstart", "dragover", "drop", "/api/v1/products/", "/move"} {
+		if rr.Code != http.StatusOK || !strings.Contains(body, want) {
+			t.Fatalf("cosmos move workflow missing %q status=%d", want, rr.Code)
+		}
+	}
+}
+
+func TestOpenAPIContainsProductMoveEndpoint(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	rr := get(h, "/openapi.json")
+	for _, want := range []string{"/api/v1/products/{product}/move", "MoveProductOfferingRequest", "target_domain", "update_owning_domain"} {
+		if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), want) {
+			t.Fatalf("openapi missing %q status=%d body=%s", want, rr.Code, rr.Body.String())
+		}
+	}
+}

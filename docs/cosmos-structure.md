@@ -95,3 +95,11 @@ Namespaces
 When creating a product from a selected domain, the selected canonical domain becomes `offered_by` and `owning_domain` defaults to the same value. Nomos still writes the product as a catalog blueprint under `.nomos/catalog/blueprints/products`; the domain is the semantic home, while the Catalog Index is a secondary index.
 
 Product detail in the Cosmos Explorer shows `Offered by`, `Owning domain`, source path, primary home, `Fulfillment Services`, and an `Add fulfillment service` form. Fulfillment services can be local to the offering domain or cross-domain. Cross-domain fulfillment is valid when the referenced service resolves; only missing domains or missing services are shown as unresolved warnings.
+
+## Moving product offerings between domains
+
+A product offering can be reassigned to another domain by changing its `offered_by` field. The Catalog Index remains the storage and index location; the domain-owned `Products` subtree is derived from `offered_by` and refreshes after the move.
+
+`offered_by` identifies the domain that offers the product in the Cosmos Explorer. `owning_domain` identifies the governance domain responsible for the product definition. During a normal move, when both values were the same before the move, both are updated to the target domain. If `owning_domain` intentionally differed from `offered_by`, it is preserved unless the Product Manager explicitly chooses to update it as well.
+
+Moving a product does not rewrite fulfillment service references. Their local or cross-domain classification is recalculated relative to the new `offered_by` domain, so a fulfillment service can change from cross-domain to local (or the reverse) without changing the YAML reference.

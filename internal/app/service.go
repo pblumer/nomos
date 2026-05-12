@@ -902,6 +902,59 @@ func CreateProductOffering(path, domainCanonical string, req CreateProductOfferi
 	return GetBlueprint(path, id)
 }
 
+func MoveProductOffering(path string, req MoveProductOfferingRequest) (BlueprintDTO, error) {
+	productID := strings.TrimSpace(firstNonEmpty(req.ProductID, ""))
+	if productID == "" {
+		return BlueprintDTO{}, Error(CodeInvalidInput, "Product ID is required", http.StatusBadRequest, nil)
+	}
+	targetDomain := namespace.Canonical(strings.TrimSpace(req.TargetDomain))
+	if targetDomain == "" || strings.ContainsAny(targetDomain, `/\\`) {
+		return BlueprintDTO{}, Error(CodeProductMoveInvalidTarget, "Target domain is required", http.StatusBadRequest, nil)
+	}
+	tree, err := load(path)
+	if err != nil {
+		return BlueprintDTO{}, err
+	}
+	if !resolveDomain(tree, targetDomain) {
+		return BlueprintDTO{}, Error(CodeTargetDomainNotFound, "Target domain not found: "+targetDomain, http.StatusNotFound, nil)
+	}
+	var product *cosmosfs.BlueprintNode
+	for i := range tree.Blueprints {
+		b := &tree.Blueprints[i]
+		if b.Metadata.ID == productID && b.Metadata.Type == "product_blueprint" {
+			product = b
+			break
+		}
+	}
+	if product == nil {
+		return BlueprintDTO{}, Error(CodeProductNotFound, "Product not found: "+productID, http.StatusNotFound, nil)
+	}
+	oldOfferedBy := namespace.Canonical(strings.TrimSpace(product.Metadata.OfferedBy))
+	if oldOfferedBy == "" {
+		return BlueprintDTO{}, Error(CodeProductMoveInvalidTarget, "Product has no current offered_by domain", http.StatusBadRequest, nil)
+	}
+	if oldOfferedBy == targetDomain {
+		return BlueprintDTO{}, Error(CodeProductMoveNoop, "Product is already offered by "+targetDomain, http.StatusConflict, nil)
+	}
+
+	var raw model.Blueprint
+	if err := fsx.ReadYAML(product.Path, &raw); err != nil {
+		return BlueprintDTO{}, Error(CodeProductMoveWriteFailed, "Failed to read product: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	if raw.Type != "product_blueprint" {
+		return BlueprintDTO{}, Error(CodeProductNotFound, "Product not found: "+productID, http.StatusNotFound, nil)
+	}
+	raw.OfferedBy = targetDomain
+	oldOwning := namespace.Canonical(strings.TrimSpace(raw.OwningDomain))
+	if oldOwning == "" || oldOwning == oldOfferedBy || req.UpdateOwningDomain {
+		raw.OwningDomain = targetDomain
+	}
+	if err := fsx.WriteYAML(product.Path, raw); err != nil {
+		return BlueprintDTO{}, Error(CodeProductMoveWriteFailed, "Failed to write product: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetBlueprint(path, productID)
+}
+
 func AddProductFulfillmentService(path, productID string, req AddFulfillmentServiceRequest) (BlueprintDTO, error) {
 	serviceRef := strings.TrimSpace(req.ServiceRef)
 	if serviceRef == "" {

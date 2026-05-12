@@ -320,6 +320,25 @@ func (h *handler) apiProductRoutes(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, dto)
 		return
 	}
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "move" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var req app.MoveProductOfferingRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+			return
+		}
+		req.ProductID = parts[0]
+		dto, err := app.MoveProductOffering(h.cosmosPath, req)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, dto)
+		return
+	}
 	if len(parts) == 2 && parts[0] != "" && parts[1] == "fulfillment-services" {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -875,6 +894,14 @@ func (h *handler) formPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		http.Redirect(w, r, "/domains?selected=product:"+dto.ID, 303)
+	case "/products/move":
+		req := app.MoveProductOfferingRequest{ProductID: r.FormValue("product_id"), TargetDomain: r.FormValue("target_domain"), UpdateOwningDomain: r.FormValue("update_owning_domain") != ""}
+		dto, err := app.MoveProductOffering(h.cosmosPath, req)
+		if err != nil {
+			h.errorPage(w, r, statusOf(err), "Move product failed", err.Error())
+			return
+		}
+		http.Redirect(w, r, "/cosmos?selected=product:"+dto.ID, 303)
 	case "/products/fulfillment":
 		req := app.AddFulfillmentServiceRequest{ServiceRef: first(r.FormValue("service_ref"), r.FormValue("service_ref_manual")), Role: r.FormValue("role"), Required: r.FormValue("required") != "", Description: r.FormValue("description")}
 		dto, err := app.AddProductFulfillmentService(h.cosmosPath, r.FormValue("product_id"), req)
@@ -919,10 +946,11 @@ func (h *handler) cosmosPage(w http.ResponseWriter, r *http.Request) {
 	doc, _ := app.DoctorCosmos(h.cosmosPath)
 	ns, _ := app.BuildNamespaceTree(h.cosmosPath)
 	bp, _ := app.ListBlueprints(h.cosmosPath)
+	domains, _ := app.ListDomains(h.cosmosPath)
 	h.page(w, "cosmos", map[string]any{
 		"ActiveNav": "cosmos", "PageTitle": "Cosmos",
 		"Cosmos": co, "Doctor": doc,
-		"NamespaceTree": ns, "Blueprints": bp.Blueprints,
+		"NamespaceTree": ns, "Blueprints": bp.Blueprints, "Domains": domains.Domains,
 	})
 }
 func (h *handler) domainsPage(w http.ResponseWriter, r *http.Request) {
@@ -1083,6 +1111,7 @@ func (h *handler) blueprintPage(w http.ResponseWriter, r *http.Request, id strin
 		return
 	}
 	allBps, _ := app.ListBlueprints(h.cosmosPath)
+	domains, _ := app.ListDomains(h.cosmosPath)
 	var serviceBps []app.BlueprintDTO
 	for _, ref := range bp.RequiredServiceBlueprints {
 		for _, b := range allBps.Blueprints {
@@ -1098,6 +1127,7 @@ func (h *handler) blueprintPage(w http.ResponseWriter, r *http.Request, id strin
 		"Blueprint":         bp,
 		"AllBlueprints":     allBps.Blueprints,
 		"ServiceBlueprints": serviceBps,
+		"Domains":           domains.Domains,
 	})
 }
 func (h *handler) instancesPage(w http.ResponseWriter, r *http.Request) {

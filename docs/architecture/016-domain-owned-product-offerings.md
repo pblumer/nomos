@@ -139,3 +139,11 @@ Fulfillment service references resolve to canonical domain service refs. A resol
 - unresolved refs remain warnings/errors such as `unresolved domain` or `missing service`.
 
 For example, a product offered by `blumer.net` may use `identity.blumer.cloud/user-account`. This is valid when the service exists, and the UI explains that the product is offered by `blumer.net` while the fulfillment service is owned by `identity.blumer.cloud`.
+
+## Moving product offerings between domains
+
+A product offering can be reassigned to another domain by changing its `offered_by` field. The Catalog Index remains the storage and index location; the domain-owned `Products` subtree is derived from `offered_by` and refreshes after the move.
+
+`offered_by` identifies the domain that offers the product in the Cosmos Explorer. `owning_domain` identifies the governance domain responsible for the product definition. During a normal move, when both values were the same before the move, both are updated to the target domain. If `owning_domain` intentionally differed from `offered_by`, it is preserved unless the Product Manager explicitly chooses to update it as well.
+
+Moving a product does not rewrite fulfillment service references. Their local or cross-domain classification is recalculated relative to the new `offered_by` domain, so a fulfillment service can change from cross-domain to local (or the reverse) without changing the YAML reference.

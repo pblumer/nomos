@@ -419,3 +419,98 @@ func TestCreateProductOfferingAndAppendFulfillment(t *testing.T) {
 		t.Fatal("expected duplicate fulfillment service ref to be rejected")
 	}
 }
+
+func TestMoveProductOfferingOwnershipRulesAndFulfillment(t *testing.T) {
+	p := createAppTestCosmos(t)
+	must := func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(os.MkdirAll(filepath.Join(storage.CatalogDir(p), "blueprints", "products"), 0o755))
+	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "blueprints", "products", "move.yaml"), []byte(`id: PROD-MOVE-001
+type: product_blueprint
+name: Move Me
+version: 1.2.3
+status: active
+owner: Product Team
+offered_by: platform.blumer.cloud
+owning_domain: platform.blumer.cloud
+summary: Preserve this summary.
+required_inputs:
+  - person_reference
+fulfillment:
+  required_services:
+    - service_ref: identity.blumer.cloud/user-account
+      role: primary
+      required: true
+      description: Existing service ref stays unchanged.
+`), 0o644))
+
+	before, err := GetBlueprint(p, "PROD-MOVE-001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.Fulfillment.RequiredServices[0].FulfillmentType != "cross-domain service" {
+		t.Fatalf("expected pre-move cross-domain fulfillment: %+v", before.Fulfillment.RequiredServices[0])
+	}
+
+	moved, err := MoveProductOffering(p, MoveProductOfferingRequest{ProductID: "PROD-MOVE-001", TargetDomain: "identity.blumer.cloud"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if moved.OfferedBy != "identity.blumer.cloud" || moved.OwningDomain != "identity.blumer.cloud" || moved.Version != "1.2.3" || moved.Summary != "Preserve this summary." {
+		t.Fatalf("unexpected moved product: %+v", moved)
+	}
+	if moved.Fulfillment.RequiredServices[0].ServiceRef != "identity.blumer.cloud/user-account" || moved.Fulfillment.RequiredServices[0].FulfillmentType != "local service" {
+		t.Fatalf("expected unchanged ref and recomputed local fulfillment: %+v", moved.Fulfillment.RequiredServices[0])
+	}
+	raw, err := os.ReadFile(filepath.Join(storage.CatalogDir(p), "blueprints", "products", "move.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "offered_by: identity.blumer.cloud") || !strings.Contains(string(raw), "owning_domain: identity.blumer.cloud") || !strings.Contains(string(raw), "person_reference") {
+		t.Fatalf("YAML was not updated/preserved as expected:\n%s", raw)
+	}
+
+	if _, err := MoveProductOffering(p, MoveProductOfferingRequest{ProductID: "PROD-MOVE-001", TargetDomain: "identity.blumer.cloud"}); err == nil || !strings.Contains(err.Error(), CodeProductMoveNoop) {
+		t.Fatalf("expected no-op move error, got %v", err)
+	}
+	if _, err := MoveProductOffering(p, MoveProductOfferingRequest{ProductID: "missing", TargetDomain: "platform.blumer.cloud"}); err == nil || !strings.Contains(err.Error(), CodeProductNotFound) {
+		t.Fatalf("expected missing product error, got %v", err)
+	}
+	if _, err := MoveProductOffering(p, MoveProductOfferingRequest{ProductID: "PROD-MOVE-001", TargetDomain: "missing.blumer.cloud"}); err == nil || !strings.Contains(err.Error(), CodeTargetDomainNotFound) {
+		t.Fatalf("expected target domain error, got %v", err)
+	}
+}
+
+func TestMoveProductOfferingPreservesDelegatedOwningDomainUnlessRequested(t *testing.T) {
+	p := createAppTestCosmos(t)
+	must := func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(os.MkdirAll(filepath.Join(storage.CatalogDir(p), "blueprints", "products"), 0o755))
+	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "blueprints", "products", "delegated.yaml"), []byte(`id: PROD-DELEGATED-001
+type: product_blueprint
+name: Delegated
+offered_by: platform.blumer.cloud
+owning_domain: identity.blumer.cloud
+`), 0o644))
+
+	moved, err := MoveProductOffering(p, MoveProductOfferingRequest{ProductID: "PROD-DELEGATED-001", TargetDomain: "identity.blumer.cloud"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if moved.OwningDomain != "identity.blumer.cloud" {
+		t.Fatalf("expected delegated owning domain preserved: %+v", moved)
+	}
+	movedBack, err := MoveProductOffering(p, MoveProductOfferingRequest{ProductID: "PROD-DELEGATED-001", TargetDomain: "platform.blumer.cloud", UpdateOwningDomain: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if movedBack.OfferedBy != "platform.blumer.cloud" || movedBack.OwningDomain != "platform.blumer.cloud" {
+		t.Fatalf("expected explicit owning-domain move: %+v", movedBack)
+	}
+}
