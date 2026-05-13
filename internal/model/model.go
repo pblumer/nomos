@@ -145,8 +145,9 @@ type AttributeRule struct {
 	Value string `yaml:"value" json:"value"`
 }
 
-// Process describes a product-level BPMN process artifact. BPMN XML is stored
-// beside this YAML in a separate .bpmn file so the catalog remains Git-friendly.
+// Process describes a product-level process artifact. Steps are the primary
+// definition; BPMN XML (stored in a separate .bpmn file) is kept for future
+// visual modelling and remains fully compatible.
 type Process struct {
 	ID             string               `yaml:"id" json:"id"`
 	Type           string               `yaml:"type" json:"type"`
@@ -157,9 +158,22 @@ type Process struct {
 	Summary        string               `yaml:"summary,omitempty" json:"summary,omitempty"`
 	Tags           []string             `yaml:"tags,omitempty" json:"tags,omitempty"`
 	RelatedProduct string               `yaml:"related_product" json:"related_product"`
+	Steps          []ProcessStep        `yaml:"steps,omitempty" json:"steps,omitempty"`
 	BPMN           BPMNReference        `yaml:"bpmn" json:"bpmn"`
 	TaskMappings   []ProcessTaskMapping `yaml:"task_mappings,omitempty" json:"task_mappings,omitempty"`
 	Notes          string               `yaml:"notes,omitempty" json:"notes,omitempty"`
+}
+
+// ProcessStep is one ordered step in a fulfillment process. Each step maps to
+// a service call (ArchiMate function/trigger).
+type ProcessStep struct {
+	ID         string `yaml:"id" json:"id"`
+	Name       string `yaml:"name" json:"name"`
+	ServiceRef string `yaml:"service_ref" json:"service_ref"`
+	Method     string `yaml:"method,omitempty" json:"method,omitempty"`
+	Role       string `yaml:"role,omitempty" json:"role,omitempty"`
+	Required   bool   `yaml:"required" json:"required"`
+	Notes      string `yaml:"notes,omitempty" json:"notes,omitempty"`
 }
 
 type BPMNReference struct {

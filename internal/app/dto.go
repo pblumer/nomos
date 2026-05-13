@@ -385,12 +385,32 @@ type ProcessDTO struct {
 	Summary        string                  `json:"summary,omitempty"`
 	Tags           []string                `json:"tags,omitempty"`
 	RelatedProduct string                  `json:"related_product"`
+	Steps          []ProcessStepDTO        `json:"steps,omitempty"`
 	BPMN           BPMNReferenceDTO        `json:"bpmn"`
 	TaskMappings   []ProcessTaskMappingDTO `json:"task_mappings,omitempty"`
 	Path           string                  `json:"path,omitempty"`
 	BPMNPath       string                  `json:"bpmn_path,omitempty"`
 	Tasks          []BPMNTaskDTO           `json:"tasks,omitempty"`
 	Validation     ProcessValidationDTO    `json:"validation"`
+}
+
+type ProcessStepDTO struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	ServiceRef string `json:"service_ref"`
+	Method     string `json:"method,omitempty"`
+	Role       string `json:"role,omitempty"`
+	Required   bool   `json:"required"`
+	Notes      string `json:"notes,omitempty"`
+}
+
+type UpsertProcessStepRequest struct {
+	Name       string `json:"name"`
+	ServiceRef string `json:"service_ref"`
+	Method     string `json:"method"`
+	Role       string `json:"role"`
+	Required   bool   `json:"required"`
+	Notes      string `json:"notes"`
 }
 
 type BPMNReferenceDTO struct {
