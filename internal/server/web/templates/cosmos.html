@@ -19,7 +19,9 @@
 {{define "content_cosmos"}}
 <style>
 :root{--cosmos-tree-width:minmax(520px,42vw)}
-.ex-layout{display:grid;grid-template-columns:var(--cosmos-tree-width) minmax(0,1fr);gap:1rem;margin-top:1rem;align-items:start}
+/* Cosmos needs the full desktop canvas; the global app shell caps normal pages at 1200px. */
+.app-main{max-width:none;width:auto}
+.ex-layout{display:grid;grid-template-columns:var(--cosmos-tree-width) minmax(0,1fr);gap:1rem;margin-top:1rem;align-items:start;width:100%}
 .ex-tree-card{background:#fff;border:1px solid #e8edf4;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.06)}
 .ex-tree-head{display:flex;justify-content:space-between;align-items:center;padding:.75rem 1rem;border-bottom:1px solid #f0f4f8;background:#f8fafc}
 .ex-tree-head h3{margin:0;font-size:.9rem;font-weight:700;color:#1e293b}
