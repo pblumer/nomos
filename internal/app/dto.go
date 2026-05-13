@@ -126,15 +126,29 @@ type RequiredServiceRefDTO struct {
 	Required            bool   `json:"required"`
 }
 
+type StepInputBindingDTO struct {
+	Name     string `json:"name"`
+	Source   string `json:"source"`
+	Required bool   `json:"required,omitempty"`
+}
+
+type StepOutputSchemaDTO struct {
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Description string `json:"description,omitempty"`
+}
+
 type ProcessStepSummaryDTO struct {
-	StepNum    int      `json:"step_num"`
-	ID         string   `json:"id"`
-	Name       string   `json:"name"`
-	ServiceRef string   `json:"service_ref"`
-	Method     string   `json:"method,omitempty"`
-	Role       string   `json:"role,omitempty"`
-	Required   bool     `json:"required"`
-	DependsOn  []string `json:"depends_on,omitempty"`
+	StepNum    int                   `json:"step_num"`
+	ID         string                `json:"id"`
+	Name       string                `json:"name"`
+	ServiceRef string                `json:"service_ref"`
+	Method     string                `json:"method,omitempty"`
+	Role       string                `json:"role,omitempty"`
+	Required   bool                  `json:"required"`
+	DependsOn  []string              `json:"depends_on,omitempty"`
+	Inputs     []StepInputBindingDTO `json:"inputs,omitempty"`
+	Outputs    []StepOutputSchemaDTO `json:"outputs,omitempty"`
 }
 
 type ProcessGroupDTO struct {
@@ -415,23 +429,28 @@ type ProcessDTO struct {
 }
 
 type ProcessStepDTO struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	ServiceRef string `json:"service_ref"`
-	Method     string `json:"method,omitempty"`
-	Role       string `json:"role,omitempty"`
-	Required   bool   `json:"required"`
-	Notes      string `json:"notes,omitempty"`
+	ID         string                `json:"id"`
+	Name       string                `json:"name"`
+	ServiceRef string                `json:"service_ref"`
+	Method     string                `json:"method,omitempty"`
+	Role       string                `json:"role,omitempty"`
+	Required   bool                  `json:"required"`
+	Notes      string                `json:"notes,omitempty"`
+	DependsOn  []string              `json:"depends_on,omitempty"`
+	Inputs     []StepInputBindingDTO `json:"inputs,omitempty"`
+	Outputs    []StepOutputSchemaDTO `json:"outputs,omitempty"`
 }
 
 type UpsertProcessStepRequest struct {
-	Name       string   `json:"name"`
-	ServiceRef string   `json:"service_ref"`
-	Method     string   `json:"method"`
-	Role       string   `json:"role"`
-	Required   bool     `json:"required"`
-	Notes      string   `json:"notes"`
-	DependsOn  []string `json:"depends_on,omitempty"`
+	Name       string                `json:"name"`
+	ServiceRef string                `json:"service_ref"`
+	Method     string                `json:"method"`
+	Role       string                `json:"role"`
+	Required   bool                  `json:"required"`
+	Notes      string                `json:"notes"`
+	DependsOn  []string              `json:"depends_on,omitempty"`
+	Inputs     []StepInputBindingDTO `json:"inputs,omitempty"`
+	Outputs    []StepOutputSchemaDTO `json:"outputs,omitempty"`
 }
 
 type BPMNReferenceDTO struct {

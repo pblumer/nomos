@@ -265,6 +265,8 @@ func productSummaryDTO(tree cosmosfs.Tree, bp model.Blueprint, sourcePath string
 						Role:       step.Role,
 						Required:   step.Required,
 						DependsOn:  step.DependsOn,
+						Inputs:     stepsInputsToDTO(step.Inputs),
+						Outputs:    stepsOutputsToDTO(step.Outputs),
 					})
 				}
 				processGroups = append(processGroups, group)
@@ -416,7 +418,7 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 			for _, group := range product.Processes {
 				g := group
 				label := fmt.Sprintf("%s (%d)", g.ProcessName, len(g.Steps))
-				stepsParent := NamespaceTreeNodeDTO{Label: label, Kind: "process-steps-parent", Canonical: product.ID + "/" + g.ProcessID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true, FulfillmentCount: len(g.Steps)}
+				stepsParent := NamespaceTreeNodeDTO{Label: label, Kind: "process-steps-parent", Canonical: product.ID + "/" + g.ProcessID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true, FulfillmentCount: len(g.Steps), TreeTarget: g.ProcessID}
 				for _, step := range g.Steps {
 					s := step
 					stepLabel := fmt.Sprintf("%d · %s", step.StepNum, step.Name)

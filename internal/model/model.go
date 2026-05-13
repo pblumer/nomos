@@ -165,17 +165,31 @@ type Process struct {
 	Notes          string               `yaml:"notes,omitempty" json:"notes,omitempty"`
 }
 
+type StepInputBinding struct {
+	Name     string `yaml:"name" json:"name"`
+	Source   string `yaml:"source" json:"source"`
+	Required bool   `yaml:"required,omitempty" json:"required,omitempty"`
+}
+
+type StepOutputSchema struct {
+	Name        string `yaml:"name" json:"name"`
+	Type        string `yaml:"type" json:"type"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+}
+
 // ProcessStep is one ordered step in a fulfillment process. Each step maps to
 // a service call (ArchiMate function/trigger).
 type ProcessStep struct {
-	ID         string   `yaml:"id" json:"id"`
-	Name       string   `yaml:"name" json:"name"`
-	ServiceRef string   `yaml:"service_ref" json:"service_ref"`
-	Method     string   `yaml:"method,omitempty" json:"method,omitempty"`
-	Role       string   `yaml:"role,omitempty" json:"role,omitempty"`
-	Required   bool     `yaml:"required" json:"required"`
-	Notes      string   `yaml:"notes,omitempty" json:"notes,omitempty"`
-	DependsOn  []string `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
+	ID         string             `yaml:"id" json:"id"`
+	Name       string             `yaml:"name" json:"name"`
+	ServiceRef string             `yaml:"service_ref" json:"service_ref"`
+	Method     string             `yaml:"method,omitempty" json:"method,omitempty"`
+	Role       string             `yaml:"role,omitempty" json:"role,omitempty"`
+	Required   bool               `yaml:"required" json:"required"`
+	Notes      string             `yaml:"notes,omitempty" json:"notes,omitempty"`
+	DependsOn  []string           `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
+	Inputs     []StepInputBinding `yaml:"inputs,omitempty" json:"inputs,omitempty"`
+	Outputs    []StepOutputSchema `yaml:"outputs,omitempty" json:"outputs,omitempty"`
 }
 
 type BPMNReference struct {
