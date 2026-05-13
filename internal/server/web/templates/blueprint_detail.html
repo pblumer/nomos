@@ -2,11 +2,15 @@
 
 {{define "content_blueprint_detail"}}
 <style>
-.bp-layout{display:grid;grid-template-columns:340px 1fr;gap:1.25rem;margin-top:1rem;align-items:start}
-@media(max-width:900px){.bp-layout{grid-template-columns:1fr}}
-.bp-card{background:#fff;border:1px solid #e8edf4;border-radius:12px;padding:1.1rem 1.2rem}
+.bp-layout{display:grid;grid-template-columns:minmax(300px,360px) minmax(0,1fr);gap:1.25rem;margin-top:1rem;align-items:start}
+.bp-actions{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+.bp-card{background:#fff;border:1px solid #e8edf4;border-radius:12px;padding:1.1rem 1.2rem;box-shadow:0 1px 3px rgba(15,23,42,.04)}
 .bp-card h3{margin:0 0 .85rem;font-size:.9rem;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:.4rem}
 .bp-card h3 .mi{font-size:17px;font-family:'Material Symbols Outlined'}
+.bp-card-kicker{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#6366f1;margin-bottom:.25rem}
+.section-intro{color:#64748b;font-size:.84rem;line-height:1.45;margin:-.35rem 0 .85rem}
+.bp-card details{scroll-margin-top:90px}.bp-card details summary{cursor:pointer;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:.4rem}
+.bp-card details summary .mi{font-family:'Material Symbols Outlined';font-size:17px}
 .dl{display:grid;grid-template-columns:auto 1fr;gap:.28rem .75rem;font-size:.82rem}
 .dl dt{color:#64748b;font-weight:600;white-space:nowrap}
 .dl dd{color:#0f172a;margin:0;word-break:break-word}
@@ -20,10 +24,12 @@
 /* Service blueprint cards in product view */
 .svc-list{display:flex;flex-direction:column;gap:.65rem}
 .svc-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:.75rem .9rem;display:flex;align-items:flex-start;gap:.75rem}
-.svc-card-icon{width:30px;height:30px;border-radius:7px;background:#ede9fe;color:#5b21b6;display:grid;place-items:center;flex-shrink:0;font-family:'Material Symbols Outlined';font-size:15px}
+.svc-card-icon{width:32px;height:32px;border-radius:8px;background:#ede9fe;color:#5b21b6;display:grid;place-items:center;flex-shrink:0;overflow:hidden}
+.svc-card-icon .mi{font-family:'Material Symbols Outlined';font-size:17px;line-height:1}
 .svc-card-body{flex:1;min-width:0}
-.svc-card-title{font-size:.85rem;font-weight:700;color:#0f172a}
-.svc-card-sub{font-size:.73rem;color:#64748b;margin-top:1px}
+.svc-card-title{font-size:.88rem;font-weight:800;color:#0f172a;line-height:1.25}
+.svc-card-title code{background:transparent;padding:0;font-size:inherit}
+.svc-card-sub{font-size:.75rem;color:#64748b;margin-top:2px;line-height:1.35}
 .svc-card-stats{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.4rem}
 .stat-chip{font-size:.71rem;font-weight:600;padding:1px 7px;border-radius:6px;background:#e0e7ff;color:#3730a3}
 .stat-chip.ok{background:#d1fae5;color:#065f46}
@@ -31,6 +37,16 @@
 .stat-chip.empty{background:#f1f5f9;color:#94a3b8}
 .svc-card-actions{display:flex;gap:.3rem;align-items:center;flex-shrink:0}
 .svc-empty{padding:1.5rem;text-align:center;color:#94a3b8;font-size:.84rem;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:9px}
+.fulfillment-card{background:#f8fafc;border-color:#dbe4ef}
+.fulfillment-card .svc-card-icon{background:#eef2ff;color:#4f46e5}
+.bp-form{display:grid;gap:.65rem;margin-top:.9rem;padding:1rem;border:1px solid #e2e8f0;border-radius:10px;background:#fbfdff}
+.bp-form-grid{display:grid;grid-template-columns:minmax(220px,1.4fr) minmax(140px,.7fr);gap:.65rem}
+.bp-form label{display:grid;gap:.25rem;font-size:.78rem;font-weight:700;color:#475569}
+.bp-form input,.bp-form select{width:100%;border:1px solid #d1d5db;border-radius:7px;padding:.42rem .6rem;font-size:.85rem;background:#fff}
+.bp-form .check{display:flex;align-items:center;gap:.35rem;font-weight:600}
+.bp-form .check input{width:auto}
+.help-box{background:#eef2ff;border:1px solid #dbeafe;color:#334155;border-radius:9px;padding:.7rem .85rem;font-size:.82rem;line-height:1.45}
+@media(max-width:900px){.bp-layout{grid-template-columns:1fr}.bp-form-grid{grid-template-columns:1fr}}
 
 .btn{display:inline-flex;align-items:center;gap:.3rem;padding:.35rem .75rem;border-radius:7px;font-size:.82rem;font-weight:600;cursor:pointer;border:none;transition:background .12s;text-decoration:none;line-height:1.4}
 .btn .mi{font-size:15px;font-family:'Material Symbols Outlined'}
@@ -85,11 +101,11 @@
     <h2>{{.Blueprint.ID}}</h2>
     <p>{{if .Blueprint.Name}}{{.Blueprint.Name}}{{else}}{{.Blueprint.Type}}{{end}}</p>
   </div>
-  <div style="display:flex;gap:.5rem;align-items:center">
+  <div class="bp-actions">
     <a class="btn btn-secondary" href="/api/v1/blueprints/{{.Blueprint.ID}}"><span class="mi" style="font-family:'Material Symbols Outlined'">code</span> API JSON</a>
-    {{if .Blueprint.OfferedBy}}<a class="btn btn-secondary" href="/cosmos?selected=product:{{.Blueprint.ID}}"><span class="mi" style="font-family:'Material Symbols Outlined'">account_tree</span> Open in Cosmos domain</a>{{end}}
+    {{if .Blueprint.OfferedBy}}<a class="btn btn-secondary" href="/cosmos?selected=product:{{.Blueprint.ID}}"><span class="mi" style="font-family:'Material Symbols Outlined'">account_tree</span> Im Cosmos öffnen</a>{{end}}
     {{if eq .Blueprint.Type "product_blueprint"}}
-    <a class="btn btn-secondary" href="/cosmos?selected=product:{{.Blueprint.ID}}"><span class="mi" style="font-family:'Material Symbols Outlined'">drive_file_move</span> Produkt verschieben</a>
+    <a class="btn btn-secondary" href="#move-product" onclick="document.getElementById('move-product').open=true"><span class="mi" style="font-family:'Material Symbols Outlined'">drive_file_move</span> Produkt verschieben</a>
     <button class="btn btn-primary" id="btn-add-svc"><span class="mi" style="font-family:'Material Symbols Outlined'">add_circle</span> Service hinzufügen</button>
     {{end}}
   </div>
@@ -99,55 +115,58 @@
   {{/* Left column: metadata + requirements */}}
   <div style="display:flex;flex-direction:column;gap:1rem">
     <div class="bp-card">
-      <h3><span class="mi">info</span> Metadata</h3>
+      <div class="bp-card-kicker">Übersicht</div>
+      <h3><span class="mi">info</span> Steckbrief</h3>
+      <p class="section-intro">Die wichtigsten Informationen zu diesem Blueprint: Typ, Status und wo das Produkt fachlich verankert ist.</p>
       <dl class="dl">
-        <dt>Type</dt><dd><span class="badge badge-{{.Blueprint.Type}}">{{.Blueprint.Type}}</span></dd>
+        <dt>Typ</dt><dd><span class="badge badge-{{.Blueprint.Type}}">{{.Blueprint.Type}}</span></dd>
         <dt>Version</dt><dd>{{.Blueprint.Version}}</dd>
         <dt>Status</dt><dd><span class="badge badge-{{.Blueprint.Status}}">{{if .Blueprint.Status}}{{.Blueprint.Status}}{{else}}draft{{end}}</span></dd>
         <dt>Owner</dt><dd>{{if .Blueprint.Owner}}{{.Blueprint.Owner}}{{else}}<span style="color:#94a3b8">—</span>{{end}}</dd>
-        {{if .Blueprint.Summary}}<dt>Summary</dt><dd>{{.Blueprint.Summary}}</dd>{{end}}
-        {{if .Blueprint.OfferedBy}}<dt>Offered by</dt><dd><code>{{.Blueprint.OfferedBy}}</code></dd><dt>Primary home</dt><dd>{{if .Blueprint.PrimaryHome}}{{.Blueprint.PrimaryHome}}{{else}}{{.Blueprint.OfferedBy}} / Products / {{.Blueprint.Name}}{{end}}<br><a href="/cosmos?selected=product:{{.Blueprint.ID}}">Open in domain</a></dd>{{end}}
-        {{if .Blueprint.OwningDomain}}<dt>Owning domain</dt><dd><code>{{.Blueprint.OwningDomain}}</code></dd>{{end}}
-        <dt>Path</dt><dd><code>{{.Blueprint.Path}}</code></dd>
-        {{if .Blueprint.NamespaceServiceRef}}<dt>NS ref</dt><dd><code>{{.Blueprint.NamespaceServiceRef}}</code></dd>{{end}}
+        {{if .Blueprint.Summary}}<dt>Zusammenfassung</dt><dd>{{.Blueprint.Summary}}</dd>{{end}}
+        {{if .Blueprint.OfferedBy}}<dt>Angeboten von</dt><dd><code>{{.Blueprint.OfferedBy}}</code></dd><dt>Fachlicher Ort</dt><dd>{{if .Blueprint.PrimaryHome}}{{.Blueprint.PrimaryHome}}{{else}}{{.Blueprint.OfferedBy}} / Products / {{.Blueprint.Name}}{{end}}<br><a href="/cosmos?selected=product:{{.Blueprint.ID}}">In Domäne öffnen</a></dd>{{end}}
+        {{if .Blueprint.OwningDomain}}<dt>Verantwortliche Domäne</dt><dd><code>{{.Blueprint.OwningDomain}}</code></dd>{{end}}
+        <dt>Datei</dt><dd><code>{{.Blueprint.Path}}</code></dd>
+        {{if .Blueprint.NamespaceServiceRef}}<dt>Namespace-Service</dt><dd><code>{{.Blueprint.NamespaceServiceRef}}</code></dd>{{end}}
       </dl>
     </div>
 
     <div class="bp-card">
-      <h3><span class="mi">checklist</span> Requirements & Controls</h3>
+      <h3><span class="mi">checklist</span> Vorgaben & Kontrollen</h3>
+      <p class="section-intro">Rahmenbedingungen, Regeln und Nachweise, die bei der Umsetzung oder Prüfung dieses Blueprints relevant sind.</p>
       {{if .Blueprint.RequiredInputs}}
       <div class="req-section">
-        <h4>Required inputs</h4>
+        <h4>Pflicht-Eingaben <span style="font-weight:600;color:#94a3b8;text-transform:none;letter-spacing:0">(Required inputs)</span></h4>
         <div class="req-tags">{{range .Blueprint.RequiredInputs}}<span class="req-tag">{{.}}</span>{{end}}</div>
       </div>
       {{end}}
       {{if .Blueprint.RequiredServices}}
       <div class="req-section">
-        <h4>Required services</h4>
+        <h4>Benötigte Services</h4>
         <div class="req-tags">{{range .Blueprint.RequiredServices}}<span class="req-tag">{{.ServiceRef}}{{if .ServiceBlueprintRef}} → {{.ServiceBlueprintRef}}{{end}}</span>{{end}}</div>
       </div>
       {{end}}
       {{if .Blueprint.Rules}}
       <div class="req-section">
-        <h4>Rules</h4>
+        <h4>Regeln</h4>
         <div class="req-tags">{{range .Blueprint.Rules}}<span class="req-tag">{{.}}</span>{{end}}</div>
       </div>
       {{end}}
       {{if .Blueprint.QualityCriteria}}
       <div class="req-section">
-        <h4>Quality criteria</h4>
+        <h4>Qualitätskriterien</h4>
         <div class="req-tags">{{range .Blueprint.QualityCriteria}}<span class="req-tag">{{.}}</span>{{end}}</div>
       </div>
       {{end}}
       {{if .Blueprint.EvidenceRequirements}}
       <div class="req-section">
-        <h4>Evidence requirements</h4>
+        <h4>Nachweispflichten</h4>
         <div class="req-tags">{{range .Blueprint.EvidenceRequirements}}<span class="req-tag">{{.}}</span>{{end}}</div>
       </div>
       {{end}}
       {{if .Blueprint.Capabilities}}
       <div class="req-section">
-        <h4>Capabilities</h4>
+        <h4>Fähigkeiten</h4>
         <div class="req-tags">{{range .Blueprint.Capabilities}}<span class="req-tag">{{.}}</span>{{end}}</div>
       </div>
       {{end}}
@@ -158,9 +177,10 @@
 
     {{/* Requirements checklist */}}
     <div class="bp-card" id="req-card">
-      <h3><span class="mi">checklist_rtl</span> Anforderungen
+      <h3><span class="mi">checklist_rtl</span> Aufgabenliste
         <span id="req-count" style="font-size:.75rem;background:#eef2ff;color:#4338ca;padding:1px 8px;border-radius:8px;font-weight:600;margin-left:.3rem">{{len .Blueprint.Requirements}}</span>
       </h3>
+      <p class="section-intro">Benutzer können hier offene Anforderungen erfassen und direkt abhaken.</p>
       <div id="req-list" style="display:flex;flex-direction:column;gap:.15rem">
         {{range .Blueprint.Requirements}}
         <div class="det-req-row" data-req-id="{{.ID}}">
@@ -185,53 +205,67 @@
   <div style="display:flex;flex-direction:column;gap:1rem">
     {{if eq .Blueprint.Type "product_blueprint"}}
     <div class="bp-card">
-      <h3><span class="mi">account_tree</span> Fulfillment required services
+      <h3><span class="mi">account_tree</span> Erfüllende Services
         <span style="font-size:.75rem;background:#eef2ff;color:#4338ca;padding:1px 8px;border-radius:8px;font-weight:600;margin-left:.3rem">{{len .Blueprint.Fulfillment.RequiredServices}}</span>
       </h3>
+      <p class="section-intro">Diese Services werden benötigt, um das Produkt bereitzustellen. Jede Karte zeigt Rolle, Pflichtstatus und ob der Service in derselben oder in einer anderen Domäne liegt.</p>
       <div class="svc-list">
         {{range .Blueprint.Fulfillment.RequiredServices}}
-        <div class="svc-card">
-          <div class="svc-card-icon">miscellaneous_services</div>
+        <div class="svc-card fulfillment-card">
+          <div class="svc-card-icon"><span class="mi">miscellaneous_services</span></div>
           <div class="svc-card-body">
             <div class="svc-card-title"><code>{{.ServiceRef}}</code></div>
-            <div class="svc-card-sub">Role: {{.Role}} · Required: {{.Required}}{{if .Description}} · {{.Description}}{{end}}</div>
-            <div class="svc-card-stats"><span class="stat-chip {{if eq .ResolutionStatus "resolved"}}ok{{else}}warn{{end}}">{{.ResolutionStatus}}</span>{{if .ResolvedDomain}}<span class="stat-chip">{{.ResolvedDomain}} / {{.ResolvedService}}</span>{{end}}<span class="stat-chip {{if .CrossDomain}}warn{{else if eq .ResolutionStatus "resolved"}}ok{{end}}">{{.FulfillmentType}}</span>{{if .SLA}}<span class="stat-chip ok">SLA {{if .SLA.Target}}{{.SLA.Target}}{{else}}{{.SLA.Name}}{{end}}</span>{{end}}{{if .OLA}}<span class="stat-chip ok">OLA {{if .OLA.Target}}{{.OLA.Target}}{{else}}{{.OLA.Name}}{{end}}</span>{{end}}</div>{{if .CrossDomain}}<div class="svc-card-sub">This product is offered by {{$.Blueprint.OfferedBy}} and uses a service owned by {{.ResolvedDomain}}.</div>{{end}}
+            <div class="svc-card-sub">Rolle: <strong>{{.Role}}</strong> · {{if .Required}}Pflichtservice{{else}}Optional{{end}}{{if .Description}} · {{.Description}}{{end}}</div>
+            <div class="svc-card-stats">
+              <span class="stat-chip {{if eq .ResolutionStatus "resolved"}}ok{{else}}warn{{end}}">{{if eq .ResolutionStatus "resolved"}}auflösbar{{else}}{{.ResolutionStatus}}{{end}}</span>
+              {{if .ResolvedDomain}}<span class="stat-chip">{{.ResolvedDomain}} / {{.ResolvedService}}</span>{{end}}
+              <span class="stat-chip {{if .CrossDomain}}warn{{else if eq .ResolutionStatus "resolved"}}ok{{end}}">{{if .CrossDomain}}domänenübergreifend{{else}}{{.FulfillmentType}}{{end}}</span>
+              {{if .SLA}}<span class="stat-chip ok">SLA {{if .SLA.Target}}{{.SLA.Target}}{{else}}{{.SLA.Name}}{{end}}</span>{{end}}
+              {{if .OLA}}<span class="stat-chip ok">OLA {{if .OLA.Target}}{{.OLA.Target}}{{else}}{{.OLA.Name}}{{end}}</span>{{end}}
+            </div>
+            {{if .CrossDomain}}<div class="svc-card-sub">Hinweis: Das Produkt wird von {{$.Blueprint.OfferedBy}} angeboten und nutzt einen Service der Domäne {{.ResolvedDomain}}.</div>{{end}}
           </div>
         </div>
-        {{else}}<div class="svc-empty">No fulfillment services yet.</div>{{end}}
+        {{else}}<div class="svc-empty">Noch keine erfüllenden Services definiert.</div>{{end}}
       </div>
-      <form method="post" action="/products/fulfillment" style="display:grid;gap:.45rem;margin-top:.8rem">
+      <form method="post" action="/products/fulfillment" class="bp-form">
         <input type="hidden" name="product_id" value="{{.Blueprint.ID}}">
-        <input name="service_ref" placeholder="identity.blumer.cloud/user-account" required>
-        <select name="role"><option>primary</option><option>supporting</option><option>optional</option><option>dependency</option></select>
-        <label style="font-size:.8rem"><input type="checkbox" name="required" checked> Required</label>
-        <input name="description" placeholder="Description">
+        <div class="help-box">Service-Referenz im Format <code>domain/service</code> eintragen, zum Beispiel <code>identity.blumer.cloud/user-account</code>.</div>
+        <div class="bp-form-grid">
+          <label>Service-Referenz<input name="service_ref" placeholder="identity.blumer.cloud/user-account" required></label>
+          <label>Rolle<select name="role"><option>primary</option><option>supporting</option><option>optional</option><option>dependency</option></select></label>
+        </div>
+        <label>Beschreibung<input name="description" placeholder="Warum wird dieser Service benötigt?"></label>
+        <label class="check"><input type="checkbox" name="required" checked> Pflichtservice für dieses Produkt</label>
         <button class="btn btn-primary" type="submit">Fulfillment Service hinzufügen</button>
       </form>
     </div>
     <div class="bp-card">
-      <h3><span class="mi">drive_file_move</span> Produkt verschieben</h3>
-      <p style="color:#64748b;font-size:.84rem;margin-top:0">Ändert <code>offered_by</code> auf die Zieldomäne. Der Catalog Index bleibt unverändert.</p>
-      <form method="post" action="/products/move" style="display:grid;gap:.45rem">
-        <input type="hidden" name="product_id" value="{{.Blueprint.ID}}">
-        <label style="font-size:.8rem;font-weight:600;color:#475569">Zieldomäne
-          <select name="target_domain" required style="width:100%;border:1px solid #d1d5db;border-radius:7px;padding:.38rem .6rem;margin-top:.2rem">
-            {{range .Domains}}<option value="{{.Canonical}}" {{if eq .Canonical $.Blueprint.OfferedBy}}disabled{{end}}>{{.Canonical}}{{if .Namespace.DisplayPath}} — {{.Namespace.DisplayPath}}{{end}}{{if eq .Canonical $.Blueprint.OfferedBy}} (aktuell){{end}}</option>{{end}}
-          </select>
-        </label>
-        <label style="font-size:.8rem"><input type="checkbox" name="update_owning_domain" {{if eq .Blueprint.OwningDomain .Blueprint.OfferedBy}}checked{{end}}> Owning domain ebenfalls auf die Zieldomäne setzen</label>
-        <button class="btn btn-primary" type="submit">Verschieben</button>
-      </form>
+      <details id="move-product">
+        <summary><span class="mi">drive_file_move</span> Produkt verschieben</summary>
+        <p class="section-intro" style="margin:.7rem 0 .85rem">Ändert <code>offered_by</code> auf die Zieldomäne. Der Catalog Index bleibt unverändert.</p>
+        <form method="post" action="/products/move" class="bp-form" style="margin-top:0">
+          <input type="hidden" name="product_id" value="{{.Blueprint.ID}}">
+          <label>Zieldomäne
+            <select name="target_domain" required>
+              {{range .Domains}}<option value="{{.Canonical}}" {{if eq .Canonical $.Blueprint.OfferedBy}}disabled{{end}}>{{.Canonical}}{{if .Namespace.DisplayPath}} — {{.Namespace.DisplayPath}}{{end}}{{if eq .Canonical $.Blueprint.OfferedBy}} (aktuell){{end}}</option>{{end}}
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" name="update_owning_domain" {{if eq .Blueprint.OwningDomain .Blueprint.OfferedBy}}checked{{end}}> Owning domain ebenfalls auf die Zieldomäne setzen</label>
+          <button class="btn btn-primary" type="submit">Verschieben</button>
+        </form>
+      </details>
     </div>
 
     <div class="bp-card">
-      <h3><span class="mi">settings</span> Service Blueprints
+      <h3><span class="mi">settings</span> Verknüpfte Service Blueprints
         <span style="font-size:.75rem;background:#eef2ff;color:#4338ca;padding:1px 8px;border-radius:8px;font-weight:600;margin-left:.3rem">{{len .ServiceBlueprints}}</span>
       </h3>
+      <p class="section-intro">Optionale technische Blueprint-Verknüpfungen. Für fachliche Produkt-Erfüllung sind oben die erfüllenden Services massgebend.</p>
       <div class="svc-list" id="svc-list">
         {{range .ServiceBlueprints}}
         <div class="svc-card" data-id="{{.ID}}">
-          <div class="svc-card-icon">settings</div>
+          <div class="svc-card-icon"><span class="mi">settings</span></div>
           <div class="svc-card-body">
             <div class="svc-card-title">{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</div>
             <div class="svc-card-sub">{{.ID}} · v{{.Version}}</div>
@@ -255,12 +289,13 @@
     {{else}}
     {{/* Service blueprint: show required services */}}
     <div class="bp-card">
-      <h3><span class="mi">account_tree</span> Required Service Blueprints</h3>
+      <h3><span class="mi">account_tree</span> Benötigte Service Blueprints</h3>
+      <p class="section-intro">Service Blueprints, die dieser Blueprint als Grundlage oder Abhängigkeit referenziert.</p>
       {{if .Blueprint.RequiredServiceBlueprints}}
       <div class="svc-list">
         {{range .Blueprint.RequiredServiceBlueprints}}
         <div class="svc-card">
-          <div class="svc-card-icon">inventory_2</div>
+          <div class="svc-card-icon"><span class="mi">inventory_2</span></div>
           <div class="svc-card-body">
             <div class="svc-card-title">{{.}}</div>
           </div>
