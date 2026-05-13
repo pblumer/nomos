@@ -547,6 +547,55 @@ func (h *handler) apiProcessRoutes(w http.ResponseWriter, r *http.Request) {
 func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/services/")
 	parts := strings.Split(rest, "/")
+
+	// GET/POST /api/v1/services/{domain}/{service}/methods
+	if len(parts) == 3 && parts[2] == "methods" {
+		domain, service := parts[0], parts[1]
+		if r.Method == http.MethodPost {
+			var req struct {
+				Method string `json:"method"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			dto, err := app.AddServiceMethod(h.cosmosPath, domain, service, req.Method)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusCreated, dto)
+			return
+		}
+		if r.Method == http.MethodGet {
+			dto, err := app.GetService(h.cosmosPath, domain, service)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, 200, map[string]any{"methods": dto.Methods})
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	// DELETE /api/v1/services/{domain}/{service}/methods/{method}
+	if len(parts) == 4 && parts[2] == "methods" {
+		domain, service, method := parts[0], parts[1], parts[3]
+		if r.Method == http.MethodDelete {
+			dto, err := app.RemoveServiceMethod(h.cosmosPath, domain, service, method)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, 200, dto)
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
 	if len(parts) != 2 {
 		http.NotFound(w, r)
 		return
