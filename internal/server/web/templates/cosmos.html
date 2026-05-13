@@ -599,18 +599,24 @@ function wireSteps(container,d){
   // Populate method datalist when service selection changes
   const svcSel=container.querySelector('#step-new-svc');
   const methodDl=container.querySelector('#step-method-list');
+  const methodInp=container.querySelector('#step-new-method');
   async function loadMethodSuggestions(serviceRef){
     if(!methodDl)return;
     methodDl.innerHTML='';
+    if(methodInp)methodInp.placeholder='Methode…';
     if(!serviceRef)return;
     const parts=serviceRef.split('/');
     if(parts.length<2)return;
     const domain=parts.slice(0,-1).join('/'),svc=parts[parts.length-1];
     try{const r=await fetch('/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svc)+'/methods');
-      if(r.ok){const d=await r.json();(d.methods||[]).forEach(m=>{const o=document.createElement('option');o.value=m;methodDl.appendChild(o);});}}
+      if(r.ok){const d=await r.json();const methods=d.methods||[];
+        methods.forEach(m=>{const o=document.createElement('option');o.value=m;methodDl.appendChild(o);});
+        if(methodInp)methodInp.placeholder=methods.length?'Methode wählen oder eingeben…':'Methode… (noch keine registriert)';}}
     catch(_){}
   }
   svcSel?.addEventListener('change',()=>loadMethodSuggestions(svcSel.value));
+  // Load immediately if a service is already selected
+  if(svcSel?.value)loadMethodSuggestions(svcSel.value);
   const addBtn=container.querySelector('#step-add-btn');
   async function doAddStep(){
     const name=container.querySelector('#step-new-name')?.value.trim();
