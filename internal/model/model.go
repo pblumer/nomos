@@ -177,11 +177,31 @@ type StepOutputSchema struct {
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 }
 
+// GatewayCondition describes one outgoing branch of the exclusive gateway that
+// follows a business rule task. The expression is evaluated against the
+// business rule task's output variables by the orchestration runtime.
+type GatewayCondition struct {
+	Output     string `yaml:"output" json:"output"`
+	Operator   string `yaml:"operator" json:"operator"`
+	Value      string `yaml:"value" json:"value"`
+	TargetStep string `yaml:"target_step,omitempty" json:"target_step,omitempty"`
+	Label      string `yaml:"label,omitempty" json:"label,omitempty"`
+}
+
+// DecisionGateway configures the exclusive gateway that is generated directly
+// after a business rule task.
+type DecisionGateway struct {
+	Name       string             `yaml:"name,omitempty" json:"name,omitempty"`
+	DefaultTo  string             `yaml:"default_to,omitempty" json:"default_to,omitempty"`
+	Conditions []GatewayCondition `yaml:"conditions,omitempty" json:"conditions,omitempty"`
+}
+
 // ProcessStep is one ordered step in a fulfillment process. Each step maps to
 // a service call (ArchiMate function/trigger).
 type ProcessStep struct {
 	ID         string             `yaml:"id" json:"id"`
 	Name       string             `yaml:"name" json:"name"`
+	TaskType   string             `yaml:"task_type,omitempty" json:"task_type,omitempty"`
 	ServiceRef string             `yaml:"service_ref" json:"service_ref"`
 	Method     string             `yaml:"method,omitempty" json:"method,omitempty"`
 	Role       string             `yaml:"role,omitempty" json:"role,omitempty"`
@@ -190,6 +210,7 @@ type ProcessStep struct {
 	DependsOn  []string           `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
 	Inputs     []StepInputBinding `yaml:"inputs,omitempty" json:"inputs,omitempty"`
 	Outputs    []StepOutputSchema `yaml:"outputs,omitempty" json:"outputs,omitempty"`
+	Gateway    *DecisionGateway   `yaml:"gateway,omitempty" json:"gateway,omitempty"`
 }
 
 type BPMNReference struct {
