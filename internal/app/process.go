@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/model"
@@ -237,6 +238,9 @@ func findProcessNode(path, id string) (processNode, error) {
 func processDTO(path string, n processNode, includeValidation bool) ProcessDTO {
 	bpmnPath := safeBPMNPath(filepath.Dir(n.Path), n.Meta.BPMN.File)
 	dto := ProcessDTO{ID: n.Meta.ID, Type: n.Meta.Type, Name: n.Meta.Name, Version: n.Meta.Version, Status: n.Meta.Status, Owner: n.Meta.Owner, Summary: n.Meta.Summary, Tags: n.Meta.Tags, RelatedProduct: n.Meta.RelatedProduct, BPMN: BPMNReferenceDTO{File: n.Meta.BPMN.File, ProcessID: n.Meta.BPMN.ProcessID, Primary: n.Meta.BPMN.Primary}, Path: n.Path, BPMNPath: bpmnPath}
+	for _, s := range n.Meta.Steps {
+		dto.Steps = append(dto.Steps, ProcessStepDTO{ID: s.ID, Name: s.Name, ServiceRef: s.ServiceRef, Method: s.Method, Role: s.Role, Required: s.Required, Notes: s.Notes})
+	}
 	for _, m := range n.Meta.TaskMappings {
 		dto.TaskMappings = append(dto.TaskMappings, ProcessTaskMappingDTO{BPMNElementID: m.BPMNElementID, TaskName: m.TaskName, BPMNElementType: m.BPMNElementType, ServiceRef: m.ServiceRef, Role: m.Role, Required: m.Required, Notes: m.Notes})
 	}
@@ -249,6 +253,82 @@ func processDTO(path string, n processNode, includeValidation bool) ProcessDTO {
 		dto.Validation = validateProcessDTO(path, dto)
 	}
 	return dto
+}
+
+func AddProcessStep(path, id string, req UpsertProcessStepRequest) (ProcessDTO, error) {
+	if strings.TrimSpace(req.Name) == "" {
+		return ProcessDTO{}, Error(CodeInvalidInput, "step name is required", http.StatusBadRequest, nil)
+	}
+	node, err := findProcessNode(path, id)
+	if err != nil {
+		return ProcessDTO{}, err
+	}
+	step := model.ProcessStep{
+		ID:         fmt.Sprintf("step-%d", time.Now().UnixNano()),
+		Name:       strings.TrimSpace(req.Name),
+		ServiceRef: strings.TrimSpace(req.ServiceRef),
+		Method:     strings.TrimSpace(req.Method),
+		Role:       firstNonEmpty(strings.TrimSpace(req.Role), "supporting"),
+		Required:   req.Required,
+		Notes:      req.Notes,
+	}
+	node.Meta.Steps = append(node.Meta.Steps, step)
+	if err := fsx.WriteYAML(node.Path, node.Meta); err != nil {
+		return ProcessDTO{}, Error(CodeInternalError, "Failed to write process: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetProcess(path, id)
+}
+
+func UpdateProcessStep(path, id, stepID string, req UpsertProcessStepRequest) (ProcessDTO, error) {
+	if strings.TrimSpace(req.Name) == "" {
+		return ProcessDTO{}, Error(CodeInvalidInput, "step name is required", http.StatusBadRequest, nil)
+	}
+	node, err := findProcessNode(path, id)
+	if err != nil {
+		return ProcessDTO{}, err
+	}
+	found := false
+	for i := range node.Meta.Steps {
+		if node.Meta.Steps[i].ID == stepID {
+			node.Meta.Steps[i].Name = strings.TrimSpace(req.Name)
+			node.Meta.Steps[i].ServiceRef = strings.TrimSpace(req.ServiceRef)
+			node.Meta.Steps[i].Method = strings.TrimSpace(req.Method)
+			node.Meta.Steps[i].Role = firstNonEmpty(strings.TrimSpace(req.Role), "supporting")
+			node.Meta.Steps[i].Required = req.Required
+			node.Meta.Steps[i].Notes = req.Notes
+			found = true
+			break
+		}
+	}
+	if !found {
+		return ProcessDTO{}, Error(CodeInvalidInput, "Step not found: "+stepID, http.StatusNotFound, nil)
+	}
+	if err := fsx.WriteYAML(node.Path, node.Meta); err != nil {
+		return ProcessDTO{}, Error(CodeInternalError, "Failed to write process: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetProcess(path, id)
+}
+
+func RemoveProcessStep(path, id, stepID string) (ProcessDTO, error) {
+	node, err := findProcessNode(path, id)
+	if err != nil {
+		return ProcessDTO{}, err
+	}
+	n := len(node.Meta.Steps)
+	filtered := node.Meta.Steps[:0]
+	for _, s := range node.Meta.Steps {
+		if s.ID != stepID {
+			filtered = append(filtered, s)
+		}
+	}
+	if len(filtered) == n {
+		return ProcessDTO{}, Error(CodeInvalidInput, "Step not found: "+stepID, http.StatusNotFound, nil)
+	}
+	node.Meta.Steps = filtered
+	if err := fsx.WriteYAML(node.Path, node.Meta); err != nil {
+		return ProcessDTO{}, Error(CodeInternalError, "Failed to write process: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetProcess(path, id)
 }
 
 func ExtractBPMNTasks(xmlText string) ([]BPMNTaskDTO, error) {
@@ -317,15 +397,19 @@ func validateProcessDTO(path string, p ProcessDTO) ProcessValidationDTO {
 	} else if _, err := GetBlueprint(path, p.RelatedProduct); err != nil {
 		add("PROCESS_PRODUCT_UNRESOLVED", "error", "Related product does not exist")
 	}
+	hasSteps := len(p.Steps) > 0
 	if strings.TrimSpace(p.BPMN.File) == "" {
-		add("BPMN_FILE_MISSING", "error", "BPMN file reference is required")
+		if !hasSteps {
+			add("PROCESS_NO_DEFINITION", "warning", "Process has neither steps nor a BPMN file defined")
+		}
 	} else if _, err := os.Stat(p.BPMNPath); err != nil {
-		add("BPMN_FILE_NOT_FOUND", "error", "BPMN XML file was not found")
-	}
-	if data, err := os.ReadFile(p.BPMNPath); err == nil {
+		if !hasSteps {
+			add("BPMN_FILE_NOT_FOUND", "error", "BPMN XML file was not found")
+		}
+	} else if data, err := os.ReadFile(p.BPMNPath); err == nil {
 		if tasks, err := ExtractBPMNTasks(string(data)); err != nil {
 			add("BPMN_INVALID", "error", "BPMN XML cannot be parsed")
-		} else if len(tasks) == 0 {
+		} else if len(tasks) == 0 && !hasSteps {
 			add("BPMN_NO_TASKS", "warning", "BPMN process has no mappable tasks")
 		}
 	}

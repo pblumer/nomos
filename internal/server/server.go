@@ -489,6 +489,58 @@ func (h *handler) apiProcessRoutes(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, dto)
 		return
 	}
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "steps" {
+		switch r.Method {
+		case http.MethodGet:
+			dto, err := app.GetProcess(h.cosmosPath, parts[0])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"items": dto.Steps, "count": len(dto.Steps)})
+		case http.MethodPost:
+			var req app.UpsertProcessStepRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			dto, err := app.AddProcessStep(h.cosmosPath, parts[0], req)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusCreated, dto)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+		return
+	}
+	if len(parts) == 3 && parts[0] != "" && parts[1] == "steps" && parts[2] != "" {
+		switch r.Method {
+		case http.MethodPut:
+			var req app.UpsertProcessStepRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			dto, err := app.UpdateProcessStep(h.cosmosPath, parts[0], parts[2], req)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+		case http.MethodDelete:
+			dto, err := app.RemoveProcessStep(h.cosmosPath, parts[0], parts[2])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+		return
+	}
 	htmlNotFound(w, r)
 }
 
