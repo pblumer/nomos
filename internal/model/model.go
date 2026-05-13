@@ -168,13 +168,14 @@ type Process struct {
 // ProcessStep is one ordered step in a fulfillment process. Each step maps to
 // a service call (ArchiMate function/trigger).
 type ProcessStep struct {
-	ID         string `yaml:"id" json:"id"`
-	Name       string `yaml:"name" json:"name"`
-	ServiceRef string `yaml:"service_ref" json:"service_ref"`
-	Method     string `yaml:"method,omitempty" json:"method,omitempty"`
-	Role       string `yaml:"role,omitempty" json:"role,omitempty"`
-	Required   bool   `yaml:"required" json:"required"`
-	Notes      string `yaml:"notes,omitempty" json:"notes,omitempty"`
+	ID         string   `yaml:"id" json:"id"`
+	Name       string   `yaml:"name" json:"name"`
+	ServiceRef string   `yaml:"service_ref" json:"service_ref"`
+	Method     string   `yaml:"method,omitempty" json:"method,omitempty"`
+	Role       string   `yaml:"role,omitempty" json:"role,omitempty"`
+	Required   bool     `yaml:"required" json:"required"`
+	Notes      string   `yaml:"notes,omitempty" json:"notes,omitempty"`
+	DependsOn  []string `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
 }
 
 type BPMNReference struct {

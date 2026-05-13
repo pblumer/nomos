@@ -258,11 +258,13 @@ func productSummaryDTO(tree cosmosfs.Tree, bp model.Blueprint, sourcePath string
 				for i, step := range process.Meta.Steps {
 					group.Steps = append(group.Steps, ProcessStepSummaryDTO{
 						StepNum:    i + 1,
+						ID:         step.ID,
 						Name:       step.Name,
 						ServiceRef: step.ServiceRef,
 						Method:     step.Method,
 						Role:       step.Role,
 						Required:   step.Required,
+						DependsOn:  step.DependsOn,
 					})
 				}
 				processGroups = append(processGroups, group)

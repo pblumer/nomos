@@ -127,12 +127,14 @@ type RequiredServiceRefDTO struct {
 }
 
 type ProcessStepSummaryDTO struct {
-	StepNum    int    `json:"step_num"`
-	Name       string `json:"name"`
-	ServiceRef string `json:"service_ref"`
-	Method     string `json:"method,omitempty"`
-	Role       string `json:"role,omitempty"`
-	Required   bool   `json:"required"`
+	StepNum    int      `json:"step_num"`
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	ServiceRef string   `json:"service_ref"`
+	Method     string   `json:"method,omitempty"`
+	Role       string   `json:"role,omitempty"`
+	Required   bool     `json:"required"`
+	DependsOn  []string `json:"depends_on,omitempty"`
 }
 
 type ProcessGroupDTO struct {
@@ -423,12 +425,13 @@ type ProcessStepDTO struct {
 }
 
 type UpsertProcessStepRequest struct {
-	Name       string `json:"name"`
-	ServiceRef string `json:"service_ref"`
-	Method     string `json:"method"`
-	Role       string `json:"role"`
-	Required   bool   `json:"required"`
-	Notes      string `json:"notes"`
+	Name       string   `json:"name"`
+	ServiceRef string   `json:"service_ref"`
+	Method     string   `json:"method"`
+	Role       string   `json:"role"`
+	Required   bool     `json:"required"`
+	Notes      string   `json:"notes"`
+	DependsOn  []string `json:"depends_on,omitempty"`
 }
 
 type BPMNReferenceDTO struct {
