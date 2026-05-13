@@ -236,6 +236,7 @@ func productSummaryDTO(tree cosmosfs.Tree, bp model.Blueprint, sourcePath string
 	}
 	processCount := 0
 	unmappedTaskCount := 0
+	var processSteps []ProcessStepSummaryDTO
 	if processes, err := scanProcesses(tree.Path); err == nil {
 		processRefs := map[string]bool{}
 		for _, id := range bp.Processes {
@@ -252,9 +253,21 @@ func productSummaryDTO(tree cosmosfs.Tree, bp model.Blueprint, sourcePath string
 					unmappedTaskCount++
 				}
 			}
+			if len(processSteps) == 0 {
+				for i, step := range process.Meta.Steps {
+					processSteps = append(processSteps, ProcessStepSummaryDTO{
+						StepNum:    i + 1,
+						Name:       step.Name,
+						ServiceRef: step.ServiceRef,
+						Method:     step.Method,
+						Role:       step.Role,
+						Required:   step.Required,
+					})
+				}
+			}
 		}
 	}
-	return ProductSummaryDTO{ID: bp.ID, Name: bp.Name, Version: bp.Version, Status: bp.Status, OfferedBy: bp.OfferedBy, OwningDomain: firstNonEmpty(bp.OwningDomain, bp.OfferedBy), SourcePath: sourcePath, CatalogPath: sourcePath, FulfillmentRequiredServicesCount: len(fulfillment.RequiredServices), FulfillmentUnresolvedCount: unresolved, ProcessCount: processCount, UnmappedTaskCount: unmappedTaskCount, Fulfillment: fulfillment}
+	return ProductSummaryDTO{ID: bp.ID, Name: bp.Name, Version: bp.Version, Status: bp.Status, OfferedBy: bp.OfferedBy, OwningDomain: firstNonEmpty(bp.OwningDomain, bp.OfferedBy), SourcePath: sourcePath, CatalogPath: sourcePath, FulfillmentRequiredServicesCount: len(fulfillment.RequiredServices), FulfillmentUnresolvedCount: unresolved, ProcessCount: processCount, UnmappedTaskCount: unmappedTaskCount, Fulfillment: fulfillment, ProcessSteps: processSteps}
 }
 
 func ProductsOfferedBy(path, domainCanonical string) ([]ProductSummaryDTO, error) {
@@ -396,6 +409,15 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 		for _, product := range d.Products {
 			p := product
 			productNode := NamespaceTreeNodeDTO{Label: product.Name, Kind: "product", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true}
+			if len(product.ProcessSteps) > 0 {
+				stepsParent := NamespaceTreeNodeDTO{Label: fmt.Sprintf("Prozessschritte (%d)", len(product.ProcessSteps)), Kind: "process-steps-parent", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true, FulfillmentCount: len(product.ProcessSteps)}
+				for _, step := range product.ProcessSteps {
+					s := step
+					label := fmt.Sprintf("%d · %s", step.StepNum, step.Name)
+					stepsParent.Children = append(stepsParent.Children, NamespaceTreeNodeDTO{Label: label, Kind: "process-step", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, ProcessStep: &s, Persisted: true, CanOpenDetails: true, TreeTarget: "service:" + step.ServiceRef})
+				}
+				productNode.Children = append(productNode.Children, stepsParent)
+			}
 			fulfillmentParent := NamespaceTreeNodeDTO{Label: "Fulfillment Services", Kind: "product-fulfillment-parent", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true, FulfillmentCount: len(product.Fulfillment.RequiredServices)}
 			if len(product.Fulfillment.RequiredServices) == 0 {
 				fulfillmentParent.Children = append(fulfillmentParent.Children, NamespaceTreeNodeDTO{Label: "No fulfillment services yet", Kind: "product-fulfillment-empty", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true})
@@ -419,7 +441,11 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 		serviceParent := &node.Children[idx]
 		for _, svc := range d.Services {
 			s := svc
-			serviceParent.Children = append(serviceParent.Children, NamespaceTreeNodeDTO{Label: svc.Name, Kind: "service", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, Persisted: true, CanOpenDetails: true})
+			svcNode := NamespaceTreeNodeDTO{Label: svc.Name, Kind: "service", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, Persisted: true, CanOpenDetails: true}
+			for _, method := range svc.Methods {
+				svcNode.Children = append(svcNode.Children, NamespaceTreeNodeDTO{Label: method, Kind: "service-method", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, Persisted: true})
+			}
+			serviceParent.Children = append(serviceParent.Children, svcNode)
 		}
 	}
 }
