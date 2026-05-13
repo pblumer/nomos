@@ -417,18 +417,15 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 					stepsParent.Children = append(stepsParent.Children, NamespaceTreeNodeDTO{Label: label, Kind: "process-step", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, ProcessStep: &s, Persisted: true, CanOpenDetails: true, TreeTarget: "service:" + step.ServiceRef})
 				}
 				productNode.Children = append(productNode.Children, stepsParent)
-			}
-			fulfillmentParent := NamespaceTreeNodeDTO{Label: "Fulfillment Services", Kind: "product-fulfillment-parent", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true, FulfillmentCount: len(product.Fulfillment.RequiredServices)}
-			if len(product.Fulfillment.RequiredServices) == 0 {
-				fulfillmentParent.Children = append(fulfillmentParent.Children, NamespaceTreeNodeDTO{Label: "No fulfillment services yet", Kind: "product-fulfillment-empty", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true})
-			} else {
+			} else if len(product.Fulfillment.RequiredServices) > 0 {
+				fulfillmentParent := NamespaceTreeNodeDTO{Label: "Fulfillment Services", Kind: "product-fulfillment-parent", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true, FulfillmentCount: len(product.Fulfillment.RequiredServices)}
 				for _, svc := range product.Fulfillment.RequiredServices {
 					f := svc
 					label := firstNonEmpty(svc.ServiceRef, svc.ResolvedService)
 					fulfillmentParent.Children = append(fulfillmentParent.Children, NamespaceTreeNodeDTO{Label: label, Kind: "product-fulfillment-service", Canonical: svc.ServiceRef, CanonicalName: d.Canonical, Product: &p, Fulfillment: &f, Persisted: true, CanOpenDetails: true, TreeTarget: svc.TreeTarget})
 				}
+				productNode.Children = append(productNode.Children, fulfillmentParent)
 			}
-			productNode.Children = append(productNode.Children, fulfillmentParent)
 			productParent.Children = append(productParent.Children, productNode)
 		}
 	}
