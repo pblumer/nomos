@@ -1,6 +1,6 @@
 # 016 Domain-owned product offerings
 
-Status: Implemented foundation step for [ADR-0001](../adr/0001-domain-owned-product-offerings.md).
+Status: Implemented foundation step for [ADR-0007](adr/ADR-0007-domain-owned-product-offerings.md).
 
 ## Why products are domain-owned offerings
 
