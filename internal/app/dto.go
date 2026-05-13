@@ -136,20 +136,20 @@ type ProcessStepSummaryDTO struct {
 }
 
 type ProductSummaryDTO struct {
-	ID                               string                `json:"id"`
-	Name                             string                `json:"name"`
-	Version                          string                `json:"version"`
-	Status                           string                `json:"status"`
-	OfferedBy                        string                `json:"offered_by"`
-	OwningDomain                     string                `json:"owning_domain"`
-	SourcePath                       string                `json:"source_path,omitempty"`
-	CatalogPath                      string                `json:"catalog_path,omitempty"`
-	FulfillmentRequiredServicesCount int                      `json:"fulfillment_required_services_count"`
-	FulfillmentUnresolvedCount       int                      `json:"fulfillment_unresolved_count"`
-	ProcessCount                     int                      `json:"process_count"`
-	UnmappedTaskCount                int                      `json:"unmapped_task_count"`
-	Fulfillment                      ProductFulfillmentDTO    `json:"fulfillment,omitempty"`
-	ProcessSteps                     []ProcessStepSummaryDTO  `json:"process_steps,omitempty"`
+	ID                               string                  `json:"id"`
+	Name                             string                  `json:"name"`
+	Version                          string                  `json:"version"`
+	Status                           string                  `json:"status"`
+	OfferedBy                        string                  `json:"offered_by"`
+	OwningDomain                     string                  `json:"owning_domain"`
+	SourcePath                       string                  `json:"source_path,omitempty"`
+	CatalogPath                      string                  `json:"catalog_path,omitempty"`
+	FulfillmentRequiredServicesCount int                     `json:"fulfillment_required_services_count"`
+	FulfillmentUnresolvedCount       int                     `json:"fulfillment_unresolved_count"`
+	ProcessCount                     int                     `json:"process_count"`
+	UnmappedTaskCount                int                     `json:"unmapped_task_count"`
+	Fulfillment                      ProductFulfillmentDTO   `json:"fulfillment,omitempty"`
+	ProcessSteps                     []ProcessStepSummaryDTO `json:"process_steps,omitempty"`
 }
 
 type ServiceRefDTO struct {
