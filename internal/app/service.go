@@ -259,6 +259,7 @@ func productSummaryDTO(tree cosmosfs.Tree, bp model.Blueprint, sourcePath string
 					StepNum:    i + 1,
 					ID:         step.ID,
 					Name:       step.Name,
+					TaskType:   normalizedStepTaskType(step.TaskType),
 					ServiceRef: step.ServiceRef,
 					Method:     step.Method,
 					Role:       step.Role,
@@ -266,6 +267,7 @@ func productSummaryDTO(tree cosmosfs.Tree, bp model.Blueprint, sourcePath string
 					DependsOn:  step.DependsOn,
 					Inputs:     stepsInputsToDTO(step.Inputs),
 					Outputs:    stepsOutputsToDTO(step.Outputs),
+					Gateway:    gatewayToDTO(step.Gateway),
 				})
 			}
 			processGroups = append(processGroups, group)

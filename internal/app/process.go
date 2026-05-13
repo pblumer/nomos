@@ -239,7 +239,7 @@ func processDTO(path string, n processNode, includeValidation bool) ProcessDTO {
 	bpmnPath := safeBPMNPath(filepath.Dir(n.Path), n.Meta.BPMN.File)
 	dto := ProcessDTO{ID: n.Meta.ID, Type: n.Meta.Type, Name: n.Meta.Name, Version: n.Meta.Version, Status: n.Meta.Status, Owner: n.Meta.Owner, Summary: n.Meta.Summary, Tags: n.Meta.Tags, RelatedProduct: n.Meta.RelatedProduct, BPMN: BPMNReferenceDTO{File: n.Meta.BPMN.File, ProcessID: n.Meta.BPMN.ProcessID, Primary: n.Meta.BPMN.Primary}, Path: n.Path, BPMNPath: bpmnPath}
 	for _, s := range n.Meta.Steps {
-		dto.Steps = append(dto.Steps, ProcessStepDTO{ID: s.ID, Name: s.Name, ServiceRef: s.ServiceRef, Method: s.Method, Role: s.Role, Required: s.Required, Notes: s.Notes, DependsOn: s.DependsOn, Inputs: stepsInputsToDTO(s.Inputs), Outputs: stepsOutputsToDTO(s.Outputs)})
+		dto.Steps = append(dto.Steps, ProcessStepDTO{ID: s.ID, Name: s.Name, TaskType: normalizedStepTaskType(s.TaskType), ServiceRef: s.ServiceRef, Method: s.Method, Role: s.Role, Required: s.Required, Notes: s.Notes, DependsOn: s.DependsOn, Inputs: stepsInputsToDTO(s.Inputs), Outputs: stepsOutputsToDTO(s.Outputs), Gateway: gatewayToDTO(s.Gateway)})
 	}
 	for _, m := range n.Meta.TaskMappings {
 		dto.TaskMappings = append(dto.TaskMappings, ProcessTaskMappingDTO{BPMNElementID: m.BPMNElementID, TaskName: m.TaskName, BPMNElementType: m.BPMNElementType, ServiceRef: m.ServiceRef, Role: m.Role, Required: m.Required, Notes: m.Notes})
@@ -266,6 +266,7 @@ func AddProcessStep(path, id string, req UpsertProcessStepRequest) (ProcessDTO, 
 	step := model.ProcessStep{
 		ID:         fmt.Sprintf("step-%d", time.Now().UnixNano()),
 		Name:       strings.TrimSpace(req.Name),
+		TaskType:   normalizedStepTaskType(req.TaskType),
 		ServiceRef: strings.TrimSpace(req.ServiceRef),
 		Method:     strings.TrimSpace(req.Method),
 		Role:       firstNonEmpty(strings.TrimSpace(req.Role), "supporting"),
@@ -274,6 +275,7 @@ func AddProcessStep(path, id string, req UpsertProcessStepRequest) (ProcessDTO, 
 		DependsOn:  req.DependsOn,
 		Inputs:     dtoInputsToModel(req.Inputs),
 		Outputs:    dtoOutputsToModel(req.Outputs),
+		Gateway:    gatewayToModel(req.Gateway, normalizedStepTaskType(req.TaskType)),
 	}
 	node.Meta.Steps = append(node.Meta.Steps, step)
 	if err := fsx.WriteYAML(node.Path, node.Meta); err != nil {
@@ -294,6 +296,7 @@ func UpdateProcessStep(path, id, stepID string, req UpsertProcessStepRequest) (P
 	for i := range node.Meta.Steps {
 		if node.Meta.Steps[i].ID == stepID {
 			node.Meta.Steps[i].Name = strings.TrimSpace(req.Name)
+			node.Meta.Steps[i].TaskType = normalizedStepTaskType(req.TaskType)
 			node.Meta.Steps[i].ServiceRef = strings.TrimSpace(req.ServiceRef)
 			node.Meta.Steps[i].Method = strings.TrimSpace(req.Method)
 			node.Meta.Steps[i].Role = firstNonEmpty(strings.TrimSpace(req.Role), "supporting")
@@ -302,6 +305,7 @@ func UpdateProcessStep(path, id, stepID string, req UpsertProcessStepRequest) (P
 			node.Meta.Steps[i].DependsOn = req.DependsOn
 			node.Meta.Steps[i].Inputs = dtoInputsToModel(req.Inputs)
 			node.Meta.Steps[i].Outputs = dtoOutputsToModel(req.Outputs)
+			node.Meta.Steps[i].Gateway = gatewayToModel(req.Gateway, normalizedStepTaskType(req.TaskType))
 			found = true
 			break
 		}
@@ -442,6 +446,17 @@ func validateProcessDTO(path string, p ProcessDTO) ProcessValidationDTO {
 			if s.Required && s.SLA == nil && s.SLARef == "" {
 				add("SERVICE_SLA_MISSING", "warning", "Required service lacks SLA metadata: "+s.ServiceRef)
 			}
+		}
+	}
+	for _, step := range p.Steps {
+		if normalizedStepTaskType(step.TaskType) != "businessRuleTask" {
+			continue
+		}
+		if len(step.Outputs) == 0 {
+			add("BUSINESS_RULE_OUTPUTS_MISSING", "warning", "Business Rule task should define output variables: "+firstNonEmpty(step.Name, step.ID))
+		}
+		if step.Gateway == nil {
+			add("BUSINESS_RULE_GATEWAY_MISSING", "error", "Business Rule task must be followed by a gateway: "+firstNonEmpty(step.Name, step.ID))
 		}
 	}
 	for _, m := range p.TaskMappings {
@@ -631,6 +646,48 @@ func dtoOutputsToModel(outs []StepOutputSchemaDTO) []model.StepOutputSchema {
 	out := make([]model.StepOutputSchema, len(outs))
 	for i, s := range outs {
 		out[i] = model.StepOutputSchema{Name: s.Name, Type: s.Type, Description: s.Description}
+	}
+	return out
+}
+
+func normalizedStepTaskType(taskType string) string {
+	switch strings.TrimSpace(taskType) {
+	case "businessRuleTask", "bpmn:businessRuleTask":
+		return "businessRuleTask"
+	default:
+		return "serviceTask"
+	}
+}
+
+func gatewayToDTO(g *model.DecisionGateway) *DecisionGatewayDTO {
+	if g == nil {
+		return nil
+	}
+	out := &DecisionGatewayDTO{Name: g.Name, DefaultTo: g.DefaultTo}
+	for _, c := range g.Conditions {
+		out.Conditions = append(out.Conditions, GatewayConditionDTO{Output: c.Output, Operator: c.Operator, Value: c.Value, TargetStep: c.TargetStep, Label: c.Label})
+	}
+	return out
+}
+
+func gatewayToModel(g *DecisionGatewayDTO, taskType string) *model.DecisionGateway {
+	if normalizedStepTaskType(taskType) != "businessRuleTask" {
+		return nil
+	}
+	out := &model.DecisionGateway{Name: strings.TrimSpace("Entscheidung")}
+	if g != nil {
+		out.Name = strings.TrimSpace(firstNonEmpty(g.Name, "Entscheidung"))
+		out.DefaultTo = strings.TrimSpace(g.DefaultTo)
+		for _, c := range g.Conditions {
+			if strings.TrimSpace(c.Output) == "" {
+				continue
+			}
+			operator := strings.TrimSpace(c.Operator)
+			if operator == "" {
+				operator = "=="
+			}
+			out.Conditions = append(out.Conditions, model.GatewayCondition{Output: strings.TrimSpace(c.Output), Operator: operator, Value: strings.TrimSpace(c.Value), TargetStep: strings.TrimSpace(c.TargetStep), Label: strings.TrimSpace(c.Label)})
+		}
 	}
 	return out
 }

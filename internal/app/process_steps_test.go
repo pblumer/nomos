@@ -362,3 +362,54 @@ func TestIOConversionHelpers_EmptySlices(t *testing.T) {
 		t.Fatalf("expected empty, got %v", ms)
 	}
 }
+
+func TestAddProcessStep_BusinessRuleGateway(t *testing.T) {
+	p, _, procID := createProcessForStepTests(t)
+
+	got, err := AddProcessStep(p, procID, UpsertProcessStepRequest{
+		Name:     "Evaluate mailbox policy",
+		TaskType: "businessRuleTask",
+		Outputs:  []StepOutputSchemaDTO{{Name: "approved", Type: "boolean"}},
+		Gateway: &DecisionGatewayDTO{
+			Name: "Mailbox decision",
+			Conditions: []GatewayConditionDTO{{
+				Output:   "approved",
+				Operator: "==",
+				Value:    "true",
+				Label:    "approved",
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := got.Steps[0]
+	if s.TaskType != "businessRuleTask" {
+		t.Fatalf("expected businessRuleTask, got %q", s.TaskType)
+	}
+	if s.Gateway == nil || s.Gateway.Name != "Mailbox decision" || len(s.Gateway.Conditions) != 1 {
+		t.Fatalf("expected gateway condition, got %+v", s.Gateway)
+	}
+	if s.Gateway.Conditions[0].Output != "approved" || s.Gateway.Conditions[0].Value != "true" {
+		t.Fatalf("unexpected gateway condition: %+v", s.Gateway.Conditions[0])
+	}
+}
+
+func TestAddProcessStep_ServiceTaskIgnoresGateway(t *testing.T) {
+	p, _, procID := createProcessForStepTests(t)
+
+	got, err := AddProcessStep(p, procID, UpsertProcessStepRequest{
+		Name:     "Provision Account",
+		TaskType: "serviceTask",
+		Gateway:  &DecisionGatewayDTO{Name: "ignored"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Steps[0].TaskType != "serviceTask" {
+		t.Fatalf("expected serviceTask, got %q", got.Steps[0].TaskType)
+	}
+	if got.Steps[0].Gateway != nil {
+		t.Fatalf("service task must not persist gateway: %+v", got.Steps[0].Gateway)
+	}
+}

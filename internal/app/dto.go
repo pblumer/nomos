@@ -138,10 +138,25 @@ type StepOutputSchemaDTO struct {
 	Description string `json:"description,omitempty"`
 }
 
+type GatewayConditionDTO struct {
+	Output     string `json:"output"`
+	Operator   string `json:"operator"`
+	Value      string `json:"value"`
+	TargetStep string `json:"target_step,omitempty"`
+	Label      string `json:"label,omitempty"`
+}
+
+type DecisionGatewayDTO struct {
+	Name       string                `json:"name,omitempty"`
+	DefaultTo  string                `json:"default_to,omitempty"`
+	Conditions []GatewayConditionDTO `json:"conditions,omitempty"`
+}
+
 type ProcessStepSummaryDTO struct {
 	StepNum    int                   `json:"step_num"`
 	ID         string                `json:"id"`
 	Name       string                `json:"name"`
+	TaskType   string                `json:"task_type,omitempty"`
 	ServiceRef string                `json:"service_ref"`
 	Method     string                `json:"method,omitempty"`
 	Role       string                `json:"role,omitempty"`
@@ -149,6 +164,7 @@ type ProcessStepSummaryDTO struct {
 	DependsOn  []string              `json:"depends_on,omitempty"`
 	Inputs     []StepInputBindingDTO `json:"inputs,omitempty"`
 	Outputs    []StepOutputSchemaDTO `json:"outputs,omitempty"`
+	Gateway    *DecisionGatewayDTO   `json:"gateway,omitempty"`
 }
 
 type ProcessGroupDTO struct {
@@ -431,6 +447,7 @@ type ProcessDTO struct {
 type ProcessStepDTO struct {
 	ID         string                `json:"id"`
 	Name       string                `json:"name"`
+	TaskType   string                `json:"task_type,omitempty"`
 	ServiceRef string                `json:"service_ref"`
 	Method     string                `json:"method,omitempty"`
 	Role       string                `json:"role,omitempty"`
@@ -439,10 +456,12 @@ type ProcessStepDTO struct {
 	DependsOn  []string              `json:"depends_on,omitempty"`
 	Inputs     []StepInputBindingDTO `json:"inputs,omitempty"`
 	Outputs    []StepOutputSchemaDTO `json:"outputs,omitempty"`
+	Gateway    *DecisionGatewayDTO   `json:"gateway,omitempty"`
 }
 
 type UpsertProcessStepRequest struct {
 	Name       string                `json:"name"`
+	TaskType   string                `json:"task_type"`
 	ServiceRef string                `json:"service_ref"`
 	Method     string                `json:"method"`
 	Role       string                `json:"role"`
@@ -451,6 +470,7 @@ type UpsertProcessStepRequest struct {
 	DependsOn  []string              `json:"depends_on,omitempty"`
 	Inputs     []StepInputBindingDTO `json:"inputs,omitempty"`
 	Outputs    []StepOutputSchemaDTO `json:"outputs,omitempty"`
+	Gateway    *DecisionGatewayDTO   `json:"gateway,omitempty"`
 }
 
 type BPMNReferenceDTO struct {
