@@ -26,7 +26,7 @@ import (
 func Execute() { _ = newRoot().Execute() }
 func newRoot() *cobra.Command {
 	root := &cobra.Command{Use: "nomos", Short: "Nomos Cosmos CLI", Long: "Nomos verwaltet lokale Cosmos Repositories."}
-	root.AddCommand(versionCmd(), cosmosCmd(), domainCmd(), serviceCmd(), blueprintCmd(), instanceCmd(), namespaceCmd(), validateCmd(), graphCmd(), verifyCmd(), serveCmd(), servicegraphCmd())
+	root.AddCommand(versionCmd(), cosmosCmd(), domainCmd(), serviceCmd(), blueprintCmd(), instanceCmd(), namespaceCmd(), validateCmd(), graphCmd(), verifyCmd(), serveCmd(), servicegraphCmd(), processCmd())
 	return root
 }
 func versionCmd() *cobra.Command {

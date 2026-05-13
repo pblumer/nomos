@@ -32,10 +32,12 @@ type Domain struct {
 }
 
 type ServiceLevelInfo struct {
-	Name         string `yaml:"name,omitempty" json:"name,omitempty"`
-	Target       string `yaml:"target,omitempty" json:"target,omitempty"`
-	Availability string `yaml:"availability,omitempty" json:"availability,omitempty"`
-	Description  string `yaml:"description,omitempty" json:"description,omitempty"`
+	Name          string `yaml:"name,omitempty" json:"name,omitempty"`
+	Owner         string `yaml:"owner,omitempty" json:"owner,omitempty"`
+	Target        string `yaml:"target,omitempty" json:"target,omitempty"`
+	Availability  string `yaml:"availability,omitempty" json:"availability,omitempty"`
+	SupportWindow string `yaml:"support_window,omitempty" json:"support_window,omitempty"`
+	Description   string `yaml:"description,omitempty" json:"description,omitempty"`
 }
 
 type Service struct {
@@ -92,6 +94,12 @@ type Blueprint struct {
 	OwningDomain              string                 `yaml:"owning_domain,omitempty" json:"owning_domain,omitempty"`
 	Fulfillment               ProductFulfillment     `yaml:"fulfillment,omitempty" json:"fulfillment,omitempty"`
 	Summary                   string                 `yaml:"summary" json:"summary"`
+	Purpose                   string                 `yaml:"purpose,omitempty" json:"purpose,omitempty"`
+	Description               string                 `yaml:"description,omitempty" json:"description,omitempty"`
+	Consumers                 []string               `yaml:"consumers,omitempty" json:"consumers,omitempty"`
+	LifecycleStatus           string                 `yaml:"lifecycle_status,omitempty" json:"lifecycle_status,omitempty"`
+	Tags                      []string               `yaml:"tags,omitempty" json:"tags,omitempty"`
+	Processes                 []string               `yaml:"processes,omitempty" json:"processes,omitempty"`
 	Variants                  []Variant              `yaml:"variants" json:"variants,omitempty"`
 	Capabilities              []string               `yaml:"capabilities" json:"capabilities,omitempty"`
 	TargetSystems             []string               `yaml:"target_systems" json:"target_systems,omitempty"`
@@ -135,6 +143,39 @@ type AttributeRule struct {
 	Label string `yaml:"label" json:"label"`
 	Type  string `yaml:"type" json:"type"`
 	Value string `yaml:"value" json:"value"`
+}
+
+// Process describes a product-level BPMN process artifact. BPMN XML is stored
+// beside this YAML in a separate .bpmn file so the catalog remains Git-friendly.
+type Process struct {
+	ID             string               `yaml:"id" json:"id"`
+	Type           string               `yaml:"type" json:"type"`
+	Name           string               `yaml:"name" json:"name"`
+	Version        string               `yaml:"version" json:"version"`
+	Status         string               `yaml:"status" json:"status"`
+	Owner          string               `yaml:"owner" json:"owner"`
+	Summary        string               `yaml:"summary,omitempty" json:"summary,omitempty"`
+	Tags           []string             `yaml:"tags,omitempty" json:"tags,omitempty"`
+	RelatedProduct string               `yaml:"related_product" json:"related_product"`
+	BPMN           BPMNReference        `yaml:"bpmn" json:"bpmn"`
+	TaskMappings   []ProcessTaskMapping `yaml:"task_mappings,omitempty" json:"task_mappings,omitempty"`
+	Notes          string               `yaml:"notes,omitempty" json:"notes,omitempty"`
+}
+
+type BPMNReference struct {
+	File      string `yaml:"file" json:"file"`
+	ProcessID string `yaml:"process_id,omitempty" json:"process_id,omitempty"`
+	Primary   bool   `yaml:"primary" json:"primary"`
+}
+
+type ProcessTaskMapping struct {
+	BPMNElementID   string `yaml:"bpmn_element_id" json:"bpmn_element_id"`
+	TaskName        string `yaml:"task_name,omitempty" json:"task_name,omitempty"`
+	BPMNElementType string `yaml:"bpmn_element_type,omitempty" json:"bpmn_element_type,omitempty"`
+	ServiceRef      string `yaml:"service_ref" json:"service_ref"`
+	Role            string `yaml:"role,omitempty" json:"role,omitempty"`
+	Required        bool   `yaml:"required" json:"required"`
+	Notes           string `yaml:"notes,omitempty" json:"notes,omitempty"`
 }
 
 type Instance struct {

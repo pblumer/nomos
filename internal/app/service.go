@@ -185,7 +185,27 @@ func productSummaryDTO(tree cosmosfs.Tree, bp model.Blueprint, sourcePath string
 			unresolved++
 		}
 	}
-	return ProductSummaryDTO{ID: bp.ID, Name: bp.Name, Version: bp.Version, Status: bp.Status, OfferedBy: bp.OfferedBy, OwningDomain: firstNonEmpty(bp.OwningDomain, bp.OfferedBy), SourcePath: sourcePath, CatalogPath: sourcePath, FulfillmentRequiredServicesCount: len(fulfillment.RequiredServices), FulfillmentUnresolvedCount: unresolved, Fulfillment: fulfillment}
+	processCount := 0
+	unmappedTaskCount := 0
+	if processes, err := scanProcesses(tree.Path); err == nil {
+		processRefs := map[string]bool{}
+		for _, id := range bp.Processes {
+			processRefs[id] = true
+		}
+		for _, process := range processes {
+			if process.Meta.RelatedProduct != bp.ID && !processRefs[process.Meta.ID] {
+				continue
+			}
+			processCount++
+			dto := processDTO(tree.Path, process, false)
+			for _, task := range dto.Tasks {
+				if task.MappingStatus == "unmapped" {
+					unmappedTaskCount++
+				}
+			}
+		}
+	}
+	return ProductSummaryDTO{ID: bp.ID, Name: bp.Name, Version: bp.Version, Status: bp.Status, OfferedBy: bp.OfferedBy, OwningDomain: firstNonEmpty(bp.OwningDomain, bp.OfferedBy), SourcePath: sourcePath, CatalogPath: sourcePath, FulfillmentRequiredServicesCount: len(fulfillment.RequiredServices), FulfillmentUnresolvedCount: unresolved, ProcessCount: processCount, UnmappedTaskCount: unmappedTaskCount, Fulfillment: fulfillment}
 }
 
 func ProductsOfferedBy(path, domainCanonical string) ([]ProductSummaryDTO, error) {
@@ -469,7 +489,13 @@ func blueprintDTO(tree cosmosfs.Tree, b cosmosfs.BlueprintNode) BlueprintDTO {
 		}
 		attributes = append(attributes, BlueprintAttributeDTO{ID: a.ID, Label: a.Label, Type: a.Type, Required: a.Required, ServiceRef: a.ServiceRef, Rules: rules})
 	}
-	return BlueprintDTO{ID: b.Metadata.ID, Type: b.Metadata.Type, Name: b.Metadata.Name, Version: b.Metadata.Version, Status: b.Metadata.Status, Owner: b.Metadata.Owner, OfferedBy: b.Metadata.OfferedBy, OwningDomain: firstNonEmpty(b.Metadata.OwningDomain, b.Metadata.OfferedBy), Fulfillment: fulfillment, Summary: b.Metadata.Summary, Path: b.Path, PrimaryHome: primaryProductHome(b.Metadata), PrimaryHomeDomain: namespace.Canonical(b.Metadata.OfferedBy), Variants: variants, Capabilities: b.Metadata.Capabilities, TargetSystems: b.Metadata.TargetSystems, RequiredInputs: b.Metadata.RequiredInputs, RequiredServiceBlueprints: b.Metadata.RequiredServiceBlueprints, RequiredServices: requiredServices, NamespaceServiceRef: b.Metadata.NamespaceServiceRef, Rules: b.Metadata.Rules, QualityCriteria: b.Metadata.QualityCriteria, EvidenceRequirements: b.Metadata.EvidenceRequirements, Requirements: requirements, RequirementsStatus: requirementsStatus(b.Metadata.Requirements), Attributes: attributes}
+	processSummary := ProcessesDTO{}
+	if b.Metadata.Type == "product_blueprint" {
+		if ps, err := ListProductProcesses(tree.Path, b.Metadata.ID); err == nil {
+			processSummary = ps
+		}
+	}
+	return BlueprintDTO{ID: b.Metadata.ID, Type: b.Metadata.Type, Name: b.Metadata.Name, Version: b.Metadata.Version, Status: b.Metadata.Status, Owner: b.Metadata.Owner, OfferedBy: b.Metadata.OfferedBy, OwningDomain: firstNonEmpty(b.Metadata.OwningDomain, b.Metadata.OfferedBy), Fulfillment: fulfillment, Summary: b.Metadata.Summary, Purpose: b.Metadata.Purpose, Description: b.Metadata.Description, Consumers: b.Metadata.Consumers, LifecycleStatus: b.Metadata.LifecycleStatus, Tags: b.Metadata.Tags, Processes: b.Metadata.Processes, ProcessSummary: processSummary, Path: b.Path, PrimaryHome: primaryProductHome(b.Metadata), PrimaryHomeDomain: namespace.Canonical(b.Metadata.OfferedBy), Variants: variants, Capabilities: b.Metadata.Capabilities, TargetSystems: b.Metadata.TargetSystems, RequiredInputs: b.Metadata.RequiredInputs, RequiredServiceBlueprints: b.Metadata.RequiredServiceBlueprints, RequiredServices: requiredServices, NamespaceServiceRef: b.Metadata.NamespaceServiceRef, Rules: b.Metadata.Rules, QualityCriteria: b.Metadata.QualityCriteria, EvidenceRequirements: b.Metadata.EvidenceRequirements, Requirements: requirements, RequirementsStatus: requirementsStatus(b.Metadata.Requirements), Attributes: attributes}
 }
 
 func fulfillmentDTO(tree cosmosfs.Tree, bp model.Blueprint) ProductFulfillmentDTO {
@@ -522,7 +548,7 @@ func productRequiredServiceDTO(bp model.Blueprint, serviceRef, role string, requ
 
 func firstServiceLevel(values ...*model.ServiceLevelInfo) *model.ServiceLevelInfo {
 	for _, v := range values {
-		if v != nil && (strings.TrimSpace(v.Name) != "" || strings.TrimSpace(v.Target) != "" || strings.TrimSpace(v.Availability) != "" || strings.TrimSpace(v.Description) != "") {
+		if v != nil && (strings.TrimSpace(v.Name) != "" || strings.TrimSpace(v.Owner) != "" || strings.TrimSpace(v.Target) != "" || strings.TrimSpace(v.Availability) != "" || strings.TrimSpace(v.SupportWindow) != "" || strings.TrimSpace(v.Description) != "") {
 			return v
 		}
 	}
@@ -533,7 +559,7 @@ func serviceLevelDTO(info *model.ServiceLevelInfo) *ServiceLevelDTO {
 	if info == nil {
 		return nil
 	}
-	return &ServiceLevelDTO{Name: info.Name, Target: info.Target, Availability: info.Availability, Description: info.Description}
+	return &ServiceLevelDTO{Name: info.Name, Owner: info.Owner, Target: info.Target, Availability: info.Availability, SupportWindow: info.SupportWindow, Description: info.Description}
 }
 
 func serviceLevelLabel(slaRef, olaRef string, sla, ola *ServiceLevelDTO) string {
@@ -953,7 +979,7 @@ func CreateProductOffering(path, domainCanonical string, req CreateProductOfferi
 	status := firstNonEmpty(strings.TrimSpace(req.Status), "draft")
 	owner := firstNonEmpty(strings.TrimSpace(req.Owner), canonical)
 	owning := firstNonEmpty(strings.TrimSpace(req.OwningDomain), canonical)
-	bp := model.Blueprint{ID: id, Type: "product_blueprint", Name: strings.TrimSpace(req.Name), Version: version, Status: status, Owner: owner, OfferedBy: canonical, OwningDomain: namespace.Canonical(owning), Summary: strings.TrimSpace(req.Summary), Fulfillment: model.ProductFulfillment{RequiredServices: []model.ProductRequiredService{}}}
+	bp := model.Blueprint{ID: id, Type: "product_blueprint", Name: strings.TrimSpace(req.Name), Version: version, Status: status, Owner: owner, OfferedBy: canonical, OwningDomain: namespace.Canonical(owning), Summary: strings.TrimSpace(req.Summary), Description: strings.TrimSpace(req.Description), Tags: req.Tags, Fulfillment: model.ProductFulfillment{RequiredServices: []model.ProductRequiredService{}}}
 	if bp.Name == "" {
 		bp.Name = id
 	}

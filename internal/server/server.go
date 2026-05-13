@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/json"
 	"html/template"
+	"io"
 	"io/fs"
 	"net/http"
 	"strconv"
@@ -45,6 +46,7 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/v1/blueprints", h.apiBlueprints)
 	mux.HandleFunc("/api/v1/blueprints/", h.apiBlueprintRoutes)
 	mux.HandleFunc("/api/v1/products/", h.apiProductRoutes)
+	mux.HandleFunc("/api/v1/processes/", h.apiProcessRoutes)
 	mux.HandleFunc("/api/v1/instances", h.apiInstances)
 	mux.HandleFunc("/api/v1/instances/", h.apiInstanceRoutes)
 	mux.HandleFunc("/api/v1/product-instances/", h.apiProvisionServiceInstance)
@@ -312,6 +314,33 @@ func (h *handler) apiServiceRefs(w http.ResponseWriter, r *http.Request) {
 func (h *handler) apiProductRoutes(w http.ResponseWriter, r *http.Request) {
 	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/products/")
 	parts := strings.Split(rest, "/")
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "processes" {
+		if r.Method == http.MethodGet {
+			dto, err := app.ListProductProcesses(h.cosmosPath, parts[0])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+			return
+		}
+		if r.Method == http.MethodPost {
+			var req app.CreateProcessRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			dto, err := app.CreateProductProcess(h.cosmosPath, parts[0], req)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusCreated, dto)
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
 	if len(parts) == 1 && parts[0] != "" {
 		dto, err := app.GetBlueprint(h.cosmosPath, parts[0])
 		if err != nil {
@@ -391,6 +420,76 @@ func (h *handler) apiProductRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.NotFound(w, r)
+}
+
+func (h *handler) apiProcessRoutes(w http.ResponseWriter, r *http.Request) {
+	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/processes/")
+	parts := strings.Split(rest, "/")
+	if len(parts) == 1 && parts[0] != "" {
+		dto, err := app.GetProcess(h.cosmosPath, parts[0])
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, dto)
+		return
+	}
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "bpmn" {
+		if r.Method == http.MethodGet {
+			xmlText, err := app.GetProcessBPMN(h.cosmosPath, parts[0])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+			_, _ = w.Write([]byte(xmlText))
+			return
+		}
+		if r.Method == http.MethodPut {
+			data, err := io.ReadAll(r.Body)
+			if err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+				return
+			}
+			dto, err := app.UpdateProcessBPMN(h.cosmosPath, parts[0], string(data))
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "tasks" {
+		tasks, err := app.ProcessTasks(h.cosmosPath, parts[0])
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"items": tasks, "count": len(tasks)})
+		return
+	}
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "task-mappings" {
+		if r.Method != http.MethodPut {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var req app.UpdateTaskMappingsRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+			return
+		}
+		dto, err := app.UpdateProcessTaskMappings(h.cosmosPath, parts[0], req)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, dto)
+		return
+	}
+	htmlNotFound(w, r)
 }
 
 func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {

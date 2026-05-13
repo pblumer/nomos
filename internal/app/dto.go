@@ -135,6 +135,8 @@ type ProductSummaryDTO struct {
 	CatalogPath                      string                `json:"catalog_path,omitempty"`
 	FulfillmentRequiredServicesCount int                   `json:"fulfillment_required_services_count"`
 	FulfillmentUnresolvedCount       int                   `json:"fulfillment_unresolved_count"`
+	ProcessCount                     int                   `json:"process_count"`
+	UnmappedTaskCount                int                   `json:"unmapped_task_count"`
 	Fulfillment                      ProductFulfillmentDTO `json:"fulfillment,omitempty"`
 }
 
@@ -181,10 +183,12 @@ type ProductFulfillmentDTO struct {
 }
 
 type ServiceLevelDTO struct {
-	Name         string `json:"name,omitempty"`
-	Target       string `json:"target,omitempty"`
-	Availability string `json:"availability,omitempty"`
-	Description  string `json:"description,omitempty"`
+	Name          string `json:"name,omitempty"`
+	Owner         string `json:"owner,omitempty"`
+	Target        string `json:"target,omitempty"`
+	Availability  string `json:"availability,omitempty"`
+	SupportWindow string `json:"support_window,omitempty"`
+	Description   string `json:"description,omitempty"`
 }
 
 type ProductRequiredServiceDTO struct {
@@ -216,6 +220,13 @@ type BlueprintDTO struct {
 	OwningDomain              string                    `json:"owning_domain,omitempty"`
 	Fulfillment               ProductFulfillmentDTO     `json:"fulfillment,omitempty"`
 	Summary                   string                    `json:"summary"`
+	Purpose                   string                    `json:"purpose,omitempty"`
+	Description               string                    `json:"description,omitempty"`
+	Consumers                 []string                  `json:"consumers,omitempty"`
+	LifecycleStatus           string                    `json:"lifecycle_status,omitempty"`
+	Tags                      []string                  `json:"tags,omitempty"`
+	Processes                 []string                  `json:"processes,omitempty"`
+	ProcessSummary            ProcessesDTO              `json:"process_summary,omitempty"`
 	Path                      string                    `json:"path"`
 	PrimaryHome               string                    `json:"primary_home,omitempty"`
 	PrimaryHomeDomain         string                    `json:"primary_home_domain,omitempty"`
@@ -362,4 +373,66 @@ type VerificationEvidenceDTO struct {
 type VerificationDTO struct {
 	Evidence []VerificationEvidenceDTO `json:"evidence"`
 	Count    int                       `json:"count"`
+}
+
+type ProcessDTO struct {
+	ID             string                  `json:"id"`
+	Type           string                  `json:"type"`
+	Name           string                  `json:"name"`
+	Version        string                  `json:"version"`
+	Status         string                  `json:"status"`
+	Owner          string                  `json:"owner"`
+	Summary        string                  `json:"summary,omitempty"`
+	Tags           []string                `json:"tags,omitempty"`
+	RelatedProduct string                  `json:"related_product"`
+	BPMN           BPMNReferenceDTO        `json:"bpmn"`
+	TaskMappings   []ProcessTaskMappingDTO `json:"task_mappings,omitempty"`
+	Path           string                  `json:"path,omitempty"`
+	BPMNPath       string                  `json:"bpmn_path,omitempty"`
+	Tasks          []BPMNTaskDTO           `json:"tasks,omitempty"`
+	Validation     ProcessValidationDTO    `json:"validation"`
+}
+
+type BPMNReferenceDTO struct {
+	File      string `json:"file"`
+	ProcessID string `json:"process_id,omitempty"`
+	Primary   bool   `json:"primary"`
+}
+
+type ProcessTaskMappingDTO struct {
+	BPMNElementID   string `json:"bpmn_element_id"`
+	TaskName        string `json:"task_name,omitempty"`
+	BPMNElementType string `json:"bpmn_element_type,omitempty"`
+	ServiceRef      string `json:"service_ref"`
+	Role            string `json:"role,omitempty"`
+	Required        bool   `json:"required"`
+	Notes           string `json:"notes,omitempty"`
+}
+
+type BPMNTaskDTO struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	ElementType   string `json:"element_type"`
+	MappingStatus string `json:"mapping_status,omitempty"`
+	ServiceRef    string `json:"service_ref,omitempty"`
+}
+
+type ProcessValidationDTO struct {
+	Status   string       `json:"status"`
+	Findings []FindingDTO `json:"findings"`
+}
+
+type ProcessesDTO struct {
+	Items []ProcessDTO `json:"items"`
+	Count int          `json:"count"`
+}
+
+type CreateProcessRequest struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Summary string `json:"summary"`
+}
+
+type UpdateTaskMappingsRequest struct {
+	TaskMappings []ProcessTaskMappingDTO `json:"task_mappings"`
 }
