@@ -161,7 +161,54 @@ func domainDTO(tree cosmosfs.Tree, d cosmosfs.DomainNode, includeServices bool) 
 
 func serviceDTO(domain string, s cosmosfs.ServiceNode) ServiceDTO {
 	ownedBy := firstNonEmpty(s.Metadata.OwnedBy, domain, s.Metadata.Owner)
-	return ServiceDTO{Name: s.Name, Domain: domain, Owner: fallback(s.Metadata.Owner, "unknown"), OwnedBy: ownedBy, OperatedBy: s.Metadata.OperatedBy, Capabilities: s.Metadata.Capabilities, SupportedProducts: s.Metadata.SupportedProducts, Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path}
+	return ServiceDTO{Name: s.Name, Domain: domain, Owner: fallback(s.Metadata.Owner, "unknown"), OwnedBy: ownedBy, OperatedBy: s.Metadata.OperatedBy, Capabilities: s.Metadata.Capabilities, SupportedProducts: s.Metadata.SupportedProducts, Methods: s.Metadata.Methods, Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path}
+}
+
+func AddServiceMethod(path, domainName, serviceName, method string) (ServiceDTO, error) {
+	method = strings.TrimSpace(method)
+	if method == "" {
+		return ServiceDTO{}, Error(CodeInvalidInput, "method name is required", http.StatusBadRequest, nil)
+	}
+	svc, err := GetService(path, domainName, serviceName)
+	if err != nil {
+		return ServiceDTO{}, err
+	}
+	var raw model.Service
+	if err := fsx.ReadYAML(svc.Path, &raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	for _, m := range raw.Methods {
+		if m == method {
+			return ServiceDTO{}, Error(CodeInvalidInput, "method already exists: "+method, http.StatusConflict, nil)
+		}
+	}
+	raw.Methods = append(raw.Methods, method)
+	if err := fsx.WriteYAML(svc.Path, raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetService(path, domainName, serviceName)
+}
+
+func RemoveServiceMethod(path, domainName, serviceName, method string) (ServiceDTO, error) {
+	svc, err := GetService(path, domainName, serviceName)
+	if err != nil {
+		return ServiceDTO{}, err
+	}
+	var raw model.Service
+	if err := fsx.ReadYAML(svc.Path, &raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	filtered := raw.Methods[:0]
+	for _, m := range raw.Methods {
+		if m != method {
+			filtered = append(filtered, m)
+		}
+	}
+	raw.Methods = filtered
+	if err := fsx.WriteYAML(svc.Path, raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetService(path, domainName, serviceName)
 }
 
 func productSummariesOfferedBy(tree cosmosfs.Tree, domainCanonical string) []ProductSummaryDTO {

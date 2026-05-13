@@ -51,6 +51,7 @@ type Service struct {
 	OperatedBy        []string          `yaml:"operated_by,omitempty" json:"operated_by,omitempty"`
 	Capabilities      []string          `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
 	SupportedProducts []string          `yaml:"supported_products,omitempty" json:"supported_products,omitempty"`
+	Methods           []string          `yaml:"methods,omitempty" json:"methods,omitempty"`
 	Summary           string            `yaml:"summary" json:"summary"`
 	SLA               *ServiceLevelInfo `yaml:"sla,omitempty" json:"sla,omitempty"`
 	OLA               *ServiceLevelInfo `yaml:"ola,omitempty" json:"ola,omitempty"`

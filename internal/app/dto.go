@@ -60,6 +60,7 @@ type ServiceDTO struct {
 	OperatedBy        []string `json:"operated_by,omitempty"`
 	Capabilities      []string `json:"capabilities,omitempty"`
 	SupportedProducts []string `json:"supported_products,omitempty"`
+	Methods           []string `json:"methods,omitempty"`
 	Status            string   `json:"status"`
 	Path              string   `json:"path"`
 }

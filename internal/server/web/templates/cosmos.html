@@ -499,7 +499,7 @@ async function loadDetail(row){const kind=row.dataset.kind,id=row.dataset.id,can
   detail.innerHTML='<div class="detail-empty">Lade…</div>';
   try{const res=await fetch(url);const d=await res.json();if(!res.ok){detail.innerHTML=`<div style="padding:1rem"><div class="nerror show">${esc(d.error?.message||'Fehler')}</div></div>`;return;}
   if(kind==='domain')detail.innerHTML=domainDetail(d);
-  else if(kind==='service')detail.innerHTML=serviceDetail(d);
+  else if(kind==='service'){detail.innerHTML=serviceDetail(d);wireServiceDetail(detail,d);}
   else if(kind==='product'){detail.innerHTML=productDetail(d);wireFulfillment(detail,d.id);wireProductShowcase(detail,d,row);}
   else if(kind==='blueprint'){detail.innerHTML=blueprintDetail(d);wireReqs(detail,d.id);wireAttrs(detail,d.id);}
   detail.querySelector('#det-edit')?.addEventListener('click',()=>doEdit(row));
@@ -550,7 +550,7 @@ function renderSteps(steps){
 }
 function stepAddRow(procId,services){
   const opts=services.map(s=>`<option value="${esc(s.service_ref)}">${esc(s.service_ref)}</option>`).join('');
-  return `<div class="step-add-row"><input id="step-new-name" placeholder="Schrittname…" style="flex:1;min-width:120px"><select id="step-new-svc"><option value="">— Service —</option>${opts}</select><input id="step-new-method" placeholder="Methode…" style="width:90px"><select id="step-new-role" style="width:100px"><option>supporting</option><option>primary</option><option>optional</option></select><label style="font-size:.78rem;display:flex;align-items:center;gap:.2rem"><input type="checkbox" id="step-new-req"> Pflicht</label><button class="btn btn-primary btn-sm" id="step-add-btn">+ Schritt</button></div>`;
+  return `<div class="step-add-row"><input id="step-new-name" placeholder="Schrittname…" style="flex:1;min-width:120px"><select id="step-new-svc"><option value="">— Service —</option>${opts}</select><input id="step-new-method" placeholder="Methode…" style="width:110px" list="step-method-list" autocomplete="off"><datalist id="step-method-list"></datalist><select id="step-new-role" style="width:100px"><option>supporting</option><option>primary</option><option>optional</option></select><label style="font-size:.78rem;display:flex;align-items:center;gap:.2rem"><input type="checkbox" id="step-new-req"> Pflicht</label><button class="btn btn-primary btn-sm" id="step-add-btn">+ Schritt</button></div>`;
 }
 function processPanel(d){
   const procs=d.process_summary?.items||[];
@@ -596,6 +596,21 @@ function wireSteps(container,d){
     });
   }
   wireStepButtons();
+  // Populate method datalist when service selection changes
+  const svcSel=container.querySelector('#step-new-svc');
+  const methodDl=container.querySelector('#step-method-list');
+  async function loadMethodSuggestions(serviceRef){
+    if(!methodDl)return;
+    methodDl.innerHTML='';
+    if(!serviceRef)return;
+    const parts=serviceRef.split('/');
+    if(parts.length<2)return;
+    const domain=parts.slice(0,-1).join('/'),svc=parts[parts.length-1];
+    try{const r=await fetch('/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svc)+'/methods');
+      if(r.ok){const d=await r.json();(d.methods||[]).forEach(m=>{const o=document.createElement('option');o.value=m;methodDl.appendChild(o);});}}
+    catch(_){}
+  }
+  svcSel?.addEventListener('change',()=>loadMethodSuggestions(svcSel.value));
   const addBtn=container.querySelector('#step-add-btn');
   async function doAddStep(){
     const name=container.querySelector('#step-new-name')?.value.trim();
@@ -618,7 +633,43 @@ async function saveMappings(container,d){const p=d.process_summary?.items?.[0];i
 
 function wireFulfillment(container,bpId){const select=container.querySelector('#fulfillment-known');fetch('/api/v1/services/refs').then(r=>r.json()).then(d=>{(d.services||[]).forEach(ref=>{const o=document.createElement('option');o.value=ref.service_ref;o.textContent=ref.service_ref;select?.appendChild(o);});});container.querySelector('#fulfillment-manual')?.addEventListener('input',e=>{if(select)select.value=e.target.value;});container.querySelector('#fulfillment-add')?.addEventListener('click',async()=>{const err=container.querySelector('#fulfillment-error');if(err){err.textContent='';err.classList.remove('show');}const service_ref=(container.querySelector('#fulfillment-manual')?.value.trim()||select?.value||'');const body={service_ref,role:container.querySelector('#fulfillment-role')?.value||'supporting',required:container.querySelector('#fulfillment-required')?.checked||false,description:container.querySelector('#fulfillment-description')?.value.trim()||''};const r=await fetch('/api/v1/products/'+encodeURIComponent(bpId)+'/fulfillment-services',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(r.ok){location.href='/cosmos?selected=product:'+encodeURIComponent(d.id||bpId)+'&expand=fulfillment#fulfillment';}else if(err){err.textContent=d.error?.message||'Add fulfillment service failed';err.classList.add('show');}});}
 
-function serviceDetail(d){return `<div class="detail-head"><div class="detail-head-left">${iconDiv('service')}<div><div class="detail-title">${esc(d.name)}</div><div class="detail-subtitle">Service &middot; ${esc(d.domain)}</div></div></div><div class="detail-actions-head"><button class="btn btn-secondary btn-sm" id="det-edit" title="Bearbeiten"><span class="mi" style="font-family:'Material Symbols Outlined'">edit</span></button><button class="btn btn-danger btn-sm" id="det-delete" title="L&ouml;schen"><span class="mi" style="font-family:'Material Symbols Outlined'">delete</span></button></div></div><div class="detail-body"><dl class="detail-props"><dt>Name</dt><dd>${esc(d.name)}</dd><dt>Domain</dt><dd><code>${esc(d.domain)}</code></dd><dt>Owner</dt><dd>${esc(d.owner||'&ndash;')}</dd><dt>Status</dt><dd><span class="badge badge-${d.status}">${esc(d.status)}</span></dd><dt>Pfad</dt><dd><code>${esc(d.path)}</code></dd></dl></div><div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/domains/${encodeURIComponent(d.domain)}/services/${encodeURIComponent(d.name)}">API JSON</a></div>`;}
+function renderMethodChips(methods,domain,svc){
+  if(!methods||!methods.length)return`<span class="muted" id="svc-methods-empty">Noch keine Methoden registriert.</span>`;
+  return methods.map(m=>`<span class="svc-chip" data-method="${esc(m)}">${esc(m)}<button class="svc-chip-remove" data-method="${esc(m)}" title="Entfernen">&#x2715;</button></span>`).join('');
+}
+function serviceDetail(d){
+  const methodsHtml=renderMethodChips(d.methods,d.domain,d.name);
+  return `<div class="detail-head"><div class="detail-head-left">${iconDiv('service')}<div><div class="detail-title">${esc(d.name)}</div><div class="detail-subtitle">Service &middot; ${esc(d.domain)}</div></div></div><div class="detail-actions-head"><button class="btn btn-secondary btn-sm" id="det-edit" title="Bearbeiten"><span class="mi" style="font-family:'Material Symbols Outlined'">edit</span></button><button class="btn btn-danger btn-sm" id="det-delete" title="L&ouml;schen"><span class="mi" style="font-family:'Material Symbols Outlined'">delete</span></button></div></div><div class="detail-body"><dl class="detail-props"><dt>Name</dt><dd>${esc(d.name)}</dd><dt>Domain</dt><dd><code>${esc(d.domain)}</code></dd><dt>Owner</dt><dd>${esc(d.owner||'&ndash;')}</dd><dt>Status</dt><dd><span class="badge badge-${d.status}">${esc(d.status)}</span></dd><dt>Pfad</dt><dd><code>${esc(d.path)}</code></dd></dl><div style="margin-top:.75rem"><div style="font-size:.78rem;font-weight:700;color:#475569;margin-bottom:.35rem">Methoden / Operationen</div><div id="svc-method-chips" style="display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.4rem">${methodsHtml}</div><div style="display:flex;gap:.35rem;align-items:center"><input id="svc-method-input" placeholder="z.B. createUser" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;background:#fff;flex:1"><button class="btn btn-primary btn-sm" id="svc-method-add">+ Methode</button></div></div></div><div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/domains/${encodeURIComponent(d.domain)}/services/${encodeURIComponent(d.name)}">API JSON</a></div>`;
+}
+function wireServiceDetail(container,d){
+  const methodsUrl='/api/v1/services/'+encodeURIComponent(d.domain)+'/'+encodeURIComponent(d.name)+'/methods';
+  function refreshChips(methods){
+    const el=container.querySelector('#svc-method-chips');
+    if(el){el.innerHTML=renderMethodChips(methods,d.domain,d.name);wireChipRemove(methods);}
+  }
+  function wireChipRemove(methods){
+    container.querySelectorAll('.svc-chip-remove').forEach(btn=>{
+      btn.addEventListener('click',async()=>{
+        const m=btn.dataset.method;btn.disabled=true;
+        const r=await fetch(methodsUrl+'/'+encodeURIComponent(m),{method:'DELETE'});
+        if(r.ok){const upd=await r.json();refreshChips(upd.methods||[]);}else btn.disabled=false;
+      });
+    });
+  }
+  wireChipRemove(d.methods||[]);
+  const addBtn=container.querySelector('#svc-method-add');
+  const inp=container.querySelector('#svc-method-input');
+  async function doAdd(){
+    const method=inp?.value.trim();if(!method)return;
+    if(addBtn)addBtn.disabled=true;
+    const r=await fetch(methodsUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({method})});
+    const upd=await r.json().catch(()=>({}));
+    if(r.ok){if(inp)inp.value='';refreshChips(upd.methods||[]);}
+    if(addBtn)addBtn.disabled=false;
+  }
+  addBtn?.addEventListener('click',doAdd);
+  inp?.addEventListener('keydown',e=>{if(e.key==='Enter')doAdd();});
+}
 
 function wireReqs(container,bpId){
   const reqList=container.querySelector('#req-list');
