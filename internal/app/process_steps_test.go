@@ -413,3 +413,30 @@ func TestAddProcessStep_ServiceTaskIgnoresGateway(t *testing.T) {
 		t.Fatalf("service task must not persist gateway: %+v", got.Steps[0].Gateway)
 	}
 }
+
+func TestAddProcessStep_WithDecisionTable(t *testing.T) {
+	p, _, procID := createProcessForStepTests(t)
+
+	got, err := AddProcessStep(p, procID, UpsertProcessStepRequest{
+		Name:     "Mitarbeiter Austrittsdatum kontrollieren",
+		TaskType: "businessRuleTask",
+		Inputs:   []StepInputBindingDTO{{Name: "employmentEndDate", Source: "step.getEndDate.employmentEndDate", Required: true}},
+		Outputs:  []StepOutputSchemaDTO{{Name: "canDeactivateUser", Type: "boolean", Description: "true wenn Austrittsdatum heute oder in der Vergangenheit liegt"}},
+		Decision: &DecisionTableDTO{Name: "Austrittsdatum pruefen", HitPolicy: "UNIQUE", Rules: []DecisionRuleDTO{{Input: "employmentEndDate", Operator: "<=", Value: "today", Output: "canDeactivateUser", OutputValue: "true", Label: "Austrittsdatum ist heute oder vergangen"}}},
+		Gateway:  &DecisionGatewayDTO{Name: "Darf deaktivieren?", Conditions: []GatewayConditionDTO{{Output: "canDeactivateUser", Operator: "==", Value: "true", Label: "Nur dann Benutzeraccount deaktivieren"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := got.Steps[0]
+	if s.Decision == nil || len(s.Decision.Rules) != 1 {
+		t.Fatalf("expected decision table rule, got %+v", s.Decision)
+	}
+	rule := s.Decision.Rules[0]
+	if rule.Input != "employmentEndDate" || rule.Operator != "<=" || rule.Value != "today" || rule.Output != "canDeactivateUser" || rule.OutputValue != "true" {
+		t.Fatalf("unexpected decision rule: %+v", rule)
+	}
+	if s.Gateway == nil || len(s.Gateway.Conditions) != 1 || s.Gateway.Conditions[0].Output != "canDeactivateUser" {
+		t.Fatalf("expected gateway over decision output, got %+v", s.Gateway)
+	}
+}

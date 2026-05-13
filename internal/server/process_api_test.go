@@ -20,8 +20,8 @@ func TestProcessAPIWorkflow(t *testing.T) {
 	if rr := get(h, "/api/v1/processes/PRC-API-001/tasks"); rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "Task_PerformFulfillment") {
 		t.Fatalf("tasks status=%d body=%s", rr.Code, rr.Body.String())
 	}
-	mapReq := postJSONMethod(h, http.MethodPut, "/api/v1/processes/PRC-API-001/task-mappings", `{"task_mappings":[{"bpmn_element_id":"Task_PerformFulfillment","service_ref":"identity.blumer.cloud/user-account","role":"primary","required":true}]}`)
-	if mapReq.Code != http.StatusOK || !strings.Contains(mapReq.Body.String(), "identity.blumer.cloud/user-account") {
+	mapReq := postJSONMethod(h, http.MethodPut, "/api/v1/processes/PRC-API-001/task-mappings", `{"task_mappings":[{"bpmn_element_id":"Task_PerformFulfillment","service_ref":"identity.blumer.cloud/user-account","method":"deactivateUser","role":"primary","required":true}]}`)
+	if mapReq.Code != http.StatusOK || !strings.Contains(mapReq.Body.String(), "identity.blumer.cloud/user-account") || !strings.Contains(mapReq.Body.String(), "deactivateUser") {
 		t.Fatalf("mapping status=%d body=%s", mapReq.Code, mapReq.Body.String())
 	}
 	bad := postJSONMethod(h, http.MethodPut, "/api/v1/processes/PRC-API-001/bpmn", `<bad`)
