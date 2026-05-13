@@ -253,24 +253,22 @@ func productSummaryDTO(tree cosmosfs.Tree, bp model.Blueprint, sourcePath string
 					unmappedTaskCount++
 				}
 			}
-			if len(process.Meta.Steps) > 0 {
-				group := ProcessGroupDTO{ProcessID: process.Meta.ID, ProcessName: firstNonEmpty(process.Meta.Name, process.Meta.ID)}
-				for i, step := range process.Meta.Steps {
-					group.Steps = append(group.Steps, ProcessStepSummaryDTO{
-						StepNum:    i + 1,
-						ID:         step.ID,
-						Name:       step.Name,
-						ServiceRef: step.ServiceRef,
-						Method:     step.Method,
-						Role:       step.Role,
-						Required:   step.Required,
-						DependsOn:  step.DependsOn,
-						Inputs:     stepsInputsToDTO(step.Inputs),
-						Outputs:    stepsOutputsToDTO(step.Outputs),
-					})
-				}
-				processGroups = append(processGroups, group)
+			group := ProcessGroupDTO{ProcessID: process.Meta.ID, ProcessName: firstNonEmpty(process.Meta.Name, process.Meta.ID)}
+			for i, step := range process.Meta.Steps {
+				group.Steps = append(group.Steps, ProcessStepSummaryDTO{
+					StepNum:    i + 1,
+					ID:         step.ID,
+					Name:       step.Name,
+					ServiceRef: step.ServiceRef,
+					Method:     step.Method,
+					Role:       step.Role,
+					Required:   step.Required,
+					DependsOn:  step.DependsOn,
+					Inputs:     stepsInputsToDTO(step.Inputs),
+					Outputs:    stepsOutputsToDTO(step.Outputs),
+				})
 			}
+			processGroups = append(processGroups, group)
 		}
 	}
 	return ProductSummaryDTO{ID: bp.ID, Name: bp.Name, Version: bp.Version, Status: bp.Status, OfferedBy: bp.OfferedBy, OwningDomain: firstNonEmpty(bp.OwningDomain, bp.OfferedBy), SourcePath: sourcePath, CatalogPath: sourcePath, FulfillmentRequiredServicesCount: len(fulfillment.RequiredServices), FulfillmentUnresolvedCount: unresolved, ProcessCount: processCount, UnmappedTaskCount: unmappedTaskCount, Fulfillment: fulfillment, Processes: processGroups}

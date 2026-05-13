@@ -269,8 +269,12 @@ func TestProductSummaryDTO_NoProcessGroupsWhenNoSteps(t *testing.T) {
 	if summary == nil {
 		t.Fatal("product not found")
 	}
-	if len(summary.Processes) != 0 {
-		t.Fatalf("expected no process groups (no steps), got %d", len(summary.Processes))
+	// Process without steps still appears as a group (so it shows up in the tree)
+	if len(summary.Processes) != 1 {
+		t.Fatalf("expected 1 process group even without steps, got %d", len(summary.Processes))
+	}
+	if len(summary.Processes[0].Steps) != 0 {
+		t.Fatalf("expected 0 steps in the group, got %d", len(summary.Processes[0].Steps))
 	}
 	if summary.ProcessCount != 1 {
 		t.Fatalf("expected ProcessCount=1, got %d", summary.ProcessCount)
