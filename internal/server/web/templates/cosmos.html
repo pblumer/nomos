@@ -170,7 +170,7 @@
 .proc-tab.active{color:#1d4ed8;border-bottom-color:#1d4ed8;background:transparent}
 .proc-tab-new{color:#2563eb!important;font-style:italic}.bpmn-canvas{height:330px;border:1px solid #dbeafe;border-radius:14px;background:#fff;overflow:hidden;margin-bottom:.75rem}.bpmn-editor{width:100%;min-height:300px;border:1px solid #cbd5e1;border-radius:10px;font-family:ui-monospace,monospace;font-size:.78rem}.mapping-list{display:grid;gap:.45rem}.mapping-row{display:grid;grid-template-columns:minmax(150px,1fr) minmax(190px,1fr) 110px 95px auto;gap:.45rem;align-items:center;border:1px solid #e2e8f0;border-radius:10px;padding:.45rem;background:#fff}.mapping-row select{min-width:0;border:1px solid #cbd5e1;border-radius:7px;padding:.35rem}.data-table{max-width:100%}.prod-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.65rem;margin-bottom:1rem}.prod-stat{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:.65rem .75rem;text-align:center}.prod-stat-val{font-size:1.45rem;font-weight:800;color:#1d4ed8;line-height:1.1}.prod-stat-val.warn{color:#d97706}.prod-stat-lbl{font-size:.71rem;color:#64748b;font-weight:600;margin-top:.2rem}.svc-desc{font-size:.82rem;color:#64748b;margin:.3rem 0 0}.overview-section{display:flex;flex-direction:column;gap:.85rem}@media(max-width:900px){.product-hero{display:block}.product-actions{margin-top:.75rem}.mapping-row{grid-template-columns:1fr}.bpmn-canvas{height:240px}}
 .bpmn-map-dot{display:inline-block;width:14px;height:14px;border-radius:999px;border:2px solid #fff;box-shadow:0 1px 4px rgba(15,23,42,.25)}.bpmn-map-dot.mapped{background:#10b981}.bpmn-map-dot.unmapped{background:#f59e0b}
-.step-list{display:flex;flex-direction:column;gap:.2rem;margin-bottom:.6rem}
+.step-list{display:flex;flex-direction:column;gap:0;margin-bottom:.6rem}
 .dag-level{display:flex;gap:.5rem;align-items:stretch}
 .dag-connectors{display:flex;gap:.5rem;padding:0 0 0 1px}
 .dag-connector{width:2px;height:14px;background:#c7d2fe;flex-shrink:0;margin:0 auto}
@@ -186,6 +186,33 @@
 .step-req{font-size:.68rem;color:#1d4ed8;background:#dbeafe;padding:1px 5px;border-radius:4px}
 .step-io{margin-top:.3rem;display:flex;flex-direction:column;gap:.15rem}
 .io-row{display:flex;align-items:center;gap:.3rem;flex-wrap:wrap}
+.pflow{display:flex;flex-direction:column;gap:0}
+.pflow-empty{color:#94a3b8;font-size:.78rem;font-style:italic;padding:.35rem 0}
+.pflow-card{border:1.5px solid #e2e8f0;border-radius:12px;background:#fff;padding:.55rem .7rem;box-shadow:0 1px 3px rgba(15,23,42,.05);transition:border-color .15s,box-shadow .15s}
+.pflow-card:hover{border-color:#c7d2fe;box-shadow:0 2px 10px rgba(99,102,241,.1)}
+.pfc-head{display:flex;align-items:center;gap:.4rem;margin-bottom:.25rem}
+.pfc-num{width:20px;height:20px;border-radius:50%;background:#eef2ff;color:#4338ca;font-size:.7rem;font-weight:800;display:grid;place-items:center;flex-shrink:0}
+.pfc-name{font-size:.84rem;font-weight:700;color:#0f172a;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pfc-del{margin-left:auto;flex-shrink:0;background:none;border:none;color:#cbd5e1;cursor:pointer;font-size:1rem;line-height:1;padding:2px 4px;border-radius:4px;transition:color .1s,background .1s}
+.pfc-del:hover{color:#ef4444;background:#fef2f2}
+.pfc-svc{font-size:.73rem;color:#6d28d9;background:#ede9fe;padding:2px 8px;border-radius:6px;display:inline-block;margin-bottom:.25rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pfc-chips{display:flex;flex-wrap:wrap;gap:.25rem}
+.pfc-method{font-size:.72rem;color:#065f46;background:#d1fae5;padding:1px 7px;border-radius:5px;font-family:ui-monospace,monospace}
+.pfc-role{font-size:.68rem;color:#64748b;background:#f1f5f9;padding:1px 6px;border-radius:5px}
+.pfc-role-primary{color:#1d4ed8;background:#dbeafe}
+.pfc-req{font-size:.68rem;color:#b45309;background:#fef3c7;padding:1px 6px;border-radius:5px}
+.pfc-deps{font-size:.68rem;color:#94a3b8;margin-top:.3rem;font-style:italic}
+.pfc-io{display:flex;flex-wrap:wrap;gap:.2rem;margin-top:.3rem}
+.pfc-io-in{font-size:.68rem;color:#0369a1;background:#e0f2fe;padding:1px 6px;border-radius:5px;cursor:help}
+.pfc-io-out{font-size:.68rem;color:#059669;background:#d1fae5;padding:1px 6px;border-radius:5px;cursor:help}
+.pflow-connector{display:flex;flex-direction:column;align-items:center;height:22px;position:relative}
+.pflow-line{width:2px;background:#e0e7ff;flex:1}
+.pflow-arrowhead{color:#a5b4fc;font-size:.65rem;line-height:1}
+.pflow-parallel{display:flex;flex-direction:column}
+.pflow-split-bar{height:14px;margin:0 20%;border-left:2px solid #e0e7ff;border-right:2px solid #e0e7ff;border-top:2px solid #e0e7ff;border-radius:6px 6px 0 0}
+.pflow-join-bar{height:14px;margin:0 20%;border-left:2px solid #e0e7ff;border-right:2px solid #e0e7ff;border-bottom:2px solid #e0e7ff;border-radius:0 0 6px 6px}
+.pflow-parallel-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.4rem}
+.pflow-par-badge{font-size:.64rem;color:#6366f1;background:#eef2ff;padding:1px 6px;border-radius:4px;text-align:center;margin-bottom:.2rem;font-weight:600;letter-spacing:.03em}
 .io-in-badge{font-size:.67rem;color:#0369a1;background:#e0f2fe;padding:1px 5px;border-radius:3px;white-space:nowrap}
 .io-out-badge{font-size:.67rem;color:#059669;background:#d1fae5;padding:1px 5px;border-radius:3px;white-space:nowrap}
 .io-source{font-size:.67rem;color:#64748b;font-family:ui-monospace,monospace;white-space:nowrap}
@@ -596,19 +623,29 @@ function computeLevels(steps){
   return rows;
 }
 function renderDagSteps(steps){
-  if(!steps?.length)return`<div style="color:#94a3b8;font-size:.78rem;font-style:italic;padding:.35rem 0">Noch keine Schritte. Füge den ersten Schritt hinzu.</div>`;
+  if(!steps?.length)return`<div class="pflow-empty">Noch keine Schritte. Füge den ersten Schritt hinzu.</div>`;
   const byId={};steps.forEach(s=>byId[s.id]=s);
   const levels=computeLevels(steps);
   let n=0;
-  return levels.map((row,li)=>{
-    const conn=li>0?`<div class="dag-connectors">${row.map(()=>`<div style="flex:1;display:flex;justify-content:center"><div class="dag-connector"></div></div>`).join('')}</div>`:'';
-    const cards=row.map(s=>{n++;
-      const deps=s.depends_on?.length?`<div class="step-deps">nach: ${s.depends_on.map(d=>esc(byId[d]?.name||d)).join(', ')}</div>`:'';
-      const ioHtml=(()=>{const ins=(s.inputs||[]).map(b=>`<div class="io-row"><span class="io-in-badge">↓ ${esc(b.name)}</span><span class="io-source">${esc(b.source)}</span>${b.required?'<span style="color:#dc2626;font-size:.65rem">*</span>':''}</div>`).join('');const outs=(s.outputs||[]).map(o=>`<div class="io-row"><span class="io-out-badge">↑ ${esc(o.name)}</span><span class="io-source">${esc(o.type||'string')}</span></div>`).join('');return ins||outs?`<div class="step-io">${ins}${outs}</div>`:''})();
-      return `<div class="step-row" data-step-id="${esc(s.id)}"><span class="step-num">${n}</span><div class="step-body"><div class="step-name">${esc(s.name)}</div>${deps}<div class="step-chips">${s.service_ref?`<span class="step-svc" title="${esc(s.service_ref)}">${esc(s.service_ref)}</span>`:''}${s.method?`<span class="step-method">${esc(s.method)}()</span>`:''}  <span class="step-role">${esc(s.role||'supporting')}</span>${s.required?'<span class="step-req">req</span>':''}</div>${ioHtml}</div><button class="btn btn-danger btn-sm step-del-btn" data-step-id="${esc(s.id)}" style="padding:1px 5px;margin-left:auto;flex-shrink:0">&#x2715;</button></div>`;
-    }).join('');
-    return conn+`<div class="dag-level">${cards}</div>`;
-  }).join('');
+  function makeCard(s){
+    n++;
+    const svcShort=s.service_ref?(s.service_ref.includes('/')?s.service_ref.split('/').pop():s.service_ref):'';
+    const ioIn=(s.inputs||[]).map(b=>`<span class="pfc-io-in" title="${esc(b.source)}">↓ ${esc(b.name)}${b.required?'*':''}</span>`).join('');
+    const ioOut=(s.outputs||[]).map(o=>`<span class="pfc-io-out" title="${esc(o.type||'string')}">↑ ${esc(o.name)}</span>`).join('');
+    const io=ioIn||ioOut?`<div class="pfc-io">${ioIn}${ioOut}</div>`:'';
+    const deps=s.depends_on?.length?`<div class="pfc-deps">nach: ${s.depends_on.map(d=>esc(byId[d]?.name||d)).join(', ')}</div>`:'';
+    return `<div class="pflow-card" data-step-id="${esc(s.id)}"><div class="pfc-head"><span class="pfc-num">${n}</span><span class="pfc-name" title="${esc(s.name)}">${esc(s.name)}</span><button class="pfc-del step-del-btn" data-step-id="${esc(s.id)}" title="Schritt entfernen">×</button></div>${svcShort?`<div class="pfc-svc" title="${esc(s.service_ref)}">${esc(svcShort)}<span style="color:#a78bfa;margin:0 2px">/</span><span style="opacity:.6;font-size:.68rem">${esc(s.service_ref.split('/').slice(0,-1).join('/'))}</span></div>`:''}<div class="pfc-chips">${s.method?`<span class="pfc-method">${esc(s.method)}()</span>`:''}<span class="pfc-role${s.role==='primary'?' pfc-role-primary':''}">${esc(s.role||'supporting')}</span>${s.required?'<span class="pfc-req">req</span>':''}</div>${deps}${io}</div>`;
+  }
+  const parts=[];
+  levels.forEach((row,li)=>{
+    if(li>0)parts.push(`<div class="pflow-connector"><div class="pflow-line"></div><div class="pflow-arrowhead">▼</div></div>`);
+    if(row.length===1){parts.push(makeCard(row[0]));}
+    else{
+      const cards=row.map(s=>makeCard(s)).join('');
+      parts.push(`<div class="pflow-parallel"><div class="pflow-split-bar"></div><div class="pflow-parallel-cards">${cards}</div><div class="pflow-join-bar"></div></div>`);
+    }
+  });
+  return`<div class="pflow">${parts.join('')}</div>`;
 }
 function stepAddRow(procId,services,existingSteps){
   const opts=services.map(s=>`<option value="${esc(s.service_ref)}">${esc(s.service_ref)}</option>`).join('');
