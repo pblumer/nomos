@@ -441,7 +441,11 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 		serviceParent := &node.Children[idx]
 		for _, svc := range d.Services {
 			s := svc
-			serviceParent.Children = append(serviceParent.Children, NamespaceTreeNodeDTO{Label: svc.Name, Kind: "service", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, Persisted: true, CanOpenDetails: true})
+			svcNode := NamespaceTreeNodeDTO{Label: svc.Name, Kind: "service", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, Persisted: true, CanOpenDetails: true}
+			for _, method := range svc.Methods {
+				svcNode.Children = append(svcNode.Children, NamespaceTreeNodeDTO{Label: method, Kind: "service-method", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, Persisted: true})
+			}
+			serviceParent.Children = append(serviceParent.Children, svcNode)
 		}
 	}
 }
