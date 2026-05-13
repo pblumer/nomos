@@ -475,6 +475,7 @@ type BPMNTaskDTO struct {
 	ElementType   string `json:"element_type"`
 	MappingStatus string `json:"mapping_status,omitempty"`
 	ServiceRef    string `json:"service_ref,omitempty"`
+	Standard      bool   `json:"standard,omitempty"`
 }
 
 type ProcessValidationDTO struct {
