@@ -89,9 +89,9 @@ func TestAddProcessStep_WithDependsOn(t *testing.T) {
 	firstID := first.Steps[0].ID
 
 	second, err := AddProcessStep(p, procID, UpsertProcessStepRequest{
-		Name:      "Second Step",
+		Name:       "Second Step",
 		ServiceRef: "identity.blumer.cloud/user-account",
-		DependsOn: []string{firstID},
+		DependsOn:  []string{firstID},
 	})
 	if err != nil {
 		t.Fatal(err)
