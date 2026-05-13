@@ -271,6 +271,7 @@ func AddProcessStep(path, id string, req UpsertProcessStepRequest) (ProcessDTO, 
 		Role:       firstNonEmpty(strings.TrimSpace(req.Role), "supporting"),
 		Required:   req.Required,
 		Notes:      req.Notes,
+		DependsOn:  req.DependsOn,
 	}
 	node.Meta.Steps = append(node.Meta.Steps, step)
 	if err := fsx.WriteYAML(node.Path, node.Meta); err != nil {
@@ -296,6 +297,7 @@ func UpdateProcessStep(path, id, stepID string, req UpsertProcessStepRequest) (P
 			node.Meta.Steps[i].Role = firstNonEmpty(strings.TrimSpace(req.Role), "supporting")
 			node.Meta.Steps[i].Required = req.Required
 			node.Meta.Steps[i].Notes = req.Notes
+			node.Meta.Steps[i].DependsOn = req.DependsOn
 			found = true
 			break
 		}

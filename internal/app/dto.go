@@ -127,29 +127,37 @@ type RequiredServiceRefDTO struct {
 }
 
 type ProcessStepSummaryDTO struct {
-	StepNum    int    `json:"step_num"`
-	Name       string `json:"name"`
-	ServiceRef string `json:"service_ref"`
-	Method     string `json:"method,omitempty"`
-	Role       string `json:"role,omitempty"`
-	Required   bool   `json:"required"`
+	StepNum    int      `json:"step_num"`
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	ServiceRef string   `json:"service_ref"`
+	Method     string   `json:"method,omitempty"`
+	Role       string   `json:"role,omitempty"`
+	Required   bool     `json:"required"`
+	DependsOn  []string `json:"depends_on,omitempty"`
+}
+
+type ProcessGroupDTO struct {
+	ProcessID   string                  `json:"process_id"`
+	ProcessName string                  `json:"process_name"`
+	Steps       []ProcessStepSummaryDTO `json:"steps"`
 }
 
 type ProductSummaryDTO struct {
-	ID                               string                  `json:"id"`
-	Name                             string                  `json:"name"`
-	Version                          string                  `json:"version"`
-	Status                           string                  `json:"status"`
-	OfferedBy                        string                  `json:"offered_by"`
-	OwningDomain                     string                  `json:"owning_domain"`
-	SourcePath                       string                  `json:"source_path,omitempty"`
-	CatalogPath                      string                  `json:"catalog_path,omitempty"`
-	FulfillmentRequiredServicesCount int                     `json:"fulfillment_required_services_count"`
-	FulfillmentUnresolvedCount       int                     `json:"fulfillment_unresolved_count"`
-	ProcessCount                     int                     `json:"process_count"`
-	UnmappedTaskCount                int                     `json:"unmapped_task_count"`
-	Fulfillment                      ProductFulfillmentDTO   `json:"fulfillment,omitempty"`
-	ProcessSteps                     []ProcessStepSummaryDTO `json:"process_steps,omitempty"`
+	ID                               string                `json:"id"`
+	Name                             string                `json:"name"`
+	Version                          string                `json:"version"`
+	Status                           string                `json:"status"`
+	OfferedBy                        string                `json:"offered_by"`
+	OwningDomain                     string                `json:"owning_domain"`
+	SourcePath                       string                `json:"source_path,omitempty"`
+	CatalogPath                      string                `json:"catalog_path,omitempty"`
+	FulfillmentRequiredServicesCount int                   `json:"fulfillment_required_services_count"`
+	FulfillmentUnresolvedCount       int                   `json:"fulfillment_unresolved_count"`
+	ProcessCount                     int                   `json:"process_count"`
+	UnmappedTaskCount                int                   `json:"unmapped_task_count"`
+	Fulfillment                      ProductFulfillmentDTO `json:"fulfillment,omitempty"`
+	Processes                        []ProcessGroupDTO     `json:"processes,omitempty"`
 }
 
 type ServiceRefDTO struct {
@@ -417,12 +425,13 @@ type ProcessStepDTO struct {
 }
 
 type UpsertProcessStepRequest struct {
-	Name       string `json:"name"`
-	ServiceRef string `json:"service_ref"`
-	Method     string `json:"method"`
-	Role       string `json:"role"`
-	Required   bool   `json:"required"`
-	Notes      string `json:"notes"`
+	Name       string   `json:"name"`
+	ServiceRef string   `json:"service_ref"`
+	Method     string   `json:"method"`
+	Role       string   `json:"role"`
+	Required   bool     `json:"required"`
+	Notes      string   `json:"notes"`
+	DependsOn  []string `json:"depends_on,omitempty"`
 }
 
 type BPMNReferenceDTO struct {
