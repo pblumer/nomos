@@ -218,6 +218,130 @@ ola:
   availability: business-hours
 YAML
 
+# Service alias used in the product process mapping example.
+"$NOMOS_BIN" domain add account.blumer.cloud --path "$COSMOS_PATH" --owner "Account Domain Team"
+"$NOMOS_BIN" service add license --domain account.blumer.cloud --path "$COSMOS_PATH" --owner "Account Domain Team"
+cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/account/services/license/service.yaml" <<'YAML'
+id: service-license
+type: service
+name: license
+version: 0.1.0
+status: draft
+owner: Account Domain Team
+owned_by: account.blumer.cloud
+operated_by:
+  - account.blumer.cloud
+capabilities:
+  - license-assignment
+supported_products:
+  - PROD-ACC-MBX-001
+summary: Domain-owned service capability for account license assignment.
+ola:
+  name: Account License OLA
+  target: 2h
+  availability: business-hours
+YAML
+
+python3 - <<'PYDEMO'
+from pathlib import Path
+import os
+product = Path(os.environ["COSMOS_PATH"]) / ".nomos/catalog/blueprints/products/benutzerkonto-mit-mailbox.yaml"
+text = product.read_text()
+if "processes:" not in text:
+    text = text.replace("rules:\n", "processes:\n  - PRC-ACC-MBX-001\nrules:\n")
+if "account.blumer.cloud/license" not in text:
+    old = """    - service_ref: mailing.blumer.cloud/exchange
+      role: primary
+      required: true
+      description: Provides the mailbox capability.
+      sla_ref: SLA-MAILBOX-STANDARD
+      ola_ref: OLA-MAILING-OPS-STANDARD
+"""
+    new = old + """    - service_ref: account.blumer.cloud/license
+      role: supporting
+      required: true
+      description: Assigns the required product license.
+      sla:
+        target: 4h
+        availability: 99.5%
+        support_window: business_hours
+      ola:
+        owner: Account Operations
+        target: 2h
+"""
+    text = text.replace(old, new)
+if "purpose:" not in text:
+    old = """summary: >
+  Bereitstellung eines Benutzerkontos mit zugehoeriger Mailbox.
+"""
+    new = old + """purpose: Schneller, nachvollziehbarer Onboarding-Baustein fuer Mitarbeitende.
+description: Das Angebot kombiniert Identitaet, Lizenz und Mailbox in einem kontrollierten Fulfillment-Prozess.
+consumers:
+  - Employees
+  - Service desk
+lifecycle_status: draft
+tags:
+  - identity
+  - mailbox
+  - provisioning
+"""
+    text = text.replace(old, new)
+product.write_text(text)
+PYDEMO
+mkdir -p "$COSMOS_PATH/.nomos/catalog/blueprints/processes"
+cat > "$COSMOS_PATH/.nomos/catalog/blueprints/processes/PRC-ACC-MBX-001.yaml" <<'YAML'
+id: PRC-ACC-MBX-001
+type: process
+name: Provision Benutzeraccount mit Mailbox
+version: 0.1.0
+status: draft
+owner: blumer.cloud
+summary: End-to-end fulfillment process for the product offering.
+tags:
+  - provisioning
+  - product-offering
+related_product: PROD-ACC-MBX-001
+bpmn:
+  file: PRC-ACC-MBX-001.bpmn
+  process_id: Process_UserAccountMailboxProvisioning
+  primary: true
+task_mappings:
+  - bpmn_element_id: Task_CreateUserAccount
+    task_name: Create user account
+    bpmn_element_type: bpmn:ServiceTask
+    service_ref: identity.blumer.cloud/user-account
+    role: primary
+    required: true
+  - bpmn_element_id: Task_AssignLicense
+    task_name: Assign license
+    bpmn_element_type: bpmn:ServiceTask
+    service_ref: account.blumer.cloud/license
+    role: supporting
+    required: true
+  - bpmn_element_id: Task_CreateMailbox
+    task_name: Create mailbox
+    bpmn_element_type: bpmn:ServiceTask
+    service_ref: mailing.blumer.cloud/exchange
+    role: primary
+    required: true
+YAML
+cat > "$COSMOS_PATH/.nomos/catalog/blueprints/processes/PRC-ACC-MBX-001.bpmn" <<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" id="Definitions_UserAccountMailbox" targetNamespace="https://nomos.local/bpmn">
+  <bpmn:process id="Process_UserAccountMailboxProvisioning" name="Provision Benutzeraccount mit Mailbox" isExecutable="false">
+    <bpmn:startEvent id="StartEvent_Request" name="Request received" />
+    <bpmn:userTask id="Task_ValidateRequest" name="Validate request" />
+    <bpmn:serviceTask id="Task_CreateUserAccount" name="Create user account" />
+    <bpmn:serviceTask id="Task_AssignLicense" name="Assign license" />
+    <bpmn:serviceTask id="Task_CreateMailbox" name="Create mailbox" />
+    <bpmn:manualTask id="Task_QualityCheck" name="Quality check" />
+    <bpmn:task id="Task_DocumentEvidence" name="Document evidence" />
+    <bpmn:endEvent id="EndEvent_Done" name="Fulfilled" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_UserAccountMailbox"><bpmndi:BPMNPlane id="BPMNPlane_UserAccountMailbox" bpmnElement="Process_UserAccountMailboxProvisioning" /></bpmndi:BPMNDiagram>
+</bpmn:definitions>
+XML
+
 
 echo ""
 echo "==> Cosmos Info"
