@@ -365,10 +365,19 @@ func ExtractBPMNTasks(xmlText string) ([]BPMNTaskDTO, error) {
 			}
 		}
 		if id != "" {
-			tasks = append(tasks, BPMNTaskDTO{ID: id, Name: name, ElementType: "bpmn:" + se.Name.Local})
+			tasks = append(tasks, BPMNTaskDTO{ID: id, Name: name, ElementType: "bpmn:" + se.Name.Local, Standard: isStandardBPMNTask(id)})
 		}
 	}
 	return tasks, nil
+}
+
+func isStandardBPMNTask(id string) bool {
+	switch id {
+	case "Task_ValidateRequest", "Task_PerformFulfillment", "Task_QualityCheck", "Task_DocumentEvidence":
+		return true
+	default:
+		return false
+	}
 }
 
 func withMappingStatus(tasks []BPMNTaskDTO, mappings []ProcessTaskMappingDTO) []BPMNTaskDTO {
@@ -380,6 +389,8 @@ func withMappingStatus(tasks []BPMNTaskDTO, mappings []ProcessTaskMappingDTO) []
 		if m, ok := by[tasks[i].ID]; ok {
 			tasks[i].MappingStatus = "mapped"
 			tasks[i].ServiceRef = m.ServiceRef
+		} else if tasks[i].Standard {
+			tasks[i].MappingStatus = "standard"
 		} else {
 			tasks[i].MappingStatus = "unmapped"
 		}
@@ -443,6 +454,9 @@ func validateProcessDTO(path string, p ProcessDTO) ProcessValidationDTO {
 		}
 	}
 	for _, t := range p.Tasks {
+		if t.Standard {
+			continue
+		}
 		if !mapped[t.ID] {
 			add("BPMN_TASK_UNMAPPED", "warning", "BPMN task is not mapped to a service: "+firstNonEmpty(t.Name, t.ID))
 		}

@@ -46,6 +46,34 @@ func TestProcessArtifactCreateTasksMappingsAndValidation(t *testing.T) {
 	}
 }
 
+func TestStandardBPMNTasksDoNotRequireServiceMappings(t *testing.T) {
+	p := createAppTestCosmos(t)
+	product, err := CreateProductOffering(p, "identity.blumer.cloud", CreateProductOfferingRequest{ID: "PROD-PROC-STD", Name: "Standard Process Product"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	proc, err := CreateProductProcess(p, product.ID, CreateProcessRequest{ID: "PRC-PROC-STD", Name: "Standard Process"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(proc.Tasks) == 0 {
+		t.Fatal("expected default BPMN tasks")
+	}
+	for _, task := range proc.Tasks {
+		if !task.Standard {
+			t.Fatalf("default task should be marked standard: %+v", task)
+		}
+		if task.MappingStatus != "standard" {
+			t.Fatalf("default task should have standard mapping status: %+v", task)
+		}
+	}
+	for _, f := range proc.Validation.Findings {
+		if f.Code == "BPMN_TASK_UNMAPPED" {
+			t.Fatalf("standard tasks should not create unmapped warnings: %+v", proc.Validation.Findings)
+		}
+	}
+}
+
 func TestProcessInvalidBPMNAndUnknownMapping(t *testing.T) {
 	p := createAppTestCosmos(t)
 	product, err := CreateProductOffering(p, "identity.blumer.cloud", CreateProductOfferingRequest{ID: "PROD-PROC-002", Name: "Old Product"})
