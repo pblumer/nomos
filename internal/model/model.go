@@ -196,6 +196,24 @@ type DecisionGateway struct {
 	Conditions []GatewayCondition `yaml:"conditions,omitempty" json:"conditions,omitempty"`
 }
 
+// DecisionRule is one DMN-like decision table row evaluated by a business rule task.
+type DecisionRule struct {
+	Input       string `yaml:"input" json:"input"`
+	Operator    string `yaml:"operator" json:"operator"`
+	Value       string `yaml:"value" json:"value"`
+	Output      string `yaml:"output" json:"output"`
+	OutputValue string `yaml:"output_value" json:"output_value"`
+	Label       string `yaml:"label,omitempty" json:"label,omitempty"`
+}
+
+// DecisionTable captures DMN-style decision logic for business rule tasks.
+type DecisionTable struct {
+	Name        string         `yaml:"name,omitempty" json:"name,omitempty"`
+	HitPolicy   string         `yaml:"hit_policy,omitempty" json:"hit_policy,omitempty"`
+	Description string         `yaml:"description,omitempty" json:"description,omitempty"`
+	Rules       []DecisionRule `yaml:"rules,omitempty" json:"rules,omitempty"`
+}
+
 // ProcessStep is one ordered step in a fulfillment process. Each step maps to
 // a service call (ArchiMate function/trigger).
 type ProcessStep struct {
@@ -210,6 +228,7 @@ type ProcessStep struct {
 	DependsOn  []string           `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
 	Inputs     []StepInputBinding `yaml:"inputs,omitempty" json:"inputs,omitempty"`
 	Outputs    []StepOutputSchema `yaml:"outputs,omitempty" json:"outputs,omitempty"`
+	Decision   *DecisionTable     `yaml:"decision,omitempty" json:"decision,omitempty"`
 	Gateway    *DecisionGateway   `yaml:"gateway,omitempty" json:"gateway,omitempty"`
 }
 
@@ -224,6 +243,7 @@ type ProcessTaskMapping struct {
 	TaskName        string `yaml:"task_name,omitempty" json:"task_name,omitempty"`
 	BPMNElementType string `yaml:"bpmn_element_type,omitempty" json:"bpmn_element_type,omitempty"`
 	ServiceRef      string `yaml:"service_ref" json:"service_ref"`
+	Method          string `yaml:"method,omitempty" json:"method,omitempty"`
 	Role            string `yaml:"role,omitempty" json:"role,omitempty"`
 	Required        bool   `yaml:"required" json:"required"`
 	Notes           string `yaml:"notes,omitempty" json:"notes,omitempty"`

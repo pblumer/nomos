@@ -152,6 +152,22 @@ type DecisionGatewayDTO struct {
 	Conditions []GatewayConditionDTO `json:"conditions,omitempty"`
 }
 
+type DecisionRuleDTO struct {
+	Input       string `json:"input"`
+	Operator    string `json:"operator"`
+	Value       string `json:"value"`
+	Output      string `json:"output"`
+	OutputValue string `json:"output_value"`
+	Label       string `json:"label,omitempty"`
+}
+
+type DecisionTableDTO struct {
+	Name        string            `json:"name,omitempty"`
+	HitPolicy   string            `json:"hit_policy,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Rules       []DecisionRuleDTO `json:"rules,omitempty"`
+}
+
 type ProcessStepSummaryDTO struct {
 	StepNum    int                   `json:"step_num"`
 	ID         string                `json:"id"`
@@ -164,6 +180,7 @@ type ProcessStepSummaryDTO struct {
 	DependsOn  []string              `json:"depends_on,omitempty"`
 	Inputs     []StepInputBindingDTO `json:"inputs,omitempty"`
 	Outputs    []StepOutputSchemaDTO `json:"outputs,omitempty"`
+	Decision   *DecisionTableDTO     `json:"decision,omitempty"`
 	Gateway    *DecisionGatewayDTO   `json:"gateway,omitempty"`
 }
 
@@ -456,6 +473,7 @@ type ProcessStepDTO struct {
 	DependsOn  []string              `json:"depends_on,omitempty"`
 	Inputs     []StepInputBindingDTO `json:"inputs,omitempty"`
 	Outputs    []StepOutputSchemaDTO `json:"outputs,omitempty"`
+	Decision   *DecisionTableDTO     `json:"decision,omitempty"`
 	Gateway    *DecisionGatewayDTO   `json:"gateway,omitempty"`
 }
 
@@ -470,6 +488,7 @@ type UpsertProcessStepRequest struct {
 	DependsOn  []string              `json:"depends_on,omitempty"`
 	Inputs     []StepInputBindingDTO `json:"inputs,omitempty"`
 	Outputs    []StepOutputSchemaDTO `json:"outputs,omitempty"`
+	Decision   *DecisionTableDTO     `json:"decision,omitempty"`
 	Gateway    *DecisionGatewayDTO   `json:"gateway,omitempty"`
 }
 
@@ -484,6 +503,7 @@ type ProcessTaskMappingDTO struct {
 	TaskName        string `json:"task_name,omitempty"`
 	BPMNElementType string `json:"bpmn_element_type,omitempty"`
 	ServiceRef      string `json:"service_ref"`
+	Method          string `json:"method,omitempty"`
 	Role            string `json:"role,omitempty"`
 	Required        bool   `json:"required"`
 	Notes           string `json:"notes,omitempty"`
@@ -495,6 +515,7 @@ type BPMNTaskDTO struct {
 	ElementType   string `json:"element_type"`
 	MappingStatus string `json:"mapping_status,omitempty"`
 	ServiceRef    string `json:"service_ref,omitempty"`
+	Method        string `json:"method,omitempty"`
 	Standard      bool   `json:"standard,omitempty"`
 }
 
