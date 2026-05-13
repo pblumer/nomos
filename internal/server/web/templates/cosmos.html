@@ -184,6 +184,13 @@
 .step-method{font-size:.72rem;color:#047857;background:#d1fae5;padding:1px 6px;border-radius:4px;font-family:ui-monospace,monospace;white-space:nowrap}
 .step-role{font-size:.68rem;color:#64748b;background:#f1f5f9;padding:1px 5px;border-radius:4px;white-space:nowrap}
 .step-req{font-size:.68rem;color:#1d4ed8;background:#dbeafe;padding:1px 5px;border-radius:4px}
+.step-io{margin-top:.3rem;display:flex;flex-direction:column;gap:.15rem}
+.io-row{display:flex;align-items:center;gap:.3rem;flex-wrap:wrap}
+.io-in-badge{font-size:.67rem;color:#0369a1;background:#e0f2fe;padding:1px 5px;border-radius:3px;white-space:nowrap}
+.io-out-badge{font-size:.67rem;color:#059669;background:#d1fae5;padding:1px 5px;border-radius:3px;white-space:nowrap}
+.io-source{font-size:.67rem;color:#64748b;font-family:ui-monospace,monospace;white-space:nowrap}
+.step-io-editor{border:1px solid #e2e8f0;border-radius:8px;padding:.4rem .6rem;margin-top:.35rem}
+.step-io-editor summary{font-size:.78rem;font-weight:600;color:#475569;cursor:pointer}
 .step-add-row{display:flex;gap:.3rem;flex-wrap:wrap;align-items:center;padding:.5rem .6rem;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;margin-top:.2rem}
 .step-add-row input,.step-add-row select{border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;background:#fff}
 .step-connector{width:2px;height:10px;background:#c7d2fe;margin-left:10px;flex-shrink:0;align-self:center}
@@ -597,7 +604,8 @@ function renderDagSteps(steps){
     const conn=li>0?`<div class="dag-connectors">${row.map(()=>`<div style="flex:1;display:flex;justify-content:center"><div class="dag-connector"></div></div>`).join('')}</div>`:'';
     const cards=row.map(s=>{n++;
       const deps=s.depends_on?.length?`<div class="step-deps">nach: ${s.depends_on.map(d=>esc(byId[d]?.name||d)).join(', ')}</div>`:'';
-      return `<div class="step-row" data-step-id="${esc(s.id)}"><span class="step-num">${n}</span><div class="step-body"><div class="step-name">${esc(s.name)}</div>${deps}<div class="step-chips">${s.service_ref?`<span class="step-svc" title="${esc(s.service_ref)}">${esc(s.service_ref)}</span>`:''}${s.method?`<span class="step-method">${esc(s.method)}()</span>`:''}  <span class="step-role">${esc(s.role||'supporting')}</span>${s.required?'<span class="step-req">req</span>':''}</div></div><button class="btn btn-danger btn-sm step-del-btn" data-step-id="${esc(s.id)}" style="padding:1px 5px;margin-left:auto;flex-shrink:0">&#x2715;</button></div>`;
+      const ioHtml=(()=>{const ins=(s.inputs||[]).map(b=>`<div class="io-row"><span class="io-in-badge">↓ ${esc(b.name)}</span><span class="io-source">${esc(b.source)}</span>${b.required?'<span style="color:#dc2626;font-size:.65rem">*</span>':''}</div>`).join('');const outs=(s.outputs||[]).map(o=>`<div class="io-row"><span class="io-out-badge">↑ ${esc(o.name)}</span><span class="io-source">${esc(o.type||'string')}</span></div>`).join('');return ins||outs?`<div class="step-io">${ins}${outs}</div>`:''})();
+      return `<div class="step-row" data-step-id="${esc(s.id)}"><span class="step-num">${n}</span><div class="step-body"><div class="step-name">${esc(s.name)}</div>${deps}<div class="step-chips">${s.service_ref?`<span class="step-svc" title="${esc(s.service_ref)}">${esc(s.service_ref)}</span>`:''}${s.method?`<span class="step-method">${esc(s.method)}()</span>`:''}  <span class="step-role">${esc(s.role||'supporting')}</span>${s.required?'<span class="step-req">req</span>':''}</div>${ioHtml}</div><button class="btn btn-danger btn-sm step-del-btn" data-step-id="${esc(s.id)}" style="padding:1px 5px;margin-left:auto;flex-shrink:0">&#x2715;</button></div>`;
     }).join('');
     return conn+`<div class="dag-level">${cards}</div>`;
   }).join('');
@@ -606,7 +614,8 @@ function stepAddRow(procId,services,existingSteps){
   const opts=services.map(s=>`<option value="${esc(s.service_ref)}">${esc(s.service_ref)}</option>`).join('');
   const depChecks=existingSteps?.length?existingSteps.map(s=>`<label style="font-size:.78rem;display:flex;align-items:center;gap:.25rem;white-space:nowrap"><input type="checkbox" class="step-dep-cb" value="${esc(s.id)}"> ${esc(s.name)}</label>`).join(''):'';
   const depSection=depChecks?`<div style="margin-top:.3rem;padding:.3rem .5rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px"><div style="font-size:.72rem;font-weight:600;color:#475569;margin-bottom:.2rem">Abhängig von</div><div id="step-dep-list" style="display:flex;flex-wrap:wrap;gap:.35rem">${depChecks}</div></div>`:'<div id="step-dep-list"></div>';
-  return `<div class="step-add-row"><input id="step-new-name" placeholder="Schrittname…" style="flex:1;min-width:120px"><select id="step-new-svc"><option value="">— Service —</option>${opts}</select><input id="step-new-method" placeholder="Methode…" style="width:110px" list="step-method-list" autocomplete="off"><datalist id="step-method-list"></datalist><select id="step-new-role" style="width:100px"><option>supporting</option><option>primary</option><option>optional</option></select><label style="font-size:.78rem;display:flex;align-items:center;gap:.2rem"><input type="checkbox" id="step-new-req"> Pflicht</label><button class="btn btn-primary btn-sm" id="step-add-btn">+ Schritt</button></div>${depSection}`;
+  const ioEditor=`<details class="step-io-editor"><summary>Datenfluss – Inputs &amp; Outputs</summary><div style="margin-top:.5rem;display:flex;flex-direction:column;gap:.6rem"><div><div style="font-size:.72rem;font-weight:600;color:#0369a1;margin-bottom:.2rem">↓ Inputs</div><div id="step-new-inputs" style="display:flex;flex-wrap:wrap;gap:.25rem;min-height:1rem;margin-bottom:.2rem"></div><div style="display:flex;gap:.25rem;flex-wrap:wrap"><input id="io-in-name" placeholder="name…" style="width:90px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><input id="io-in-src" placeholder="instance.x  oder  step.id.y" style="flex:1;min-width:130px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem" list="io-source-list"><datalist id="io-source-list"></datalist><label style="font-size:.75rem;display:flex;align-items:center;gap:.2rem"><input type="checkbox" id="io-in-req"> Pflicht</label><button class="btn btn-secondary btn-sm" id="io-in-add">+ Input</button></div></div><div><div style="font-size:.72rem;font-weight:600;color:#059669;margin-bottom:.2rem">↑ Outputs</div><div id="step-new-outputs" style="display:flex;flex-wrap:wrap;gap:.25rem;min-height:1rem;margin-bottom:.2rem"></div><div style="display:flex;gap:.25rem;flex-wrap:wrap"><input id="io-out-name" placeholder="name…" style="width:90px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><select id="io-out-type" style="width:80px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><option>string</option><option>number</option><option>boolean</option><option>json</option></select><input id="io-out-desc" placeholder="Beschreibung…" style="flex:1;min-width:90px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><button class="btn btn-secondary btn-sm" id="io-out-add">+ Output</button></div></div></div></details>`;
+  return `<div class="step-add-row"><input id="step-new-name" placeholder="Schrittname…" style="flex:1;min-width:120px"><select id="step-new-svc"><option value="">— Service —</option>${opts}</select><input id="step-new-method" placeholder="Methode…" style="width:110px" list="step-method-list" autocomplete="off"><datalist id="step-method-list"></datalist><select id="step-new-role" style="width:100px"><option>supporting</option><option>primary</option><option>optional</option></select><label style="font-size:.78rem;display:flex;align-items:center;gap:.2rem"><input type="checkbox" id="step-new-req"> Pflicht</label><button class="btn btn-primary btn-sm" id="step-add-btn">+ Schritt</button></div>${depSection}${ioEditor}`;
 }
 function renderProcBody(p,services){
   const steps=p.steps||[];
@@ -727,6 +736,46 @@ function wireSteps(container,d,proc){
   svcSel?.addEventListener('change',()=>loadMethodSuggestions(svcSel.value));
   if(svcSel?.value)loadMethodSuggestions(svcSel.value);
   const addBtn=container.querySelector('#step-add-btn');
+  // IO editor state
+  let newInputs=[],newOutputs=[];
+  function renderIOChips(){
+    const inEl=container.querySelector('#step-new-inputs');
+    const outEl=container.querySelector('#step-new-outputs');
+    if(inEl)inEl.innerHTML=newInputs.map((b,i)=>`<span class="io-in-badge" style="cursor:pointer" title="entfernen" data-io-in="${i}">↓ ${esc(b.name)} ← ${esc(b.source)} ×</span>`).join('');
+    if(outEl)outEl.innerHTML=newOutputs.map((o,i)=>`<span class="io-out-badge" style="cursor:pointer" title="entfernen" data-io-out="${i}">↑ ${esc(o.name)}: ${esc(o.type)} ×</span>`).join('');
+    container.querySelectorAll('[data-io-in]').forEach(el=>el.addEventListener('click',()=>{newInputs.splice(parseInt(el.dataset.ioIn),1);renderIOChips();}));
+    container.querySelectorAll('[data-io-out]').forEach(el=>el.addEventListener('click',()=>{newOutputs.splice(parseInt(el.dataset.ioOut),1);renderIOChips();}));
+  }
+  function refreshSourceList(){
+    const dl=container.querySelector('#io-source-list');if(!dl)return;
+    dl.innerHTML='';
+    (proc.steps||[]).forEach(s=>(s.outputs||[]).forEach(o=>{
+      const opt=document.createElement('option');opt.value=`step.${s.id}.${o.name}`;dl.appendChild(opt);
+    }));
+    (d.required_inputs||[]).forEach(name=>{
+      const opt=document.createElement('option');opt.value=`instance.${name}`;dl.appendChild(opt);
+    });
+  }
+  refreshSourceList();
+  container.querySelector('#io-in-add')?.addEventListener('click',()=>{
+    const name=container.querySelector('#io-in-name')?.value.trim();
+    const source=container.querySelector('#io-in-src')?.value.trim();
+    if(!name||!source)return;
+    newInputs.push({name,source,required:container.querySelector('#io-in-req')?.checked||false});
+    const n=container.querySelector('#io-in-name'),s=container.querySelector('#io-in-src');
+    if(n)n.value='';if(s)s.value='';const req=container.querySelector('#io-in-req');if(req)req.checked=false;
+    renderIOChips();
+  });
+  container.querySelector('#io-out-add')?.addEventListener('click',()=>{
+    const name=container.querySelector('#io-out-name')?.value.trim();
+    const type=container.querySelector('#io-out-type')?.value||'string';
+    const description=container.querySelector('#io-out-desc')?.value.trim()||'';
+    if(!name)return;
+    newOutputs.push({name,type,description});
+    const n=container.querySelector('#io-out-name'),desc=container.querySelector('#io-out-desc');
+    if(n)n.value='';if(desc)desc.value='';
+    renderIOChips();
+  });
   async function doAddStep(){
     const name=container.querySelector('#step-new-name')?.value.trim();
     if(!name)return;
@@ -736,8 +785,8 @@ function wireSteps(container,d,proc){
     const required=container.querySelector('#step-new-req')?.checked||false;
     const depends_on=[...container.querySelectorAll('.step-dep-cb:checked')].map(cb=>cb.value);
     if(addBtn)addBtn.disabled=true;
-    const r=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id)+'/steps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,service_ref,method,role,required,depends_on})});
-    if(r.ok){const upd=await r.json();const nameEl=container.querySelector('#step-new-name');const methodEl=container.querySelector('#step-new-method');if(nameEl)nameEl.value='';if(methodEl)methodEl.value='';container.querySelectorAll('.step-dep-cb').forEach(cb=>cb.checked=false);refreshSteps(upd);}
+    const r=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id)+'/steps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,service_ref,method,role,required,depends_on,inputs:newInputs,outputs:newOutputs})});
+    if(r.ok){const upd=await r.json();const nameEl=container.querySelector('#step-new-name');const methodEl=container.querySelector('#step-new-method');if(nameEl)nameEl.value='';if(methodEl)methodEl.value='';container.querySelectorAll('.step-dep-cb').forEach(cb=>cb.checked=false);newInputs=[];newOutputs=[];renderIOChips();refreshSourceList();refreshSteps(upd);}
     if(addBtn)addBtn.disabled=false;
   }
   addBtn?.addEventListener('click',doAddStep);

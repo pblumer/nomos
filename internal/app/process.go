@@ -239,7 +239,7 @@ func processDTO(path string, n processNode, includeValidation bool) ProcessDTO {
 	bpmnPath := safeBPMNPath(filepath.Dir(n.Path), n.Meta.BPMN.File)
 	dto := ProcessDTO{ID: n.Meta.ID, Type: n.Meta.Type, Name: n.Meta.Name, Version: n.Meta.Version, Status: n.Meta.Status, Owner: n.Meta.Owner, Summary: n.Meta.Summary, Tags: n.Meta.Tags, RelatedProduct: n.Meta.RelatedProduct, BPMN: BPMNReferenceDTO{File: n.Meta.BPMN.File, ProcessID: n.Meta.BPMN.ProcessID, Primary: n.Meta.BPMN.Primary}, Path: n.Path, BPMNPath: bpmnPath}
 	for _, s := range n.Meta.Steps {
-		dto.Steps = append(dto.Steps, ProcessStepDTO{ID: s.ID, Name: s.Name, ServiceRef: s.ServiceRef, Method: s.Method, Role: s.Role, Required: s.Required, Notes: s.Notes, DependsOn: s.DependsOn})
+		dto.Steps = append(dto.Steps, ProcessStepDTO{ID: s.ID, Name: s.Name, ServiceRef: s.ServiceRef, Method: s.Method, Role: s.Role, Required: s.Required, Notes: s.Notes, DependsOn: s.DependsOn, Inputs: stepsInputsToDTO(s.Inputs), Outputs: stepsOutputsToDTO(s.Outputs)})
 	}
 	for _, m := range n.Meta.TaskMappings {
 		dto.TaskMappings = append(dto.TaskMappings, ProcessTaskMappingDTO{BPMNElementID: m.BPMNElementID, TaskName: m.TaskName, BPMNElementType: m.BPMNElementType, ServiceRef: m.ServiceRef, Role: m.Role, Required: m.Required, Notes: m.Notes})
@@ -272,6 +272,8 @@ func AddProcessStep(path, id string, req UpsertProcessStepRequest) (ProcessDTO, 
 		Required:   req.Required,
 		Notes:      req.Notes,
 		DependsOn:  req.DependsOn,
+		Inputs:     dtoInputsToModel(req.Inputs),
+		Outputs:    dtoOutputsToModel(req.Outputs),
 	}
 	node.Meta.Steps = append(node.Meta.Steps, step)
 	if err := fsx.WriteYAML(node.Path, node.Meta); err != nil {
@@ -298,6 +300,8 @@ func UpdateProcessStep(path, id, stepID string, req UpsertProcessStepRequest) (P
 			node.Meta.Steps[i].Required = req.Required
 			node.Meta.Steps[i].Notes = req.Notes
 			node.Meta.Steps[i].DependsOn = req.DependsOn
+			node.Meta.Steps[i].Inputs = dtoInputsToModel(req.Inputs)
+			node.Meta.Steps[i].Outputs = dtoOutputsToModel(req.Outputs)
 			found = true
 			break
 		}
@@ -524,4 +528,36 @@ func xmlEscape(s string) string {
 	var b bytes.Buffer
 	_ = xml.EscapeText(&b, []byte(s))
 	return b.String()
+}
+
+func stepsInputsToDTO(ins []model.StepInputBinding) []StepInputBindingDTO {
+	out := make([]StepInputBindingDTO, len(ins))
+	for i, b := range ins {
+		out[i] = StepInputBindingDTO{Name: b.Name, Source: b.Source, Required: b.Required}
+	}
+	return out
+}
+
+func stepsOutputsToDTO(outs []model.StepOutputSchema) []StepOutputSchemaDTO {
+	out := make([]StepOutputSchemaDTO, len(outs))
+	for i, s := range outs {
+		out[i] = StepOutputSchemaDTO{Name: s.Name, Type: s.Type, Description: s.Description}
+	}
+	return out
+}
+
+func dtoInputsToModel(ins []StepInputBindingDTO) []model.StepInputBinding {
+	out := make([]model.StepInputBinding, len(ins))
+	for i, b := range ins {
+		out[i] = model.StepInputBinding{Name: b.Name, Source: b.Source, Required: b.Required}
+	}
+	return out
+}
+
+func dtoOutputsToModel(outs []StepOutputSchemaDTO) []model.StepOutputSchema {
+	out := make([]model.StepOutputSchema, len(outs))
+	for i, s := range outs {
+		out[i] = model.StepOutputSchema{Name: s.Name, Type: s.Type, Description: s.Description}
+	}
+	return out
 }

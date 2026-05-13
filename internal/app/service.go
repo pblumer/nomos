@@ -265,6 +265,8 @@ func productSummaryDTO(tree cosmosfs.Tree, bp model.Blueprint, sourcePath string
 						Role:       step.Role,
 						Required:   step.Required,
 						DependsOn:  step.DependsOn,
+						Inputs:     stepsInputsToDTO(step.Inputs),
+						Outputs:    stepsOutputsToDTO(step.Outputs),
 					})
 				}
 				processGroups = append(processGroups, group)
