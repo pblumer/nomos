@@ -173,8 +173,9 @@ func AddServiceMethod(path, domainName, serviceName, method string) (ServiceDTO,
 	if err != nil {
 		return ServiceDTO{}, err
 	}
+	yamlPath := filepath.Join(svc.Path, "service.yaml")
 	var raw model.Service
-	if err := fsx.ReadYAML(svc.Path, &raw); err != nil {
+	if err := fsx.ReadYAML(yamlPath, &raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	for _, m := range raw.Methods {
@@ -183,7 +184,7 @@ func AddServiceMethod(path, domainName, serviceName, method string) (ServiceDTO,
 		}
 	}
 	raw.Methods = append(raw.Methods, method)
-	if err := fsx.WriteYAML(svc.Path, raw); err != nil {
+	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	return GetService(path, domainName, serviceName)
@@ -194,8 +195,9 @@ func RemoveServiceMethod(path, domainName, serviceName, method string) (ServiceD
 	if err != nil {
 		return ServiceDTO{}, err
 	}
+	yamlPath := filepath.Join(svc.Path, "service.yaml")
 	var raw model.Service
-	if err := fsx.ReadYAML(svc.Path, &raw); err != nil {
+	if err := fsx.ReadYAML(yamlPath, &raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	filtered := raw.Methods[:0]
@@ -205,7 +207,7 @@ func RemoveServiceMethod(path, domainName, serviceName, method string) (ServiceD
 		}
 	}
 	raw.Methods = filtered
-	if err := fsx.WriteYAML(svc.Path, raw); err != nil {
+	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	return GetService(path, domainName, serviceName)
