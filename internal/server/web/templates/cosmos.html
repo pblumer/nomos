@@ -932,6 +932,14 @@ function wireSteps(container,d,proc){
     if(n)n.value='';if(desc)desc.value='';
     renderIOChips();
   });
+  function buildBusinessRuleDecision(taskType){
+    if(taskType!=='businessRuleTask')return null;
+    return {name:'Austrittsdatum prüfen',hit_policy:'UNIQUE',rules:[{input:container.querySelector('#dmn-input')?.value.trim()||'employmentEndDate',operator:container.querySelector('#dmn-operator')?.value||'<=',value:container.querySelector('#dmn-value')?.value.trim()||'today',output:container.querySelector('#dmn-output')?.value.trim()||'canDeactivateUser',output_value:container.querySelector('#dmn-output-value')?.value.trim()||'true',label:container.querySelector('#dmn-label')?.value.trim()||'Austrittsdatum ist heute oder vergangen'}]};
+  }
+  function buildBusinessRuleGateway(taskType){
+    if(taskType!=='businessRuleTask')return null;
+    return {name:'Darf deaktivieren?',conditions:[{output:container.querySelector('#dmn-output')?.value.trim()||'canDeactivateUser',operator:'==',value:container.querySelector('#dmn-output-value')?.value.trim()||'true',label:'Nur dann Benutzeraccount deaktivieren'}]};
+  }
   async function doAddStep(){
     const name=container.querySelector('#step-new-name')?.value.trim();
     if(!name)return;
@@ -941,8 +949,9 @@ function wireSteps(container,d,proc){
     const role=container.querySelector('#step-new-role')?.value||'supporting';
     const required=container.querySelector('#step-new-req')?.checked||false;
     const depends_on=[...container.querySelectorAll('.step-dep-cb:checked')].map(cb=>cb.value);
+    const payload={name,task_type,service_ref,method,role,required,depends_on,inputs:newInputs,outputs:newOutputs,decision:buildBusinessRuleDecision(task_type),gateway:buildBusinessRuleGateway(task_type)};
     if(addBtn)addBtn.disabled=true;
-    const r=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id)+'/steps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,task_type,service_ref,method,role,required,depends_on,inputs:newInputs,outputs:newOutputs,decision:task_type==='businessRuleTask'?{name:'Austrittsdatum prüfen',hit_policy:'UNIQUE',rules:[{input:container.querySelector('#dmn-input')?.value.trim()||'employmentEndDate',operator:container.querySelector('#dmn-operator')?.value||'<=',value:container.querySelector('#dmn-value')?.value.trim()||'today',output:container.querySelector('#dmn-output')?.value.trim()||'canDeactivateUser',output_value:container.querySelector('#dmn-output-value')?.value.trim()||'true',label:container.querySelector('#dmn-label')?.value.trim()||'Austrittsdatum ist heute oder vergangen'}]},gateway:task_type==='businessRuleTask'?{name:'Darf deaktivieren?',conditions:[{output:container.querySelector('#dmn-output')?.value.trim()||'canDeactivateUser',operator:'==',value:container.querySelector('#dmn-output-value')?.value.trim()||'true',label:'Nur dann Benutzeraccount deaktivieren'}]}:null})});
+    const r=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id)+'/steps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     if(r.ok){const upd=await r.json();const nameEl=container.querySelector('#step-new-name');const methodEl=container.querySelector('#step-new-method');if(nameEl)nameEl.value='';if(methodEl)methodEl.value='';container.querySelectorAll('.step-dep-cb').forEach(cb=>cb.checked=false);newInputs=[];newOutputs=[];renderIOChips();refreshSourceList();refreshSteps(upd);}
     if(addBtn)addBtn.disabled=false;
   }

@@ -1197,6 +1197,29 @@ func TestCosmosTemplateContainsProductMoveWorkflowHooks(t *testing.T) {
 	}
 }
 
+func TestCosmosInlineScriptKeepsBusinessRuleDecisionTernaryComplete(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	rr := get(h, "/cosmos")
+	if rr.Code != http.StatusOK {
+		t.Fatalf("cosmos status=%d", rr.Code)
+	}
+	body := rr.Body.String()
+	if strings.Contains(body, "}]},gateway:task_type==='businessRuleTask'?") {
+		t.Fatalf("cosmos inline script contains an incomplete decision ternary before the gateway payload")
+	}
+	for _, want := range []string{
+		"function buildBusinessRuleDecision(taskType)",
+		"function buildBusinessRuleGateway(taskType)",
+		"decision:buildBusinessRuleDecision(task_type)",
+		"gateway:buildBusinessRuleGateway(task_type)",
+		"body:JSON.stringify(payload)",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("cosmos inline script missing %q", want)
+		}
+	}
+}
+
 func TestOpenAPIContainsProductMoveEndpoint(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	rr := get(h, "/openapi.json")
