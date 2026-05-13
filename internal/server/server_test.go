@@ -1220,6 +1220,26 @@ func TestCosmosInlineScriptKeepsBusinessRuleDecisionTernaryComplete(t *testing.T
 	}
 }
 
+func TestCosmosGeneratedBPMNLayoutUsesShapeBoundsForSequenceFlows(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	rr := get(h, "/cosmos")
+	if rr.Code != http.StatusOK {
+		t.Fatalf("cosmos status=%d", rr.Code)
+	}
+	body := rr.Body.String()
+	for _, want := range []string{
+		"const layoutById={};",
+		"const sequenceGap=72;",
+		"{w:150,h:88,y:76}",
+		"const x1=source.x+source.w;",
+		"const x2=target.x;",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("cosmos generated BPMN layout missing %q", want)
+		}
+	}
+}
+
 func TestOpenAPIContainsProductMoveEndpoint(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	rr := get(h, "/openapi.json")
