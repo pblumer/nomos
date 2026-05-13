@@ -415,13 +415,14 @@ type ProcessDTO struct {
 }
 
 type ProcessStepDTO struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	ServiceRef string `json:"service_ref"`
-	Method     string `json:"method,omitempty"`
-	Role       string `json:"role,omitempty"`
-	Required   bool   `json:"required"`
-	Notes      string `json:"notes,omitempty"`
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	ServiceRef string   `json:"service_ref"`
+	Method     string   `json:"method,omitempty"`
+	Role       string   `json:"role,omitempty"`
+	Required   bool     `json:"required"`
+	Notes      string   `json:"notes,omitempty"`
+	DependsOn  []string `json:"depends_on,omitempty"`
 }
 
 type UpsertProcessStepRequest struct {
