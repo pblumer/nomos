@@ -1070,7 +1070,7 @@ func TestCosmosExplorerProductOfferingWorkflowLabels(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	rr := get(h, "/cosmos?selected=domain:identity.blumer.cloud")
 	body := rr.Body.String()
-	for _, want := range []string{"Products / Offerings", "Produkt hinzufügen", "Add fulfillment service", "Open in catalog index", "Offered by", "Owning domain", "Fulfillment Services", "Catalog Index", "1 prod · 1 svc", "PB-ACC-MBX-001"} {
+	for _, want := range []string{"Products / Offerings", "Produkt hinzufügen", "Add fulfillment service", "Open in catalog index", "von ", "Owning domain", "Fulfillment Services", "Catalog Index", "1 prod · 1 svc", "PB-ACC-MBX-001"} {
 		if rr.Code != http.StatusOK || !strings.Contains(body, want) {
 			t.Fatalf("cosmos explorer missing %q status=%d", want, rr.Code)
 		}
