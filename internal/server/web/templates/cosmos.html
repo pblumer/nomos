@@ -177,6 +177,7 @@
 @media(max-width:900px){.product-hero{display:block}.product-actions{margin-top:.75rem}.mapping-row{grid-template-columns:1fr}.bpmn-canvas{height:240px}}
 .bpmn-map-dot{display:inline-block;width:14px;height:14px;border-radius:999px;border:2px solid #fff;box-shadow:0 1px 4px rgba(15,23,42,.25)}.bpmn-map-dot.mapped{background:#10b981}.bpmn-map-dot.unmapped{background:#f59e0b}
 .bpmn-detail-panel{border:1px solid #dbeafe;border-radius:12px;background:#f8fbff;padding:.75rem;margin:.6rem 0 .8rem}.bpmn-detail-panel.is-empty{color:#64748b;font-size:.82rem;background:#f8fafc;border-style:dashed}.bpmn-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;margin-bottom:.55rem}.bpmn-detail-title{font-weight:800;color:#0f172a;font-size:.92rem}.bpmn-detail-subtitle{font-size:.74rem;color:#64748b;margin-top:.1rem}.bpmn-detail-grid{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:.3rem .75rem;font-size:.78rem}.bpmn-detail-grid dt{color:#64748b;font-weight:700}.bpmn-detail-grid dd{margin:0;min-width:0;word-break:break-word}.bpmn-detail-section{margin-top:.6rem}.bpmn-detail-section h5{margin:0 0 .3rem;font-size:.75rem;color:#475569}.bpmn-detail-chips{display:flex;flex-wrap:wrap;gap:.25rem}.bpmn-detail-code{font-family:ui-monospace,monospace;background:#eef2ff;color:#3730a3;border-radius:5px;padding:1px 5px}.bpmn-canvas .djs-shape.bpmn-selected .djs-visual>:not(text){stroke:#4f46e5!important;stroke-width:2px!important;filter:drop-shadow(0 0 2px rgba(79,70,229,.22))}.bpmn-canvas .djs-shape.bpmn-selected text,.bpmn-canvas .djs-shape.bpmn-selected .djs-label{stroke:none!important;fill:#0f172a!important}.bpmn-canvas .djs-shape{cursor:pointer}.task-fallback-row.is-selected{border-color:#6366f1;background:#eef2ff;box-shadow:inset 3px 0 0 #6366f1}
+.tp-panel{display:flex;flex-direction:column;gap:0}.tp-tabs{display:flex;border-bottom:2px solid #e2e8f0;margin-bottom:.65rem}.tp-tab{flex:1;padding:.4rem .5rem;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;font-size:.78rem;font-weight:700;color:#64748b;transition:color .1s}.tp-tab.active{color:#4338ca;border-bottom-color:#4338ca}.tp-tab-panel.hidden{display:none}.tp-header{display:flex;align-items:center;gap:.6rem;padding:.3rem 0 .65rem;border-bottom:1px solid #e2e8f0;margin-bottom:.6rem}.tp-type-icon{width:34px;height:34px;border-radius:8px;background:#eef2ff;color:#4338ca;display:grid;place-items:center;flex-shrink:0;font-size:.62rem;font-weight:900;letter-spacing:.02em;text-transform:uppercase}.tp-type-label{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:.1rem}.tp-name-display{font-size:.9rem;font-weight:700;color:#0f172a;word-break:break-word;line-height:1.2}.tp-section{border:1px solid #e2e8f0;border-radius:9px;overflow:hidden;margin-bottom:.4rem}.tp-section-head{display:flex;align-items:center;justify-content:space-between;padding:.38rem .6rem;background:#f8fafc;cursor:pointer;user-select:none;font-size:.73rem;font-weight:800;color:#334155}.tp-section-head:hover{background:#f1f5f9}.tp-section-arrow{font-style:normal;font-size:.7rem;color:#94a3b8}.tp-section-body{padding:.5rem .6rem;display:flex;flex-direction:column;gap:.4rem;border-top:1px solid #f1f5f9}.tp-field{display:flex;flex-direction:column;gap:.18rem}.tp-label{font-size:.71rem;font-weight:700;color:#64748b}.tp-input{border:1px solid #cbd5e1;border-radius:6px;padding:.3rem .45rem;font-size:.79rem;width:100%;box-sizing:border-box;font-family:inherit;resize:vertical;background:#fff;color:#0f172a;line-height:1.4}.tp-input:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.15)}.tp-input[readonly]{background:#f8fafc;color:#64748b;cursor:default}.tp-input-code{font-family:ui-monospace,monospace;font-size:.74rem;background:#f1f5f9;border-color:#e2e8f0;color:#475569}.tp-select{border:1px solid #cbd5e1;border-radius:6px;padding:.3rem .4rem;font-size:.78rem;background:#fff;cursor:pointer;width:100%;color:#0f172a}.tp-select:focus{outline:none;border-color:#6366f1}.tp-check-row{display:flex;align-items:center;gap:.35rem;font-size:.78rem;color:#475569;cursor:pointer}.tp-actions{padding:.6rem 0 .1rem;display:flex;gap:.5rem;align-items:center}.tp-save-btn{background:#4f46e5;color:#fff;border:none;border-radius:7px;padding:.38rem .9rem;font-size:.8rem;font-weight:800;cursor:pointer;flex-shrink:0}.tp-save-btn:hover{background:#4338ca}.tp-save-btn:disabled{opacity:.55;cursor:not-allowed}.tp-status{font-size:.72rem;color:#64748b;flex:1}.tp-status.ok{color:#059669}.tp-status.err{color:#dc2626}
 .step-list{display:flex;flex-direction:column;gap:0;margin-bottom:.6rem}
 .dag-level{display:flex;gap:.5rem;align-items:stretch}
 .dag-connectors{display:flex;gap:.5rem;padding:0 0 0 1px}
@@ -795,13 +796,20 @@ function detailChip(cls,text,title){return `<span class="${cls}"${title?` title=
 function bpmnDetailHTML(item,elementId){
   if(!item)return `<div class="bpmn-detail-panel is-empty">Task im BPMN-Diagramm anklicken, um alle Schritt-Informationen anzuzeigen.</div>`;
   const isRule=item.task_type==='businessRuleTask'||(item.element_type||'').includes('businessRuleTask');
-  const inputs=(item.inputs||[]).map(b=>detailChip('pfc-io-in',`↓ ${b.name}${b.required?'*':''}`,b.source||'')).join('');
-  const outputs=(item.outputs||[]).map(o=>detailChip('pfc-io-out',`↑ ${o.name}`,`${o.type||'string'}${o.description?' · '+o.description:''}`)).join('');
-  const deps=(item.depends_on||[]).map(d=>detailChip('pfc-role',d)).join('');
-  const rules=(item.decision?.rules||[]).map(r=>detailChip('pfc-req',`${r.label||r.input||'Regel'} ⇒ ${r.output||'output'}=${r.output_value||'true'}`,`${r.input||'input'} ${r.operator||'=='} ${r.value||''}`)).join('');
-  const gates=(item.gateway?.conditions||[]).map(c=>detailChip('pfc-req',c.label||`${c.output||'output'} ${c.operator||'=='} ${c.value||''}`)).join('');
-  const actions=item.from_step?`<div class="bpmn-detail-actions"><button class="btn btn-primary btn-sm step-edit-btn" data-step-id="${esc(item.id||'')}">Schritt bearbeiten</button><button class="btn btn-danger btn-sm step-del-btn" data-step-id="${esc(item.id||'')}">Entfernen</button></div>`:'';
-  return `<div class="bpmn-detail-head"><div><div class="bpmn-detail-title">${esc(item.name||item.id||elementId)}</div><div class="bpmn-detail-subtitle">${isRule?'Business Rule Task':'Service Task'} · BPMN: <span class="bpmn-detail-code">${esc(elementId||item.id||'')}</span></div></div><span class="badge ${item.mapping_status==='unmapped'?'badge-warning':'badge-active'}">${esc(item.mapping_status||'mapped')}</span></div><dl class="bpmn-detail-grid"><dt>Schritt-ID</dt><dd><span class="bpmn-detail-code">${esc(item.id||elementId||'')}</span></dd><dt>Service</dt><dd>${item.service_ref?`<code>${esc(item.service_ref)}</code>`:'—'}</dd><dt>Methode</dt><dd>${item.method?`<span class="pfc-method">${esc(item.method)}()</span>`:'—'}</dd><dt>Rolle</dt><dd><span class="pfc-role${item.role==='primary'?' pfc-role-primary':''}">${esc(item.role||'supporting')}</span> ${item.required?'<span class="pfc-req">req</span>':''}</dd></dl>${deps?`<div class="bpmn-detail-section"><h5>Abhängigkeiten</h5><div class="bpmn-detail-chips">${deps}</div></div>`:''}${inputs||outputs?`<div class="bpmn-detail-section"><h5>Inputs & Outputs</h5><div class="bpmn-detail-chips">${inputs}${outputs}</div></div>`:''}${rules?`<div class="bpmn-detail-section"><h5>Decision / DMN</h5><div class="bpmn-detail-chips">${rules}</div></div>`:''}${gates||item.gateway?`<div class="bpmn-detail-section"><h5>Gateway</h5><div class="bpmn-detail-chips">${gates||detailChip('pfc-req',item.gateway?.name||'wertet Outputs aus')}</div></div>`:''}${actions}`;
+  const typeLabel=isRule?'Business Rule Task':(item.task_type||item.element_type||'serviceTask').split(':').pop().replace(/([A-Z])/g,' $1').trim();
+  const typeShort=isRule?'BR':(item.task_type||'ST').includes('user')?'UT':'ST';
+  const roleOpts=['primary','supporting','optional'].map(r=>`<option value="${r}"${(item.role||'supporting')===r?' selected':''}>${r}</option>`).join('');
+  return `<div class="tp-panel" data-tp-element-id="${esc(elementId||item.id||'')}" data-tp-step-id="${esc(item.id||'')}">
+<div class="tp-tabs"><button class="tp-tab active" data-tp-tab="props">Eigenschaften</button><button class="tp-tab" data-tp-tab="comments">Kommentare</button></div>
+<div class="tp-tab-panel" data-tp-panel="props">
+<div class="tp-header"><div class="tp-type-icon">${esc(typeShort)}</div><div><div class="tp-type-label">${esc(typeLabel)}</div><div class="tp-name-display" id="tp-name-display">${esc(item.name||elementId)}</div></div></div>
+<div class="tp-section"><div class="tp-section-head">Allgemein <span class="tp-section-arrow">▾</span></div><div class="tp-section-body"><div class="tp-field"><span class="tp-label">Name</span><textarea class="tp-input" id="tp-name" rows="2">${esc(item.name||'')}</textarea></div><div class="tp-field"><span class="tp-label">ID</span><input class="tp-input tp-input-code" id="tp-id" readonly value="${esc(elementId||item.id||'')}"></div></div></div>
+<div class="tp-section"><div class="tp-section-head">Beschreibung <span class="tp-section-arrow">▾</span></div><div class="tp-section-body"><div class="tp-field"><textarea class="tp-input" id="tp-notes" rows="3" placeholder="Optionale Beschreibung…">${esc(item.notes||'')}</textarea></div></div></div>
+<div class="tp-section"><div class="tp-section-head">Implementierung <span class="tp-section-arrow">▾</span></div><div class="tp-section-body"><div class="tp-field"><span class="tp-label">Service</span><input class="tp-input" id="tp-service" value="${esc(item.service_ref||'')}" placeholder="domain/service-name"></div><div class="tp-field"><span class="tp-label">Methode</span><input class="tp-input" id="tp-method" value="${esc(item.method||'')}" placeholder="methodName"></div><div class="tp-field"><span class="tp-label">Rolle</span><select class="tp-select" id="tp-role">${roleOpts}</select></div><label class="tp-check-row"><input type="checkbox" id="tp-required"${item.required?' checked':''}> Pflicht-Schritt</label></div></div>
+<div class="tp-actions"><button class="tp-save-btn" id="tp-save">Speichern</button><span class="tp-status" id="tp-status"></span></div>
+</div>
+<div class="tp-tab-panel hidden" data-tp-panel="comments"><div style="color:#94a3b8;font-size:.82rem;padding:.5rem 0">Kommentare sind noch nicht verfügbar.</div></div>
+</div>`;
 }
 function findBPMNDetailPanel(target,proc){
   return target.closest('.process-editor-workbench')?.querySelector('.bpmn-detail-panel')||target.parentElement?.querySelector(`[data-bpmn-detail-for="${CSS.escape(proc.id||'')}"]`)||target.parentElement?.querySelector('.bpmn-detail-panel')||document.querySelector(`[data-bpmn-detail-for="${CSS.escape(proc.id||'')}"]`);
@@ -814,6 +822,55 @@ function setBPMNDetail(target,proc,elementId,viewer){
   if(!item)return;
   panel.classList.remove('is-empty');
   panel.innerHTML=bpmnDetailHTML(item,elementId);
+  // Tab switching
+  panel.querySelectorAll('.tp-tab').forEach(tab=>{
+    tab.addEventListener('click',()=>{
+      panel.querySelectorAll('.tp-tab').forEach(t=>t.classList.toggle('active',t===tab));
+      panel.querySelectorAll('.tp-tab-panel').forEach(p=>p.classList.toggle('hidden',p.dataset.tpPanel!==tab.dataset.tpTab));
+    });
+  });
+  // Section collapse
+  panel.querySelectorAll('.tp-section-head').forEach(head=>{
+    head.addEventListener('click',()=>{
+      const body=head.nextElementSibling;
+      if(body){body.classList.toggle('hidden');const arrow=head.querySelector('.tp-section-arrow');if(arrow)arrow.textContent=body.classList.contains('hidden')?'▸':'▾';}
+    });
+  });
+  // Save handler
+  const saveBtn=panel.querySelector('#tp-save');
+  const statusEl=panel.querySelector('#tp-status');
+  const setStatus=(msg,isErr=false,isOk=false)=>{if(!statusEl)return;statusEl.textContent=msg;statusEl.className='tp-status'+(isErr?' err':isOk?' ok':'');};
+  saveBtn?.addEventListener('click',async()=>{
+    const newName=panel.querySelector('#tp-name')?.value.trim()||'';
+    const newService=panel.querySelector('#tp-service')?.value.trim()||'';
+    const newMethod=panel.querySelector('#tp-method')?.value.trim()||'';
+    const newRole=panel.querySelector('#tp-role')?.value||'supporting';
+    const newRequired=panel.querySelector('#tp-required')?.checked||false;
+    const newNotes=panel.querySelector('#tp-notes')?.value.trim()||'';
+    saveBtn.disabled=true;setStatus('Speichere…');
+    try{
+      // Update BPMN diagram label if modeler present and name changed
+      if(viewer&&newName&&newName!==item.name){
+        try{const modeling=viewer.get('modeling');const el=viewer.get('elementRegistry').get(elementId);if(el)modeling.updateLabel(el,newName);}catch(e){console.warn('BPMN label update failed:',e);}
+      }
+      // Persist changes
+      if(item.from_step&&item.id){
+        const r=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id)+'/steps/'+encodeURIComponent(item.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:newName||item.name,service_ref:newService,method:newMethod,role:newRole,required:newRequired,notes:newNotes,task_type:item.task_type||'serviceTask',depends_on:item.depends_on||[],inputs:item.inputs||[],outputs:item.outputs||[]})});
+        if(!r.ok)throw new Error(await r.text().catch(()=>'Speichern fehlgeschlagen'));
+        const updated=await r.json();Object.assign(proc,updated);
+      }else{
+        const others=(proc.task_mappings||[]).filter(m=>m.bpmn_element_id!==elementId);
+        const r=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id)+'/task-mappings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_mappings:[...others,{bpmn_element_id:elementId,task_name:newName||item.name,service_ref:newService,method:newMethod,role:newRole,required:newRequired,notes:newNotes}]})});
+        if(!r.ok)throw new Error(await r.text().catch(()=>'Speichern fehlgeschlagen'));
+        const updated=await r.json();Object.assign(proc,updated);
+      }
+      // Update local item & header display
+      Object.assign(item,{name:newName||item.name,service_ref:newService,method:newMethod,role:newRole,required:newRequired,notes:newNotes});
+      const nd=panel.querySelector('#tp-name-display');if(nd&&newName)nd.textContent=newName;
+      setStatus('Gespeichert ✓',false,true);setTimeout(()=>setStatus(''),3000);
+    }catch(e){console.error('Properties save error:',e);setStatus(e.message||'Fehler',true);}
+    finally{saveBtn.disabled=false;}
+  });
   target.querySelectorAll('.task-fallback-row').forEach(row=>row.classList.toggle('is-selected',row.dataset.bpmnElementId===elementId));
   if(viewer){try{const canvas=viewer.get('canvas');Object.keys(lookup).forEach(id=>{try{canvas.removeMarker(id,'bpmn-selected');}catch(_){}});canvas.addMarker(elementId,'bpmn-selected');}catch(_){}}
 }
