@@ -146,6 +146,14 @@ type AttributeRule struct {
 	Value string `yaml:"value" json:"value"`
 }
 
+// ProcessParticipant identifies the actor or system that executes a process.
+// It maps to a bpmn:participant / pool in the BPMN collaboration diagram and
+// names the surrounding system responsible for this process.
+type ProcessParticipant struct {
+	Name string `yaml:"name" json:"name"`
+	Ref  string `yaml:"ref,omitempty" json:"ref,omitempty"` // domain or service canonical ref
+}
+
 // Process describes a product-level process artifact. Steps are the primary
 // definition; BPMN XML (stored in a separate .bpmn file) is kept for future
 // visual modelling and remains fully compatible.
@@ -159,6 +167,7 @@ type Process struct {
 	Summary        string               `yaml:"summary,omitempty" json:"summary,omitempty"`
 	Tags           []string             `yaml:"tags,omitempty" json:"tags,omitempty"`
 	RelatedProduct string               `yaml:"related_product" json:"related_product"`
+	Participant    *ProcessParticipant  `yaml:"participant,omitempty" json:"participant,omitempty"`
 	Steps          []ProcessStep        `yaml:"steps,omitempty" json:"steps,omitempty"`
 	BPMN           BPMNReference        `yaml:"bpmn" json:"bpmn"`
 	TaskMappings   []ProcessTaskMapping `yaml:"task_mappings,omitempty" json:"task_mappings,omitempty"`

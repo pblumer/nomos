@@ -238,6 +238,9 @@ func findProcessNode(path, id string) (processNode, error) {
 func processDTO(path string, n processNode, includeValidation bool) ProcessDTO {
 	bpmnPath := safeBPMNPath(filepath.Dir(n.Path), n.Meta.BPMN.File)
 	dto := ProcessDTO{ID: n.Meta.ID, Type: n.Meta.Type, Name: n.Meta.Name, Version: n.Meta.Version, Status: n.Meta.Status, Owner: n.Meta.Owner, Summary: n.Meta.Summary, Tags: n.Meta.Tags, RelatedProduct: n.Meta.RelatedProduct, BPMN: BPMNReferenceDTO{File: n.Meta.BPMN.File, ProcessID: n.Meta.BPMN.ProcessID, Primary: n.Meta.BPMN.Primary}, Path: n.Path, BPMNPath: bpmnPath}
+	if p := n.Meta.Participant; p != nil {
+		dto.Participant = &ProcessParticipantDTO{Name: p.Name, Ref: p.Ref}
+	}
 	for _, s := range n.Meta.Steps {
 		dto.Steps = append(dto.Steps, ProcessStepDTO{ID: s.ID, Name: s.Name, TaskType: normalizedStepTaskType(s.TaskType), ServiceRef: s.ServiceRef, Method: s.Method, Role: s.Role, Required: s.Required, Notes: s.Notes, DependsOn: s.DependsOn, Inputs: stepsInputsToDTO(s.Inputs), Outputs: stepsOutputsToDTO(s.Outputs), Decision: decisionToDTO(s.Decision), Gateway: gatewayToDTO(s.Gateway)})
 	}
@@ -341,6 +344,59 @@ func RemoveProcessStep(path, id, stepID string) (ProcessDTO, error) {
 		return ProcessDTO{}, Error(CodeInternalError, "Failed to write process: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	return GetProcess(path, id)
+}
+
+// UpdateProcessParticipant sets the participant (pool) metadata on a process,
+// identifying the surrounding system or actor responsible for executing it.
+func UpdateProcessParticipant(path, id string, req UpdateParticipantRequest) (ProcessDTO, error) {
+	node, err := findProcessNode(path, id)
+	if err != nil {
+		return ProcessDTO{}, err
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		node.Meta.Participant = nil
+	} else {
+		node.Meta.Participant = &model.ProcessParticipant{
+			Name: strings.TrimSpace(req.Name),
+			Ref:  strings.TrimSpace(req.Ref),
+		}
+	}
+	if err := fsx.WriteYAML(node.Path, node.Meta); err != nil {
+		return ProcessDTO{}, Error(CodeInternalError, "Failed to write process: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetProcess(path, id)
+}
+
+// GetProductCollaboration returns the collaboration view for a product offering:
+// all processes that belong to the product, each with their participant (surrounding
+// system). This maps to a bpmn:collaboration where the product = collaboration and
+// each process = one bpmn:participant pool.
+func GetProductCollaboration(path, productID string) (CollaborationDTO, error) {
+	bp, err := GetBlueprint(path, productID)
+	if err != nil {
+		return CollaborationDTO{}, err
+	}
+	processes, err := ListProductProcesses(path, productID)
+	if err != nil {
+		return CollaborationDTO{}, err
+	}
+	out := CollaborationDTO{
+		ProductID:   productID,
+		ProductName: bp.Name,
+	}
+	for _, p := range processes.Items {
+		entry := CollaborationParticipantDTO{
+			ProcessID:   p.ID,
+			ProcessName: p.Name,
+		}
+		if p.Participant != nil {
+			entry.Participant = ProcessParticipantDTO{Name: p.Participant.Name, Ref: p.Participant.Ref}
+		} else {
+			entry.Participant = ProcessParticipantDTO{Name: p.Name}
+		}
+		out.Participants = append(out.Participants, entry)
+	}
+	return out, nil
 }
 
 func ExtractBPMNTasks(xmlText string) ([]BPMNTaskDTO, error) {
@@ -543,13 +599,21 @@ func attachProcessToProduct(path, productID, processID string) error {
 	return fsx.WriteYAML(bp.Path, raw)
 }
 
+// DefaultBPMNTemplate generates a BPMN collaboration with a single participant
+// pool wrapping the process. The participant pool name defaults to the process
+// name and can be renamed in the BPMN editor to reflect the actual executing system.
 func DefaultBPMNTemplate(processID, productName string) string {
 	if strings.TrimSpace(processID) == "" {
 		processID = "Process_ProductFulfillment"
 	}
 	name := firstNonEmpty(productName, "Product fulfillment")
+	collabID := "Collab_" + sanitizeBPMNID(processID)
+	participantID := "Participant_" + sanitizeBPMNID(processID)
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_ProductProcess" targetNamespace="https://nomos.local/bpmn">
+  <bpmn:collaboration id="` + collabID + `">
+    <bpmn:participant id="` + participantID + `" name="` + xmlEscape(name) + `" processRef="` + processID + `" />
+  </bpmn:collaboration>
   <bpmn:process id="` + processID + `" name="` + xmlEscape(name) + `" isExecutable="false">
     <bpmn:startEvent id="StartEvent_RequestReceived" name="Request received">
       <bpmn:outgoing>Flow_Start_Validate</bpmn:outgoing>
@@ -580,41 +644,44 @@ func DefaultBPMNTemplate(processID, productName string) string {
     </bpmn:endEvent>
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_ProductProcess">
-    <bpmndi:BPMNPlane id="BPMNPlane_ProductProcess" bpmnElement="` + processID + `">
+    <bpmndi:BPMNPlane id="BPMNPlane_ProductProcess" bpmnElement="` + collabID + `">
+      <bpmndi:BPMNShape id="Shape_Participant" bpmnElement="` + participantID + `" isHorizontal="true">
+        <dc:Bounds x="100" y="50" width="830" height="200" />
+      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Shape_StartEvent" bpmnElement="StartEvent_RequestReceived">
-        <dc:Bounds x="152" y="102" width="36" height="36" />
-        <bpmndi:BPMNLabel><dc:Bounds x="125" y="145" width="90" height="14" /></bpmndi:BPMNLabel>
+        <dc:Bounds x="182" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="155" y="195" width="90" height="14" /></bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Shape_ValidateRequest" bpmnElement="Task_ValidateRequest">
-        <dc:Bounds x="240" y="80" width="100" height="80" />
+        <dc:Bounds x="270" y="130" width="100" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Shape_PerformFulfillment" bpmnElement="Task_PerformFulfillment">
-        <dc:Bounds x="390" y="80" width="100" height="80" />
+        <dc:Bounds x="420" y="130" width="100" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Shape_QualityCheck" bpmnElement="Task_QualityCheck">
-        <dc:Bounds x="540" y="80" width="100" height="80" />
+        <dc:Bounds x="570" y="130" width="100" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Shape_DocumentEvidence" bpmnElement="Task_DocumentEvidence">
-        <dc:Bounds x="690" y="80" width="100" height="80" />
+        <dc:Bounds x="720" y="130" width="100" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Shape_EndEvent" bpmnElement="EndEvent_Fulfilled">
-        <dc:Bounds x="842" y="102" width="36" height="36" />
-        <bpmndi:BPMNLabel><dc:Bounds x="835" y="145" width="50" height="14" /></bpmndi:BPMNLabel>
+        <dc:Bounds x="872" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="865" y="195" width="50" height="14" /></bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Edge_Start_Validate" bpmnElement="Flow_Start_Validate">
-        <di:waypoint x="188" y="120" /><di:waypoint x="240" y="120" />
+        <di:waypoint x="218" y="170" /><di:waypoint x="270" y="170" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Edge_Validate_Fulfill" bpmnElement="Flow_Validate_Fulfill">
-        <di:waypoint x="340" y="120" /><di:waypoint x="390" y="120" />
+        <di:waypoint x="370" y="170" /><di:waypoint x="420" y="170" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Edge_Fulfill_Quality" bpmnElement="Flow_Fulfill_Quality">
-        <di:waypoint x="490" y="120" /><di:waypoint x="540" y="120" />
+        <di:waypoint x="520" y="170" /><di:waypoint x="570" y="170" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Edge_Quality_Document" bpmnElement="Flow_Quality_Document">
-        <di:waypoint x="640" y="120" /><di:waypoint x="690" y="120" />
+        <di:waypoint x="670" y="170" /><di:waypoint x="720" y="170" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Edge_Document_End" bpmnElement="Flow_Document_End">
-        <di:waypoint x="790" y="120" /><di:waypoint x="842" y="120" />
+        <di:waypoint x="820" y="170" /><di:waypoint x="872" y="170" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
