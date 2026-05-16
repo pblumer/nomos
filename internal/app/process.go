@@ -581,6 +581,44 @@ func nextProcessID(path string) string {
 	return fmt.Sprintf("PRC-%07d", len(nodes)+1)
 }
 
+func DeleteProcess(path, id string) error {
+	node, err := findProcessNode(path, id)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(node.Path); err != nil && !os.IsNotExist(err) {
+		return Error(CodeInternalError, "Failed to delete process: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	bpmnPath := safeBPMNPath(filepath.Dir(node.Path), node.Meta.BPMN.File)
+	_ = os.Remove(bpmnPath)
+	if node.Meta.RelatedProduct != "" {
+		_ = detachProcessFromProduct(path, node.Meta.RelatedProduct, id)
+	}
+	return nil
+}
+
+func detachProcessFromProduct(path, productID, processID string) error {
+	bp, err := GetBlueprint(path, productID)
+	if err != nil {
+		return err
+	}
+	var raw model.Blueprint
+	if err := fsx.ReadYAML(bp.Path, &raw); err != nil {
+		return err
+	}
+	filtered := raw.Processes[:0]
+	for _, id := range raw.Processes {
+		if id != processID {
+			filtered = append(filtered, id)
+		}
+	}
+	if len(filtered) == len(raw.Processes) {
+		return nil
+	}
+	raw.Processes = filtered
+	return fsx.WriteYAML(bp.Path, raw)
+}
+
 func attachProcessToProduct(path, productID, processID string) error {
 	bp, err := GetBlueprint(path, productID)
 	if err != nil {

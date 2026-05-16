@@ -563,6 +563,7 @@ async function loadDetail(row){const kind=row.dataset.kind,id=row.dataset.id,can
       detail.innerHTML=processStandaloneDetail(proc);
       setTimeout(()=>initBPMNStandalone(detail,proc),50);
       detail.querySelector('#det-goto-product')?.addEventListener('click',()=>{const relId=proc.related_product;const pRow=Array.from(tree.querySelectorAll('.cn-row[data-kind="product"]')).find(r=>r.dataset.id===relId||r.dataset.canonical===relId);if(pRow){expandToRow(pRow);pRow.classList.add('selected');loadDetail(pRow);}});
+      detail.querySelector('#det-proc-delete')?.addEventListener('click',async()=>{if(!confirm('Prozess "'+proc.name+'" wirklich löschen?'))return;const dr=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id),{method:'DELETE'});if(dr.ok||dr.status===204){const treeRow=Array.from(tree.querySelectorAll('.cn-row')).find(r=>r.dataset.treeTarget===proc.id||r.dataset.id===proc.id);if(treeRow)treeRow.remove();detail.innerHTML='<div class="detail-empty">Prozess gelöscht.</div>';if(proc.related_product){const pRow=Array.from(tree.querySelectorAll('.cn-row[data-kind="product"]')).find(r=>r.dataset.id===proc.related_product||r.dataset.canonical===proc.related_product);if(pRow){expandToRow(pRow);pRow.classList.add('selected');loadDetail(pRow);}}}else{alert('Fehler beim Löschen des Prozesses');}});
     }catch(err){detail.innerHTML=`<div style="padding:1rem"><div class="nerror show">${esc(err.message)}</div></div>`;}
     return;
   }
@@ -729,7 +730,7 @@ function processStandaloneDetail(proc){
   const stepsHtml=nCols===2?`<div class="pflow-2col">${renderDagSteps(steps)}</div>`:renderDagSteps(steps);
   const hasBpmn=!!(proc.bpmn?.file||proc.tasks?.length);
   const bpmnSection=hasBpmn?`<div class="bpmn-toolbar"><span style="font-size:.75rem;font-weight:600;color:#64748b">BPMN-Diagramm</span><div class="bpmn-dialog-actions"><span class="bpmn-inline-status" id="bpmn-std-status"></span><button class="bpmn-palette-btn" id="bpmn-std-palette-toggle" title="Palette ein/ausblenden">☰ Palette</button><button class="bpmn-fs-btn" id="bpmn-std-zoom-out" title="Herauszoomen">−</button><button class="bpmn-fs-btn" id="bpmn-std-zoom-fit" title="Einpassen">⊡</button><button class="bpmn-fs-btn" id="bpmn-std-zoom-in" title="Hineinzoomen">+</button><button class="bpmn-save-btn" id="bpmn-std-save" style="font-size:.75rem;padding:2px 10px">Speichern</button><button class="bpmn-fs-btn" id="bpmn-fs-open" title="Vollbild">⛶</button></div></div><div id="proc-bpmn-canvas" class="bpmn-canvas" data-process-id="${esc(proc.id)}"><div class="detail-empty">Lade BPMN…</div></div><div class="bpmn-detail-panel is-empty" data-bpmn-detail-for="${esc(proc.id)}">Task im BPMN-Diagramm anklicken, um alle Schritt-Informationen anzuzeigen.</div>`:'';
-  return `<div class="detail-head"><div class="detail-head-left">${iconDiv('process-steps-parent')}<div><div class="detail-title">${esc(proc.name||proc.id)}</div><div class="detail-subtitle">Prozess · ${esc(proc.status||'draft')} · v${esc(proc.version||'0.1.0')}</div></div></div></div><div class="detail-body"><div style="font-size:.78rem;font-weight:700;color:#475569;margin:0 0 .5rem;display:flex;align-items:center;justify-content:space-between">Schritte <span style="background:#eef2ff;color:#4338ca;border-radius:6px;padding:0 6px;font-size:.72rem">${steps.length}</span></div>${stepsHtml}${hasBpmn?`<div style="margin-top:.85rem">${bpmnSection}</div>`:''}</div><div class="detail-footer">${proc.related_product?`<button class="btn btn-secondary" id="det-goto-product">↑ Zum Produkt</button>`:''}<a class="btn btn-secondary" href="/api/v1/processes/${encodeURIComponent(proc.id)}">API JSON</a></div>`;
+  return `<div class="detail-head"><div class="detail-head-left">${iconDiv('process-steps-parent')}<div><div class="detail-title">${esc(proc.name||proc.id)}</div><div class="detail-subtitle">Prozess · ${esc(proc.status||'draft')} · v${esc(proc.version||'0.1.0')}</div></div></div></div><div class="detail-body"><div style="font-size:.78rem;font-weight:700;color:#475569;margin:0 0 .5rem;display:flex;align-items:center;justify-content:space-between">Schritte <span style="background:#eef2ff;color:#4338ca;border-radius:6px;padding:0 6px;font-size:.72rem">${steps.length}</span></div>${stepsHtml}${hasBpmn?`<div style="margin-top:.85rem">${bpmnSection}</div>`:''}</div><div class="detail-footer">${proc.related_product?`<button class="btn btn-secondary" id="det-goto-product">↑ Zum Produkt</button>`:''}<a class="btn btn-secondary" href="/api/v1/processes/${encodeURIComponent(proc.id)}">API JSON</a><button class="btn btn-danger" id="det-proc-delete" style="margin-left:auto">Löschen</button></div>`;
 }
 function bpmnTaskFallback(canvas,proc){
   const tasks=processViewTasks(proc)||[];
@@ -1117,7 +1118,9 @@ function wireProcPanel(container,d){
     if(r.ok){const proc=await r.json();d.process_summary={items:[proc]};const panel2=container.querySelector('[data-ptab-panel="process"]');if(panel2){panel2.innerHTML=processPanel(d,0);wireProcPanel(container,d);wireSteps(container,d,proc);}}
     else alert('Prozess anlegen fehlgeschlagen');
   });
-  wireSteps(container,d);
+  const activeProcBtn=panel.querySelector('.proc-tab.active[data-proc-idx]');
+  const activeIdx=activeProcBtn?parseInt(activeProcBtn.dataset.procIdx):0;
+  wireSteps(container,d,d.process_summary?.items?.[activeIdx]);
 }
 function wireProductShowcase(container,d,row){
   container.querySelectorAll('.ptab').forEach(btn=>btn.addEventListener('click',()=>{const tab=btn.dataset.ptab;container.querySelectorAll('.ptab').forEach(b=>b.classList.toggle('active',b===btn));container.querySelectorAll('.ptab-panel').forEach(p=>p.classList.toggle('hidden',p.dataset.ptabPanel!==tab));if(tab==='process'){initBPMN(container,d);wireProcPanel(container,d);}}));
@@ -1159,7 +1162,7 @@ function wireSteps(container,d,proc){
     const domain=parts.slice(0,-1).join('/'),svc=parts[parts.length-1];
     try{const r=await fetch('/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svc)+'/methods');
       if(r.ok){const dd=await r.json();const methods=dd.methods||[];
-        methods.forEach(m=>{const o=document.createElement('option');o.value=m;methodDl.appendChild(o);});
+        methods.forEach(m=>{const name=typeof m==='string'?m:m.name;const o=document.createElement('option');o.value=name;methodDl.appendChild(o);});
         if(methodInp)methodInp.placeholder=methods.length?'Methode wählen oder eingeben…':'Methode… (noch keine registriert)';}}
     catch(_){}
   }

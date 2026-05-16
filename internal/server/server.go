@@ -439,12 +439,23 @@ func (h *handler) apiProcessRoutes(w http.ResponseWriter, r *http.Request) {
 	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/processes/")
 	parts := strings.Split(rest, "/")
 	if len(parts) == 1 && parts[0] != "" {
-		dto, err := app.GetProcess(h.cosmosPath, parts[0])
-		if err != nil {
-			h.apiErr(w, err)
-			return
+		switch r.Method {
+		case http.MethodGet:
+			dto, err := app.GetProcess(h.cosmosPath, parts[0])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+		case http.MethodDelete:
+			if err := app.DeleteProcess(h.cosmosPath, parts[0]); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
-		writeJSON(w, http.StatusOK, dto)
 		return
 	}
 	if len(parts) == 2 && parts[0] != "" && parts[1] == "bpmn" {
