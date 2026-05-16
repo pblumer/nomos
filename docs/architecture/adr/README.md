@@ -16,6 +16,10 @@ ADRs record significant architectural and technology decisions. Each ADR capture
 | [ADR-0006](ADR-0006-go-cobra-cli.md) | Go und Cobra als CLI-Technologie | Accepted |
 | [ADR-0007](ADR-0007-domain-owned-product-offerings.md) | Domain-owned product offerings and service-based fulfillment | Accepted |
 | [ADR-0008](ADR-0008-mcp-server-ai-agent-interface.md) | MCP Server als KI-Agenten-Schnittstelle für Nomos-Artefakte | Accepted |
+| [ADR-0009](ADR-0009-nomos-cosmos-network-and-core-engine.md) | Nomos Cosmos Netzwerkarchitektur und Core Engine | Proposed |
+| [ADR-0010](ADR-0010-DRAFT-well-known-endpoint-and-domain-proof.md) | Well-known-Endpoint-Spezifikation und Domain-Proof-Format | Draft |
+| [ADR-0011](ADR-0011-DRAFT-service-plugin-model-and-hot-reload.md) | Service-Plugin-Modell und Hot-Reload-Isolation | Draft |
+| [ADR-0012](ADR-0012-DRAFT-global-cosmos-index-service.md) | Globaler Cosmos-Index-Service (opt-in Crawler) | Draft |
 
 ## Superseded / legacy stubs
 
