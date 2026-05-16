@@ -429,7 +429,7 @@ tree.addEventListener('click',e=>{
   const row=e.target.closest('.cn-row');if(!row)return;
   tree.querySelectorAll('.cn-row.selected').forEach(r=>r.classList.remove('selected'));
   if((row.dataset.kind==='product-fulfillment-service'||row.dataset.kind==='process-step')&&row.dataset.treeTarget){const [targetKind,...rest]=row.dataset.treeTarget.split(':');const targetID=rest.join(':');const targetRow=tree.querySelector(`.cn-row[data-kind="${targetKind}"][data-canonical="${CSS.escape(targetID)}"],.cn-row[data-kind="${targetKind}"][data-id="${CSS.escape(targetID)}"]`);if(targetRow){expandToRow(targetRow);targetRow.classList.add('selected');loadDetail(targetRow);history.replaceState(null,'','/cosmos?selected='+encodeURIComponent(row.dataset.treeTarget));return;}}
-  row.classList.add('selected');loadDetail(row);
+  row.classList.add('selected');loadDetail(row);const _k=row.dataset.kind,_id=row.dataset.canonical||row.dataset.id;if(_k&&_id)history.replaceState(null,'','/cosmos?selected='+encodeURIComponent(_k+':'+_id));
 });
 tree.addEventListener('contextmenu',e=>{
   const row=e.target.closest('.cn-row');if(!row){hideCtx();return;}
@@ -454,7 +454,7 @@ $('tree-collapse-all').addEventListener('click',()=>{
 
 const params=new URLSearchParams(location.search);
 const sel=params.get('selected');
-if(sel){const[kind,...rest]=sel.split(':');const id=rest.join(':');const row=tree.querySelector(`.cn-row[data-kind="${kind}"][data-canonical="${CSS.escape(id)}"],.cn-row[data-kind="${kind}"][data-id="${CSS.escape(id)}"]`);if(row){expandToRow(row);if(kind==='product'&&params.get('expand')==='fulfillment')expandProductFulfillment(row);row.classList.add('selected');loadDetail(row);}}
+if(sel){const[kind,...rest]=sel.split(':');const id=rest.join(':');const row=tree.querySelector(`.cn-row[data-kind="${kind}"][data-canonical="${CSS.escape(id)}"],.cn-row[data-kind="${kind}"][data-id="${CSS.escape(id)}"]`);if(row){expandToRow(row);if(kind==='product'&&params.get('expand')==='fulfillment')expandProductFulfillment(row);row.classList.add('selected');loadDetail(row);setTimeout(()=>row.scrollIntoView({block:'nearest',behavior:'smooth'}),50);}}
 function expandToRow(row){let ul=row.closest('.cn-children');while(ul){ul.classList.remove('collapsed');const btn=ul.previousElementSibling?.querySelector('.cn-toggle');if(btn)btn.classList.add('open');ul=ul.parentElement?.closest('.cn-children');}}
 function expandOwnChildren(row){const ul=row.closest('.cn')?.querySelector(':scope > .cn-children');if(ul){ul.classList.remove('collapsed');row.querySelector('.cn-toggle')?.classList.add('open');}}
 function expandProductFulfillment(productRow){expandOwnChildren(productRow);const fulfillmentRow=productRow.closest('.cn')?.querySelector(':scope > .cn-children > .cn > .cn-row[data-kind="product-fulfillment-parent"]');if(fulfillmentRow)expandOwnChildren(fulfillmentRow);}
@@ -785,7 +785,7 @@ function buildBPMNDiagramXML(proc){
   });
   return `<?xml version="1.0" encoding="UTF-8"?>\n<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="${defsId}" targetNamespace="https://nomos.local/bpmn/generated">\n  <bpmn:process id="${processId}" name="${esc(proc.name||proc.id||'Nomos process')}" isExecutable="false">\n    ${processParts.join('\n    ')}\n    ${flowXml}\n  </bpmn:process>\n  <bpmndi:BPMNDiagram id="BPMNDiagram_Nomos"><bpmndi:BPMNPlane id="BPMNPlane_Nomos" bpmnElement="${processId}">\n    ${shapes.join('\n    ')}\n    ${edges.join('\n    ')}\n  </bpmndi:BPMNPlane></bpmndi:BPMNDiagram>\n</bpmn:definitions>`;
 }
-function bpmnDisplayXML(xml,proc){const generated=(proc.steps||[]).length?buildBPMNDiagramXML(proc):null;return generated||(bpmnXMLHasDiagram(xml)?xml:(buildBPMNDiagramXML(proc)||xml));}
+function bpmnDisplayXML(xml,proc){if(bpmnXMLHasDiagram(xml))return xml;return buildBPMNDiagramXML(proc)||xml;}
 function bpmnDetailLookup(proc){
   const byId={};
   (proc.steps||[]).forEach((s,i)=>{const id=s.id||('Step_'+i);const safeId=safeBPMNId(id,'Step_'+i);const item={...s,from_step:true,mapping_status:s.service_ref?'mapped':'unmapped'};byId[id]=item;byId[safeId]=item;byId['Gateway_'+safeId]=item;});
