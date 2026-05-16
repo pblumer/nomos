@@ -442,6 +442,29 @@ type VerificationDTO struct {
 	Count    int                       `json:"count"`
 }
 
+// ProcessParticipantDTO identifies the actor or system that executes a process,
+// corresponding to a bpmn:participant (pool) in the collaboration diagram.
+type ProcessParticipantDTO struct {
+	Name string `json:"name"`
+	Ref  string `json:"ref,omitempty"`
+}
+
+// CollaborationParticipantDTO is one entry in a product's collaboration view,
+// pairing a process with the participant (surrounding system) that executes it.
+type CollaborationParticipantDTO struct {
+	ProcessID   string                `json:"process_id"`
+	ProcessName string                `json:"process_name"`
+	Participant ProcessParticipantDTO `json:"participant"`
+}
+
+// CollaborationDTO represents the full BPMN collaboration for a product offering:
+// one participant pool per process, showing all surrounding systems involved.
+type CollaborationDTO struct {
+	ProductID    string                        `json:"product_id"`
+	ProductName  string                        `json:"product_name"`
+	Participants []CollaborationParticipantDTO `json:"participants"`
+}
+
 type ProcessDTO struct {
 	ID             string                  `json:"id"`
 	Type           string                  `json:"type"`
@@ -452,6 +475,7 @@ type ProcessDTO struct {
 	Summary        string                  `json:"summary,omitempty"`
 	Tags           []string                `json:"tags,omitempty"`
 	RelatedProduct string                  `json:"related_product"`
+	Participant    *ProcessParticipantDTO  `json:"participant,omitempty"`
 	Steps          []ProcessStepDTO        `json:"steps,omitempty"`
 	BPMN           BPMNReferenceDTO        `json:"bpmn"`
 	TaskMappings   []ProcessTaskMappingDTO `json:"task_mappings,omitempty"`
@@ -537,4 +561,9 @@ type CreateProcessRequest struct {
 
 type UpdateTaskMappingsRequest struct {
 	TaskMappings []ProcessTaskMappingDTO `json:"task_mappings"`
+}
+
+type UpdateParticipantRequest struct {
+	Name string `json:"name"`
+	Ref  string `json:"ref,omitempty"`
 }

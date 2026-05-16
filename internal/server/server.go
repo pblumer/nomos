@@ -314,6 +314,19 @@ func (h *handler) apiServiceRefs(w http.ResponseWriter, r *http.Request) {
 func (h *handler) apiProductRoutes(w http.ResponseWriter, r *http.Request) {
 	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/products/")
 	parts := strings.Split(rest, "/")
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "collaboration" {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		dto, err := app.GetProductCollaboration(h.cosmosPath, parts[0])
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, dto)
+		return
+	}
 	if len(parts) == 2 && parts[0] != "" && parts[1] == "processes" {
 		if r.Method == http.MethodGet {
 			dto, err := app.ListProductProcesses(h.cosmosPath, parts[0])
@@ -469,6 +482,24 @@ func (h *handler) apiProcessRoutes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"items": tasks, "count": len(tasks)})
+		return
+	}
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "participant" {
+		if r.Method != http.MethodPut {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var req app.UpdateParticipantRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+			return
+		}
+		dto, err := app.UpdateProcessParticipant(h.cosmosPath, parts[0], req)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, dto)
 		return
 	}
 	if len(parts) == 2 && parts[0] != "" && parts[1] == "task-mappings" {
