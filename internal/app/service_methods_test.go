@@ -20,7 +20,7 @@ func TestAddServiceMethod_Success(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(svc.Methods) != 1 || svc.Methods[0] != "create" {
+	if len(svc.Methods) != 1 || svc.Methods[0].Name != "create" {
 		t.Fatalf("expected method 'create', got %v", svc.Methods)
 	}
 }
@@ -73,8 +73,8 @@ func TestAddServiceMethod_TrimmedWhitespace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if svc.Methods[0] != "create" {
-		t.Fatalf("expected trimmed method name, got %q", svc.Methods[0])
+	if svc.Methods[0].Name != "create" {
+		t.Fatalf("expected trimmed method name, got %q", svc.Methods[0].Name)
 	}
 }
 
@@ -115,7 +115,7 @@ func TestRemoveServiceMethod_OnlyRemovesTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(svc.Methods) != 1 || svc.Methods[0] != "create" {
+	if len(svc.Methods) != 1 || svc.Methods[0].Name != "create" {
 		t.Fatalf("expected only 'create' remaining, got %v", svc.Methods)
 	}
 }

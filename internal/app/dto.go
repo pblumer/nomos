@@ -52,17 +52,30 @@ type DomainDTO struct {
 	Services           []ServiceDTO        `json:"services,omitempty"`
 }
 
+type MethodParameterDTO struct {
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Required    bool   `json:"required,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+type MethodDefinitionDTO struct {
+	Name       string               `json:"name"`
+	Summary    string               `json:"summary,omitempty"`
+	Parameters []MethodParameterDTO `json:"parameters,omitempty"`
+}
+
 type ServiceDTO struct {
-	Name              string   `json:"name"`
-	Domain            string   `json:"domain"`
-	Owner             string   `json:"owner"`
-	OwnedBy           string   `json:"owned_by,omitempty"`
-	OperatedBy        []string `json:"operated_by,omitempty"`
-	Capabilities      []string `json:"capabilities,omitempty"`
-	SupportedProducts []string `json:"supported_products,omitempty"`
-	Methods           []string `json:"methods,omitempty"`
-	Status            string   `json:"status"`
-	Path              string   `json:"path"`
+	Name              string                `json:"name"`
+	Domain            string                `json:"domain"`
+	Owner             string                `json:"owner"`
+	OwnedBy           string                `json:"owned_by,omitempty"`
+	OperatedBy        []string              `json:"operated_by,omitempty"`
+	Capabilities      []string              `json:"capabilities,omitempty"`
+	SupportedProducts []string              `json:"supported_products,omitempty"`
+	Methods           []MethodDefinitionDTO `json:"methods,omitempty"`
+	Status            string                `json:"status"`
+	Path              string                `json:"path"`
 }
 
 type DomainsDTO struct {

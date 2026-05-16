@@ -161,7 +161,15 @@ func domainDTO(tree cosmosfs.Tree, d cosmosfs.DomainNode, includeServices bool) 
 
 func serviceDTO(domain string, s cosmosfs.ServiceNode) ServiceDTO {
 	ownedBy := firstNonEmpty(s.Metadata.OwnedBy, domain, s.Metadata.Owner)
-	return ServiceDTO{Name: s.Name, Domain: domain, Owner: fallback(s.Metadata.Owner, "unknown"), OwnedBy: ownedBy, OperatedBy: s.Metadata.OperatedBy, Capabilities: s.Metadata.Capabilities, SupportedProducts: s.Metadata.SupportedProducts, Methods: s.Metadata.Methods, Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path}
+	methods := make([]MethodDefinitionDTO, 0, len(s.Metadata.Methods))
+	for _, m := range s.Metadata.Methods {
+		params := make([]MethodParameterDTO, 0, len(m.Parameters))
+		for _, p := range m.Parameters {
+			params = append(params, MethodParameterDTO{Name: p.Name, Type: p.Type, Required: p.Required, Description: p.Description})
+		}
+		methods = append(methods, MethodDefinitionDTO{Name: m.Name, Summary: m.Summary, Parameters: params})
+	}
+	return ServiceDTO{Name: s.Name, Domain: domain, Owner: fallback(s.Metadata.Owner, "unknown"), OwnedBy: ownedBy, OperatedBy: s.Metadata.OperatedBy, Capabilities: s.Metadata.Capabilities, SupportedProducts: s.Metadata.SupportedProducts, Methods: methods, Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path}
 }
 
 func AddServiceMethod(path, domainName, serviceName, method string) (ServiceDTO, error) {
@@ -179,11 +187,11 @@ func AddServiceMethod(path, domainName, serviceName, method string) (ServiceDTO,
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	for _, m := range raw.Methods {
-		if m == method {
+		if m.Name == method {
 			return ServiceDTO{}, Error(CodeInvalidInput, "method already exists: "+method, http.StatusConflict, nil)
 		}
 	}
-	raw.Methods = append(raw.Methods, method)
+	raw.Methods = append(raw.Methods, model.MethodDefinition{Name: method})
 	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
@@ -202,7 +210,7 @@ func RemoveServiceMethod(path, domainName, serviceName, method string) (ServiceD
 	}
 	filtered := raw.Methods[:0]
 	for _, m := range raw.Methods {
-		if m != method {
+		if m.Name != method {
 			filtered = append(filtered, m)
 		}
 	}
@@ -211,6 +219,57 @@ func RemoveServiceMethod(path, domainName, serviceName, method string) (ServiceD
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	return GetService(path, domainName, serviceName)
+}
+
+// UpdateMethodParameters replaces the parameter list of a named method on a service.
+func UpdateMethodParameters(path, domainName, serviceName, methodName string, params []model.MethodParameter) (MethodDefinitionDTO, error) {
+	svc, err := GetService(path, domainName, serviceName)
+	if err != nil {
+		return MethodDefinitionDTO{}, err
+	}
+	yamlPath := filepath.Join(svc.Path, "service.yaml")
+	var raw model.Service
+	if err := fsx.ReadYAML(yamlPath, &raw); err != nil {
+		return MethodDefinitionDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	found := false
+	for i, m := range raw.Methods {
+		if m.Name == methodName {
+			raw.Methods[i].Parameters = params
+			found = true
+			break
+		}
+	}
+	if !found {
+		return MethodDefinitionDTO{}, Error(CodeServiceNotFound, "method not found: "+methodName, http.StatusNotFound, nil)
+	}
+	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
+		return MethodDefinitionDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	updated, err := GetService(path, domainName, serviceName)
+	if err != nil {
+		return MethodDefinitionDTO{}, err
+	}
+	for _, m := range updated.Methods {
+		if m.Name == methodName {
+			return m, nil
+		}
+	}
+	return MethodDefinitionDTO{Name: methodName}, nil
+}
+
+// GetServiceMethod returns the definition of a single named method on a service.
+func GetServiceMethod(path, domainName, serviceName, methodName string) (MethodDefinitionDTO, error) {
+	svc, err := GetService(path, domainName, serviceName)
+	if err != nil {
+		return MethodDefinitionDTO{}, err
+	}
+	for _, m := range svc.Methods {
+		if m.Name == methodName {
+			return m, nil
+		}
+	}
+	return MethodDefinitionDTO{}, Error(CodeServiceNotFound, "method not found: "+methodName, http.StatusNotFound, nil)
 }
 
 func productSummariesOfferedBy(tree cosmosfs.Tree, domainCanonical string) []ProductSummaryDTO {
@@ -449,7 +508,7 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 			s := svc
 			svcNode := NamespaceTreeNodeDTO{Label: svc.Name, Kind: "service", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, Persisted: true, CanOpenDetails: true}
 			for _, method := range svc.Methods {
-				svcNode.Children = append(svcNode.Children, NamespaceTreeNodeDTO{Label: method, Kind: "service-method", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, Persisted: true})
+				svcNode.Children = append(svcNode.Children, NamespaceTreeNodeDTO{Label: method.Name, Kind: "service-method", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, Persisted: true})
 			}
 			serviceParent.Children = append(serviceParent.Children, svcNode)
 		}

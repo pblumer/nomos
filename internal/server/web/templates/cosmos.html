@@ -582,6 +582,21 @@ async function loadDetail(row){const kind=row.dataset.kind,id=row.dataset.id,can
     }catch(err){detail.innerHTML=`<div style="padding:1rem"><div class="nerror show">${esc(err.message)}</div></div>`;}
     return;
   }
+  if(kind==='service-method'){
+    const domain=row.dataset.domain||'';
+    const svcRef=row.dataset.canonical||row.dataset.id||'';
+    const svcName=svcRef.split('/').pop()||svcRef;
+    const methodName=row.querySelector('.cn-label')?.textContent.trim()||'';
+    if(!domain||!svcName||!methodName){detail.innerHTML='<div class="detail-empty">Keine Details verf&uuml;gbar.</div>';return;}
+    detail.innerHTML='<div class="detail-empty">Lade&hellip;</div>';
+    try{
+      const res=await fetch('/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svcName)+'/methods/'+encodeURIComponent(methodName));
+      const m=res.ok?await res.json():{name:methodName,parameters:[]};
+      detail.innerHTML=renderMethodDetail(m,domain,svcName);
+      wireMethodDetail(detail,m,domain,svcName);
+    }catch(_){detail.innerHTML='<div class="detail-empty">Fehler beim Laden.</div>';}
+    return;
+  }
   let url='';
   if(kind==='domain')url='/api/v1/domains/'+encodeURIComponent(canonical||id);
   else if(kind==='service')url='/api/v1/domains/'+encodeURIComponent(row.dataset.domain)+'/services/'+encodeURIComponent(id.split('/').pop());
@@ -857,8 +872,8 @@ function setBPMNDetail(target,proc,elementId,viewer){
         if(r.ok){
           const d=await r.json();
           const methods=d.methods||[];
-          methods.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;if(m===selectedMethod)o.selected=true;methSel.appendChild(o);});
-          if(selectedMethod&&!methods.includes(selectedMethod)){const o=document.createElement('option');o.value=selectedMethod;o.textContent=selectedMethod+' (manuell)';o.selected=true;methSel.insertBefore(o,methSel.options[1]);}
+          methods.forEach(m=>{const name=typeof m==='string'?m:m.name;const o=document.createElement('option');o.value=name;o.textContent=name;if(name===selectedMethod)o.selected=true;methSel.appendChild(o);});
+          if(selectedMethod&&!methods.find(m=>(typeof m==='string'?m:m.name)===selectedMethod)){const o=document.createElement('option');o.value=selectedMethod;o.textContent=selectedMethod+' (manuell)';o.selected=true;methSel.insertBefore(o,methSel.options[1]);}
         }
       }catch(_){}
     }
@@ -1265,11 +1280,53 @@ function wireFulfillment(container,bpId){const select=container.querySelector('#
 
 function renderMethodChips(methods,domain,svc){
   if(!methods||!methods.length)return`<span class="muted" id="svc-methods-empty">Noch keine Methoden registriert.</span>`;
-  return methods.map(m=>`<span class="svc-chip" data-method="${esc(m)}">${esc(m)}<button class="svc-chip-remove" data-method="${esc(m)}" title="Entfernen">&#x2715;</button></span>`).join('');
+  return methods.map(m=>{const name=typeof m==='string'?m:m.name;const pc=(m.parameters||[]).length;const badge=pc?`<span style="background:#ddd6fe;color:#5b21b6;border-radius:4px;padding:0 4px;font-size:.68rem;margin-left:2px">${pc}p</span>`:'';return`<span class="svc-chip" data-method="${esc(name)}">${esc(name)}${badge}<button class="svc-chip-remove" data-method="${esc(name)}" title="Entfernen">&#x2715;</button></span>`;}).join('');
 }
 function serviceDetail(d){
   const methodsHtml=renderMethodChips(d.methods,d.domain,d.name);
   return `<div class="detail-head"><div class="detail-head-left">${iconDiv('service')}<div><div class="detail-title">${esc(d.name)}</div><div class="detail-subtitle">Service &middot; ${esc(d.domain)}</div></div></div><div class="detail-actions-head"><button class="btn btn-secondary btn-sm" id="det-edit" title="Bearbeiten"><span class="mi" style="font-family:'Material Symbols Outlined'">edit</span></button><button class="btn btn-danger btn-sm" id="det-delete" title="L&ouml;schen"><span class="mi" style="font-family:'Material Symbols Outlined'">delete</span></button></div></div><div class="detail-body"><dl class="detail-props"><dt>Name</dt><dd>${esc(d.name)}</dd><dt>Domain</dt><dd><code>${esc(d.domain)}</code></dd><dt>Owner</dt><dd>${esc(d.owner||'&ndash;')}</dd><dt>Status</dt><dd><span class="badge badge-${d.status}">${esc(d.status)}</span></dd><dt>Pfad</dt><dd><code>${esc(d.path)}</code></dd></dl><div style="margin-top:.75rem"><div style="font-size:.78rem;font-weight:700;color:#475569;margin-bottom:.35rem">Methoden / Operationen</div><div id="svc-method-chips" style="display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.4rem">${methodsHtml}</div><div style="display:flex;gap:.35rem;align-items:center"><input id="svc-method-input" placeholder="z.B. createUser" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;background:#fff;flex:1"><button class="btn btn-primary btn-sm" id="svc-method-add">+ Methode</button></div></div></div><div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/domains/${encodeURIComponent(d.domain)}/services/${encodeURIComponent(d.name)}">API JSON</a></div>`;
+}
+function renderMethodDetail(m,domain,svc){
+  const params=m.parameters||[];
+  const typeOpts=['string','number','boolean','date','object'].map(t=>`<option value="${t}">${t}</option>`).join('');
+  const paramsHtml=params.length?`<table class="data-table" style="margin-top:.4rem"><thead><tr><th>Name</th><th>Typ</th><th>Pflicht</th><th>Beschreibung</th><th></th></tr></thead><tbody>${params.map(p=>`<tr><td><code>${esc(p.name)}</code></td><td>${esc(p.type||'string')}</td><td>${p.required?'<span class="badge badge-active">ja</span>':'nein'}</td><td>${esc(p.description||'')}</td><td><button class="btn btn-danger btn-xs param-del-btn" data-param-name="${esc(p.name)}">&#x2715;</button></td></tr>`).join('')}</tbody></table>`:'<p style="font-size:.8rem;color:#94a3b8;margin:.3rem 0">Noch keine Parameter definiert.</p>';
+  return `<div class="detail-head"><div class="detail-head-left"><div class="detail-kind-icon" style="background:#ede9fe;color:#6d28d9;font-family:\'Material Symbols Outlined\';font-size:18px;width:36px;height:36px;border-radius:8px;display:grid;place-items:center">function</div><div><div class="detail-title">${esc(m.name)}()</div><div class="detail-subtitle">Methode &middot; ${esc(domain)}/${esc(svc)}</div></div></div></div><div class="detail-body"><div style="font-size:.78rem;font-weight:700;color:#475569;margin-bottom:.4rem">Parameter <span style="background:#eef2ff;color:#4338ca;border-radius:5px;padding:0 5px;font-size:.7rem">${params.length}</span></div><div id="method-params-container">${paramsHtml}</div><div style="margin-top:.75rem;display:grid;grid-template-columns:1fr max-content auto auto;gap:.35rem;align-items:center"><input id="param-name" placeholder="Name (z.B. userId)" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem"><select id="param-type" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">${typeOpts}</select><label style="font-size:.78rem;display:flex;align-items:center;gap:.25rem;white-space:nowrap"><input type="checkbox" id="param-required"> Pflicht</label><button class="btn btn-primary btn-sm" id="param-add-btn">+ Parameter</button></div><div id="param-status" style="font-size:.75rem;margin-top:.3rem;min-height:1.1em"></div></div><div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/services/${encodeURIComponent(domain)}/${encodeURIComponent(svc)}/methods/${encodeURIComponent(m.name)}">API JSON</a></div>`;
+}
+function wireMethodDetail(container,m,domain,svc){
+  const methodsUrl='/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svc)+'/methods/'+encodeURIComponent(m.name);
+  const statusEl=container.querySelector('#param-status');
+  const setStatus=(msg,ok=false)=>{if(statusEl){statusEl.textContent=msg;statusEl.style.color=ok?'#16a34a':'#dc2626';}};
+  let params=[...(m.parameters||[])];
+  function refreshParams(){
+    const box=container.querySelector('#method-params-container');
+    if(!box)return;
+    if(!params.length){box.innerHTML='<p style="font-size:.8rem;color:#94a3b8;margin:.3rem 0">Noch keine Parameter definiert.</p>';return;}
+    box.innerHTML=`<table class="data-table" style="margin-top:.4rem"><thead><tr><th>Name</th><th>Typ</th><th>Pflicht</th><th></th></tr></thead><tbody>${params.map(p=>`<tr><td><code>${esc(p.name)}</code></td><td>${esc(p.type||'string')}</td><td>${p.required?'<span class="badge badge-active">ja</span>':'nein'}</td><td><button class="btn btn-danger btn-xs param-del-btn" data-param-name="${esc(p.name)}">&#x2715;</button></td></tr>`).join('')}</tbody></table>`;
+    wireDelBtns();
+  }
+  async function saveParams(){
+    const r=await fetch(methodsUrl,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({parameters:params})});
+    if(r.ok){setStatus('Gespeichert ✓',true);setTimeout(()=>setStatus(''),2000);}
+    else{const d=await r.json().catch(()=>({}));setStatus(d.error?.message||'Speichern fehlgeschlagen');}
+  }
+  function wireDelBtns(){
+    container.querySelectorAll('.param-del-btn').forEach(btn=>{
+      btn.addEventListener('click',async()=>{params=params.filter(p=>p.name!==btn.dataset.paramName);refreshParams();await saveParams();});
+    });
+  }
+  wireDelBtns();
+  container.querySelector('#param-add-btn')?.addEventListener('click',async()=>{
+    const nameEl=container.querySelector('#param-name');
+    const name=nameEl?.value.trim()||'';
+    if(!name){setStatus('Name erforderlich');return;}
+    if(params.find(p=>p.name===name)){setStatus('Parameter existiert bereits');return;}
+    const type=container.querySelector('#param-type')?.value||'string';
+    const required=container.querySelector('#param-required')?.checked||false;
+    params.push({name,type,required,description:''});
+    if(nameEl)nameEl.value='';
+    refreshParams();
+    await saveParams();
+  });
 }
 function wireServiceDetail(container,d){
   const methodsUrl='/api/v1/services/'+encodeURIComponent(d.domain)+'/'+encodeURIComponent(d.name)+'/methods';

@@ -40,21 +40,50 @@ type ServiceLevelInfo struct {
 	Description   string `yaml:"description,omitempty" json:"description,omitempty"`
 }
 
+// MethodParameter describes one typed input parameter of a service method.
+type MethodParameter struct {
+	Name        string `yaml:"name" json:"name"`
+	Type        string `yaml:"type" json:"type"`
+	Required    bool   `yaml:"required,omitempty" json:"required,omitempty"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+}
+
+// MethodDefinition describes a named operation exposed by a service, with
+// optional typed parameters. It unmarshals from both the legacy plain-string
+// format ("methodName") and the new object format ({name:…, parameters:[…]}).
+type MethodDefinition struct {
+	Name        string            `yaml:"name" json:"name"`
+	Summary     string            `yaml:"summary,omitempty" json:"summary,omitempty"`
+	Parameters  []MethodParameter `yaml:"parameters,omitempty" json:"parameters,omitempty"`
+}
+
+// UnmarshalYAML lets MethodDefinition parse both "methodName" strings and full
+// objects so existing service.yaml files remain valid without migration.
+func (m *MethodDefinition) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err == nil {
+		m.Name = s
+		return nil
+	}
+	type plain MethodDefinition
+	return unmarshal((*plain)(m))
+}
+
 type Service struct {
-	ID                string            `yaml:"id" json:"id"`
-	Type              string            `yaml:"type" json:"type"`
-	Name              string            `yaml:"name" json:"name"`
-	Version           string            `yaml:"version" json:"version"`
-	Status            string            `yaml:"status" json:"status"`
-	Owner             string            `yaml:"owner" json:"owner"`
-	OwnedBy           string            `yaml:"owned_by,omitempty" json:"owned_by,omitempty"`
-	OperatedBy        []string          `yaml:"operated_by,omitempty" json:"operated_by,omitempty"`
-	Capabilities      []string          `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
-	SupportedProducts []string          `yaml:"supported_products,omitempty" json:"supported_products,omitempty"`
-	Methods           []string          `yaml:"methods,omitempty" json:"methods,omitempty"`
-	Summary           string            `yaml:"summary" json:"summary"`
-	SLA               *ServiceLevelInfo `yaml:"sla,omitempty" json:"sla,omitempty"`
-	OLA               *ServiceLevelInfo `yaml:"ola,omitempty" json:"ola,omitempty"`
+	ID                string             `yaml:"id" json:"id"`
+	Type              string             `yaml:"type" json:"type"`
+	Name              string             `yaml:"name" json:"name"`
+	Version           string             `yaml:"version" json:"version"`
+	Status            string             `yaml:"status" json:"status"`
+	Owner             string             `yaml:"owner" json:"owner"`
+	OwnedBy           string             `yaml:"owned_by,omitempty" json:"owned_by,omitempty"`
+	OperatedBy        []string           `yaml:"operated_by,omitempty" json:"operated_by,omitempty"`
+	Capabilities      []string           `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
+	SupportedProducts []string           `yaml:"supported_products,omitempty" json:"supported_products,omitempty"`
+	Methods           []MethodDefinition `yaml:"methods,omitempty" json:"methods,omitempty"`
+	Summary           string             `yaml:"summary" json:"summary"`
+	SLA               *ServiceLevelInfo  `yaml:"sla,omitempty" json:"sla,omitempty"`
+	OLA               *ServiceLevelInfo  `yaml:"ola,omitempty" json:"ola,omitempty"`
 }
 
 type Variant struct {
