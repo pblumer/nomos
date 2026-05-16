@@ -637,9 +637,9 @@ func attachProcessToProduct(path, productID, processID string) error {
 	return fsx.WriteYAML(bp.Path, raw)
 }
 
-// DefaultBPMNTemplate generates a BPMN collaboration with a single participant
-// pool wrapping the process. The participant pool name defaults to the process
-// name and can be renamed in the BPMN editor to reflect the actual executing system.
+// DefaultBPMNTemplate generates a minimal blank BPMN collaboration with a
+// single participant pool. The pool name is set to the process name so users
+// can immediately see which process they are editing in the diagram.
 func DefaultBPMNTemplate(processID, productName string) string {
 	if strings.TrimSpace(processID) == "" {
 		processID = "Process_ProductFulfillment"
@@ -653,73 +653,29 @@ func DefaultBPMNTemplate(processID, productName string) string {
     <bpmn:participant id="` + participantID + `" name="` + xmlEscape(name) + `" processRef="` + processID + `" />
   </bpmn:collaboration>
   <bpmn:process id="` + processID + `" name="` + xmlEscape(name) + `" isExecutable="false">
-    <bpmn:startEvent id="StartEvent_RequestReceived" name="Request received">
-      <bpmn:outgoing>Flow_Start_Validate</bpmn:outgoing>
+    <bpmn:startEvent id="StartEvent_Begin" name="Start">
+      <bpmn:outgoing>Flow_Start_End</bpmn:outgoing>
     </bpmn:startEvent>
-    <bpmn:sequenceFlow id="Flow_Start_Validate" sourceRef="StartEvent_RequestReceived" targetRef="Task_ValidateRequest" />
-    <bpmn:task id="Task_ValidateRequest" name="Validate request">
-      <bpmn:incoming>Flow_Start_Validate</bpmn:incoming>
-      <bpmn:outgoing>Flow_Validate_Fulfill</bpmn:outgoing>
-    </bpmn:task>
-    <bpmn:sequenceFlow id="Flow_Validate_Fulfill" sourceRef="Task_ValidateRequest" targetRef="Task_PerformFulfillment" />
-    <bpmn:task id="Task_PerformFulfillment" name="Perform fulfillment">
-      <bpmn:incoming>Flow_Validate_Fulfill</bpmn:incoming>
-      <bpmn:outgoing>Flow_Fulfill_Quality</bpmn:outgoing>
-    </bpmn:task>
-    <bpmn:sequenceFlow id="Flow_Fulfill_Quality" sourceRef="Task_PerformFulfillment" targetRef="Task_QualityCheck" />
-    <bpmn:task id="Task_QualityCheck" name="Quality check">
-      <bpmn:incoming>Flow_Fulfill_Quality</bpmn:incoming>
-      <bpmn:outgoing>Flow_Quality_Document</bpmn:outgoing>
-    </bpmn:task>
-    <bpmn:sequenceFlow id="Flow_Quality_Document" sourceRef="Task_QualityCheck" targetRef="Task_DocumentEvidence" />
-    <bpmn:task id="Task_DocumentEvidence" name="Document evidence">
-      <bpmn:incoming>Flow_Quality_Document</bpmn:incoming>
-      <bpmn:outgoing>Flow_Document_End</bpmn:outgoing>
-    </bpmn:task>
-    <bpmn:sequenceFlow id="Flow_Document_End" sourceRef="Task_DocumentEvidence" targetRef="EndEvent_Fulfilled" />
-    <bpmn:endEvent id="EndEvent_Fulfilled" name="Fulfilled">
-      <bpmn:incoming>Flow_Document_End</bpmn:incoming>
+    <bpmn:sequenceFlow id="Flow_Start_End" sourceRef="StartEvent_Begin" targetRef="EndEvent_Done" />
+    <bpmn:endEvent id="EndEvent_Done" name="End">
+      <bpmn:incoming>Flow_Start_End</bpmn:incoming>
     </bpmn:endEvent>
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_ProductProcess">
     <bpmndi:BPMNPlane id="BPMNPlane_ProductProcess" bpmnElement="` + collabID + `">
       <bpmndi:BPMNShape id="Shape_Participant" bpmnElement="` + participantID + `" isHorizontal="true">
-        <dc:Bounds x="100" y="50" width="830" height="200" />
+        <dc:Bounds x="100" y="80" width="400" height="160" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_StartEvent" bpmnElement="StartEvent_RequestReceived">
-        <dc:Bounds x="182" y="152" width="36" height="36" />
-        <bpmndi:BPMNLabel><dc:Bounds x="155" y="195" width="90" height="14" /></bpmndi:BPMNLabel>
+      <bpmndi:BPMNShape id="Shape_StartEvent" bpmnElement="StartEvent_Begin">
+        <dc:Bounds x="182" y="142" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="188" y="185" width="24" height="14" /></bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_ValidateRequest" bpmnElement="Task_ValidateRequest">
-        <dc:Bounds x="270" y="130" width="100" height="80" />
+      <bpmndi:BPMNShape id="Shape_EndEvent" bpmnElement="EndEvent_Done">
+        <dc:Bounds x="432" y="142" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="438" y="185" width="24" height="14" /></bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_PerformFulfillment" bpmnElement="Task_PerformFulfillment">
-        <dc:Bounds x="420" y="130" width="100" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_QualityCheck" bpmnElement="Task_QualityCheck">
-        <dc:Bounds x="570" y="130" width="100" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_DocumentEvidence" bpmnElement="Task_DocumentEvidence">
-        <dc:Bounds x="720" y="130" width="100" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_EndEvent" bpmnElement="EndEvent_Fulfilled">
-        <dc:Bounds x="872" y="152" width="36" height="36" />
-        <bpmndi:BPMNLabel><dc:Bounds x="865" y="195" width="50" height="14" /></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Edge_Start_Validate" bpmnElement="Flow_Start_Validate">
-        <di:waypoint x="218" y="170" /><di:waypoint x="270" y="170" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_Validate_Fulfill" bpmnElement="Flow_Validate_Fulfill">
-        <di:waypoint x="370" y="170" /><di:waypoint x="420" y="170" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_Fulfill_Quality" bpmnElement="Flow_Fulfill_Quality">
-        <di:waypoint x="520" y="170" /><di:waypoint x="570" y="170" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_Quality_Document" bpmnElement="Flow_Quality_Document">
-        <di:waypoint x="670" y="170" /><di:waypoint x="720" y="170" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_Document_End" bpmnElement="Flow_Document_End">
-        <di:waypoint x="820" y="170" /><di:waypoint x="872" y="170" />
+      <bpmndi:BPMNEdge id="Edge_Start_End" bpmnElement="Flow_Start_End">
+        <di:waypoint x="218" y="160" /><di:waypoint x="432" y="160" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
