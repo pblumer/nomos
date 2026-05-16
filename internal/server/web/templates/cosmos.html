@@ -815,14 +815,16 @@ function bpmnDetailHTML(item,elementId){
   const typeLabel=isRule?'Business Rule Task':(item.task_type||item.element_type||'serviceTask').split(':').pop().replace(/([A-Z])/g,' $1').trim();
   const typeShort=isRule?'BR':(item.task_type||'ST').includes('user')?'UT':'ST';
   const roleOpts=['primary','supporting','optional'].map(r=>`<option value="${r}"${(item.role||'supporting')===r?' selected':''}>${r}</option>`).join('');
+  const inputBindings=(item.inputs||[]);
+  const inputsSection=inputBindings.length?`<div class="tp-section"><div class="tp-section-head">Parameter / Inputs <span class="tp-section-arrow">▾</span></div><div class="tp-section-body">${inputBindings.map((inp,idx)=>`<div class="tp-field"><span class="tp-label" style="display:flex;align-items:center;gap:.3rem">${esc(inp.name)}${inp.required?'<span style="color:#dc2626;font-size:.65rem;font-weight:600">Pflicht</span>':''}</span><input class="tp-input tp-input-code" data-tp-inp="${idx}" value="${esc(inp.source||'')}" placeholder="Quelle (z.B. instance.feld)"></div>`).join('')}</div></div>`:'';
   return `<div class="tp-panel" data-tp-element-id="${esc(elementId||item.id||'')}" data-tp-step-id="${esc(item.id||'')}">
 <div class="tp-tabs"><button class="tp-tab active" data-tp-tab="props">Eigenschaften</button><button class="tp-tab" data-tp-tab="comments">Kommentare</button></div>
 <div class="tp-tab-panel" data-tp-panel="props">
 <div class="tp-header"><div class="tp-type-icon">${esc(typeShort)}</div><div><div class="tp-type-label">${esc(typeLabel)}</div><div class="tp-name-display" id="tp-name-display">${esc(item.name||elementId)}</div></div></div>
 <div class="tp-section"><div class="tp-section-head">Allgemein <span class="tp-section-arrow">▾</span></div><div class="tp-section-body"><div class="tp-field"><span class="tp-label">Name</span><textarea class="tp-input" id="tp-name" rows="2">${esc(item.name||'')}</textarea></div><div class="tp-field"><span class="tp-label">ID</span><input class="tp-input tp-input-code" id="tp-id" readonly value="${esc(elementId||item.id||'')}"></div></div></div>
 <div class="tp-section"><div class="tp-section-head">Beschreibung <span class="tp-section-arrow">▾</span></div><div class="tp-section-body"><div class="tp-field"><textarea class="tp-input" id="tp-notes" rows="3" placeholder="Optionale Beschreibung…">${esc(item.notes||'')}</textarea></div></div></div>
-<div class="tp-section"><div class="tp-section-head">Implementierung <span class="tp-section-arrow">▾</span></div><div class="tp-section-body"><div class="tp-field"><span class="tp-label">Service</span><input class="tp-input" id="tp-service" value="${esc(item.service_ref||'')}" placeholder="domain/service-name"></div><div class="tp-field"><span class="tp-label">Methode</span><input class="tp-input" id="tp-method" value="${esc(item.method||'')}" placeholder="methodName"></div><div class="tp-field"><span class="tp-label">Rolle</span><select class="tp-select" id="tp-role">${roleOpts}</select></div><label class="tp-check-row"><input type="checkbox" id="tp-required"${item.required?' checked':''}> Pflicht-Schritt</label></div></div>
-<div class="tp-actions"><button class="tp-save-btn" id="tp-save">Speichern</button><span class="tp-status" id="tp-status"></span></div>
+<div class="tp-section"><div class="tp-section-head">Implementierung <span class="tp-section-arrow">▾</span></div><div class="tp-section-body"><div class="tp-field"><span class="tp-label">Service</span><select class="tp-select" id="tp-service"><option value="">— Service wählen —</option></select></div><div class="tp-field"><span class="tp-label">Methode</span><select class="tp-select" id="tp-method"><option value="">— Methode wählen —</option></select></div><div class="tp-field"><span class="tp-label">Rolle</span><select class="tp-select" id="tp-role">${roleOpts}</select></div><label class="tp-check-row"><input type="checkbox" id="tp-required"${item.required?' checked':''}> Pflicht-Schritt</label></div></div>
+${inputsSection}<div class="tp-actions"><button class="tp-save-btn" id="tp-save">Speichern</button><span class="tp-status" id="tp-status"></span></div>
 </div>
 <div class="tp-tab-panel hidden" data-tp-panel="comments"><div style="color:#94a3b8;font-size:.82rem;padding:.5rem 0">Kommentare sind noch nicht verfügbar.</div></div>
 </div>`;
@@ -838,6 +840,39 @@ function setBPMNDetail(target,proc,elementId,viewer){
   if(!item)return;
   panel.classList.remove('is-empty');
   panel.innerHTML=bpmnDetailHTML(item,elementId);
+  // Populate service/method dropdowns from API
+  (async()=>{
+    const svcSel=panel.querySelector('#tp-service');
+    const methSel=panel.querySelector('#tp-method');
+    if(!svcSel||!methSel)return;
+    async function loadMethods(serviceRef,selectedMethod){
+      methSel.innerHTML='<option value="">— Methode wählen —</option>';
+      if(!serviceRef)return;
+      const parts=serviceRef.split('/');
+      if(parts.length<2)return;
+      const domain=parts.slice(0,-1).join('/'),svc=parts[parts.length-1];
+      try{
+        const r=await fetch('/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svc)+'/methods');
+        if(r.ok){
+          const d=await r.json();
+          const methods=d.methods||[];
+          methods.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;if(m===selectedMethod)o.selected=true;methSel.appendChild(o);});
+          if(selectedMethod&&!methods.includes(selectedMethod)){const o=document.createElement('option');o.value=selectedMethod;o.textContent=selectedMethod+' (manuell)';o.selected=true;methSel.insertBefore(o,methSel.options[1]);}
+        }
+      }catch(_){}
+    }
+    try{
+      const r=await fetch('/api/v1/services/refs');
+      if(r.ok){
+        const d=await r.json();
+        const curr=item.service_ref||'';
+        (d.services||[]).forEach(s=>{const o=document.createElement('option');o.value=s.service_ref;o.textContent=s.service_ref;if(s.service_ref===curr)o.selected=true;svcSel.appendChild(o);});
+        if(curr&&!(d.services||[]).find(s=>s.service_ref===curr)){const o=document.createElement('option');o.value=curr;o.textContent=curr+' (nicht gefunden)';o.selected=true;svcSel.insertBefore(o,svcSel.options[1]);}
+      }
+    }catch(_){}
+    await loadMethods(item.service_ref||'',item.method||'');
+    svcSel.addEventListener('change',()=>loadMethods(svcSel.value,''));
+  })();
   // Tab switching
   panel.querySelectorAll('.tp-tab').forEach(tab=>{
     tab.addEventListener('click',()=>{
@@ -871,7 +906,8 @@ function setBPMNDetail(target,proc,elementId,viewer){
       }
       // Persist changes
       if(item.from_step&&item.id){
-        const r=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id)+'/steps/'+encodeURIComponent(item.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:newName||item.name,service_ref:newService,method:newMethod,role:newRole,required:newRequired,notes:newNotes,task_type:item.task_type||'serviceTask',depends_on:item.depends_on||[],inputs:item.inputs||[],outputs:item.outputs||[]})});
+        const updatedInputs=(item.inputs||[]).map((inp,idx)=>{const src=panel.querySelector('[data-tp-inp="'+idx+'"]')?.value??inp.source;return{...inp,source:src};});
+        const r=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id)+'/steps/'+encodeURIComponent(item.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:newName||item.name,service_ref:newService,method:newMethod,role:newRole,required:newRequired,notes:newNotes,task_type:item.task_type||'serviceTask',depends_on:item.depends_on||[],inputs:updatedInputs,outputs:item.outputs||[]})});
         if(!r.ok)throw new Error(await r.text().catch(()=>'Speichern fehlgeschlagen'));
         const updated=await r.json();Object.assign(proc,updated);
       }else{
