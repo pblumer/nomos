@@ -52,9 +52,9 @@ type MethodParameter struct {
 // optional typed parameters. It unmarshals from both the legacy plain-string
 // format ("methodName") and the new object format ({name:…, parameters:[…]}).
 type MethodDefinition struct {
-	Name        string            `yaml:"name" json:"name"`
-	Summary     string            `yaml:"summary,omitempty" json:"summary,omitempty"`
-	Parameters  []MethodParameter `yaml:"parameters,omitempty" json:"parameters,omitempty"`
+	Name       string            `yaml:"name" json:"name"`
+	Summary    string            `yaml:"summary,omitempty" json:"summary,omitempty"`
+	Parameters []MethodParameter `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 }
 
 // UnmarshalYAML lets MethodDefinition parse both "methodName" strings and full
