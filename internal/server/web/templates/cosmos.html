@@ -167,6 +167,11 @@
 .attr-add-row{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem}
 .attr-add-row input,.attr-add-row select{border:1px solid #d1d5db;border-radius:6px;padding:.32rem .55rem;font-size:.82rem}
 .tree-controls{display:flex;gap:.3rem}
+.ex-layout.tree-hidden{grid-template-columns:minmax(0,1fr)}
+.ex-layout.tree-hidden .ex-tree-card{display:none}
+.tree-toggle-btn{background:#fff;border:1px solid #e2e8f0;border-radius:7px;padding:2px 8px;cursor:pointer;color:#64748b;font-size:.76rem;font-weight:600;display:inline-flex;align-items:center;gap:.25rem;line-height:1.6;transition:background .1s,border-color .1s}.tree-toggle-btn:hover{background:#f1f5f9;border-color:#c7d2fe;color:#4338ca}
+#tree-show-strip{display:none;padding:.45rem .75rem .1rem;border-bottom:1px solid #f0f4f8}
+.ex-layout.tree-hidden #tree-show-strip{display:block}
 
 .product-hero{background:#fff;border-bottom:1px solid #e2e8f0;padding:.9rem 1.25rem;display:flex;justify-content:space-between;gap:1rem;align-items:flex-start}.product-hero-main{display:flex;gap:.85rem;align-items:center}.product-badge{width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;font-weight:800;font-size:1.6rem;display:grid;place-items:center;box-shadow:0 10px 24px rgba(37,99,235,.24)}.hero-kicker{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:#2563eb;font-weight:800}.product-hero h2{margin:.05rem 0 .3rem;font-size:1.35rem;color:#0f172a}.hero-badges,.product-actions,.svc-card-meta,.svc-card-actions{display:flex;gap:.4rem;flex-wrap:wrap}.chip{display:inline-flex;align-items:center;border:1px solid #dbeafe;background:#eff6ff;color:#1e40af;border-radius:999px;padding:.16rem .5rem;font-size:.74rem;font-weight:700}.chip-warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.readiness-strip{display:flex;gap:1.1rem;flex-wrap:wrap;padding:.45rem 1.25rem;border-bottom:1px solid #f1f5f9;align-items:center}.ready-chip{display:inline-flex;align-items:center;gap:.28rem;font-size:.73rem;font-weight:600;color:#64748b}.ready-ok{color:#059669}.ready-warn{color:#d97706}.ready-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}.product-tabs{display:flex;gap:0;padding:.6rem 1rem 0;border-bottom:1px solid #e2e8f0;background:#fff;overflow-x:auto}.ptab{border:0;background:transparent;padding:.5rem .85rem;font-weight:700;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}.ptab.active{background:transparent;color:#1d4ed8;border-bottom-color:#1d4ed8}.hidden{display:none!important}.product-body{overflow-x:hidden}.showcase-card{border:1px solid #e2e8f0;border-radius:14px;background:#fff;padding:1rem}.lead{font-size:1rem;color:#334155}.svc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:.7rem}.svc-card{border:1px solid #e2e8f0;border-radius:12px;padding:.75rem;background:#fff;min-width:0}.svc-card-warn{border-color:#fed7aa;background:#fffaf0}.svc-card-head{display:flex;justify-content:space-between;gap:.5rem;align-items:start}.svc-title{font-weight:800;color:#0f172a}.svc-card code{white-space:normal;word-break:break-word}.svc-card-levels{margin:.55rem 0}.soft-warn{display:inline-flex;background:#fffbeb;color:#92400e;border:1px solid #fde68a;border-radius:999px;padding:.15rem .5rem;font-size:.73rem;font-weight:700}.process-empty{border:1px dashed #cbd5e1;border-radius:14px;padding:1.2rem;text-align:center;background:#f8fafc;color:#475569}.process-empty .mi{font-family:'Material Symbols Outlined';font-size:2rem;color:#2563eb}.process-toolbar{display:flex;justify-content:space-between;gap:1rem;align-items:center;margin-bottom:.6rem}.muted{color:#64748b;font-size:.78rem}
 .proc-tabs-bar{display:flex;gap:0;padding:0 0 .4rem;border-bottom:1px solid #e2e8f0;margin-bottom:.65rem;overflow-x:auto;flex-wrap:nowrap;align-items:center}
@@ -250,6 +255,7 @@
         <div class="tree-controls">
           <button class="btn btn-secondary btn-sm" id="tree-expand-all" title="Alles ausklappen"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:13px">unfold_more</span></button>
           <button class="btn btn-secondary btn-sm" id="tree-collapse-all" title="Alles einklappen"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:13px">unfold_less</span></button>
+          <button class="tree-toggle-btn" id="tree-hide-btn" title="Baum ausblenden"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:13px">chevron_left</span></button>
         </div>
       </div>
     </div>
@@ -376,6 +382,7 @@
   </div>
 
   <div class="ex-detail-card" id="detail-panel">
+    <div id="tree-show-strip"><button class="tree-toggle-btn" id="tree-show-btn"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:13px">chevron_right</span> Baum anzeigen</button></div>
     <div class="detail-empty">Klicke einen Knoten, um Details anzuzeigen.<br><br><span style="font-size:.8rem">Rechtsklick f&uuml;r Aktionen oder nutze die Buttons im Detail-Panel.</span></div>
   </div>
 </div>
@@ -451,6 +458,13 @@ $('tree-collapse-all').addEventListener('click',()=>{
   rootLi?.querySelector(':scope > .cn-children')?.classList.remove('collapsed');
   rootLi?.querySelector(':scope > .cn-row .cn-toggle')?.classList.add('open');
 });
+
+const exLayout=document.querySelector('.ex-layout');
+const TREE_HIDDEN_KEY='nomos-tree-hidden';
+function setTreeHidden(hidden){exLayout.classList.toggle('tree-hidden',hidden);try{hidden?localStorage.setItem(TREE_HIDDEN_KEY,'1'):localStorage.removeItem(TREE_HIDDEN_KEY);}catch(_){}}
+try{if(localStorage.getItem(TREE_HIDDEN_KEY)==='1')exLayout.classList.add('tree-hidden');}catch(_){}
+$('tree-hide-btn').addEventListener('click',()=>setTreeHidden(true));
+$('tree-show-btn').addEventListener('click',()=>setTreeHidden(false));
 
 const params=new URLSearchParams(location.search);
 const sel=params.get('selected');
