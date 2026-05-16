@@ -15,6 +15,7 @@ ADRs record significant architectural and technology decisions. Each ADR capture
 | [ADR-0005](ADR-0005-blueprint-instance-assurance-model.md) | Blueprint-/Instance-/Assurance-Modell als Kernmodell | Accepted |
 | [ADR-0006](ADR-0006-go-cobra-cli.md) | Go und Cobra als CLI-Technologie | Accepted |
 | [ADR-0007](ADR-0007-domain-owned-product-offerings.md) | Domain-owned product offerings and service-based fulfillment | Accepted |
+| [ADR-0008](ADR-0008-mcp-server-ai-agent-interface.md) | MCP Server als KI-Agenten-Schnittstelle für Nomos-Artefakte | Accepted |
 
 ## Superseded / legacy stubs
 
