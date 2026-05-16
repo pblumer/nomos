@@ -439,12 +439,23 @@ func (h *handler) apiProcessRoutes(w http.ResponseWriter, r *http.Request) {
 	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/processes/")
 	parts := strings.Split(rest, "/")
 	if len(parts) == 1 && parts[0] != "" {
-		dto, err := app.GetProcess(h.cosmosPath, parts[0])
-		if err != nil {
-			h.apiErr(w, err)
-			return
+		switch r.Method {
+		case http.MethodGet:
+			dto, err := app.GetProcess(h.cosmosPath, parts[0])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+		case http.MethodDelete:
+			if err := app.DeleteProcess(h.cosmosPath, parts[0]); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
-		writeJSON(w, http.StatusOK, dto)
 		return
 	}
 	if len(parts) == 2 && parts[0] != "" && parts[1] == "bpmn" {
@@ -611,19 +622,41 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// DELETE /api/v1/services/{domain}/{service}/methods/{method}
+	// GET/PUT/DELETE /api/v1/services/{domain}/{service}/methods/{method}
 	if len(parts) == 4 && parts[2] == "methods" {
 		domain, service, method := parts[0], parts[1], parts[3]
-		if r.Method == http.MethodDelete {
+		switch r.Method {
+		case http.MethodGet:
+			dto, err := app.GetServiceMethod(h.cosmosPath, domain, service, method)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, 200, dto)
+		case http.MethodPut:
+			var req struct {
+				Parameters []model.MethodParameter `json:"parameters"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			dto, err := app.UpdateMethodParameters(h.cosmosPath, domain, service, method, req.Parameters)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, 200, dto)
+		case http.MethodDelete:
 			dto, err := app.RemoveServiceMethod(h.cosmosPath, domain, service, method)
 			if err != nil {
 				h.apiErr(w, err)
 				return
 			}
 			writeJSON(w, 200, dto)
-			return
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
-		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 

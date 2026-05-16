@@ -24,10 +24,17 @@ func TestProcessArtifactCreateTasksMappingsAndValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if proc.BPMN.File != "prc-proc-001.bpmn" || len(proc.Tasks) == 0 {
+	if proc.BPMN.File != "prc-proc-001.bpmn" {
 		t.Fatalf("unexpected process dto: %+v", proc)
 	}
-	updated, err := UpdateProcessTaskMappings(p, proc.ID, UpdateTaskMappingsRequest{TaskMappings: []ProcessTaskMappingDTO{{BPMNElementID: "Task_PerformFulfillment", ServiceRef: "identity.blumer.cloud/user-account", Role: "primary", Required: true}}})
+	// New processes start with a blank BPMN (no placeholder tasks).
+	// Add a real task via BPMN update before mapping.
+	customBPMN := DefaultBPMNTemplate(proc.BPMN.ProcessID, product.Name)
+	customBPMN = strings.ReplaceAll(customBPMN, "<bpmn:sequenceFlow id=\"Flow_Start_End\"", "<bpmn:task id=\"Task_Custom\" name=\"Custom task\"><bpmn:incoming>Flow_Start_Custom</bpmn:incoming><bpmn:outgoing>Flow_Custom_End</bpmn:outgoing></bpmn:task><bpmn:sequenceFlow id=\"Flow_Start_Custom\" sourceRef=\"StartEvent_Begin\" targetRef=\"Task_Custom\" /><bpmn:sequenceFlow id=\"Flow_Custom_End\" sourceRef=\"Task_Custom\" targetRef=\"EndEvent_Done\" /><bpmn:sequenceFlow id=\"Flow_Start_End\"")
+	if _, err := UpdateProcessBPMN(p, proc.ID, customBPMN); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := UpdateProcessTaskMappings(p, proc.ID, UpdateTaskMappingsRequest{TaskMappings: []ProcessTaskMappingDTO{{BPMNElementID: "Task_Custom", ServiceRef: "identity.blumer.cloud/user-account", Role: "primary", Required: true}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +42,7 @@ func TestProcessArtifactCreateTasksMappingsAndValidation(t *testing.T) {
 		t.Fatalf("mapping not saved: %+v", updated.TaskMappings)
 	}
 	if updated.Validation.Status != "needs_attention" {
-		t.Fatalf("expected warnings for unmapped tasks/missing SLA, got %s", updated.Validation.Status)
+		t.Fatalf("expected warnings for missing SLA, got %s", updated.Validation.Status)
 	}
 	stored, err := os.ReadFile(filepath.Join(storage.CatalogDir(p), "blueprints", "products", product.ID+".yaml"))
 	if err != nil {
@@ -46,7 +53,7 @@ func TestProcessArtifactCreateTasksMappingsAndValidation(t *testing.T) {
 	}
 }
 
-func TestStandardBPMNTasksDoNotRequireServiceMappings(t *testing.T) {
+func TestNewProcessStartsWithBlankBPMN(t *testing.T) {
 	p := createAppTestCosmos(t)
 	product, err := CreateProductOffering(p, "identity.blumer.cloud", CreateProductOfferingRequest{ID: "PROD-PROC-STD", Name: "Standard Process Product"})
 	if err != nil {
@@ -56,20 +63,14 @@ func TestStandardBPMNTasksDoNotRequireServiceMappings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(proc.Tasks) == 0 {
-		t.Fatal("expected default BPMN tasks")
+	// New processes have a blank BPMN with no mappable tasks.
+	if len(proc.Tasks) != 0 {
+		t.Fatalf("expected no tasks in blank BPMN, got %d: %+v", len(proc.Tasks), proc.Tasks)
 	}
-	for _, task := range proc.Tasks {
-		if !task.Standard {
-			t.Fatalf("default task should be marked standard: %+v", task)
-		}
-		if task.MappingStatus != "standard" {
-			t.Fatalf("default task should have standard mapping status: %+v", task)
-		}
-	}
+	// No BPMN_TASK_UNMAPPED warnings since there are no tasks to map.
 	for _, f := range proc.Validation.Findings {
 		if f.Code == "BPMN_TASK_UNMAPPED" {
-			t.Fatalf("standard tasks should not create unmapped warnings: %+v", proc.Validation.Findings)
+			t.Fatalf("blank BPMN should have no unmapped-task warnings: %+v", proc.Validation.Findings)
 		}
 	}
 }
