@@ -20,10 +20,17 @@ type Tree struct {
 	Servicegraphs []ServicegraphNode
 }
 type DomainNode struct {
-	Path     string
-	Name     string
-	Metadata model.Domain
-	Services []ServiceNode
+	Path      string
+	Name      string
+	Metadata  model.Domain
+	Services  []ServiceNode
+	Decisions []DecisionNode
+}
+
+type DecisionNode struct {
+	Path     string // directory containing decision.yaml
+	DMNPath  string // path to .dmn file, empty if not present
+	Metadata model.Decision
 }
 type ServiceNode struct {
 	Path     string
@@ -94,6 +101,7 @@ func LoadTree(path string) (Tree, error) {
 				dn.Services = append(dn.Services, ServiceNode{Path: sdir, Metadata: s, Name: firstNonEmpty(s.Name, se.Name())})
 			}
 			sort.Slice(dn.Services, func(i, j int) bool { return dn.Services[i].Name < dn.Services[j].Name })
+			dn.Decisions, _ = scanDecisions(current)
 			tree.Domains = append(tree.Domains, dn)
 			return nil
 		})
@@ -223,6 +231,45 @@ func scanServicegraphs(path string) ([]ServicegraphNode, error) {
 		if sg.Type == "servicegraph" {
 			nodes = append(nodes, ServicegraphNode{Path: full, Metadata: sg})
 		}
+	}
+	sort.Slice(nodes, func(i, j int) bool { return nodes[i].Metadata.ID < nodes[j].Metadata.ID })
+	return nodes, nil
+}
+
+// ScanDecisions reads all Decision artifacts from a domain directory.
+func ScanDecisions(domainDir string) ([]DecisionNode, error) {
+	return scanDecisions(domainDir)
+}
+
+func scanDecisions(domainDir string) ([]DecisionNode, error) {
+	root := filepath.Join(domainDir, "decisions")
+	var nodes []DecisionNode
+	ents, err := os.ReadDir(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nodes, nil
+		}
+		return nil, err
+	}
+	for _, e := range ents {
+		if !e.IsDir() {
+			continue
+		}
+		dir := filepath.Join(root, e.Name())
+		yamlFile := filepath.Join(dir, "decision.yaml")
+		if _, err := os.Stat(yamlFile); err != nil {
+			continue
+		}
+		var d model.Decision
+		if err := fsx.ReadYAML(yamlFile, &d); err != nil {
+			return nil, err
+		}
+		dn := DecisionNode{Path: dir, Metadata: d}
+		dmnFile := filepath.Join(dir, "decision.dmn")
+		if _, err := os.Stat(dmnFile); err == nil {
+			dn.DMNPath = dmnFile
+		}
+		nodes = append(nodes, dn)
 	}
 	sort.Slice(nodes, func(i, j int) bool { return nodes[i].Metadata.ID < nodes[j].Metadata.ID })
 	return nodes, nil

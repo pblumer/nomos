@@ -10,18 +10,29 @@ respektiert das Git-First-Prinzip und das Berechtigungskonzept von Nomos.
 
 ## Voraussetzungen
 
-| Variable           | Beschreibung                              | Standard                 |
-|--------------------|-------------------------------------------|--------------------------|
-| `NOMOS_API_BASE`   | URL des Nomos Python-Backends             | `http://localhost:8080`  |
-| `NOMOS_AGENT_SCOPE`| Scope des Agenten (`read`/`draft`/`write`)| `read`                   |
-| `NOMOS_REPO_PATH`  | Pfad zum Nomos Git-Repository             | Aktuelles Verzeichnis    |
-| `NOMOS_BINARY`     | Pfad zur `nomos` CLI (für Validierung)    | `nomos`                  |
+| Variable            | Beschreibung                                    | Standard                 |
+|---------------------|-------------------------------------------------|--------------------------|
+| `NOMOS_API_BASE`    | URL des Nomos Python-Backends                   | `http://localhost:8080`  |
+| `NOMOS_GO_API_BASE` | URL des Go-Servers (`nomos serve`)              | `http://localhost:9090`  |
+| `NOMOS_AGENT_SCOPE` | Scope des Agenten (`read`/`draft`/`write`)      | `read`                   |
+| `NOMOS_REPO_PATH`   | Pfad zum Nomos Git-Repository                   | Aktuelles Verzeichnis    |
+| `NOMOS_BINARY`      | Pfad zur `nomos` CLI                            | `nomos`                  |
 
-Das Nomos Python-Backend muss laufen bevor der MCP Server gestartet wird:
+### Backends starten
 
+**Go-Server** (für Cosmos, Domains, Services, Processes, Decisions):
+```bash
+nomos cosmos init /path/to/my-cosmos
+nomos serve --path /path/to/my-cosmos --listen 127.0.0.1:9090
+```
+
+**Python-Backend** (für Products, Requirements, Rules, Blueprints, Instances):
 ```bash
 cd backend && uvicorn app.main:app --port 8080
 ```
+
+Beide Backends sind optional — Tools die den jeweils anderen Backend nutzen,
+geben einen HTTP-Fehler zurück wenn der Server nicht erreichbar ist.
 
 ---
 
@@ -62,6 +73,31 @@ Agents erhalten einen von drei Scopes via `NOMOS_AGENT_SCOPE`:
 **Merge in `main` ist intentionally kein Scope** — das bleibt Menschen vorbehalten.
 
 ### Scope-Matrix (alle verfügbaren Tools)
+
+**Go-Subsystem (Cosmos, Domains, Services, Processes, Decisions):**
+
+| Tool                        | read | draft | write |
+|-----------------------------|:----:|:-----:|:-----:|
+| `cosmos_init`               | ✗    | ✓     | ✓     |
+| `cosmos_info`               | ✓    | ✓     | ✓     |
+| `list_domains`              | ✓    | ✓     | ✓     |
+| `get_domain`                | ✓    | ✓     | ✓     |
+| `create_domain`             | ✗    | ✓     | ✓     |
+| `create_child_domain`       | ✗    | ✓     | ✓     |
+| `list_services`             | ✓    | ✓     | ✓     |
+| `get_service`               | ✓    | ✓     | ✓     |
+| `create_service`            | ✗    | ✓     | ✓     |
+| `list_decisions`            | ✓    | ✓     | ✓     |
+| `get_decision`              | ✓    | ✓     | ✓     |
+| `create_decision`           | ✗    | ✓     | ✓     |
+| `update_decision_dmn`       | ✗    | ✓     | ✓     |
+| `get_decision_dmn`          | ✓    | ✓     | ✓     |
+| `list_processes`            | ✓    | ✓     | ✓     |
+| `get_process`               | ✓    | ✓     | ✓     |
+| `create_process`            | ✗    | ✓     | ✓     |
+| `add_process_step`          | ✗    | ✓     | ✓     |
+
+**Python-Backend (Products, Requirements, Rules, Blueprints, Instances):**
 
 | Tool                        | read | draft | write |
 |-----------------------------|:----:|:-----:|:-----:|

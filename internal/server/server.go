@@ -292,8 +292,104 @@ func (h *handler) apiDomainRoutes(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, dto)
 		return
 	}
+	// GET/POST /api/v1/domains/{domain}/decisions
+	if len(parts) == 2 && parts[1] == "decisions" {
+		h.apiDomainDecisions(w, r, parts[0])
+		return
+	}
+	// GET/PUT/DELETE /api/v1/domains/{domain}/decisions/{id}
+	// GET/PUT        /api/v1/domains/{domain}/decisions/{id}/dmn
+	if len(parts) >= 3 && parts[1] == "decisions" && parts[2] != "" {
+		h.apiDomainDecisionByID(w, r, parts[0], parts[2], parts[3:])
+		return
+	}
 	htmlNotFound(w, r)
 }
+func (h *handler) apiDomainDecisions(w http.ResponseWriter, r *http.Request, domain string) {
+	switch r.Method {
+	case http.MethodGet:
+		dto, err := app.ListDecisions(h.cosmosPath, domain)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, dto)
+	case http.MethodPost:
+		var req app.CreateDecisionRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+			return
+		}
+		dto, err := app.CreateDecision(h.cosmosPath, domain, req)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, dto)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (h *handler) apiDomainDecisionByID(w http.ResponseWriter, r *http.Request, domain, id string, tail []string) {
+	if len(tail) == 1 && tail[0] == "dmn" {
+		switch r.Method {
+		case http.MethodGet:
+			xml, err := app.GetDecisionDMN(h.cosmosPath, domain, id)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+			_, _ = w.Write([]byte(xml))
+		case http.MethodPut:
+			data, err := io.ReadAll(r.Body)
+			if err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+				return
+			}
+			dto, err := app.UpdateDecisionDMN(h.cosmosPath, domain, id, string(data))
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		dto, err := app.GetDecision(h.cosmosPath, domain, id)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, dto)
+	case http.MethodPut:
+		var req app.UpdateDecisionRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+			return
+		}
+		dto, err := app.UpdateDecision(h.cosmosPath, domain, id, req)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, dto)
+	case http.MethodDelete:
+		if err := app.DeleteDecision(h.cosmosPath, domain, id); err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
 func (h *handler) apiServiceRefs(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/api/v1/services/refs" {
 		http.NotFound(w, r)

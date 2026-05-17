@@ -580,3 +580,56 @@ type UpdateParticipantRequest struct {
 	Name string `json:"name"`
 	Ref  string `json:"ref,omitempty"`
 }
+
+type DecisionIODTO struct {
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Description string `json:"description,omitempty"`
+}
+
+type DecisionDTO struct {
+	ID      string          `json:"id"`
+	Name    string          `json:"name"`
+	Number  string          `json:"number,omitempty"`
+	Version string          `json:"version"`
+	Status  string          `json:"status"`
+	Owner   string          `json:"owner"`
+	Summary string          `json:"summary,omitempty"`
+	Context string          `json:"context,omitempty"`
+	DMNFile string          `json:"dmn_file,omitempty"`
+	HasDMN  bool            `json:"has_dmn"`
+	Inputs  []DecisionIODTO `json:"inputs,omitempty"`
+	Outputs []DecisionIODTO `json:"outputs,omitempty"`
+	Path    string          `json:"path,omitempty"`
+}
+
+type DecisionsDTO struct {
+	Domain string        `json:"domain"`
+	Items  []DecisionDTO `json:"items"`
+	Count  int           `json:"count"`
+}
+
+type CreateDecisionRequest struct {
+	ID      string          `json:"id"`
+	Name    string          `json:"name"`
+	Number  string          `json:"number,omitempty"`
+	Version string          `json:"version"`
+	Status  string          `json:"status"`
+	Owner   string          `json:"owner"`
+	Summary string          `json:"summary,omitempty"`
+	Context string          `json:"context,omitempty"`
+	Inputs  []DecisionIODTO `json:"inputs,omitempty"`
+	Outputs []DecisionIODTO `json:"outputs,omitempty"`
+}
+
+type UpdateDecisionRequest struct {
+	Name    string          `json:"name,omitempty"`
+	Number  string          `json:"number,omitempty"`
+	Version string          `json:"version,omitempty"`
+	Status  string          `json:"status,omitempty"`
+	Owner   string          `json:"owner,omitempty"`
+	Summary string          `json:"summary,omitempty"`
+	Context string          `json:"context,omitempty"`
+	Inputs  []DecisionIODTO `json:"inputs,omitempty"`
+	Outputs []DecisionIODTO `json:"outputs,omitempty"`
+}
