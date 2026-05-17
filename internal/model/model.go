@@ -342,7 +342,7 @@ type DecisionIO struct {
 // receives the output variables for downstream gateway routing.
 type Decision struct {
 	ID      string       `yaml:"id" json:"id"`
-	Type    string       `yaml:"type" json:"type"`   // "decision"
+	Type    string       `yaml:"type" json:"type"` // "decision"
 	Name    string       `yaml:"name" json:"name"`
 	Number  string       `yaml:"number,omitempty" json:"number,omitempty"` // e.g. "DEC-001"
 	Version string       `yaml:"version" json:"version"`
