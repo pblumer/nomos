@@ -11,11 +11,38 @@ from .tools.blueprints import (
     get_blueprint_handler,
     list_blueprints_handler,
 )
+from .tools.cosmos import (
+    COSMOS_TOOLS,
+    cosmos_info_handler,
+    cosmos_init_handler,
+)
+from .tools.decisions import (
+    DECISION_TOOLS,
+    create_decision_handler,
+    get_decision_dmn_handler,
+    get_decision_handler,
+    list_decisions_handler,
+    update_decision_dmn_handler,
+)
+from .tools.domains import (
+    DOMAIN_TOOLS,
+    create_child_domain_handler,
+    create_domain_handler,
+    get_domain_handler,
+    list_domains_handler,
+)
 from .tools.instances import (
     INSTANCES_TOOLS,
     get_instance_compliance_handler,
     get_instance_handler,
     list_instances_handler,
+)
+from .tools.processes import (
+    PROCESS_TOOLS,
+    add_process_step_handler,
+    create_process_handler,
+    get_process_handler,
+    list_processes_handler,
 )
 from .tools.products import (
     PRODUCT_TOOLS,
@@ -43,6 +70,12 @@ from .tools.rules import (
     list_rules_handler,
     update_rule_handler,
 )
+from .tools.services import (
+    SERVICE_TOOLS,
+    create_service_handler,
+    get_service_handler,
+    list_services_handler,
+)
 from .tools.validate import (
     VALIDATE_TOOLS,
     get_health_handler,
@@ -58,7 +91,12 @@ from .tools.workspace import (
 app = Server("nomos-mcp")
 
 ALL_TOOL_DEFS = (
-    PRODUCT_TOOLS
+    COSMOS_TOOLS
+    + DOMAIN_TOOLS
+    + SERVICE_TOOLS
+    + DECISION_TOOLS
+    + PROCESS_TOOLS
+    + PRODUCT_TOOLS
     + RULES_TOOLS
     + REQUIREMENTS_TOOLS
     + BLUEPRINTS_TOOLS
@@ -93,7 +131,90 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
 
 async def _dispatch(name: str, args: dict) -> str:  # noqa: PLR0912, PLR0911
-    # Products
+    # Cosmos
+    if name == "cosmos_init":
+        return await cosmos_init_handler(
+            args["path"], args["id"], args["name"], args.get("owner", "")
+        )
+    if name == "cosmos_info":
+        return await cosmos_info_handler()
+
+    # Domains
+    if name == "list_domains":
+        return await list_domains_handler()
+    if name == "get_domain":
+        return await get_domain_handler(args["domain"])
+    if name == "create_domain":
+        return await create_domain_handler(args["dns_name"], args.get("owner", ""))
+    if name == "create_child_domain":
+        return await create_child_domain_handler(
+            args["parent_domain"], args["segment"], args.get("owner", "")
+        )
+
+    # Services
+    if name == "list_services":
+        return await list_services_handler(args["domain"])
+    if name == "get_service":
+        return await get_service_handler(args["domain"], args["service"])
+    if name == "create_service":
+        return await create_service_handler(
+            args["domain"],
+            args["name"],
+            args.get("owner", ""),
+            args.get("summary", ""),
+            args.get("capabilities"),
+        )
+
+    # Decisions
+    if name == "list_decisions":
+        return await list_decisions_handler(args["domain"])
+    if name == "get_decision":
+        return await get_decision_handler(args["domain"], args["decision_id"])
+    if name == "create_decision":
+        return await create_decision_handler(
+            domain=args["domain"],
+            name=args["name"],
+            id=args.get("id", ""),
+            number=args.get("number", ""),
+            owner=args.get("owner", ""),
+            summary=args.get("summary", ""),
+            context=args.get("context", ""),
+            status=args.get("status", "draft"),
+            inputs=args.get("inputs"),
+            outputs=args.get("outputs"),
+        )
+    if name == "update_decision_dmn":
+        return await update_decision_dmn_handler(
+            args["domain"], args["decision_id"], args["dmn_xml"]
+        )
+    if name == "get_decision_dmn":
+        return await get_decision_dmn_handler(args["domain"], args["decision_id"])
+
+    # Processes
+    if name == "list_processes":
+        return await list_processes_handler(args["product_id"])
+    if name == "get_process":
+        return await get_process_handler(args["process_id"])
+    if name == "create_process":
+        return await create_process_handler(
+            args["product_id"],
+            args["name"],
+            args.get("summary", ""),
+            args.get("id", ""),
+        )
+    if name == "add_process_step":
+        return await add_process_step_handler(
+            process_id=args["process_id"],
+            name=args["name"],
+            task_type=args["task_type"],
+            service_ref=args.get("service_ref", ""),
+            method=args.get("method", ""),
+            decision_ref=args.get("decision_ref", ""),
+            required=args.get("required", True),
+            depends_on=args.get("depends_on"),
+        )
+
+    # Products (Python backend)
     if name == "list_products":
         return await list_products_handler()
     if name == "get_product":
@@ -115,7 +236,7 @@ async def _dispatch(name: str, args: dict) -> str:  # noqa: PLR0912, PLR0911
     if name == "get_product_variants":
         return await get_product_variants_handler(args["product_id"])
 
-    # Rules
+    # Rules (Python backend)
     if name == "list_rules":
         return await list_rules_handler()
     if name == "get_rule":
@@ -125,7 +246,7 @@ async def _dispatch(name: str, args: dict) -> str:  # noqa: PLR0912, PLR0911
     if name == "update_rule":
         return await update_rule_handler(args["rule_id"], args["updates"])
 
-    # Requirements
+    # Requirements (Python backend)
     if name == "list_requirements":
         return await list_requirements_handler()
     if name == "get_requirement":
@@ -133,13 +254,13 @@ async def _dispatch(name: str, args: dict) -> str:  # noqa: PLR0912, PLR0911
     if name == "update_requirement":
         return await update_requirement_handler(args["requirement_id"], args["updates"])
 
-    # Blueprints
+    # Blueprints (Python backend)
     if name == "list_blueprints":
         return await list_blueprints_handler()
     if name == "get_blueprint":
         return await get_blueprint_handler(args["blueprint_id"])
 
-    # Instances
+    # Instances (Python backend)
     if name == "list_instances":
         return await list_instances_handler()
     if name == "get_instance":
@@ -177,7 +298,7 @@ async def _main() -> None:
             write_stream,
             InitializationOptions(
                 server_name="nomos-mcp",
-                server_version="0.1.0",
+                server_version="0.2.0",
                 capabilities=app.get_capabilities(
                     notification_options=None,
                     experimental_capabilities={},

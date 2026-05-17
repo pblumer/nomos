@@ -328,3 +328,29 @@ type Finding struct {
 	Path           string `yaml:"path,omitempty" json:"path,omitempty"`
 	Recommendation string `yaml:"recommendation,omitempty" json:"recommendation,omitempty"`
 }
+
+// DecisionIO describes one input or output variable of a Decision artifact.
+type DecisionIO struct {
+	Name        string `yaml:"name" json:"name"`
+	Type        string `yaml:"type" json:"type"` // string, number, boolean, date
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+}
+
+// Decision is a standalone decision artifact scoped to a domain.
+// It captures decision metadata and optionally references an external DMN file.
+// A businessRuleTask in a BPMN process can call a Decision via its ID and
+// receives the output variables for downstream gateway routing.
+type Decision struct {
+	ID      string       `yaml:"id" json:"id"`
+	Type    string       `yaml:"type" json:"type"`   // "decision"
+	Name    string       `yaml:"name" json:"name"`
+	Number  string       `yaml:"number,omitempty" json:"number,omitempty"` // e.g. "DEC-001"
+	Version string       `yaml:"version" json:"version"`
+	Status  string       `yaml:"status" json:"status"` // draft, active, deprecated
+	Owner   string       `yaml:"owner" json:"owner"`
+	Summary string       `yaml:"summary,omitempty" json:"summary,omitempty"`
+	Context string       `yaml:"context,omitempty" json:"context,omitempty"`
+	DMNFile string       `yaml:"dmn_file,omitempty" json:"dmn_file,omitempty"` // rel. path to .dmn file
+	Inputs  []DecisionIO `yaml:"inputs,omitempty" json:"inputs,omitempty"`
+	Outputs []DecisionIO `yaml:"outputs,omitempty" json:"outputs,omitempty"`
+}
