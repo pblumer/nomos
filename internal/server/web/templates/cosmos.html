@@ -1103,11 +1103,11 @@ function wireProcPanel(container,d){
     const bar=panel.querySelector('.proc-tabs-bar');if(!bar)return;
     const addBtn=bar.querySelector('#proc-tab-add');if(!addBtn)return;
     addBtn.replaceWith((()=>{const f=document.createElement('span');f.style.cssText='display:flex;align-items:center;gap:.3rem;padding:0 .3rem';f.innerHTML=`<input id="proc-new-name" placeholder="Prozessname…" style="border:1px solid #cbd5e1;border-radius:6px;padding:.2rem .4rem;font-size:.8rem;width:160px"><button class="btn btn-primary btn-sm" id="proc-new-ok">Anlegen</button><button class="btn btn-secondary btn-sm" id="proc-new-cancel">✕</button>`;return f;})());
-    panel.querySelector('#proc-new-cancel')?.addEventListener('click',()=>{const panel2=container.querySelector('[data-ptab-panel="process"]');if(panel2){panel2.innerHTML=processPanel(d,d.process_summary?.items?.length-1||0);wireProcPanel(container,d);wireSteps(container,d);}});
+    panel.querySelector('#proc-new-cancel')?.addEventListener('click',()=>{const panel2=container.querySelector('[data-ptab-panel="process"]');if(panel2){panel2.innerHTML=processPanel(d,d.process_summary?.items?.length-1||0);wireProcPanel(container,d);}});
     panel.querySelector('#proc-new-ok')?.addEventListener('click',async()=>{
       const name=panel.querySelector('#proc-new-name')?.value.trim()||'Neuer Prozess';
       const r=await fetch('/api/v1/products/'+encodeURIComponent(d.id)+'/processes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
-      if(r.ok){const proc=await r.json();if(!d.process_summary)d.process_summary={items:[]};d.process_summary.items.push(proc);const idx=d.process_summary.items.length-1;const panel2=container.querySelector('[data-ptab-panel="process"]');if(panel2){panel2.innerHTML=processPanel(d,idx);wireProcPanel(container,d);wireSteps(container,d,proc);}}
+      if(r.ok){const proc=await r.json();if(!d.process_summary)d.process_summary={items:[]};d.process_summary.items.push(proc);const idx=d.process_summary.items.length-1;const panel2=container.querySelector('[data-ptab-panel="process"]');if(panel2){panel2.innerHTML=processPanel(d,idx);wireProcPanel(container,d);}}
       else alert('Prozess anlegen fehlgeschlagen');
     });
     setTimeout(()=>panel.querySelector('#proc-new-name')?.focus(),50);
@@ -1115,7 +1115,7 @@ function wireProcPanel(container,d){
   // First process create (empty state)
   panel.querySelector('#process-create')?.addEventListener('click',async()=>{
     const r=await fetch('/api/v1/products/'+encodeURIComponent(d.id)+'/processes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Fulfillment process for '+(d.name||d.id)})});
-    if(r.ok){const proc=await r.json();d.process_summary={items:[proc]};const panel2=container.querySelector('[data-ptab-panel="process"]');if(panel2){panel2.innerHTML=processPanel(d,0);wireProcPanel(container,d);wireSteps(container,d,proc);}}
+    if(r.ok){const proc=await r.json();d.process_summary={items:[proc]};const panel2=container.querySelector('[data-ptab-panel="process"]');if(panel2){panel2.innerHTML=processPanel(d,0);wireProcPanel(container,d);}}
     else alert('Prozess anlegen fehlgeschlagen');
   });
   const activeProcBtn=panel.querySelector('.proc-tab.active[data-proc-idx]');
