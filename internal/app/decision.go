@@ -256,6 +256,7 @@ type EvaluateDecisionRequest struct {
 }
 
 // EvaluateDecision loads the DMN file for a decision and evaluates it against the provided inputs.
+// Note: callers that need a persisted audit trail should use EvaluateDecisionWithTrace.
 func EvaluateDecision(path, domainCanonical, id string, req EvaluateDecisionRequest) (*dmn.Result, error) {
 	d, err := findDomainNode(path, domainCanonical)
 	if err != nil {
