@@ -195,6 +195,15 @@
 .dmn-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:.3rem;gap:.5rem;flex-wrap:wrap}
 .dmn-toolbar-title{font-size:.85rem;font-weight:800;color:#0f172a}
 .dmn-toolbar-count{margin-left:.45rem;background:#f1f5f9;color:#475569;border-radius:999px;padding:.08rem .45rem;font-size:.7rem;font-weight:700}
+.dmn-picker{padding:1.1rem 1.2rem;display:flex;flex-direction:column;gap:.75rem;height:100%;box-sizing:border-box;overflow:auto}
+.dmn-picker-head{font-weight:800;color:#0f172a;font-size:.92rem}
+.dmn-picker-sub{font-size:.78rem;color:#64748b;margin-top:-.4rem}
+.dmn-picker-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.65rem}
+.dmn-picker-card{display:flex;flex-direction:column;align-items:flex-start;gap:.3rem;background:#f8fafc;border:1px solid #cbd5e1;border-radius:12px;padding:.8rem .9rem;text-align:left;cursor:pointer;transition:background .12s,border-color .12s,box-shadow .12s;font:inherit;color:inherit}
+.dmn-picker-card:hover{background:#eef2ff;border-color:#818cf8;box-shadow:0 4px 14px rgba(79,70,229,.08)}
+.dmn-picker-title{font-weight:800;color:#1e293b;font-size:.88rem}
+.dmn-picker-desc{font-size:.74rem;color:#64748b;line-height:1.4}
+.dmn-picker-hint{font-size:.72rem;color:#92400e;background:#fef3c7;border:1px dashed #fcd34d;border-radius:10px;padding:.5rem .65rem}
 .dmn-drg-card{border:1px solid #e2e8f0;border-radius:14px;padding:.65rem .8rem;background:#fff;margin-top:.6rem}
 .dmn-drg-card h5{margin:0 0 .35rem;font-size:.78rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.04em}
 .dmn-drg-list{display:flex;flex-wrap:wrap;gap:.3rem;font-size:.78rem}
@@ -1256,28 +1265,120 @@ async function initBPMNStandalone(container,proc){
 // -----------------------------------------------------------------------
 // DMN Decision detail panel + dmn-js editor integration
 // -----------------------------------------------------------------------
-function dmnSeedXML(dec){
-  const ns='https://nomos.local/dmn/'+(dec.id||'decision');
-  const safeId=(dec.id||'decision').replace(/[^A-Za-z0-9_-]/g,'_');
-  const decName=esc(dec.name||dec.id||'Decision');
+// dmn-js (vendored) supports DMN 1.3 — use the 20191111 namespaces, not later spec revisions.
+function dmnTypeRef(t){
+  const s=String(t||'').toLowerCase();
+  if(s==='datetime'||s==='date-time')return 'dateTime';
+  if(s==='date'||s==='time'||s==='boolean'||s==='number'||s==='string')return s;
+  if(s==='int'||s==='integer'||s==='float'||s==='double'||s==='decimal')return 'number';
+  return 'string';
+}
+function dmnSafeId(dec){return (dec.id||'decision').replace(/[^A-Za-z0-9_-]/g,'_');}
+function dmnDefaultLiteral(t){return t==='boolean'?'false':(t==='number'?'0':'"TODO"');}
+function dmnInputsFor(dec){return Array.isArray(dec.inputs)&&dec.inputs.length?dec.inputs:[{name:'input',type:'string'}];}
+function dmnOutputsFor(dec){return Array.isArray(dec.outputs)&&dec.outputs.length?dec.outputs:[{name:'result',type:'string'}];}
+function dmnDefsHeader(safeId,decName,nsUri){
   return `<?xml version="1.0" encoding="UTF-8"?>
-<definitions xmlns="https://www.omg.org/spec/DMN/20240513/MODEL/" xmlns:dmndi="https://www.omg.org/spec/DMN/20230324/DMNDI/" xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/" xmlns:di="http://www.omg.org/spec/DMN/20180521/DI/" id="Definitions_${safeId}" name="${decName}" namespace="${ns}">
-  <decision id="Decision_${safeId}" name="${decName}">
-    <variable id="Var_${safeId}" name="result" typeRef="string"/>
-    <decisionTable id="DT_${safeId}" hitPolicy="UNIQUE">
-      <input id="In_${safeId}_1" label="input"><inputExpression id="IE_${safeId}_1" typeRef="string"><text>input</text></inputExpression></input>
-      <output id="Out_${safeId}_1" name="result" typeRef="string"/>
-      <rule id="Rule_${safeId}_1"><inputEntry id="IE_R1"><text>-</text></inputEntry><outputEntry id="OE_R1"><text>"default"</text></outputEntry></rule>
-    </decisionTable>
-  </decision>
-  <dmndi:DMNDI>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" xmlns:dmndi="https://www.omg.org/spec/DMN/20191111/DMNDI/" xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/" xmlns:di="http://www.omg.org/spec/DMN/20180521/DI/" id="Definitions_${safeId}" name="${decName}" namespace="${nsUri}">`;
+}
+function dmnDiagramFor(safeId,elementId,elementIdPrefix){
+  return `  <dmndi:DMNDI>
     <dmndi:DMNDiagram id="DMNDiagram_${safeId}">
-      <dmndi:DMNShape id="Shape_Decision_${safeId}" dmnElementRef="Decision_${safeId}">
+      <dmndi:DMNShape id="Shape_${elementIdPrefix}_${safeId}" dmnElementRef="${elementId}">
         <dc:Bounds x="240" y="120" width="180" height="80"/>
       </dmndi:DMNShape>
     </dmndi:DMNDiagram>
-  </dmndi:DMNDI>
+  </dmndi:DMNDI>`;
+}
+
+function dmnSeedDecisionTable(dec){
+  const safeId=dmnSafeId(dec);
+  const decName=esc(dec.name||dec.id||'Decision');
+  const ns='https://nomos.local/dmn/'+(dec.id||'decision');
+  const inputs=dmnInputsFor(dec);
+  const outputs=dmnOutputsFor(dec);
+  const inputXML=inputs.map((io,i)=>`      <input id="In_${safeId}_${i+1}" label="${esc(io.name)}"><inputExpression id="IE_${safeId}_${i+1}" typeRef="${dmnTypeRef(io.type)}"><text>${esc(io.name)}</text></inputExpression></input>`).join('\n');
+  const outputXML=outputs.map((io,i)=>`      <output id="Out_${safeId}_${i+1}" name="${esc(io.name)}" typeRef="${dmnTypeRef(io.type)}"/>`).join('\n');
+  const ruleInputs=inputs.map((_,i)=>`<inputEntry id="IE_R1_${safeId}_${i+1}"><text>-</text></inputEntry>`).join('');
+  const ruleOutputs=outputs.map((io,i)=>`<outputEntry id="OE_R1_${safeId}_${i+1}"><text>${dmnDefaultLiteral(dmnTypeRef(io.type))}</text></outputEntry>`).join('');
+  const firstOutType=dmnTypeRef(outputs[0].type);
+  const firstOutName=esc(outputs[0].name||'result');
+  return `${dmnDefsHeader(safeId,decName,ns)}
+  <decision id="Decision_${safeId}" name="${decName}">
+    <variable id="Var_${safeId}" name="${firstOutName}" typeRef="${firstOutType}"/>
+    <decisionTable id="DT_${safeId}" hitPolicy="UNIQUE">
+${inputXML}
+${outputXML}
+      <rule id="Rule_${safeId}_1">${ruleInputs}${ruleOutputs}</rule>
+    </decisionTable>
+  </decision>
+${dmnDiagramFor(safeId,'Decision_'+safeId,'Decision')}
 </definitions>`;
+}
+
+function dmnSeedLiteralExpression(dec){
+  const safeId=dmnSafeId(dec);
+  const decName=esc(dec.name||dec.id||'Decision');
+  const ns='https://nomos.local/dmn/'+(dec.id||'decision');
+  const outputs=dmnOutputsFor(dec);
+  const out=outputs[0];
+  const t=dmnTypeRef(out.type);
+  return `${dmnDefsHeader(safeId,decName,ns)}
+  <decision id="Decision_${safeId}" name="${decName}">
+    <variable id="Var_${safeId}" name="${esc(out.name||'result')}" typeRef="${t}"/>
+    <literalExpression id="LE_${safeId}" typeRef="${t}">
+      <text>${dmnDefaultLiteral(t)}</text>
+    </literalExpression>
+  </decision>
+${dmnDiagramFor(safeId,'Decision_'+safeId,'Decision')}
+</definitions>`;
+}
+
+function dmnSeedEmptyDRD(dec){
+  const safeId=dmnSafeId(dec);
+  const decName=esc(dec.name||dec.id||'Decision');
+  const ns='https://nomos.local/dmn/'+(dec.id||'decision');
+  const outputs=dmnOutputsFor(dec);
+  const out=outputs[0];
+  const t=dmnTypeRef(out.type);
+  return `${dmnDefsHeader(safeId,decName,ns)}
+  <decision id="Decision_${safeId}" name="${decName}">
+    <variable id="Var_${safeId}" name="${esc(out.name||'result')}" typeRef="${t}"/>
+  </decision>
+${dmnDiagramFor(safeId,'Decision_'+safeId,'Decision')}
+</definitions>`;
+}
+
+function dmnSeedBKM(dec){
+  const safeId=dmnSafeId(dec);
+  const decName=esc(dec.name||dec.id||'Decision');
+  const ns='https://nomos.local/dmn/'+(dec.id||'decision');
+  const inputs=dmnInputsFor(dec);
+  const outputs=dmnOutputsFor(dec);
+  const out=outputs[0];
+  const t=dmnTypeRef(out.type);
+  const params=inputs.map((io,i)=>`        <formalParameter id="FP_${safeId}_${i+1}" name="${esc(io.name)}" typeRef="${dmnTypeRef(io.type)}"/>`).join('\n');
+  return `${dmnDefsHeader(safeId,decName,ns)}
+  <businessKnowledgeModel id="BKM_${safeId}" name="${decName}">
+    <variable id="Var_${safeId}" name="${esc(out.name||'result')}" typeRef="${t}"/>
+    <encapsulatedLogic id="EL_${safeId}">
+${params}
+      <literalExpression id="LE_${safeId}" typeRef="${t}">
+        <text>${dmnDefaultLiteral(t)}</text>
+      </literalExpression>
+    </encapsulatedLogic>
+  </businessKnowledgeModel>
+${dmnDiagramFor(safeId,'BKM_'+safeId,'BKM')}
+</definitions>`;
+}
+
+function dmnSeedXML(dec,type){
+  switch((type||'').toLowerCase()){
+    case 'literal':case 'feel':case 'literalexpression':return dmnSeedLiteralExpression(dec);
+    case 'drd':case 'empty':return dmnSeedEmptyDRD(dec);
+    case 'bkm':case 'businessknowledgemodel':return dmnSeedBKM(dec);
+    case 'table':case 'decisiontable':default:return dmnSeedDecisionTable(dec);
+  }
 }
 
 function decisionDRGSummary(defs){
@@ -1345,14 +1446,60 @@ async function loadDecisionExplorerDetail(row){
       if(dr.ok)defs=await dr.json();
     }catch(_){/* parsed structure is optional */}
   }
-  if(!xml||!xml.trim())xml=dmnSeedXML(dec);
+  // Only fall back to a seed if the decision already has a DMN file but it's empty (rare error case).
+  // Otherwise leave xml null and let the picker prompt for a type.
+  if(dec.has_dmn && (!xml||!xml.trim()))xml=dmnSeedXML(dec,'table');
   detail.innerHTML=renderDecisionDetail(dec,defs,domainCanonical);
   detail.querySelector('#det-decision-delete')?.addEventListener('click',async()=>{
     if(!confirm('Decision "'+(dec.name||dec.id)+'" wirklich l&ouml;schen?'))return;
     const dr=await fetch('/api/v1/domains/'+encodeURIComponent(domainCanonical)+'/decisions/'+encodeURIComponent(dec.id),{method:'DELETE'});
     if(dr.ok||dr.status===204){const treeRow=Array.from(tree.querySelectorAll('.cn-row[data-kind="decision"]')).find(r=>r.dataset.decisionId===dec.id);if(treeRow)treeRow.closest('.cn')?.remove();detail.innerHTML='<div class="detail-empty">Decision gel&ouml;scht.</div>';}else{alert('Fehler beim L&ouml;schen der Decision');}
   });
-  setTimeout(()=>initDmnEditor(detail,dec,domainCanonical,xml),50);
+  if(dec.has_dmn){
+    setTimeout(()=>initDmnEditor(detail,dec,domainCanonical,xml),50);
+  }else{
+    setTimeout(()=>renderDmnTypePicker(detail,dec,domainCanonical),50);
+  }
+}
+
+function renderDmnTypePicker(container,dec,domainCanonical){
+  const canvas=container.querySelector('#dmn-canvas');
+  if(!canvas)return;
+  // Toolbar buttons are inert until the editor mounts — disable them while the picker is shown.
+  const toolbarBtns=container.querySelectorAll('#dmn-view-drd,#dmn-view-table,#dmn-view-literal,#dmn-save');
+  toolbarBtns.forEach(b=>{b.disabled=true;b.style.opacity='.55';b.style.cursor='not-allowed';});
+  canvas.innerHTML=`
+    <div class="dmn-picker">
+      <div class="dmn-picker-head">Noch keine DMN-Datei &mdash; w&auml;hle einen Decision-Typ</div>
+      <div class="dmn-picker-sub">Nach der Auswahl &ouml;ffnet sich der Editor mit einer Vorlage. Mit <strong>Speichern</strong> wird die Datei <code>decision.dmn</code> angelegt.</div>
+      <div class="dmn-picker-grid">
+        <button type="button" class="dmn-picker-card" data-dmn-type="table">
+          <div class="dmn-picker-title">Decision Table</div>
+          <div class="dmn-picker-desc">Tabelle mit Inputs, Outputs und Regeln. Empfohlen f&uuml;r klare Wenn-Dann-Logik.</div>
+        </button>
+        <button type="button" class="dmn-picker-card" data-dmn-type="literal">
+          <div class="dmn-picker-title">Literal Expression (FEEL)</div>
+          <div class="dmn-picker-desc">Eine einzelne FEEL-Expression. Geeignet f&uuml;r Berechnungen oder Lookups.</div>
+        </button>
+        <button type="button" class="dmn-picker-card" data-dmn-type="drd">
+          <div class="dmn-picker-title">Leerer DRD</div>
+          <div class="dmn-picker-desc">Nur die Decision-Node ohne Logic. Die Logic kann sp&auml;ter im Editor erg&auml;nzt werden.</div>
+        </button>
+        <button type="button" class="dmn-picker-card" data-dmn-type="bkm">
+          <div class="dmn-picker-title">Business Knowledge Model</div>
+          <div class="dmn-picker-desc">Wiederverwendbarer Logik-Baustein (BKM), den andere Decisions aufrufen k&ouml;nnen.</div>
+        </button>
+      </div>
+      <div class="dmn-picker-hint">Hinweis: dmn-js unterst&uuml;tzt BKM-Bearbeitung nur eingeschr&auml;nkt &mdash; f&uuml;r komplexe BKMs ggf. die XML manuell erg&auml;nzen.</div>
+    </div>`;
+  canvas.querySelectorAll('.dmn-picker-card').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const type=btn.dataset.dmnType;
+      const xml=dmnSeedXML(dec,type);
+      toolbarBtns.forEach(b=>{b.disabled=false;b.style.opacity='';b.style.cursor='';});
+      initDmnEditor(container,dec,domainCanonical,xml);
+    });
+  });
 }
 
 async function initDmnEditor(container,dec,domainCanonical,xml){
