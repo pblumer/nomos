@@ -24,7 +24,9 @@ Interaktion technisch realisiert wird – unabhängig vom verwendeten UI-Framewo
 
 UCIs können in sehr unterschiedlichen Technologien implementiert sein, z. B.:
 
-- **HTML/JS/CSS** – einfachste, plattformunabhängige Form (Referenzimplementierung)
+- **bpmn-io-form** – schema-getriebene Formulare via `form-js` (Referenzimplementierung
+  für formularbasierte User Tasks, siehe Abschnitt *Referenz-Implementierungstyp*)
+- **HTML/JS/CSS** – einfachste, plattformunabhängige Form
 - **React / Vue / Angular** – komponentenbasierte SPA-Frameworks
 - **Go-Templates** – server-rendered (wie in Nomos selbst bereits genutzt)
 - **Native Mobile** – iOS / Android
@@ -66,9 +68,9 @@ bpmn_process_ref: PROC-ACC-001
 bpmn_task_ref: UT-001
 
 framework:
-  type: html-js-css    # html-js-css | react | vue | angular | go-template | cli | native-mobile | other
+  type: bpmn-io-form   # bpmn-io-form | html-js-css | react | vue | angular | go-template | cli | native-mobile | other
   runtime: browser     # browser | server | mobile | terminal | other
-  entry_point: implementation/index.html
+  entry_point: implementation/form.json
 
 input_schema: schema.yaml#input
 output_schema: schema.yaml#output
@@ -97,10 +99,36 @@ Nomos stellt sicher, dass:
 4. Alle Änderungen den Git-Workflow durchlaufen (Branch → PR → Review → Merge),
    konsistent mit ADR-0001.
 
+### Referenz-Implementierungstyp: `bpmn-io-form`
+
+Für formularbasierte User Tasks wird `bpmn-io-form` ([`form-js`](https://github.com/bpmn-io/form-js))
+als bevorzugter Implementierungstyp empfohlen. Begründung:
+
+- Die Form-Definition ist reines JSON → versionierbar, diff-freundlich, reviewfähig
+  (konsistent zu ADR-0001).
+- Native semantische Kopplung an BPMN User Tasks (Camunda Forms).
+- Vendor-Konsistenz mit dem bereits eingesetzten `bpmn-js` Viewer/Modeler
+  (siehe `docs/product-process-modeling.md`).
+- Schema-Determinismus: Die Form-Definition kann gegen `schema.yaml` (JSON Schema)
+  abgeglichen oder daraus abgeleitet werden.
+
+Konventionen bei `framework.type: bpmn-io-form`:
+
+- `entry_point` zeigt auf eine `form.json`-Datei (form-js Schema, Version ≥ 1).
+- `runtime` ist typischerweise `browser`; server-seitiges Rendering bleibt möglich,
+  solange die Form-Definition unverändert bleibt.
+- Browser-Assets werden – wie `bpmn-js` – unter `internal/server/web/static/vendor/`
+  ausgeliefert (Air-Gap-fähig). Kein Online-CDN.
+
+`bpmn-io-form` ist *eine* Referenzimplementierung, nicht der einzig zulässige Typ.
+Komplexere Interaktionen (Wizards, Dashboards, CLI-Prompts, Native Mobile) bleiben
+über die anderen `framework.type`-Werte abbildbar; ADR-0013 bleibt damit
+framework-agnostisch.
+
 ### CLI-Erweiterung
 
 ```bash
-nomos uci init <id> --task <task-ref> --process <proc-ref> --framework html-js-css
+nomos uci init <id> --task <task-ref> --process <proc-ref> --framework bpmn-io-form
 nomos uci list
 nomos uci get <id>
 nomos validate --scope uci
@@ -127,9 +155,11 @@ sowie einen Vorschau-Link auf den `entry_point` (wo technisch möglich).
 sondern nur ein `implementation_url`-Feld. Abgelehnt, weil UCIs eigene Lebenszyklen,
 eigene Reviews und Wiederverwendbarkeit über mehrere Prozesse hinweg erfordern.
 
-**Ein einziges UI-Framework vorschreiben (z. B. nur HTML/JS/CSS)**: Würde den
-Einsatz in heterogenen Organisationsumgebungen einschränken. Abgelehnt — Nomos soll
-framework-agnostisch bleiben.
+**Ein einziges UI-Framework vorschreiben (z. B. nur HTML/JS/CSS oder nur
+`bpmn-io-form`)**: Würde den Einsatz in heterogenen Organisationsumgebungen
+einschränken (z. B. CLI-Prompts, Native Mobile, Low-Code-Plattformen). Abgelehnt –
+Nomos soll framework-agnostisch bleiben. `bpmn-io-form` wird stattdessen als
+*empfohlene Referenzimplementierung* für formularbasierte User Tasks geführt.
 
 **UCIs in einem separaten Repository**: Referentielle Integrität wäre schwerer
 sicherstellbar und der Git-first-Ansatz (ADR-0001) würde aufgeweicht. Externe
