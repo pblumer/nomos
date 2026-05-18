@@ -242,7 +242,7 @@ func processDTO(path string, n processNode, includeValidation bool) ProcessDTO {
 		dto.Participant = &ProcessParticipantDTO{Name: p.Name, Ref: p.Ref}
 	}
 	for _, s := range n.Meta.Steps {
-		dto.Steps = append(dto.Steps, ProcessStepDTO{ID: s.ID, Name: s.Name, TaskType: normalizedStepTaskType(s.TaskType), ServiceRef: s.ServiceRef, Method: s.Method, Role: s.Role, Required: s.Required, Notes: s.Notes, DependsOn: s.DependsOn, Inputs: stepsInputsToDTO(s.Inputs), Outputs: stepsOutputsToDTO(s.Outputs), Decision: decisionToDTO(s.Decision), Gateway: gatewayToDTO(s.Gateway)})
+		dto.Steps = append(dto.Steps, ProcessStepDTO{ID: s.ID, Name: s.Name, TaskType: normalizedStepTaskType(s.TaskType), ServiceRef: s.ServiceRef, Method: s.Method, DecisionRef: s.DecisionRef, Role: s.Role, Required: s.Required, Notes: s.Notes, DependsOn: s.DependsOn, Inputs: stepsInputsToDTO(s.Inputs), Outputs: stepsOutputsToDTO(s.Outputs), Decision: decisionToDTO(s.Decision), Gateway: gatewayToDTO(s.Gateway)})
 	}
 	for _, m := range n.Meta.TaskMappings {
 		dto.TaskMappings = append(dto.TaskMappings, ProcessTaskMappingDTO{BPMNElementID: m.BPMNElementID, TaskName: m.TaskName, BPMNElementType: m.BPMNElementType, ServiceRef: m.ServiceRef, Method: m.Method, Role: m.Role, Required: m.Required, Notes: m.Notes})
@@ -267,19 +267,20 @@ func AddProcessStep(path, id string, req UpsertProcessStepRequest) (ProcessDTO, 
 		return ProcessDTO{}, err
 	}
 	step := model.ProcessStep{
-		ID:         fmt.Sprintf("step-%d", time.Now().UnixNano()),
-		Name:       strings.TrimSpace(req.Name),
-		TaskType:   normalizedStepTaskType(req.TaskType),
-		ServiceRef: strings.TrimSpace(req.ServiceRef),
-		Method:     strings.TrimSpace(req.Method),
-		Role:       firstNonEmpty(strings.TrimSpace(req.Role), "supporting"),
-		Required:   req.Required,
-		Notes:      req.Notes,
-		DependsOn:  req.DependsOn,
-		Inputs:     dtoInputsToModel(req.Inputs),
-		Outputs:    dtoOutputsToModel(req.Outputs),
-		Decision:   decisionToModel(req.Decision, normalizedStepTaskType(req.TaskType)),
-		Gateway:    gatewayToModel(req.Gateway, normalizedStepTaskType(req.TaskType)),
+		ID:          fmt.Sprintf("step-%d", time.Now().UnixNano()),
+		Name:        strings.TrimSpace(req.Name),
+		TaskType:    normalizedStepTaskType(req.TaskType),
+		ServiceRef:  strings.TrimSpace(req.ServiceRef),
+		Method:      strings.TrimSpace(req.Method),
+		DecisionRef: strings.TrimSpace(req.DecisionRef),
+		Role:        firstNonEmpty(strings.TrimSpace(req.Role), "supporting"),
+		Required:    req.Required,
+		Notes:       req.Notes,
+		DependsOn:   req.DependsOn,
+		Inputs:      dtoInputsToModel(req.Inputs),
+		Outputs:     dtoOutputsToModel(req.Outputs),
+		Decision:    decisionToModel(req.Decision, normalizedStepTaskType(req.TaskType)),
+		Gateway:     gatewayToModel(req.Gateway, normalizedStepTaskType(req.TaskType)),
 	}
 	node.Meta.Steps = append(node.Meta.Steps, step)
 	if err := fsx.WriteYAML(node.Path, node.Meta); err != nil {
@@ -303,6 +304,7 @@ func UpdateProcessStep(path, id, stepID string, req UpsertProcessStepRequest) (P
 			node.Meta.Steps[i].TaskType = normalizedStepTaskType(req.TaskType)
 			node.Meta.Steps[i].ServiceRef = strings.TrimSpace(req.ServiceRef)
 			node.Meta.Steps[i].Method = strings.TrimSpace(req.Method)
+			node.Meta.Steps[i].DecisionRef = strings.TrimSpace(req.DecisionRef)
 			node.Meta.Steps[i].Role = firstNonEmpty(strings.TrimSpace(req.Role), "supporting")
 			node.Meta.Steps[i].Required = req.Required
 			node.Meta.Steps[i].Notes = req.Notes
