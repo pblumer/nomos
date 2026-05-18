@@ -1,0 +1,19 @@
+[Unit]
+Description=Nomos MCP HTTP Server
+After=network.target nomos.service
+Documentation=https://github.com/pblumer/nomos
+
+[Service]
+Type=simple
+User={{ nomos_user }}
+Group={{ nomos_user }}
+WorkingDirectory={{ nomos_home }}
+ExecStart={{ nomos_home }}/nomos mcp http --path {{ nomos_cosmos_path }} --listen {{ nomos_mcp_listen }}
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nomos-mcp
+
+[Install]
+WantedBy=multi-user.target

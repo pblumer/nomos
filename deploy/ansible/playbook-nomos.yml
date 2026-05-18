@@ -6,9 +6,16 @@
   vars:
     nomos_user: nomos
     nomos_home: /opt/nomos
-    nomos_cosmos_path: /opt/nomos/cosmos
+    nomos_cosmos_path: /opt/nomos/data
     nomos_listen: "127.0.0.1:7373"
+    nomos_mcp_listen: "127.0.0.1:7374"
     nomos_version: "{{ lookup('pipe', 'git -C ' + playbook_dir + '/../../ rev-parse --short HEAD') }}"
 
   roles:
     - nomos
+
+  post_tasks:
+    - name: Upgrade self-model in Docker cosmos
+      command: "{{ nomos_home }}/nomos self upgrade --path {{ nomos_cosmos_path }}"
+      become_user: "{{ nomos_user }}"
+      ignore_errors: true

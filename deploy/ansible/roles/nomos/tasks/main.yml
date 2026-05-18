@@ -41,7 +41,12 @@
     mode: "0755"
   notify: restart nomos
 
-- name: Install systemd service
+# Update the Docker container binary (Traefik routes to this container)
+- name: Copy binary into nomos Docker container
+  command: docker cp /tmp/nomos-linux-amd64 nomos:/usr/local/bin/nomos
+  notify: restart nomos docker
+
+- name: Install systemd service (web server)
   template:
     src: nomos.service.j2
     dest: /etc/systemd/system/nomos.service
@@ -49,6 +54,23 @@
   notify:
     - reload systemd
     - restart nomos
+
+- name: Install systemd service (MCP HTTP server)
+  template:
+    src: nomos-mcp.service.j2
+    dest: /etc/systemd/system/nomos-mcp.service
+    mode: "0644"
+  notify:
+    - reload systemd
+    - restart nomos-mcp
+
+- name: Ensure Docker cosmos directory exists
+  file:
+    path: "{{ nomos_cosmos_path }}"
+    state: directory
+    owner: "{{ nomos_user }}"
+    group: "{{ nomos_user }}"
+    mode: "0755"
 
 - name: Bootstrap cosmos if not present
   command:
@@ -66,6 +88,13 @@
 - name: Enable and start nomos service
   systemd:
     name: nomos
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Enable and start nomos-mcp service
+  systemd:
+    name: nomos-mcp
     enabled: true
     state: started
     daemon_reload: true

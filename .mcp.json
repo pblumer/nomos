@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "nomos": {
+      "command": "ssh",
+      "args": [
+        "-i", "/home/pat/.ssh/id_ed25519",
+        "-o", "StrictHostKeyChecking=no",
+        "admin@server01.blumer.cloud",
+        "docker exec -i nomos /usr/local/bin/nomos mcp serve --path /workspace"
+      ],
+      "description": "Nomos live cosmos on nomos.blumer.cloud (Docker container via SSH)"
+    }
+  }
+}

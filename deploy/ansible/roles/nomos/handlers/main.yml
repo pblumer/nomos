@@ -8,7 +8,10 @@
     name: nomos
     state: restarted
 
-- name: reload caddy
+- name: restart nomos-mcp
   systemd:
-    name: caddy
-    state: reloaded
+    name: nomos-mcp
+    state: restarted
+
+- name: restart nomos docker
+  command: docker restart nomos
