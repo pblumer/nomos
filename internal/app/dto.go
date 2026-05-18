@@ -50,6 +50,7 @@ type DomainDTO struct {
 	Virtual            bool                `json:"virtual"`
 	Products           []ProductSummaryDTO `json:"products,omitempty"`
 	Services           []ServiceDTO        `json:"services,omitempty"`
+	Decisions          []DecisionDTO       `json:"decisions,omitempty"`
 }
 
 type MethodParameterDTO struct {
@@ -152,6 +153,7 @@ type NamespaceTreeNodeDTO struct {
 	FulfillmentCount     int                        `json:"fulfillmentCount,omitempty"`
 	TreeTarget           string                     `json:"treeTarget,omitempty"`
 	MethodName           string                     `json:"methodName,omitempty"`
+	Decision             *DecisionDTO               `json:"decision,omitempty"`
 	Children             []NamespaceTreeNodeDTO     `json:"children,omitempty"`
 }
 

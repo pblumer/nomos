@@ -155,6 +155,10 @@ func domainDTO(tree cosmosfs.Tree, d cosmosfs.DomainNode, includeServices bool) 
 		for _, s := range d.Services {
 			dto.Services = append(dto.Services, serviceDTO(canonical, s))
 		}
+		dto.Decisions = make([]DecisionDTO, 0, len(d.Decisions))
+		for _, dec := range d.Decisions {
+			dto.Decisions = append(dto.Decisions, decisionDTO(dec))
+		}
 	}
 	return dto
 }
@@ -524,6 +528,18 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 				svcNode.Children = append(svcNode.Children, NamespaceTreeNodeDTO{Label: m.Name, Kind: "service-method", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, MethodName: m.Name, Service: &s, Persisted: true, CanOpenDetails: true})
 			}
 			serviceParent.Children = append(serviceParent.Children, svcNode)
+		}
+	}
+	if len(d.Decisions) > 0 {
+		idx := findTreeChild(node, "Decisions", "decision-parent")
+		if idx == -1 {
+			node.Children = append(node.Children, NamespaceTreeNodeDTO{Label: "Decisions", Kind: "decision-parent", Canonical: d.Canonical, CanonicalName: d.Canonical, DisplayPath: d.Namespace.DisplayPath + " / Decisions", TreePath: d.Namespace.TreePath + "/decisions", GitPath: d.GitPath})
+			idx = len(node.Children) - 1
+		}
+		decParent := &node.Children[idx]
+		for _, dec := range d.Decisions {
+			dd := dec
+			decParent.Children = append(decParent.Children, NamespaceTreeNodeDTO{Label: dec.Name, Kind: "decision", Canonical: d.Canonical + "/decisions/" + dec.ID, CanonicalName: d.Canonical, Decision: &dd, Persisted: true, CanOpenDetails: true})
 		}
 	}
 }
