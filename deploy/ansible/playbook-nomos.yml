@@ -1,0 +1,14 @@
+---
+- name: Deploy nomos Go server
+  hosts: server01.blumer.cloud
+  become: true
+
+  vars:
+    nomos_user: nomos
+    nomos_home: /opt/nomos
+    nomos_cosmos_path: /opt/nomos/cosmos
+    nomos_listen: "127.0.0.1:7373"
+    nomos_version: "{{ lookup('pipe', 'git -C ' + playbook_dir + '/../../ rev-parse --short HEAD') }}"
+
+  roles:
+    - nomos

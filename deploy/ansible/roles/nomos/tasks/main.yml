@@ -1,0 +1,67 @@
+---
+- name: Build nomos binary (linux/amd64)
+  delegate_to: localhost
+  become: false
+  command:
+    cmd: >
+      go build
+      -ldflags "-X github.com/nomos/nomos/internal/version.Version={{ nomos_version }}
+                -X github.com/nomos/nomos/internal/version.BuiltBy=ansible"
+      -o /tmp/nomos-linux-amd64
+      ./cmd/nomos
+  environment:
+    GOOS: linux
+    GOARCH: amd64
+    CGO_ENABLED: "0"
+  args:
+    chdir: "{{ playbook_dir }}/../../"
+
+- name: Ensure nomos system user exists
+  user:
+    name: "{{ nomos_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ nomos_home }}"
+    create_home: true
+
+- name: Create cosmos directory
+  file:
+    path: "{{ nomos_cosmos_path }}"
+    state: directory
+    owner: "{{ nomos_user }}"
+    group: "{{ nomos_user }}"
+    mode: "0755"
+
+- name: Upload nomos binary
+  copy:
+    src: /tmp/nomos-linux-amd64
+    dest: "{{ nomos_home }}/nomos"
+    owner: "{{ nomos_user }}"
+    group: "{{ nomos_user }}"
+    mode: "0755"
+  notify: restart nomos
+
+- name: Install systemd service
+  template:
+    src: nomos.service.j2
+    dest: /etc/systemd/system/nomos.service
+    mode: "0644"
+  notify:
+    - reload systemd
+    - restart nomos
+
+- name: Bootstrap cosmos if not present
+  become_user: "{{ nomos_user }}"
+  command:
+    cmd: "{{ nomos_home }}/nomos cosmos init {{ nomos_cosmos_path }}"
+    creates: "{{ nomos_cosmos_path }}/.nomos/cosmos.yaml"
+
+- name: Enable and start nomos service
+  systemd:
+    name: nomos
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Configure Caddy reverse proxy
+  import_tasks: caddy.yml

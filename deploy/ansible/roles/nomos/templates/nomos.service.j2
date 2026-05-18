@@ -1,0 +1,19 @@
+[Unit]
+Description=Nomos Cosmos Server
+After=network.target
+Documentation=https://github.com/pblumer/nomos
+
+[Service]
+Type=simple
+User={{ nomos_user }}
+Group={{ nomos_user }}
+WorkingDirectory={{ nomos_home }}
+ExecStart={{ nomos_home }}/nomos serve --path {{ nomos_cosmos_path }} --listen {{ nomos_listen }}
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nomos
+
+[Install]
+WantedBy=multi-user.target

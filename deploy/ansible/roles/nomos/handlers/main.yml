@@ -1,0 +1,14 @@
+---
+- name: reload systemd
+  systemd:
+    daemon_reload: true
+
+- name: restart nomos
+  systemd:
+    name: nomos
+    state: restarted
+
+- name: reload caddy
+  systemd:
+    name: caddy
+    state: reloaded

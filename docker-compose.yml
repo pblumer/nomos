@@ -1,0 +1,17 @@
+services:
+  nomos:
+    build:
+      context: .
+      args:
+        VERSION: dev
+    ports:
+      - "7373:7373"
+    volumes:
+      - nomos-cosmos:/cosmos/data
+    environment:
+      COSMOS_PATH: /cosmos/data
+      NOMOS_LISTEN: 0.0.0.0:7373
+    restart: unless-stopped
+
+volumes:
+  nomos-cosmos:
