@@ -182,7 +182,7 @@ func serviceDTO(domain string, s cosmosfs.ServiceNode) ServiceDTO {
 			for _, cn := range c.Connectors {
 				connDTOs = append(connDTOs, ConnectorDTO{Type: cn.Type, Description: cn.Description, Invocation: cn.Invocation, Method: cn.Method, Path: cn.Path, Auth: cn.Auth, Tool: cn.Tool, Kind: cn.Kind})
 			}
-			capDefs = append(capDefs, ServiceCapabilityDTO{ID: c.ID, Name: c.Name, Summary: c.Summary, Stability: c.Stability, SideEffect: c.SideEffect, Connectors: connDTOs, RelatedUCI: c.RelatedUCI})
+			capDefs = append(capDefs, ServiceCapabilityDTO{ID: c.ID, Name: c.Name, Summary: c.Summary, Stability: c.Stability, SideEffect: c.SideEffect, Connectors: connDTOs, RelatedUCI: c.RelatedUCI, ConnectorTypes: connectorTypeLabel(c.Connectors)})
 		}
 	}
 	return ServiceDTO{Name: s.Name, Domain: domain, Owner: fallback(s.Metadata.Owner, "unknown"), OwnedBy: ownedBy, OperatedBy: s.Metadata.OperatedBy, Capabilities: capNames, CapabilityDefs: capDefs, SupportedProducts: s.Metadata.SupportedProducts, Methods: methods, Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path}
@@ -523,9 +523,18 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 		for _, svc := range d.Services {
 			s := svc
 			svcNode := NamespaceTreeNodeDTO{Label: svc.Name, Kind: "service", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, Persisted: true, CanOpenDetails: true}
-			for _, method := range svc.Methods {
-				m := method
-				svcNode.Children = append(svcNode.Children, NamespaceTreeNodeDTO{Label: m.Name, Kind: "service-method", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, MethodName: m.Name, Service: &s, Persisted: true, CanOpenDetails: true})
+			if len(svc.CapabilityDefs) > 0 {
+				capParent := NamespaceTreeNodeDTO{Label: "Capabilities", Kind: "capability-parent", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, FulfillmentCount: len(svc.CapabilityDefs)}
+				for _, cap := range svc.CapabilityDefs {
+					c := cap
+					capParent.Children = append(capParent.Children, NamespaceTreeNodeDTO{Label: c.Name, Kind: "capability", Canonical: d.Canonical + "/" + svc.Name + "/" + c.ID, CanonicalName: d.Canonical, Service: &s, Capability: &c, Persisted: true, CanOpenDetails: false})
+				}
+				svcNode.Children = append(svcNode.Children, capParent)
+			} else {
+				for _, method := range svc.Methods {
+					m := method
+					svcNode.Children = append(svcNode.Children, NamespaceTreeNodeDTO{Label: m.Name, Kind: "service-method", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, MethodName: m.Name, Service: &s, Persisted: true, CanOpenDetails: true})
+				}
 			}
 			serviceParent.Children = append(serviceParent.Children, svcNode)
 		}
@@ -574,6 +583,21 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func connectorTypeLabel(connectors []model.Connector) string {
+	seen := map[string]bool{}
+	order := []string{"cli", "rest", "mcp"}
+	for _, c := range connectors {
+		seen[c.Type] = true
+	}
+	var parts []string
+	for _, t := range order {
+		if seen[t] {
+			parts = append(parts, strings.ToUpper(t))
+		}
+	}
+	return strings.Join(parts, " · ")
 }
 
 func ListBlueprints(path string) (BlueprintsDTO, error) {

@@ -80,13 +80,14 @@ type ConnectorDTO struct {
 }
 
 type ServiceCapabilityDTO struct {
-	ID         string         `json:"id"`
-	Name       string         `json:"name"`
-	Summary    string         `json:"summary,omitempty"`
-	Stability  string         `json:"stability,omitempty"`
-	SideEffect string         `json:"side_effect,omitempty"`
-	Connectors []ConnectorDTO `json:"connectors,omitempty"`
-	RelatedUCI []string       `json:"related_uci,omitempty"`
+	ID             string         `json:"id"`
+	Name           string         `json:"name"`
+	Summary        string         `json:"summary,omitempty"`
+	Stability      string         `json:"stability,omitempty"`
+	SideEffect     string         `json:"side_effect,omitempty"`
+	Connectors     []ConnectorDTO `json:"connectors,omitempty"`
+	RelatedUCI     []string       `json:"related_uci,omitempty"`
+	ConnectorTypes string         `json:"connector_types,omitempty"` // e.g. "CLI · REST · MCP"
 }
 
 type ServiceDTO struct {
@@ -156,6 +157,7 @@ type NamespaceTreeNodeDTO struct {
 	TreeTarget           string                     `json:"treeTarget,omitempty"`
 	MethodName           string                     `json:"methodName,omitempty"`
 	Decision             *DecisionDTO               `json:"decision,omitempty"`
+	Capability           *ServiceCapabilityDTO      `json:"capability,omitempty"`
 	Children             []NamespaceTreeNodeDTO     `json:"children,omitempty"`
 }
 
