@@ -88,9 +88,9 @@ type ConnectorExitCode struct {
 	Meaning string `yaml:"meaning" json:"meaning"`
 }
 
-// Connector describes one access point (CLI, REST, or MCP) for a capability.
+// Connector describes one access point (CLI, REST, MCP, or BPMN collaboration) for a capability.
 type Connector struct {
-	Type        string `yaml:"type" json:"type"` // cli | rest | mcp
+	Type        string `yaml:"type" json:"type"` // cli | rest | mcp | collaboration
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 	// CLI
 	Invocation string              `yaml:"invocation,omitempty" json:"invocation,omitempty"`
@@ -106,6 +106,10 @@ type Connector struct {
 	Tool       string `yaml:"tool,omitempty" json:"tool,omitempty"`
 	Kind       string `yaml:"kind,omitempty" json:"kind,omitempty"`
 	Idempotent *bool  `yaml:"idempotent,omitempty" json:"idempotent,omitempty"`
+	// Collaboration (BPMN) — Capability = Collaboration (ArchiMate ↔ BPMN)
+	ArtifactRef  string `yaml:"artifact_ref,omitempty" json:"artifact_ref,omitempty"`   // BPMN collaboration artifact ID
+	ConsumerPool string `yaml:"consumer_pool,omitempty" json:"consumer_pool,omitempty"` // pool name for the consumer side
+	ProviderPool string `yaml:"provider_pool,omitempty" json:"provider_pool,omitempty"` // pool name for the provider (service) side
 }
 
 // ServiceCapability describes one named capability of a service, with optional
@@ -363,22 +367,24 @@ type DecisionTable struct {
 }
 
 // ProcessStep is one ordered step in a fulfillment process. Each step maps to
-// a service call (ArchiMate function/trigger).
+// a service call (ArchiMate function/trigger). CapabilityRef identifies the
+// service capability (= BPMN collaboration boundary) being invoked.
 type ProcessStep struct {
-	ID          string             `yaml:"id" json:"id"`
-	Name        string             `yaml:"name" json:"name"`
-	TaskType    string             `yaml:"task_type,omitempty" json:"task_type,omitempty"`
-	ServiceRef  string             `yaml:"service_ref" json:"service_ref"`
-	Method      string             `yaml:"method,omitempty" json:"method,omitempty"`
-	DecisionRef string             `yaml:"decision_ref,omitempty" json:"decision_ref,omitempty"`
-	Role        string             `yaml:"role,omitempty" json:"role,omitempty"`
-	Required    bool               `yaml:"required" json:"required"`
-	Notes       string             `yaml:"notes,omitempty" json:"notes,omitempty"`
-	DependsOn   []string           `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
-	Inputs      []StepInputBinding `yaml:"inputs,omitempty" json:"inputs,omitempty"`
-	Outputs     []StepOutputSchema `yaml:"outputs,omitempty" json:"outputs,omitempty"`
-	Decision    *DecisionTable     `yaml:"decision,omitempty" json:"decision,omitempty"`
-	Gateway     *DecisionGateway   `yaml:"gateway,omitempty" json:"gateway,omitempty"`
+	ID            string             `yaml:"id" json:"id"`
+	Name          string             `yaml:"name" json:"name"`
+	TaskType      string             `yaml:"task_type,omitempty" json:"task_type,omitempty"`
+	ServiceRef    string             `yaml:"service_ref" json:"service_ref"`
+	CapabilityRef string             `yaml:"capability_ref,omitempty" json:"capability_ref,omitempty"`
+	Method        string             `yaml:"method,omitempty" json:"method,omitempty"`
+	DecisionRef   string             `yaml:"decision_ref,omitempty" json:"decision_ref,omitempty"`
+	Role          string             `yaml:"role,omitempty" json:"role,omitempty"`
+	Required      bool               `yaml:"required" json:"required"`
+	Notes         string             `yaml:"notes,omitempty" json:"notes,omitempty"`
+	DependsOn     []string           `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
+	Inputs        []StepInputBinding `yaml:"inputs,omitempty" json:"inputs,omitempty"`
+	Outputs       []StepOutputSchema `yaml:"outputs,omitempty" json:"outputs,omitempty"`
+	Decision      *DecisionTable     `yaml:"decision,omitempty" json:"decision,omitempty"`
+	Gateway       *DecisionGateway   `yaml:"gateway,omitempty" json:"gateway,omitempty"`
 }
 
 type BPMNReference struct {
@@ -392,6 +398,7 @@ type ProcessTaskMapping struct {
 	TaskName        string `yaml:"task_name,omitempty" json:"task_name,omitempty"`
 	BPMNElementType string `yaml:"bpmn_element_type,omitempty" json:"bpmn_element_type,omitempty"`
 	ServiceRef      string `yaml:"service_ref" json:"service_ref"`
+	CapabilityRef   string `yaml:"capability_ref,omitempty" json:"capability_ref,omitempty"`
 	Method          string `yaml:"method,omitempty" json:"method,omitempty"`
 	Role            string `yaml:"role,omitempty" json:"role,omitempty"`
 	Required        bool   `yaml:"required" json:"required"`

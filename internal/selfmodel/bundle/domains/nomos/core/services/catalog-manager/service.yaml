@@ -286,6 +286,11 @@ capabilities:
     summary: Cosmos initialisieren und Metadaten abrufen.
     stability: stable
     connectors:
+      - type: collaboration
+        artifact_ref: collab-cosmos-lifecycle
+        consumer_pool: operator
+        provider_pool: catalog-manager
+        description: BPMN-Collaboration zwischen Operator und catalog-manager für Cosmos-Initialisierung
       - type: cli
         invocation: "nomos cosmos init"
         args:

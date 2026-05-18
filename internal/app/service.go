@@ -180,7 +180,7 @@ func serviceDTO(domain string, s cosmosfs.ServiceNode) ServiceDTO {
 		if len(c.Connectors) > 0 || c.Summary != "" || c.Stability != "" {
 			connDTOs := make([]ConnectorDTO, 0, len(c.Connectors))
 			for _, cn := range c.Connectors {
-				connDTOs = append(connDTOs, ConnectorDTO{Type: cn.Type, Description: cn.Description, Invocation: cn.Invocation, Method: cn.Method, Path: cn.Path, Auth: cn.Auth, Tool: cn.Tool, Kind: cn.Kind})
+				connDTOs = append(connDTOs, ConnectorDTO{Type: cn.Type, Description: cn.Description, Invocation: cn.Invocation, Method: cn.Method, Path: cn.Path, Auth: cn.Auth, Tool: cn.Tool, Kind: cn.Kind, ArtifactRef: cn.ArtifactRef, ConsumerPool: cn.ConsumerPool, ProviderPool: cn.ProviderPool})
 			}
 			capDefs = append(capDefs, ServiceCapabilityDTO{ID: c.ID, Name: c.Name, Summary: c.Summary, Stability: c.Stability, SideEffect: c.SideEffect, Connectors: connDTOs, RelatedUCI: c.RelatedUCI, ConnectorTypes: connectorTypeLabel(c.Connectors)})
 		}
@@ -587,14 +587,15 @@ func firstNonEmpty(values ...string) string {
 
 func connectorTypeLabel(connectors []model.Connector) string {
 	seen := map[string]bool{}
-	order := []string{"cli", "rest", "mcp"}
+	order := []string{"cli", "rest", "mcp", "collaboration"}
+	labels := map[string]string{"cli": "CLI", "rest": "REST", "mcp": "MCP", "collaboration": "BPMN"}
 	for _, c := range connectors {
 		seen[c.Type] = true
 	}
 	var parts []string
 	for _, t := range order {
 		if seen[t] {
-			parts = append(parts, strings.ToUpper(t))
+			parts = append(parts, labels[t])
 		}
 	}
 	return strings.Join(parts, " · ")
