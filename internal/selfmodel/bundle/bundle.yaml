@@ -15,3 +15,10 @@ manifest:
   - domains/nomos/core/services/catalog-manager/service.yaml
   - domains/nomos/core/services/uci-manager/service.yaml
   - catalog/blueprints/products/nomos-core-engine.yaml
+  - catalog/blueprints/processes/prc-cosmos-init.yaml
+  - catalog/blueprints/processes/prc-domain-add.yaml
+  - catalog/blueprints/processes/prc-service-erfassen.yaml
+  - catalog/blueprints/processes/prc-blueprint-validieren.yaml
+  - catalog/blueprints/processes/prc-instanz-verifizieren.yaml
+  - domains/nomos/core/decisions/dec-dns-format-check/dec-dns-format-check.yaml
+  - domains/nomos/core/decisions/dec-blueprint-compliance/dec-blueprint-compliance.yaml

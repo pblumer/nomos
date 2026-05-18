@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Def_CosmosInit" targetNamespace="https://nomos.local/bpmn">
+  <bpmn:collaboration id="Collab_CosmosInit">
+    <bpmn:participant id="Part_CosmosInit" name="Cosmos initialisieren" processRef="Process_CosmosInit"/>
+  </bpmn:collaboration>
+  <bpmn:process id="Process_CosmosInit" name="Cosmos initialisieren" isExecutable="false">
+    <bpmn:startEvent id="Start_CLI" name="CLI: nomos cosmos init">
+      <bpmn:outgoing>Flow_Start_Workspace</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_WorkspaceAnlegen" name="Workspace anlegen">
+      <bpmn:incoming>Flow_Start_Workspace</bpmn:incoming>
+      <bpmn:outgoing>Flow_Workspace_Git</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_GitAktiviert" name="Git aktiviert?">
+      <bpmn:incoming>Flow_Workspace_Git</bpmn:incoming>
+      <bpmn:outgoing>Flow_Git_Yes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Git_No</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Task_GitInit" name="Git-Repository&#10;initialisieren">
+      <bpmn:incoming>Flow_Git_Yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_GitInit_Merge</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_GitMerge">
+      <bpmn:incoming>Flow_Git_No</bpmn:incoming>
+      <bpmn:incoming>Flow_GitInit_Merge</bpmn:incoming>
+      <bpmn:outgoing>Flow_Merge_SelfGateway</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:exclusiveGateway id="Gateway_SelfModel" name="--without-self?">
+      <bpmn:incoming>Flow_Merge_SelfGateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_Self_Yes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Self_No</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Task_SelfImport" name="Self-Model&#10;importieren">
+      <bpmn:incoming>Flow_Self_Yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_SelfImport_Merge</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_SelfMerge">
+      <bpmn:incoming>Flow_Self_No</bpmn:incoming>
+      <bpmn:incoming>Flow_SelfImport_Merge</bpmn:incoming>
+      <bpmn:outgoing>Flow_SelfMerge_Validate</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Task_Validate" name="Cosmos validieren">
+      <bpmn:incoming>Flow_SelfMerge_Validate</bpmn:incoming>
+      <bpmn:outgoing>Flow_Validate_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="End_Ready" name="Cosmos bereit">
+      <bpmn:incoming>Flow_Validate_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Start_Workspace" sourceRef="Start_CLI" targetRef="Task_WorkspaceAnlegen"/>
+    <bpmn:sequenceFlow id="Flow_Workspace_Git" sourceRef="Task_WorkspaceAnlegen" targetRef="Gateway_GitAktiviert"/>
+    <bpmn:sequenceFlow id="Flow_Git_Yes" name="ja" sourceRef="Gateway_GitAktiviert" targetRef="Task_GitInit"/>
+    <bpmn:sequenceFlow id="Flow_Git_No" name="nein" sourceRef="Gateway_GitAktiviert" targetRef="Gateway_GitMerge"/>
+    <bpmn:sequenceFlow id="Flow_GitInit_Merge" sourceRef="Task_GitInit" targetRef="Gateway_GitMerge"/>
+    <bpmn:sequenceFlow id="Flow_Merge_SelfGateway" sourceRef="Gateway_GitMerge" targetRef="Gateway_SelfModel"/>
+    <bpmn:sequenceFlow id="Flow_Self_Yes" name="nein" sourceRef="Gateway_SelfModel" targetRef="Task_SelfImport"/>
+    <bpmn:sequenceFlow id="Flow_Self_No" name="ja" sourceRef="Gateway_SelfModel" targetRef="Gateway_SelfMerge"/>
+    <bpmn:sequenceFlow id="Flow_SelfImport_Merge" sourceRef="Task_SelfImport" targetRef="Gateway_SelfMerge"/>
+    <bpmn:sequenceFlow id="Flow_SelfMerge_Validate" sourceRef="Gateway_SelfMerge" targetRef="Task_Validate"/>
+    <bpmn:sequenceFlow id="Flow_Validate_End" sourceRef="Task_Validate" targetRef="End_Ready"/>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_CosmosInit">
+    <bpmndi:BPMNPlane id="Plane_CosmosInit" bpmnElement="Collab_CosmosInit">
+      <bpmndi:BPMNShape id="Shape_Part" bpmnElement="Part_CosmosInit" isHorizontal="true">
+        <dc:Bounds x="100" y="50" width="1350" height="200"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Start" bpmnElement="Start_CLI">
+        <dc:Bounds x="182" y="132" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="156" y="175" width="88" height="27"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Workspace" bpmnElement="Task_WorkspaceAnlegen">
+        <dc:Bounds x="270" y="110" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_GwGit" bpmnElement="Gateway_GitAktiviert" isMarkerVisible="true">
+        <dc:Bounds x="445" y="125" width="50" height="50"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="432" y="102" width="76" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_GitInit" bpmnElement="Task_GitInit">
+        <dc:Bounds x="550" y="80" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_GwMerge" bpmnElement="Gateway_GitMerge" isMarkerVisible="true">
+        <dc:Bounds x="725" y="125" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_GwSelf" bpmnElement="Gateway_SelfModel" isMarkerVisible="true">
+        <dc:Bounds x="835" y="125" width="50" height="50"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="820" y="102" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_SelfImport" bpmnElement="Task_SelfImport">
+        <dc:Bounds x="940" y="80" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_GwSelfMerge" bpmnElement="Gateway_SelfMerge" isMarkerVisible="true">
+        <dc:Bounds x="1115" y="125" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Validate" bpmnElement="Task_Validate">
+        <dc:Bounds x="1220" y="110" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End" bpmnElement="End_Ready">
+        <dc:Bounds x="1402" y="132" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1380" y="175" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_Start_Workspace" bpmnElement="Flow_Start_Workspace">
+        <di:waypoint x="218" y="150"/><di:waypoint x="270" y="150"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Workspace_Git" bpmnElement="Flow_Workspace_Git">
+        <di:waypoint x="390" y="150"/><di:waypoint x="445" y="150"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Git_Yes" bpmnElement="Flow_Git_Yes">
+        <di:waypoint x="470" y="125"/><di:waypoint x="470" y="100"/><di:waypoint x="550" y="120"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="476" y="103" width="14" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Git_No" bpmnElement="Flow_Git_No">
+        <di:waypoint x="470" y="175"/><di:waypoint x="470" y="200"/><di:waypoint x="750" y="200"/><di:waypoint x="750" y="175"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="476" y="182" width="26" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_GitInit_Merge" bpmnElement="Flow_GitInit_Merge">
+        <di:waypoint x="670" y="120"/><di:waypoint x="750" y="120"/><di:waypoint x="750" y="125"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Merge_Self" bpmnElement="Flow_Merge_SelfGateway">
+        <di:waypoint x="775" y="150"/><di:waypoint x="835" y="150"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Self_Yes" bpmnElement="Flow_Self_Yes">
+        <di:waypoint x="860" y="125"/><di:waypoint x="860" y="100"/><di:waypoint x="940" y="120"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="866" y="103" width="26" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Self_No" bpmnElement="Flow_Self_No">
+        <di:waypoint x="860" y="175"/><di:waypoint x="860" y="200"/><di:waypoint x="1140" y="200"/><di:waypoint x="1140" y="175"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="866" y="182" width="14" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_SelfImport_Merge" bpmnElement="Flow_SelfImport_Merge">
+        <di:waypoint x="1060" y="120"/><di:waypoint x="1140" y="120"/><di:waypoint x="1140" y="125"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_SelfMerge_Validate" bpmnElement="Flow_SelfMerge_Validate">
+        <di:waypoint x="1165" y="150"/><di:waypoint x="1220" y="150"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Validate_End" bpmnElement="Flow_Validate_End">
+        <di:waypoint x="1340" y="150"/><di:waypoint x="1402" y="150"/>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

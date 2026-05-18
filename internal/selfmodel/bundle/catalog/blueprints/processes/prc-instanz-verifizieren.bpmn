@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Def_InstanzVerifizieren" targetNamespace="https://nomos.local/bpmn">
+  <bpmn:collaboration id="Collab_InstanzVerifizieren">
+    <bpmn:participant id="Part_InstanzVerifizieren" name="Instanz verifizieren" processRef="Process_InstanzVerifizieren"/>
+  </bpmn:collaboration>
+  <bpmn:process id="Process_InstanzVerifizieren" name="Instanz verifizieren" isExecutable="false">
+    <bpmn:startEvent id="Start_CLI" name="CLI/REST:&#10;verify">
+      <bpmn:outgoing>Flow_Start_Laden</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_InstanzLaden" name="Instanz laden">
+      <bpmn:incoming>Flow_Start_Laden</bpmn:incoming>
+      <bpmn:outgoing>Flow_Laden_Blueprint</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_BlueprintAuflösen" name="Blueprint&#10;auflösen">
+      <bpmn:incoming>Flow_Laden_Blueprint</bpmn:incoming>
+      <bpmn:outgoing>Flow_Blueprint_Compliance</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:businessRuleTask id="Task_CompliancePrüfen" name="Compliance&#10;prüfen">
+      <bpmn:incoming>Flow_Blueprint_Compliance</bpmn:incoming>
+      <bpmn:outgoing>Flow_Compliance_Findings</bpmn:outgoing>
+    </bpmn:businessRuleTask>
+    <bpmn:serviceTask id="Task_FindingsErzeugen" name="Findings erzeugen">
+      <bpmn:incoming>Flow_Compliance_Findings</bpmn:incoming>
+      <bpmn:outgoing>Flow_Findings_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="End_Bericht" name="Verifikation&#10;abgeschlossen">
+      <bpmn:incoming>Flow_Findings_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Start_Laden" sourceRef="Start_CLI" targetRef="Task_InstanzLaden"/>
+    <bpmn:sequenceFlow id="Flow_Laden_Blueprint" sourceRef="Task_InstanzLaden" targetRef="Task_BlueprintAuflösen"/>
+    <bpmn:sequenceFlow id="Flow_Blueprint_Compliance" sourceRef="Task_BlueprintAuflösen" targetRef="Task_CompliancePrüfen"/>
+    <bpmn:sequenceFlow id="Flow_Compliance_Findings" sourceRef="Task_CompliancePrüfen" targetRef="Task_FindingsErzeugen"/>
+    <bpmn:sequenceFlow id="Flow_Findings_End" sourceRef="Task_FindingsErzeugen" targetRef="End_Bericht"/>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_InstanzVerifizieren">
+    <bpmndi:BPMNPlane id="Plane_InstanzVerifizieren" bpmnElement="Collab_InstanzVerifizieren">
+      <bpmndi:BPMNShape id="Shape_Part" bpmnElement="Part_InstanzVerifizieren" isHorizontal="true">
+        <dc:Bounds x="100" y="50" width="1150" height="200"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Start" bpmnElement="Start_CLI">
+        <dc:Bounds x="182" y="132" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="162" y="175" width="76" height="27"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_InstanzLaden" bpmnElement="Task_InstanzLaden">
+        <dc:Bounds x="270" y="110" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_BlueprintAuflösen" bpmnElement="Task_BlueprintAuflösen">
+        <dc:Bounds x="450" y="110" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_CompliancePrüfen" bpmnElement="Task_CompliancePrüfen">
+        <dc:Bounds x="630" y="110" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_FindingsErzeugen" bpmnElement="Task_FindingsErzeugen">
+        <dc:Bounds x="810" y="110" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End" bpmnElement="End_Bericht">
+        <dc:Bounds x="992" y="132" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="966" y="175" width="88" height="27"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_Start_Laden" bpmnElement="Flow_Start_Laden">
+        <di:waypoint x="218" y="150"/><di:waypoint x="270" y="150"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Laden_Blueprint" bpmnElement="Flow_Laden_Blueprint">
+        <di:waypoint x="390" y="150"/><di:waypoint x="450" y="150"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Blueprint_Compliance" bpmnElement="Flow_Blueprint_Compliance">
+        <di:waypoint x="570" y="150"/><di:waypoint x="630" y="150"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Compliance_Findings" bpmnElement="Flow_Compliance_Findings">
+        <di:waypoint x="750" y="150"/><di:waypoint x="810" y="150"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Findings_End" bpmnElement="Flow_Findings_End">
+        <di:waypoint x="930" y="150"/><di:waypoint x="992" y="150"/>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

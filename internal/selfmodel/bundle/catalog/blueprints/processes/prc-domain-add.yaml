@@ -1,0 +1,111 @@
+id: prc-domain-add
+type: process
+name: Domain hinzufügen
+version: "0.1.0"
+status: stable
+owner: Nomos Core Team
+summary: Legt eine neue Top-Level-Domain im Cosmos an, prüft DNS-Format und Namespace-Kollision und validiert den Cosmos.
+tags:
+  - core
+  - domain
+  - setup
+related_product: nomos-core-engine
+participant:
+  name: Nomos Core Engine
+  ref: core.nomos/catalog-manager
+bpmn:
+  file: prc-domain-add.bpmn
+  process_id: Process_DomainAdd
+  primary: true
+steps:
+  - id: step-dns-validieren
+    name: DNS-Format validieren
+    task_type: business_rule_task
+    decision_ref: dec-dns-format-check
+    required: true
+    role: system
+    notes: Prüft ob der übergebene DNS-Name dem Namespace-Format entspricht (RFC 1035).
+  - id: step-dns-gateway
+    name: Format gültig?
+    task_type: exclusive_gateway
+    required: true
+    depends_on:
+      - step-dns-validieren
+  - id: step-namespace-prüfen
+    name: Namespace-Kollision prüfen
+    task_type: service_task
+    service_ref: core.nomos/uci-manager
+    capability_ref: cap-namespace-resolve
+    method: namespace_tree
+    required: true
+    role: system
+    depends_on:
+      - step-dns-gateway
+    notes: Stellt sicher, dass der Namespace noch nicht vergeben ist.
+  - id: step-domain-anlegen
+    name: Domain anlegen
+    task_type: service_task
+    service_ref: core.nomos/catalog-manager
+    capability_ref: cap-domain-lifecycle
+    method: domain_add
+    required: true
+    role: system
+    depends_on:
+      - step-namespace-prüfen
+    notes: Erstellt domain.yaml und Verzeichnisstruktur.
+  - id: step-validieren
+    name: Cosmos validieren
+    task_type: service_task
+    service_ref: core.nomos/validator-engine
+    capability_ref: cap-validate-cosmos
+    method: validate
+    required: true
+    role: system
+    depends_on:
+      - step-domain-anlegen
+task_mappings:
+  - bpmn_element_id: Task_DNSValidieren
+    bpmn_element_type: businessRuleTask
+    task_name: DNS-Format validieren
+    decision_ref: dec-dns-format-check
+    required: true
+  - bpmn_element_id: Gateway_FormatGültig
+    bpmn_element_type: exclusiveGateway
+    task_name: Format gültig?
+    required: true
+  - bpmn_element_id: Task_NamespacePrüfen
+    bpmn_element_type: serviceTask
+    task_name: Namespace-Kollision prüfen
+    service_ref: core.nomos/uci-manager
+    capability_ref: cap-namespace-resolve
+    method: namespace_tree
+    required: true
+  - bpmn_element_id: Task_DomainAnlegen
+    bpmn_element_type: serviceTask
+    task_name: Domain anlegen
+    service_ref: core.nomos/catalog-manager
+    capability_ref: cap-domain-lifecycle
+    method: domain_add
+    required: true
+  - bpmn_element_id: Task_Validieren
+    bpmn_element_type: serviceTask
+    task_name: Cosmos validieren
+    service_ref: core.nomos/validator-engine
+    capability_ref: cap-validate-cosmos
+    method: validate
+    required: true
+triggers:
+  - bpmn_element_id: Start_CLI
+    type: message
+    name: CLI-Aufruf
+    description: "nomos domain add <dns>"
+    message:
+      event_ref: msg-cli-domain-add
+      topic: cli
+  - bpmn_element_id: Start_CLI
+    type: message
+    name: MCP-Tool
+    description: nomos_domain_add
+    message:
+      event_ref: msg-mcp-domain-add
+      topic: mcp

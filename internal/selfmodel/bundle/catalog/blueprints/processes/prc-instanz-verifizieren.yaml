@@ -1,0 +1,101 @@
+id: prc-instanz-verifizieren
+type: process
+name: Instanz verifizieren
+version: "0.1.0"
+status: stable
+owner: Nomos Core Team
+summary: Lädt eine Instanz, löst das Blueprint auf, prüft Compliance via Decision Table und erzeugt strukturierte Findings.
+tags:
+  - core
+  - instance
+  - verification
+related_product: nomos-core-engine
+participant:
+  name: Nomos Core Engine
+  ref: core.nomos/validator-engine
+bpmn:
+  file: prc-instanz-verifizieren.bpmn
+  process_id: Process_InstanzVerifizieren
+  primary: true
+steps:
+  - id: step-instanz-laden
+    name: Instanz laden
+    task_type: service_task
+    service_ref: core.nomos/catalog-manager
+    capability_ref: cap-cosmos-lifecycle
+    method: cosmos_load
+    required: true
+    role: system
+    notes: Liest die Instance-YAML aus dem Cosmos-Workspace.
+  - id: step-blueprint-auflösen
+    name: Blueprint auflösen
+    task_type: service_task
+    service_ref: core.nomos/catalog-manager
+    capability_ref: cap-cosmos-lifecycle
+    method: cosmos_load
+    required: true
+    role: system
+    depends_on:
+      - step-instanz-laden
+    notes: Löst den blueprint_ref der Instanz auf und lädt das Blueprint.
+  - id: step-compliance-prüfen
+    name: Compliance prüfen
+    task_type: business_rule_task
+    decision_ref: dec-blueprint-compliance
+    required: true
+    role: system
+    depends_on:
+      - step-blueprint-auflösen
+    notes: Bewertet Instanz-Inputs gegen Blueprint-Regeln und Qualitätskriterien.
+  - id: step-findings-erzeugen
+    name: Findings erzeugen
+    task_type: service_task
+    service_ref: core.nomos/validator-engine
+    capability_ref: cap-validate-cosmos
+    method: validate
+    required: true
+    role: system
+    depends_on:
+      - step-compliance-prüfen
+task_mappings:
+  - bpmn_element_id: Task_InstanzLaden
+    bpmn_element_type: serviceTask
+    task_name: Instanz laden
+    service_ref: core.nomos/catalog-manager
+    capability_ref: cap-cosmos-lifecycle
+    method: cosmos_load
+    required: true
+  - bpmn_element_id: Task_BlueprintAuflösen
+    bpmn_element_type: serviceTask
+    task_name: Blueprint auflösen
+    service_ref: core.nomos/catalog-manager
+    capability_ref: cap-cosmos-lifecycle
+    method: cosmos_load
+    required: true
+  - bpmn_element_id: Task_CompliancePrüfen
+    bpmn_element_type: businessRuleTask
+    task_name: Compliance prüfen
+    decision_ref: dec-blueprint-compliance
+    required: true
+  - bpmn_element_id: Task_FindingsErzeugen
+    bpmn_element_type: serviceTask
+    task_name: Findings erzeugen
+    service_ref: core.nomos/validator-engine
+    capability_ref: cap-validate-cosmos
+    method: validate
+    required: true
+triggers:
+  - bpmn_element_id: Start_CLI
+    type: message
+    name: CLI-Aufruf
+    description: "nomos verify [--instance <id>]"
+    message:
+      event_ref: msg-cli-verify
+      topic: cli
+  - bpmn_element_id: Start_CLI
+    type: message
+    name: REST-API
+    description: "GET /api/v1/instances/{id}/verify"
+    message:
+      event_ref: msg-rest-verify
+      topic: rest

@@ -1,0 +1,109 @@
+id: prc-cosmos-init
+type: process
+name: Cosmos initialisieren
+version: "0.1.0"
+status: stable
+owner: Nomos Core Team
+summary: Erstellt einen neuen Cosmos-Workspace, initialisiert optional ein Git-Repository und importiert das eingebettete Self-Model.
+tags:
+  - core
+  - setup
+  - self-model
+related_product: nomos-core-engine
+participant:
+  name: Nomos Core Engine
+  ref: core.nomos/catalog-manager
+bpmn:
+  file: prc-cosmos-init.bpmn
+  process_id: Process_CosmosInit
+  primary: true
+steps:
+  - id: step-workspace-anlegen
+    name: Workspace anlegen
+    task_type: service_task
+    service_ref: core.nomos/catalog-manager
+    capability_ref: cap-cosmos-lifecycle
+    method: cosmos_init
+    required: true
+    role: system
+    notes: Legt cosmos.yaml und .nomos/ Verzeichnisstruktur an.
+  - id: step-git-gateway
+    name: Git aktiviert?
+    task_type: exclusive_gateway
+    required: false
+    depends_on:
+      - step-workspace-anlegen
+  - id: step-git-init
+    name: Git-Repository initialisieren
+    task_type: service_task
+    service_ref: core.nomos/git-repo-manager
+    capability_ref: cap-git-init
+    method: cosmos_init_git
+    required: false
+    role: system
+    depends_on:
+      - step-git-gateway
+    notes: Nur wenn --git Flag gesetzt. Führt git init aus.
+  - id: step-self-import
+    name: Self-Model importieren
+    task_type: service_task
+    service_ref: core.nomos/catalog-manager
+    capability_ref: cap-self-model
+    method: self_import
+    required: false
+    role: system
+    depends_on:
+      - step-workspace-anlegen
+    notes: Importiert das eingebettete nomos-Bundle (ADR-0014). Überspringbar via --without-self.
+  - id: step-validate
+    name: Cosmos validieren
+    task_type: service_task
+    service_ref: core.nomos/validator-engine
+    capability_ref: cap-validate-cosmos
+    method: validate
+    required: true
+    role: system
+    depends_on:
+      - step-self-import
+task_mappings:
+  - bpmn_element_id: Task_WorkspaceAnlegen
+    bpmn_element_type: serviceTask
+    task_name: Workspace anlegen
+    service_ref: core.nomos/catalog-manager
+    capability_ref: cap-cosmos-lifecycle
+    method: cosmos_init
+    required: true
+  - bpmn_element_id: Gateway_GitAktiviert
+    bpmn_element_type: exclusiveGateway
+    task_name: Git aktiviert?
+    service_ref: ""
+    required: false
+  - bpmn_element_id: Task_GitInit
+    bpmn_element_type: serviceTask
+    task_name: Git-Repository initialisieren
+    service_ref: core.nomos/git-repo-manager
+    capability_ref: cap-git-init
+    method: cosmos_init_git
+    required: false
+  - bpmn_element_id: Task_SelfImport
+    bpmn_element_type: serviceTask
+    task_name: Self-Model importieren
+    service_ref: core.nomos/catalog-manager
+    capability_ref: cap-self-model
+    method: self_import
+    required: false
+  - bpmn_element_id: Task_Validate
+    bpmn_element_type: serviceTask
+    task_name: Cosmos validieren
+    service_ref: core.nomos/validator-engine
+    capability_ref: cap-validate-cosmos
+    method: validate
+    required: true
+triggers:
+  - bpmn_element_id: Start_CLI
+    type: message
+    name: CLI-Aufruf
+    description: "nomos cosmos init <path>"
+    message:
+      event_ref: msg-cli-cosmos-init
+      topic: cli

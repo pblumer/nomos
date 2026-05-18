@@ -16,6 +16,12 @@ tags:
   - core
   - system
 lifecycle_status: stable
+processes:
+  - prc-cosmos-init
+  - prc-domain-add
+  - prc-service-erfassen
+  - prc-blueprint-validieren
+  - prc-instanz-verifizieren
 fulfillment:
   required_services:
     - service_ref: core.nomos/validator-engine

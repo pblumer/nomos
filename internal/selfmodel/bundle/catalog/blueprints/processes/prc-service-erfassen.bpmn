@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Def_ServiceErfassen" targetNamespace="https://nomos.local/bpmn">
+  <bpmn:collaboration id="Collab_ServiceErfassen">
+    <bpmn:participant id="Part_ServiceErfassen" name="Service erfassen" processRef="Process_ServiceErfassen"/>
+  </bpmn:collaboration>
+  <bpmn:process id="Process_ServiceErfassen" name="Service erfassen" isExecutable="false">
+    <bpmn:startEvent id="Start_CLI" name="CLI/MCP:&#10;service add">
+      <bpmn:outgoing>Flow_Start_Domain</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_DomainAuflösen" name="Domain&#10;auflösen">
+      <bpmn:incoming>Flow_Start_Domain</bpmn:incoming>
+      <bpmn:outgoing>Flow_Domain_Service</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_ServiceAnlegen" name="Service anlegen">
+      <bpmn:incoming>Flow_Domain_Service</bpmn:incoming>
+      <bpmn:outgoing>Flow_Service_Validate</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_Validieren" name="Cosmos validieren">
+      <bpmn:incoming>Flow_Service_Validate</bpmn:incoming>
+      <bpmn:outgoing>Flow_Validate_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="End_Erfolg" name="Service bereit">
+      <bpmn:incoming>Flow_Validate_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Start_Domain" sourceRef="Start_CLI" targetRef="Task_DomainAuflösen"/>
+    <bpmn:sequenceFlow id="Flow_Domain_Service" sourceRef="Task_DomainAuflösen" targetRef="Task_ServiceAnlegen"/>
+    <bpmn:sequenceFlow id="Flow_Service_Validate" sourceRef="Task_ServiceAnlegen" targetRef="Task_Validieren"/>
+    <bpmn:sequenceFlow id="Flow_Validate_End" sourceRef="Task_Validieren" targetRef="End_Erfolg"/>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_ServiceErfassen">
+    <bpmndi:BPMNPlane id="Plane_ServiceErfassen" bpmnElement="Collab_ServiceErfassen">
+      <bpmndi:BPMNShape id="Shape_Part" bpmnElement="Part_ServiceErfassen" isHorizontal="true">
+        <dc:Bounds x="100" y="50" width="950" height="200"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Start" bpmnElement="Start_CLI">
+        <dc:Bounds x="182" y="132" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="158" y="175" width="84" height="27"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_DomainAuflösen" bpmnElement="Task_DomainAuflösen">
+        <dc:Bounds x="270" y="110" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_ServiceAnlegen" bpmnElement="Task_ServiceAnlegen">
+        <dc:Bounds x="450" y="110" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Validieren" bpmnElement="Task_Validieren">
+        <dc:Bounds x="630" y="110" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End" bpmnElement="End_Erfolg">
+        <dc:Bounds x="812" y="132" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="794" y="175" width="72" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_Start_Domain" bpmnElement="Flow_Start_Domain">
+        <di:waypoint x="218" y="150"/><di:waypoint x="270" y="150"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Domain_Service" bpmnElement="Flow_Domain_Service">
+        <di:waypoint x="390" y="150"/><di:waypoint x="450" y="150"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Service_Validate" bpmnElement="Flow_Service_Validate">
+        <di:waypoint x="570" y="150"/><di:waypoint x="630" y="150"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Validate_End" bpmnElement="Flow_Validate_End">
+        <di:waypoint x="750" y="150"/><di:waypoint x="812" y="150"/>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

@@ -1,0 +1,87 @@
+id: prc-service-erfassen
+type: process
+name: Service erfassen
+version: "0.1.0"
+status: stable
+owner: Nomos Core Team
+summary: Registriert einen neuen Service in einer bestehenden Domain, löst die Domain auf und validiert den Cosmos.
+tags:
+  - core
+  - service
+  - setup
+related_product: nomos-core-engine
+participant:
+  name: Nomos Core Engine
+  ref: core.nomos/catalog-manager
+bpmn:
+  file: prc-service-erfassen.bpmn
+  process_id: Process_ServiceErfassen
+  primary: true
+steps:
+  - id: step-domain-auflösen
+    name: Domain auflösen
+    task_type: service_task
+    service_ref: core.nomos/uci-manager
+    capability_ref: cap-namespace-resolve
+    method: namespace_resolve
+    required: true
+    role: system
+    notes: Prüft ob die Ziel-Domain existiert und löst ihren Pfad auf.
+  - id: step-service-anlegen
+    name: Service anlegen
+    task_type: service_task
+    service_ref: core.nomos/catalog-manager
+    capability_ref: cap-service-lifecycle
+    method: service_add
+    required: true
+    role: system
+    depends_on:
+      - step-domain-auflösen
+    notes: Erstellt service.yaml und Verzeichnisstruktur unter der Domain.
+  - id: step-validieren
+    name: Cosmos validieren
+    task_type: service_task
+    service_ref: core.nomos/validator-engine
+    capability_ref: cap-validate-cosmos
+    method: validate
+    required: true
+    role: system
+    depends_on:
+      - step-service-anlegen
+task_mappings:
+  - bpmn_element_id: Task_DomainAuflösen
+    bpmn_element_type: serviceTask
+    task_name: Domain auflösen
+    service_ref: core.nomos/uci-manager
+    capability_ref: cap-namespace-resolve
+    method: namespace_resolve
+    required: true
+  - bpmn_element_id: Task_ServiceAnlegen
+    bpmn_element_type: serviceTask
+    task_name: Service anlegen
+    service_ref: core.nomos/catalog-manager
+    capability_ref: cap-service-lifecycle
+    method: service_add
+    required: true
+  - bpmn_element_id: Task_Validieren
+    bpmn_element_type: serviceTask
+    task_name: Cosmos validieren
+    service_ref: core.nomos/validator-engine
+    capability_ref: cap-validate-cosmos
+    method: validate
+    required: true
+triggers:
+  - bpmn_element_id: Start_CLI
+    type: message
+    name: CLI-Aufruf
+    description: "nomos service add <domain> <name>"
+    message:
+      event_ref: msg-cli-service-add
+      topic: cli
+  - bpmn_element_id: Start_CLI
+    type: message
+    name: MCP-Tool
+    description: nomos_service_add
+    message:
+      event_ref: msg-mcp-service-add
+      topic: mcp
