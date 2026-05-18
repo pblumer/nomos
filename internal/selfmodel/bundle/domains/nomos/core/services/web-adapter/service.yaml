@@ -1,0 +1,37 @@
+id: service-web-adapter
+type: service
+name: web-adapter
+version: "0.1.0"
+status: stable
+owner: Nomos Core Team
+owned_by: core.nomos
+operated_by:
+  - core.nomos
+summary: Eingebettete Web-UI (Cosmos Explorer, Domain Explorer, Blueprint Editor) — wird durch "nomos serve" bereitgestellt.
+capabilities:
+  - id: cap-cosmos-explorer
+    name: Cosmos Explorer
+    summary: Interaktive Baumansicht des gesamten Cosmos mit Namespace-Navigation.
+    stability: stable
+    side_effect: read_only
+    related_uci:
+      - cosmos-explorer
+    connectors:
+      - type: rest
+        method: GET
+        path: /cosmos
+        auth: none
+  - id: cap-domain-explorer
+    name: Domain Explorer
+    summary: Detailansicht einer Domain mit Services, Produkten und Prozessen.
+    stability: stable
+    side_effect: read_only
+    related_uci:
+      - domain-explorer
+  - id: cap-blueprint-editor
+    name: Blueprint Editor
+    summary: Formular-Editor für Product- und Service-Blueprints.
+    stability: beta
+    side_effect: mutates_workspace
+    related_uci:
+      - blueprint-editor

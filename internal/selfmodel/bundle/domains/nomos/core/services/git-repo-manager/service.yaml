@@ -1,0 +1,34 @@
+id: service-git-repo-manager
+type: service
+name: git-repo-manager
+version: "0.1.0"
+status: stable
+owner: Nomos Core Team
+owned_by: core.nomos
+operated_by:
+  - core.nomos
+summary: Verwaltet den Git-Repository-Workspace als versionierte Quelle der Wahrheit für alle Cosmos-Artefakte.
+capabilities:
+  - id: cap-cosmos-init
+    name: Cosmos initialisieren
+    summary: Legt einen neuen Cosmos-Workspace an, optional mit Git-Init und Self-Model-Import.
+    stability: stable
+    side_effect: mutates_git
+    connectors:
+      - type: cli
+        invocation: "nomos cosmos init"
+        args:
+          - name: path
+            positional: true
+            required: true
+          - name: git
+            flag: "--git"
+            required: false
+          - name: without-self
+            flag: "--without-self"
+            required: false
+        exit_codes:
+          - code: 0
+            meaning: ok
+          - code: 1
+            meaning: error

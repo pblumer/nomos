@@ -1,0 +1,70 @@
+id: service-rest-adapter
+type: service
+name: rest-adapter
+version: "0.1.0"
+status: stable
+owner: Nomos Core Team
+owned_by: core.nomos
+operated_by:
+  - core.nomos
+summary: HTTP/REST-Schnittstelle für alle Nomos-Operationen. Wird durch "nomos serve" gestartet.
+capabilities:
+  - id: cap-serve
+    name: Server starten
+    summary: Startet den integrierten HTTP-Server mit REST-API und Web-UI.
+    stability: stable
+    side_effect: network_egress
+    connectors:
+      - type: cli
+        invocation: "nomos serve"
+        args:
+          - name: path
+            flag: "--path"
+            required: false
+            default: "."
+          - name: listen
+            flag: "--listen"
+            required: false
+            default: "127.0.0.1:8080"
+  - id: cap-rest-domains
+    name: Domains API
+    summary: CRUD-Operationen auf Domains via REST.
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: rest
+        method: GET
+        path: /api/v1/domains
+        auth: none
+      - type: rest
+        method: POST
+        path: /api/v1/domains
+        auth: none
+  - id: cap-rest-services
+    name: Services API
+    summary: CRUD-Operationen auf Services und deren Methoden via REST.
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: rest
+        method: GET
+        path: /api/v1/domains/{domain}/services
+        auth: none
+      - type: rest
+        method: POST
+        path: /api/v1/domains/{domain}/services
+        auth: none
+  - id: cap-rest-decisions
+    name: Decisions API
+    summary: CRUD und DMN-Evaluation von Entscheidungstabellen via REST.
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: rest
+        method: GET
+        path: /api/v1/domains/{domain}/decisions
+        auth: none
+      - type: rest
+        method: POST
+        path: /api/v1/domains/{domain}/decisions/{id}/evaluate
+        auth: none

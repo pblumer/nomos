@@ -17,6 +17,7 @@ import (
 	"github.com/nomos/nomos/internal/app"
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/model"
+	"github.com/nomos/nomos/internal/selfmodel"
 	"github.com/nomos/nomos/internal/server"
 	"github.com/nomos/nomos/internal/storage"
 	versionpkg "github.com/nomos/nomos/internal/version"
@@ -26,7 +27,7 @@ import (
 func Execute() { _ = newRoot().Execute() }
 func newRoot() *cobra.Command {
 	root := &cobra.Command{Use: "nomos", Short: "Nomos Cosmos CLI", Long: "Nomos verwaltet lokale Cosmos Repositories."}
-	root.AddCommand(versionCmd(), cosmosCmd(), domainCmd(), serviceCmd(), blueprintCmd(), instanceCmd(), namespaceCmd(), validateCmd(), graphCmd(), verifyCmd(), serveCmd(), servicegraphCmd(), processCmd())
+	root.AddCommand(versionCmd(), cosmosCmd(), domainCmd(), serviceCmd(), blueprintCmd(), instanceCmd(), namespaceCmd(), validateCmd(), graphCmd(), verifyCmd(), serveCmd(), servicegraphCmd(), processCmd(), selfCmd())
 	return root
 }
 func versionCmd() *cobra.Command {
@@ -88,7 +89,7 @@ func appendGitignore(p string) error {
 
 func cosmosCmd() *cobra.Command {
 	c := &cobra.Command{Use: "cosmos"}
-	var force, git bool
+	var force, git, withoutSelf bool
 	init := &cobra.Command{Use: "init <path>", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		p := args[0]
 		if st, err := os.Stat(p); err == nil && st.IsDir() {
@@ -123,11 +124,18 @@ func cosmosCmd() *cobra.Command {
 				return fmt.Errorf("git init fehlgeschlagen: %w: %s", err, strings.TrimSpace(string(out)))
 			}
 		}
+		if !withoutSelf {
+			if err := selfmodel.Import(p, false); err != nil {
+				// Non-fatal: log but don't fail cosmos init.
+				fmt.Fprintf(cmd.ErrOrStderr(), "Warnung: Self-Model konnte nicht importiert werden: %v\n", err)
+			}
+		}
 		fmt.Fprintln(cmd.OutOrStdout(), "Cosmos wurde erstellt:", p)
 		return nil
 	}}
 	init.Flags().BoolVar(&force, "force", false, "")
 	init.Flags().BoolVar(&git, "git", false, "")
+	init.Flags().BoolVar(&withoutSelf, "without-self", false, "Self-Model-Bundle nicht importieren")
 	c.AddCommand(init)
 	info := &cobra.Command{Use: "info", RunE: func(cmd *cobra.Command, args []string) error {
 		p, _ := cmd.Flags().GetString("path")

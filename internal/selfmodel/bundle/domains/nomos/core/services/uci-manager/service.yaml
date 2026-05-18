@@ -1,0 +1,21 @@
+id: service-uci-manager
+type: service
+name: uci-manager
+version: "0.1.0"
+status: beta
+owner: Nomos Core Team
+owned_by: core.nomos
+operated_by:
+  - core.nomos
+summary: Verwaltet User Contact Interfaces (UCIs) — die definierten Einstiegspunkte für menschliche Interaktion mit Nomos-Funktionen.
+capabilities:
+  - id: cap-list-ucis
+    name: UCIs auflisten
+    summary: Gibt alle UCIs eines Cosmos zurück.
+    stability: beta
+    side_effect: read_only
+    connectors:
+      - type: rest
+        method: GET
+        path: /api/v1/uci
+        auth: none

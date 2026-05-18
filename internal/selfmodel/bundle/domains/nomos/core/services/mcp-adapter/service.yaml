@@ -1,0 +1,49 @@
+id: service-mcp-adapter
+type: service
+name: mcp-adapter
+version: "0.1.0"
+status: stable
+owner: Nomos Core Team
+owned_by: core.nomos
+operated_by:
+  - core.nomos
+summary: MCP-Server-Schnittstelle für KI-Agenten. Exponiert alle Nomos-Funktionen als MCP-Tools und -Ressourcen.
+capabilities:
+  - id: cap-mcp-serve
+    name: MCP Server starten
+    summary: Startet den MCP-Server (stdio oder HTTP) für KI-Agenten-Integration.
+    stability: stable
+    side_effect: network_egress
+    connectors:
+      - type: cli
+        invocation: "nomos mcp"
+        args:
+          - name: path
+            flag: "--path"
+            required: false
+            default: "."
+          - name: transport
+            flag: "--transport"
+            required: false
+            enum: [stdio, http]
+            default: stdio
+  - id: cap-mcp-validate
+    name: MCP Tool nomos.validate
+    summary: Validiert einen Cosmos-Workspace via MCP-Tool-Aufruf.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: mcp
+        tool: nomos.validate
+        kind: tool
+        idempotent: true
+  - id: cap-mcp-list-domains
+    name: MCP Tool nomos.list_domains
+    summary: Listet alle Domains eines Cosmos via MCP.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: mcp
+        tool: nomos.list_domains
+        kind: tool
+        idempotent: true
