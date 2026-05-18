@@ -70,5 +70,4 @@
     state: started
     daemon_reload: true
 
-- name: Configure Caddy reverse proxy
-  import_tasks: caddy.yml
+# Reverse proxy is handled by Traefik (Docker) on this host.

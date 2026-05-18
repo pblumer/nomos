@@ -153,3 +153,45 @@ capabilities:
       - type: rest
         method: GET
         path: /static/*
+  - id: cap-form-handlers
+    name: Formular-Handler
+    summary: Interne HTML-Formular-Submit-Endpoints für die Web-UI. Verarbeiten POST-Requests aus den Templates und leiten nach Verarbeitung per Redirect weiter. Kein öffentliches REST-Interface.
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: rest
+        method: POST
+        path: /
+        description: Dashboard-Formular (generischer Catch-all)
+      - type: rest
+        method: POST
+        path: /domains
+        description: Domain via Formular erstellen
+      - type: rest
+        method: POST
+        path: /services
+        description: Service via Formular erstellen
+      - type: rest
+        method: POST
+        path: /products/create
+        description: Produkt via Formular anlegen
+      - type: rest
+        method: POST
+        path: /products/move
+        description: Produkt in andere Domain verschieben
+      - type: rest
+        method: POST
+        path: /products/fulfillment
+        description: Fulfillment-Service hinzufügen
+      - type: rest
+        method: POST
+        path: /products/fulfillment/update
+        description: Fulfillment-Service aktualisieren
+      - type: rest
+        method: POST
+        path: /products/fulfillment/delete
+        description: Fulfillment-Service entfernen
+      - type: rest
+        method: POST
+        path: /verify
+        description: Domain-Verifizierung via Formular anstoßen
