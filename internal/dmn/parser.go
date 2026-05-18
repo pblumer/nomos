@@ -35,11 +35,11 @@ type OutputColumn struct {
 
 // RuleRow is one rule (row) in the decision table.
 type RuleRow struct {
-	ID           string
-	Description  string
-	InputEntries []string // raw FEEL unary-test text per input column
+	ID            string
+	Description   string
+	InputEntries  []string // raw FEEL unary-test text per input column
 	OutputEntries []string // raw FEEL expression text per output column
-	Annotation   string
+	Annotation    string
 }
 
 // ParseDMN parses a DMN 1.x XML document and returns the first decision table found.
@@ -153,8 +153,8 @@ type xmlDefinitions struct {
 }
 
 type xmlDecision struct {
-	ID            string          `xml:"id,attr"`
-	Name          string          `xml:"name,attr"`
+	ID            string            `xml:"id,attr"`
+	Name          string            `xml:"name,attr"`
 	DecisionTable *xmlDecisionTable `xml:"decisionTable"`
 }
 
@@ -187,11 +187,11 @@ type xmlOutput struct {
 }
 
 type xmlRule struct {
-	ID                string             `xml:"id,attr"`
-	Description       string             `xml:"description"`
-	InputEntries      []xmlEntry         `xml:"inputEntry"`
-	OutputEntries     []xmlEntry         `xml:"outputEntry"`
-	AnnotationEntries []xmlEntry         `xml:"annotationEntry"`
+	ID                string     `xml:"id,attr"`
+	Description       string     `xml:"description"`
+	InputEntries      []xmlEntry `xml:"inputEntry"`
+	OutputEntries     []xmlEntry `xml:"outputEntry"`
+	AnnotationEntries []xmlEntry `xml:"annotationEntry"`
 }
 
 type xmlEntry struct {

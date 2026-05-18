@@ -414,4 +414,3 @@ func (p *feelParser) readUntil(stop byte) (string, error) {
 func isIdentChar(c byte) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
-
