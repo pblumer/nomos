@@ -8,7 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
-        with: { go-version: '1.23.x' }
+        with: { go-version: '1.25.x' }
       - name: gofmt
         run: test -z "$(gofmt -l .)"
       - name: go vet
@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
-        with: { go-version: '1.23.x' }
+        with: { go-version: '1.25.x' }
       - name: Build nomos
         run: go build -o nomos-ci ./cmd/nomos
       - name: Validate demo cosmos
