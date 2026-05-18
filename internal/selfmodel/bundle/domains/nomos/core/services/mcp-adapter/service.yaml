@@ -79,6 +79,141 @@ methods:
         in: body
   - name: nomos_list_blueprints
     summary: "MCP-Tool: Alle Blueprints auflisten"
+  - name: nomos_domain_add
+    summary: "MCP-Tool (write): Domain erstellen"
+    parameters:
+      - name: dns
+        type: string
+        required: true
+        in: body
+      - name: owner
+        type: string
+        in: body
+  - name: nomos_service_add
+    summary: "MCP-Tool (write): Service in Domain erstellen"
+    parameters:
+      - name: domain
+        type: string
+        required: true
+        in: body
+      - name: name
+        type: string
+        required: true
+        in: body
+      - name: owner
+        type: string
+        in: body
+  - name: nomos_product_create
+    summary: "MCP-Tool (write): Produkt in Domain anlegen"
+    parameters:
+      - name: domain
+        type: string
+        required: true
+        in: body
+      - name: id
+        type: string
+        required: true
+        in: body
+      - name: name
+        type: string
+        required: true
+        in: body
+      - name: owner
+        type: string
+        in: body
+      - name: summary
+        type: string
+        in: body
+  - name: nomos_process_create
+    summary: "MCP-Tool (write): Prozess für Produkt anlegen"
+    parameters:
+      - name: product_id
+        type: string
+        required: true
+        in: body
+      - name: name
+        type: string
+        required: true
+        in: body
+      - name: summary
+        type: string
+        in: body
+  - name: nomos_process_step_add
+    summary: "MCP-Tool (write): Schritt zu Prozess hinzufügen"
+    parameters:
+      - name: process_id
+        type: string
+        required: true
+        in: body
+      - name: name
+        type: string
+        required: true
+        in: body
+      - name: service_ref
+        type: string
+        in: body
+      - name: capability_ref
+        type: string
+        in: body
+      - name: method
+        type: string
+        in: body
+      - name: task_type
+        type: enum[service_task,business_rule_task,user_task,manual_task,script_task]
+        in: body
+      - name: decision_ref
+        type: string
+        in: body
+      - name: role
+        type: string
+        in: body
+      - name: required
+        type: bool
+        in: body
+      - name: notes
+        type: string
+        in: body
+  - name: nomos_decision_create
+    summary: "MCP-Tool (write): Decision Table anlegen"
+    parameters:
+      - name: domain
+        type: string
+        required: true
+        in: body
+      - name: id
+        type: string
+        required: true
+        in: body
+      - name: name
+        type: string
+        required: true
+        in: body
+      - name: owner
+        type: string
+        in: body
+      - name: summary
+        type: string
+        in: body
+  - name: nomos_instance_create
+    summary: "MCP-Tool (write): Instanz aus Blueprint erstellen"
+    parameters:
+      - name: id
+        type: string
+        required: true
+        in: body
+      - name: blueprint_ref
+        type: string
+        required: true
+        in: body
+      - name: type
+        type: enum[product_instance,service_instance]
+        in: body
+      - name: name
+        type: string
+        in: body
+      - name: owner
+        type: string
+        in: body
 capabilities:
   - id: cap-mcp-stdio
     name: MCP Server stdio
@@ -201,3 +336,73 @@ capabilities:
         tool: nomos_list_blueprints
         kind: tool
         idempotent: true
+  - id: cap-tool-domain-add
+    name: MCP Tool nomos_domain_add
+    summary: Erstellt eine neue Top-Level-Domain im Cosmos (dns, owner).
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: mcp
+        tool: nomos_domain_add
+        kind: tool
+        idempotent: false
+  - id: cap-tool-service-add
+    name: MCP Tool nomos_service_add
+    summary: Erstellt einen neuen Service in einer bestehenden Domain (domain, name, owner).
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: mcp
+        tool: nomos_service_add
+        kind: tool
+        idempotent: false
+  - id: cap-tool-product-create
+    name: MCP Tool nomos_product_create
+    summary: Legt ein neues Produkt-Blueprint in einer Domain an (domain, id, name).
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: mcp
+        tool: nomos_product_create
+        kind: tool
+        idempotent: false
+  - id: cap-tool-process-create
+    name: MCP Tool nomos_process_create
+    summary: Erstellt einen BPMN-Prozess für ein bestehendes Produkt (product_id, name).
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: mcp
+        tool: nomos_process_create
+        kind: tool
+        idempotent: false
+  - id: cap-tool-process-step-add
+    name: MCP Tool nomos_process_step_add
+    summary: Fügt einem Prozess einen geordneten Schritt hinzu. Unterstützt service_task, business_rule_task und weitere BPMN-Task-Typen mit capability_ref und decision_ref.
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: mcp
+        tool: nomos_process_step_add
+        kind: tool
+        idempotent: false
+  - id: cap-tool-decision-create
+    name: MCP Tool nomos_decision_create
+    summary: Legt eine neue Decision Table (DMN) in einer Domain an (domain, id, name).
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: mcp
+        tool: nomos_decision_create
+        kind: tool
+        idempotent: false
+  - id: cap-tool-instance-create
+    name: MCP Tool nomos_instance_create
+    summary: Erstellt eine Produkt- oder Service-Instanz aus einem Blueprint (id, blueprint_ref, type).
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: mcp
+        tool: nomos_instance_create
+        kind: tool
+        idempotent: false

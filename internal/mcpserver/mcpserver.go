@@ -19,7 +19,7 @@ func New(cosmosPath string) *mcp.Server {
 		Name:    "nomos",
 		Version: version.Version,
 	}, &mcp.ServerOptions{
-		Instructions: "Nomos Cosmos-Workspace assistant. Use these tools to explore domains, services, decisions and validate the cosmos.",
+		Instructions: "Nomos Cosmos-Workspace assistant. Read tools: explore domains, services, decisions, blueprints, validate. Write tools: add domains/services, create products/processes/decisions/instances, add process steps with capability and decision references.",
 	})
 
 	mcp.AddTool(srv, &mcp.Tool{
@@ -66,6 +66,8 @@ func New(cosmosPath string) *mcp.Server {
 		Name:        "nomos_list_blueprints",
 		Description: "List all product and service blueprints in the cosmos catalog.",
 	}, toolListBlueprints(cosmosPath))
+
+	registerWriteTools(srv, cosmosPath)
 
 	return srv
 }
