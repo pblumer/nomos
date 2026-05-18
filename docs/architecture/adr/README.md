@@ -22,6 +22,7 @@ ADRs record significant architectural and technology decisions. Each ADR capture
 | [ADR-0012](ADR-0012-DRAFT-global-cosmos-index-service.md) | Globaler Cosmos-Index-Service (opt-in Crawler) | Draft |
 | [ADR-0013](ADR-0013-user-contact-interfaces.md) | User Contact Interfaces (UCI) als erstklassige Nomos-Artefakte | Draft |
 | [ADR-0014](ADR-0014-DRAFT-nomos-self-model-bundle.md) | Nomos-Selbstmodellierung als versioniertes Cosmos-Bundle (Nomos-as-Nomos) | Draft |
+| [ADR-0015](ADR-0015-default-http-port-7373.md) | Default-Port `7373` für `nomos serve` | Accepted |
 
 ## Superseded / legacy stubs
 
