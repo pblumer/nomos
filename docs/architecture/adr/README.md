@@ -20,6 +20,7 @@ ADRs record significant architectural and technology decisions. Each ADR capture
 | [ADR-0010](ADR-0010-DRAFT-well-known-endpoint-and-domain-proof.md) | Well-known-Endpoint-Spezifikation und Domain-Proof-Format | Draft |
 | [ADR-0011](ADR-0011-DRAFT-service-plugin-model-and-hot-reload.md) | Service-Plugin-Modell und Hot-Reload-Isolation | Draft |
 | [ADR-0012](ADR-0012-DRAFT-global-cosmos-index-service.md) | Globaler Cosmos-Index-Service (opt-in Crawler) | Draft |
+| [ADR-0013](ADR-0013-user-contact-interfaces.md) | User Contact Interfaces (UCI) als erstklassige Nomos-Artefakte | Draft |
 
 ## Superseded / legacy stubs
 
