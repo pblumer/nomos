@@ -1,4 +1,4 @@
-# ADR-0016 - Decision Traceability via inhaltsadressierte, hash-verkettete Trace-Artefakte
+# ADR-0017 - Decision Traceability via inhaltsadressierte, hash-verkettete Trace-Artefakte
 
 ## Status
 
