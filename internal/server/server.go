@@ -366,6 +366,19 @@ func (h *handler) apiDomainDecisionByID(w http.ResponseWriter, r *http.Request, 
 		h.apiDomainDecisionTraces(w, r, domain, id, tail[1:])
 		return
 	}
+	if len(tail) == 1 && tail[0] == "definitions" {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		defs, err := app.GetDecisionDefinitions(h.cosmosPath, domain, id)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, defs)
+		return
+	}
 	if len(tail) == 1 && tail[0] == "dmn" {
 		switch r.Method {
 		case http.MethodGet:

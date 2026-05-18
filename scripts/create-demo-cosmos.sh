@@ -404,6 +404,142 @@ methods:
 summary: Processes payments and refunds for orders.
 YAML
 
+echo "==> Decisions"
+
+# Place a DMN-backed decision under the governance domain. The Cosmos
+# Explorer renders it under com/blumer/governance/decisions/ and opens it
+# inside the dmn-js editor when clicked.
+mkdir -p "$COSMOS_PATH/.nomos/domains/com/blumer/governance/decisions/DEC-PROVISIONING-001"
+cat <<'YAML' > "$COSMOS_PATH/.nomos/domains/com/blumer/governance/decisions/DEC-PROVISIONING-001/decision.yaml"
+id: DEC-PROVISIONING-001
+type: decision
+name: Provisioning Eligibility
+number: DEC-001
+version: 0.1.0
+status: active
+owner: Governance Team
+summary: Decides whether an employee account may be auto-provisioned given employment status and risk band.
+context: Drives the business-rule gateway in the user-account provisioning process.
+dmn_file: decision.dmn
+inputs:
+  - name: employmentStatus
+    type: string
+    description: HR status; one of "active", "onLeave", "terminated".
+  - name: riskScore
+    type: number
+    description: 0..100 risk score from compliance system.
+outputs:
+  - name: canProvision
+    type: boolean
+    description: True when account provisioning may proceed automatically.
+YAML
+
+cat <<'DMN' > "$COSMOS_PATH/.nomos/domains/com/blumer/governance/decisions/DEC-PROVISIONING-001/decision.dmn"
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20240513/MODEL/"
+             xmlns:dmndi="https://www.omg.org/spec/DMN/20230324/DMNDI/"
+             xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/"
+             xmlns:di="http://www.omg.org/spec/DMN/20180521/DI/"
+             id="Definitions_ProvisioningEligibility"
+             name="Provisioning Eligibility"
+             namespace="https://nomos.local/dmn/provisioning-eligibility"
+             exporter="Nomos" exporterVersion="0.1.0">
+  <itemDefinition id="ItemDef_EmploymentStatus" name="EmploymentStatus" isCollection="false">
+    <typeRef>string</typeRef>
+    <allowedValues><text>"active","onLeave","terminated"</text></allowedValues>
+  </itemDefinition>
+  <inputData id="InputData_Status" name="employmentStatus">
+    <variable id="Var_Status" name="employmentStatus" typeRef="string"/>
+  </inputData>
+  <inputData id="InputData_Risk" name="riskScore">
+    <variable id="Var_Risk" name="riskScore" typeRef="number"/>
+  </inputData>
+  <knowledgeSource id="KS_HRPolicy" name="HR Provisioning Policy">
+    <type>policy</type>
+    <locationURI>https://policies.example.com/hr/provisioning</locationURI>
+  </knowledgeSource>
+  <businessKnowledgeModel id="BKM_RiskBand" name="riskBand">
+    <variable id="Var_RiskBand" name="riskBand" typeRef="string"/>
+    <encapsulatedLogic>
+      <formalParameter id="P_Score" name="score" typeRef="number"/>
+      <literalExpression id="LE_RiskBand"><text>if score &lt; 30 then "low" else if score &lt; 70 then "medium" else "high"</text></literalExpression>
+    </encapsulatedLogic>
+  </businessKnowledgeModel>
+  <decision id="Decision_Eligibility" name="Provisioning Eligibility">
+    <question>Should this employee be auto-provisioned?</question>
+    <allowedAnswers>true, false</allowedAnswers>
+    <variable id="Var_Eligibility" name="canProvision" typeRef="boolean"/>
+    <informationRequirement id="IR_Status"><requiredInput href="#InputData_Status"/></informationRequirement>
+    <informationRequirement id="IR_Risk"><requiredInput href="#InputData_Risk"/></informationRequirement>
+    <knowledgeRequirement id="KR_RiskBand"><requiredKnowledge href="#BKM_RiskBand"/></knowledgeRequirement>
+    <authorityRequirement id="AR_Policy"><requiredAuthority href="#KS_HRPolicy"/></authorityRequirement>
+    <decisionTable id="DT_Eligibility" hitPolicy="FIRST" outputLabel="canProvision">
+      <input id="In_Status" label="employmentStatus">
+        <inputExpression id="IE_Status" typeRef="string"><text>employmentStatus</text></inputExpression>
+      </input>
+      <input id="In_Risk" label="riskBand">
+        <inputExpression id="IE_Risk" typeRef="string"><text>riskBand(riskScore)</text></inputExpression>
+      </input>
+      <output id="Out_Decision" name="canProvision" typeRef="boolean"/>
+      <annotation name="rationale"/>
+      <rule id="Rule_Terminated">
+        <inputEntry id="IE_R1_1"><text>"terminated"</text></inputEntry>
+        <inputEntry id="IE_R1_2"><text>-</text></inputEntry>
+        <outputEntry id="OE_R1_1"><text>false</text></outputEntry>
+        <annotationEntry><text>Terminated employees are never auto-provisioned</text></annotationEntry>
+      </rule>
+      <rule id="Rule_HighRisk">
+        <inputEntry id="IE_R2_1"><text>"active","onLeave"</text></inputEntry>
+        <inputEntry id="IE_R2_2"><text>"high"</text></inputEntry>
+        <outputEntry id="OE_R2_1"><text>false</text></outputEntry>
+        <annotationEntry><text>High-risk cases require manual approval</text></annotationEntry>
+      </rule>
+      <rule id="Rule_Standard">
+        <inputEntry id="IE_R3_1"><text>"active","onLeave"</text></inputEntry>
+        <inputEntry id="IE_R3_2"><text>"low","medium"</text></inputEntry>
+        <outputEntry id="OE_R3_1"><text>true</text></outputEntry>
+        <annotationEntry><text>Standard auto-provisioning path</text></annotationEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <dmndi:DMNDI>
+    <dmndi:DMNDiagram id="DMNDiagram_Provisioning">
+      <dmndi:DMNShape id="Shape_Decision_Eligibility" dmnElementRef="Decision_Eligibility">
+        <dc:Bounds x="360" y="80" width="180" height="80"/>
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="Shape_BKM_RiskBand" dmnElementRef="BKM_RiskBand">
+        <dc:Bounds x="560" y="240" width="160" height="46"/>
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="Shape_InputData_Status" dmnElementRef="InputData_Status">
+        <dc:Bounds x="200" y="240" width="125" height="45"/>
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="Shape_InputData_Risk" dmnElementRef="InputData_Risk">
+        <dc:Bounds x="380" y="240" width="125" height="45"/>
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="Shape_KS_HRPolicy" dmnElementRef="KS_HRPolicy">
+        <dc:Bounds x="160" y="80" width="140" height="56"/>
+      </dmndi:DMNShape>
+      <dmndi:DMNEdge id="Edge_IR_Status" dmnElementRef="IR_Status">
+        <di:waypoint x="262" y="240"/>
+        <di:waypoint x="430" y="160"/>
+      </dmndi:DMNEdge>
+      <dmndi:DMNEdge id="Edge_IR_Risk" dmnElementRef="IR_Risk">
+        <di:waypoint x="442" y="240"/>
+        <di:waypoint x="460" y="160"/>
+      </dmndi:DMNEdge>
+      <dmndi:DMNEdge id="Edge_KR_RiskBand" dmnElementRef="KR_RiskBand">
+        <di:waypoint x="640" y="240"/>
+        <di:waypoint x="520" y="160"/>
+      </dmndi:DMNEdge>
+      <dmndi:DMNEdge id="Edge_AR_Policy" dmnElementRef="AR_Policy">
+        <di:waypoint x="230" y="136"/>
+        <di:waypoint x="380" y="120"/>
+      </dmndi:DMNEdge>
+    </dmndi:DMNDiagram>
+  </dmndi:DMNDI>
+</definitions>
+DMN
+
 echo ""
 echo "==> Cosmos Info"
 "$NOMOS_BIN" cosmos info --path "$COSMOS_PATH"

@@ -250,6 +250,38 @@ func decisionIOsFromDTO(dtos []DecisionIODTO) []model.DecisionIO {
 	return out
 }
 
+// GetDecisionDefinitions parses the DMN file backing the decision and returns
+// the full DMN 1.5 Decision Requirements Graph as Nomos types. Used by the
+// Cosmos Explorer to render decision metadata around the dmn-js editor.
+func GetDecisionDefinitions(path, domainCanonical, id string) (*model.DMNDefinitions, error) {
+	d, err := findDomainNode(path, domainCanonical)
+	if err != nil {
+		return nil, err
+	}
+	nodes, err := cosmosfs.ScanDecisions(d.Path)
+	if err != nil {
+		return nil, err
+	}
+	for _, n := range nodes {
+		if n.Metadata.ID != id {
+			continue
+		}
+		if n.DMNPath == "" {
+			return nil, Error(CodeInvalidInput, "No DMN file for decision: "+id, http.StatusNotFound, nil)
+		}
+		data, err := os.ReadFile(n.DMNPath)
+		if err != nil {
+			return nil, err
+		}
+		defs, err := dmn.ParseDefinitions(data)
+		if err != nil {
+			return nil, Error(CodeInvalidInput, "DMN parse error: "+err.Error(), http.StatusUnprocessableEntity, err)
+		}
+		return defs, nil
+	}
+	return nil, Error(CodeInvalidInput, "Decision not found: "+id, http.StatusNotFound, nil)
+}
+
 // EvaluateDecisionRequest holds the input map for a decision evaluation.
 type EvaluateDecisionRequest struct {
 	Inputs map[string]any `json:"inputs"`

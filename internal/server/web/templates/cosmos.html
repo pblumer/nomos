@@ -20,6 +20,15 @@
 <link rel="stylesheet" href="/static/vendor/bpmn-js/assets/diagram-js.css">
 <link rel="stylesheet" href="/static/vendor/bpmn-js/assets/bpmn-js.css">
 <link rel="stylesheet" href="/static/vendor/bpmn-js/assets/bpmn-font/css/bpmn-embedded.css">
+<link rel="stylesheet" href="/static/vendor/dmn-js/assets/diagram-js.css">
+<link rel="stylesheet" href="/static/vendor/dmn-js/assets/dmn-js-shared.css">
+<link rel="stylesheet" href="/static/vendor/dmn-js/assets/dmn-js-drd.css">
+<link rel="stylesheet" href="/static/vendor/dmn-js/assets/dmn-js-decision-table.css">
+<link rel="stylesheet" href="/static/vendor/dmn-js/assets/dmn-js-decision-table-controls.css">
+<link rel="stylesheet" href="/static/vendor/dmn-js/assets/dmn-js-literal-expression.css">
+<link rel="stylesheet" href="/static/vendor/dmn-js/assets/dmn-js-boxed-expression.css">
+<link rel="stylesheet" href="/static/vendor/dmn-js/assets/dmn-js-boxed-expression-controls.css">
+<link rel="stylesheet" href="/static/vendor/dmn-js/assets/dmn-font/css/dmn-embedded.css">
 <style>
 :root{--cosmos-tree-width:minmax(200px,24vw)}
 /* Cosmos needs the full desktop canvas; the global app shell caps normal pages at 1200px. */
@@ -181,6 +190,19 @@
 .proc-tab.active{color:#1d4ed8;border-bottom-color:#1d4ed8;background:transparent}
 .proc-tab-new{color:#2563eb!important;font-style:italic}.bpmn-canvas{height:280px;border:1px solid #dbeafe;border-radius:14px;background:#fff;overflow:hidden;margin-bottom:.75rem}.bpmn-canvas.auto-height{height:auto;min-height:0}.bpmn-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:.3rem}.bpmn-fs-btn{font-size:.72rem;padding:2px 8px;border:1px solid #dbeafe;border-radius:6px;background:#f0f9ff;color:#0369a1;cursor:pointer;transition:background .1s}.bpmn-fs-btn:hover{background:#dbeafe}.bpmn-dialog{width:min(1180px,94vw);height:min(780px,88vh);border:0;border-radius:18px;padding:0;box-shadow:0 24px 80px rgba(15,23,42,.32);overflow:hidden}.bpmn-dialog::backdrop{background:rgba(15,23,42,.58);backdrop-filter:blur(4px)}.bpmn-dialog-shell{height:100%;display:flex;flex-direction:column;background:#fff}.bpmn-dialog-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.85rem 1rem;border-bottom:1px solid #e2e8f0;background:#f8fafc}.bpmn-dialog-title{font-weight:800;color:#0f172a;font-size:.95rem}.bpmn-dialog-subtitle{color:#64748b;font-size:.75rem;margin-top:.1rem}.bpmn-dialog-close{background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:.35rem .85rem;cursor:pointer;font-weight:700;font-size:.85rem;color:#334155}.bpmn-dialog-close:hover{background:#f1f5f9}.bpmn-dialog-canvas{flex:1;min-height:0;background:#fff;overflow:hidden}.bpmn-dialog-note{padding:.45rem .75rem;border-top:1px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:.72rem}.bpmn-dialog-actions{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}.bpmn-editor-dialog .bpmn-dialog-shell{min-height:0}.bpmn-editor-dialog .bpmn-dialog-canvas{position:relative}.bpmn-dialog-body{display:flex;flex:1;min-height:0}.bpmn-dialog-side{width:300px;border-left:1px solid #e2e8f0;background:#f8fafc;overflow-y:auto;padding:.75rem;flex-shrink:0}.bpmn-dialog-side-title{font-size:.78rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.5rem}.bpmn-editor-status{margin-right:auto;color:#64748b;font-size:.75rem}.bpmn-save-btn{background:#4f46e5;color:#fff;border:1px solid #4338ca;border-radius:8px;padding:.35rem .85rem;cursor:pointer;font-weight:800;font-size:.85rem}.bpmn-save-btn:hover{background:#4338ca}.bpmn-save-btn[disabled]{opacity:.55;cursor:not-allowed}.bpmn-inline-status{font-size:.71rem;color:#64748b;margin-right:.1rem}.bpmn-canvas.palette-hidden .djs-palette{display:none!important}.bpmn-palette-btn{font-size:.72rem;padding:2px 8px;border:1px solid #dbeafe;border-radius:6px;background:#f0f9ff;color:#0369a1;cursor:pointer;transition:background .1s}.bpmn-palette-btn:hover,.bpmn-palette-btn.active{background:#dbeafe}.bpmn-cancel-btn{background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:.35rem .85rem;cursor:pointer;font-weight:700;font-size:.85rem;color:#334155}.bpmn-cancel-btn:hover{background:#f1f5f9}.task-fallback{display:flex;flex-direction:column;gap:.25rem;padding:.5rem 0}.task-fallback-row{display:flex;align-items:center;gap:.5rem;padding:.35rem .5rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;cursor:default}.task-fallback-row:hover{border-color:#c7d2fe;background:#f5f3ff}.tfr-name{font-size:.79rem;font-weight:600;color:#0f172a;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tfr-id{font-size:.67rem;color:#94a3b8;font-family:ui-monospace,monospace;flex-shrink:0}.tfr-status{font-size:.67rem;padding:1px 6px;border-radius:4px;flex-shrink:0}.tfr-mapped{background:#d1fae5;color:#065f46}.tfr-unmapped{background:#fef3c7;color:#92400e}.pflow-2col{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}.bpmn-editor{width:100%;min-height:300px;border:1px solid #cbd5e1;border-radius:10px;font-family:ui-monospace,monospace;font-size:.78rem}.mapping-list{display:grid;gap:.45rem}.mapping-row{display:grid;grid-template-columns:minmax(150px,1fr) minmax(190px,1fr) 110px 95px auto;gap:.45rem;align-items:center;border:1px solid #e2e8f0;border-radius:10px;padding:.45rem;background:#fff}.mapping-row select{min-width:0;border:1px solid #cbd5e1;border-radius:7px;padding:.35rem}.data-table{max-width:100%}.prod-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.65rem;margin-bottom:1rem}.prod-stat{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:.65rem .75rem;text-align:center}.prod-stat-val{font-size:1.45rem;font-weight:800;color:#1d4ed8;line-height:1.1}.prod-stat-val.warn{color:#d97706}.prod-stat-lbl{font-size:.71rem;color:#64748b;font-weight:600;margin-top:.2rem}.svc-desc{font-size:.82rem;color:#64748b;margin:.3rem 0 0}.overview-section{display:flex;flex-direction:column;gap:.85rem}.process-toolbar-editor{align-items:center;justify-content:space-between;margin-bottom:.75rem}.process-mode-badge{background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;border-radius:999px;padding:.18rem .55rem;font-size:.72rem;font-weight:800}.process-editor-workbench{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:.85rem;align-items:start}.process-canvas-panel,.process-side-editor{border:1px solid #e2e8f0;border-radius:16px;background:#fff;padding:.85rem;box-shadow:0 10px 30px rgba(15,23,42,.04)}.process-side-editor{position:sticky;top:.75rem;display:flex;flex-direction:column;gap:.85rem;max-height:calc(100vh - 11rem);overflow:auto}.side-editor-section{display:flex;flex-direction:column;gap:.45rem}.side-editor-title{font-size:.78rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.04em}.bpmn-canvas-primary{height:430px;margin:.45rem 0 .4rem}.proc-standalone-workbench{display:flex;height:calc(100vh - 11rem);gap:0;overflow:hidden}.proc-bpmn-section{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;gap:.3rem}.proc-bpmn-canvas-fill{flex:1;min-height:0;height:auto!important;margin:0!important}.proc-resize-handle{width:6px;background:#e8eef6;cursor:col-resize;border-radius:3px;margin:0 3px;flex-shrink:0;display:none;transition:background .12s;position:relative}.proc-resize-handle:hover,.proc-resize-handle.dragging{background:#c7d2fe}.proc-resize-handle::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:2px;height:24px;background:#b0bde8;border-radius:1px}.proc-standalone-workbench.has-selection .proc-resize-handle{display:block}.proc-standalone-side{width:320px;min-width:180px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:14px;background:#fff;padding:.75rem;flex-shrink:0;box-sizing:border-box}.bpmn-toolbar-title{font-size:.85rem;font-weight:800;color:#0f172a}.bpmn-toolbar-count{margin-left:.45rem;background:#f1f5f9;color:#475569;border-radius:999px;padding:.08rem .45rem;font-size:.7rem;font-weight:700}.bpmn-editor-hint{font-size:.78rem;color:#64748b;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;padding:.45rem .6rem}.compact-step-drawer{margin-top:.85rem;border:1px solid #e2e8f0;border-radius:14px;background:#fff;padding:.65rem .8rem}.compact-step-drawer>summary{cursor:pointer;font-weight:800;color:#334155}.compact-step-drawer>summary span{background:#eef2ff;color:#4338ca;border-radius:6px;padding:0 6px;font-size:.72rem;margin-left:.3rem}.step-list.compact{margin-top:.65rem}.pfc-edit{background:none;border:none;cursor:pointer;color:#94a3b8;padding:0 .1rem;font-size:.82rem;line-height:1}.pfc-edit:hover{color:#4f46e5}.bpmn-detail-actions{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.7rem}.mapping-summary{margin-top:.65rem}.mapping-summary>summary{cursor:pointer;font-size:.78rem;font-weight:800;color:#475569}@media(max-width:1100px){.process-editor-workbench{grid-template-columns:1fr}.process-side-editor{position:static;max-height:none}.bpmn-canvas-primary{height:340px}.proc-standalone-workbench{flex-direction:column;height:auto}.proc-standalone-workbench.has-selection .proc-resize-handle{display:none}.proc-standalone-side{width:100%!important;min-width:0}}
 @media(max-width:900px){.product-hero{display:block}.product-actions{margin-top:.75rem}.mapping-row{grid-template-columns:1fr}.bpmn-canvas{height:240px}}
+.dmn-canvas{height:520px;border:1px solid #dbeafe;border-radius:14px;background:#fff;overflow:hidden;margin:.45rem 0 .4rem;position:relative}
+.dmn-canvas .dmn-js-parent{height:100%}
+.dmn-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:.3rem;gap:.5rem;flex-wrap:wrap}
+.dmn-toolbar-title{font-size:.85rem;font-weight:800;color:#0f172a}
+.dmn-toolbar-count{margin-left:.45rem;background:#f1f5f9;color:#475569;border-radius:999px;padding:.08rem .45rem;font-size:.7rem;font-weight:700}
+.dmn-drg-card{border:1px solid #e2e8f0;border-radius:14px;padding:.65rem .8rem;background:#fff;margin-top:.6rem}
+.dmn-drg-card h5{margin:0 0 .35rem;font-size:.78rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.04em}
+.dmn-drg-list{display:flex;flex-wrap:wrap;gap:.3rem;font-size:.78rem}
+.dmn-drg-chip{background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:7px;padding:.18rem .5rem}
+.dmn-drg-chip.input-data{background:#ecfeff;color:#155e75;border-color:#a5f3fc}
+.dmn-drg-chip.bkm{background:#fef3c7;color:#92400e;border-color:#fde68a}
+.dmn-drg-chip.ks{background:#f3e8ff;color:#6b21a8;border-color:#e9d5ff}
+.dmn-drg-chip.ds{background:#dcfce7;color:#166534;border-color:#bbf7d0}
 .bpmn-map-dot{display:inline-block;width:14px;height:14px;border-radius:999px;border:2px solid #fff;box-shadow:0 1px 4px rgba(15,23,42,.25)}.bpmn-map-dot.mapped{background:#10b981}.bpmn-map-dot.unmapped{background:#f59e0b}
 .bpmn-detail-panel{border:1px solid #dbeafe;border-radius:12px;background:#f8fbff;padding:.75rem;margin:.6rem 0 .8rem}.bpmn-detail-panel.is-empty{color:#64748b;font-size:.82rem;background:#f8fafc;border-style:dashed}.bpmn-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;margin-bottom:.55rem}.bpmn-detail-title{font-weight:800;color:#0f172a;font-size:.92rem}.bpmn-detail-subtitle{font-size:.74rem;color:#64748b;margin-top:.1rem}.bpmn-detail-grid{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:.3rem .75rem;font-size:.78rem}.bpmn-detail-grid dt{color:#64748b;font-weight:700}.bpmn-detail-grid dd{margin:0;min-width:0;word-break:break-word}.bpmn-detail-section{margin-top:.6rem}.bpmn-detail-section h5{margin:0 0 .3rem;font-size:.75rem;color:#475569}.bpmn-detail-chips{display:flex;flex-wrap:wrap;gap:.25rem}.bpmn-detail-code{font-family:ui-monospace,monospace;background:#eef2ff;color:#3730a3;border-radius:5px;padding:1px 5px}.bpmn-canvas .djs-shape.bpmn-selected .djs-visual>:not(text){stroke:#4f46e5!important;stroke-width:2px!important;filter:drop-shadow(0 0 2px rgba(79,70,229,.22))}.bpmn-canvas .djs-shape.bpmn-selected text,.bpmn-canvas .djs-shape.bpmn-selected .djs-label{stroke:none!important;fill:#0f172a!important}.bpmn-canvas .djs-shape{cursor:pointer}.task-fallback-row.is-selected{border-color:#6366f1;background:#eef2ff;box-shadow:inset 3px 0 0 #6366f1}
 .tp-panel{display:flex;flex-direction:column;gap:0}.tp-tabs{display:flex;border-bottom:2px solid #e2e8f0;margin-bottom:.65rem}.tp-tab{flex:1;padding:.4rem .5rem;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;font-size:.78rem;font-weight:700;color:#64748b;transition:color .1s}.tp-tab.active{color:#4338ca;border-bottom-color:#4338ca}.tp-tab-panel.hidden{display:none}.tp-header{display:flex;align-items:center;gap:.6rem;padding:.3rem 0 .65rem;border-bottom:1px solid #e2e8f0;margin-bottom:.6rem}.tp-type-icon{width:38px;height:38px;border-radius:10px;background:#eef2ff;color:#4338ca;display:grid;place-items:center;flex-shrink:0}.tp-type-label{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:.1rem}.tp-name-display{font-size:.9rem;font-weight:700;color:#0f172a;word-break:break-word;line-height:1.2}.tp-section{border:1px solid #e2e8f0;border-radius:9px;overflow:hidden;margin-bottom:.4rem}.tp-section-head{display:flex;align-items:center;justify-content:space-between;padding:.38rem .6rem;background:#f8fafc;cursor:pointer;user-select:none;font-size:.73rem;font-weight:800;color:#334155}.tp-section-head:hover{background:#f1f5f9}.tp-section-arrow{font-style:normal;font-size:.7rem;color:#94a3b8}.tp-section-body{padding:.5rem .6rem;display:flex;flex-direction:column;gap:.4rem;border-top:1px solid #f1f5f9}.tp-field{display:flex;flex-direction:column;gap:.18rem}.tp-label{font-size:.71rem;font-weight:700;color:#64748b}.tp-input{border:1px solid #cbd5e1;border-radius:6px;padding:.3rem .45rem;font-size:.79rem;width:100%;box-sizing:border-box;font-family:inherit;resize:vertical;background:#fff;color:#0f172a;line-height:1.4}.tp-input:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.15)}.tp-input[readonly]{background:#f8fafc;color:#64748b;cursor:default}.tp-input-code{font-family:ui-monospace,monospace;font-size:.74rem;background:#f1f5f9;border-color:#e2e8f0;color:#475569}.tp-select{border:1px solid #cbd5e1;border-radius:6px;padding:.3rem .4rem;font-size:.78rem;background:#fff;cursor:pointer;width:100%;color:#0f172a}.tp-select:focus{outline:none;border-color:#6366f1}.tp-check-row{display:flex;align-items:center;gap:.35rem;font-size:.78rem;color:#475569;cursor:pointer}.tp-actions{padding:.6rem 0 .1rem;display:flex;gap:.5rem;align-items:center}.tp-save-btn{background:#4f46e5;color:#fff;border:none;border-radius:7px;padding:.38rem .9rem;font-size:.8rem;font-weight:800;cursor:pointer;flex-shrink:0}.tp-save-btn:hover{background:#4338ca}.tp-save-btn:disabled{opacity:.55;cursor:not-allowed}.tp-status{font-size:.72rem;color:#64748b;flex:1}.tp-status.ok{color:#059669}.tp-status.err{color:#dc2626}
@@ -420,6 +442,8 @@
 <script>window.NomosBpmnViewerJS=window.BpmnJS;</script>
 <script src="/static/vendor/bpmn-js/bpmn-modeler.production.min.js"></script>
 <script>window.NomosBpmnModelerJS=window.BpmnJS;</script>
+<script src="/static/vendor/dmn-js/dmn-modeler.production.min.js"></script>
+<script>window.NomosDmnModelerJS=window.DmnJS;</script>
 <script>
 (function(){
 'use strict';
@@ -556,7 +580,7 @@ function doAddBlueprint(row){openModal('Blueprint hinzufuegen',`<div class="nfie
 function getNamespacePath(row){const parts=[];let li=row.closest('.cn');while(li){const r=li.querySelector(':scope > .cn-row');if(!r)break;const k=r.dataset.kind;if(k==='namespace'||k==='domain')parts.unshift(r.querySelector('.cn-label')?.textContent.trim()||'');else break;li=li.parentElement?.closest('.cn');}return parts[0]||'';}
 
 const detail=$('detail-panel');
-function iconDiv(kind){const icons={domain:'dns',service:'settings',blueprint:'assignment',cosmos:'account_tree',namespace:'public'};return `<div class="detail-kind-icon icon-${kind}">${icons[kind]||'folder'}</div>`;}
+function iconDiv(kind){const icons={domain:'dns',service:'settings',blueprint:'assignment',cosmos:'account_tree',namespace:'public',decision:'rule'};return `<div class="detail-kind-icon icon-${kind}">${icons[kind]||'folder'}</div>`;}
 
 async function loadDetail(row){const kind=row.dataset.kind,id=row.dataset.id,canonical=row.dataset.canonical;
   if(kind==='cosmos'){detail.innerHTML=cosmosDetail();return;}
@@ -591,6 +615,10 @@ async function loadDetail(row){const kind=row.dataset.kind,id=row.dataset.id,can
       detail.innerHTML=attrDetail(attr,bp);
       detail.querySelector('#det-goto-bp')?.addEventListener('click',()=>{const bpRow=Array.from(tree.querySelectorAll('.cn-row[data-kind="blueprint"]')).find(r=>r.dataset.id===bpId||r.dataset.canonical===bpId);if(bpRow){expandToRow(bpRow);bpRow.classList.add('selected');loadDetail(bpRow);}});
     }catch(err){detail.innerHTML=`<div style="padding:1rem"><div class="nerror show">${esc(err.message)}</div></div>`;}
+    return;
+  }
+  if(kind==='decision'){
+    await loadDecisionExplorerDetail(row);
     return;
   }
   if(kind==='service-method'){
@@ -1213,6 +1241,146 @@ async function initBPMNStandalone(container,proc){
   // Drag service-method from tree → create BPMN serviceTask
   if(modeler){wireBPMNMethodDrop(canvas,modeler,proc);}
 }
+// -----------------------------------------------------------------------
+// DMN Decision detail panel + dmn-js editor integration
+// -----------------------------------------------------------------------
+function dmnSeedXML(dec){
+  const ns='https://nomos.local/dmn/'+(dec.id||'decision');
+  const safeId=(dec.id||'decision').replace(/[^A-Za-z0-9_-]/g,'_');
+  const decName=esc(dec.name||dec.id||'Decision');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20240513/MODEL/" xmlns:dmndi="https://www.omg.org/spec/DMN/20230324/DMNDI/" xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/" xmlns:di="http://www.omg.org/spec/DMN/20180521/DI/" id="Definitions_${safeId}" name="${decName}" namespace="${ns}">
+  <decision id="Decision_${safeId}" name="${decName}">
+    <variable id="Var_${safeId}" name="result" typeRef="string"/>
+    <decisionTable id="DT_${safeId}" hitPolicy="UNIQUE">
+      <input id="In_${safeId}_1" label="input"><inputExpression id="IE_${safeId}_1" typeRef="string"><text>input</text></inputExpression></input>
+      <output id="Out_${safeId}_1" name="result" typeRef="string"/>
+      <rule id="Rule_${safeId}_1"><inputEntry id="IE_R1"><text>-</text></inputEntry><outputEntry id="OE_R1"><text>"default"</text></outputEntry></rule>
+    </decisionTable>
+  </decision>
+  <dmndi:DMNDI>
+    <dmndi:DMNDiagram id="DMNDiagram_${safeId}">
+      <dmndi:DMNShape id="Shape_Decision_${safeId}" dmnElementRef="Decision_${safeId}">
+        <dc:Bounds x="240" y="120" width="180" height="80"/>
+      </dmndi:DMNShape>
+    </dmndi:DMNDiagram>
+  </dmndi:DMNDI>
+</definitions>`;
+}
+
+function decisionDRGSummary(defs){
+  if(!defs)return '';
+  const parts=[];
+  const chip=(label,kind,extra='')=>`<span class="dmn-drg-chip ${kind}" title="${esc(extra||'')}">${esc(label)}</span>`;
+  if(defs.input_data?.length)parts.push(`<div class="dmn-drg-card"><h5>Input Data (${defs.input_data.length})</h5><div class="dmn-drg-list">${defs.input_data.map(x=>chip(x.name+(x.variable?.type_ref?' : '+x.variable.type_ref:''),'input-data',x.description||'')).join('')}</div></div>`);
+  if(defs.decisions?.length)parts.push(`<div class="dmn-drg-card"><h5>Decisions (${defs.decisions.length})</h5><div class="dmn-drg-list">${defs.decisions.map(d=>chip(d.name+(d.logic?.kind?' · '+d.logic.kind:''),'',d.question||d.description||'')).join('')}</div></div>`);
+  if(defs.business_knowledge_models?.length)parts.push(`<div class="dmn-drg-card"><h5>Business Knowledge Models (${defs.business_knowledge_models.length})</h5><div class="dmn-drg-list">${defs.business_knowledge_models.map(b=>chip(b.name,'bkm',b.description||'')).join('')}</div></div>`);
+  if(defs.knowledge_sources?.length)parts.push(`<div class="dmn-drg-card"><h5>Knowledge Sources (${defs.knowledge_sources.length})</h5><div class="dmn-drg-list">${defs.knowledge_sources.map(k=>chip(k.name+(k.source_type?' · '+k.source_type:''),'ks',k.location_uri||'')).join('')}</div></div>`);
+  if(defs.decision_services?.length)parts.push(`<div class="dmn-drg-card"><h5>Decision Services (${defs.decision_services.length})</h5><div class="dmn-drg-list">${defs.decision_services.map(s=>chip(s.name,'ds',s.description||'')).join('')}</div></div>`);
+  if(defs.item_definitions?.length)parts.push(`<div class="dmn-drg-card"><h5>Item Definitions (${defs.item_definitions.length})</h5><div class="dmn-drg-list">${defs.item_definitions.map(t=>chip(t.name+(t.type_ref?' : '+t.type_ref:''),'',t.allowed_values?.join(', ')||'')).join('')}</div></div>`);
+  return parts.join('');
+}
+
+function renderDecisionDetail(dec,defs,domainCanonical){
+  const ios=(arr,cls)=>arr?.length?arr.map(io=>`<span class="dmn-drg-chip ${cls}">${esc(io.name)}${io.type?' : '+esc(io.type):''}</span>`).join(' '):'<span class="muted">—</span>';
+  return `<div class="detail-head" style="padding:.65rem 1.2rem .5rem"><div class="detail-head-left">${iconDiv('decision')}<div><div class="detail-title">${esc(dec.name||dec.id)}</div><div class="detail-subtitle">Decision · ${esc(dec.status||'draft')} · v${esc(dec.version||'0.1.0')}${dec.number?' · '+esc(dec.number):''}</div></div></div><div style="display:flex;gap:.4rem;align-items:center"><a class="btn btn-secondary btn-sm" href="/api/v1/domains/${encodeURIComponent(domainCanonical)}/decisions/${encodeURIComponent(dec.id)}">API</a><button class="btn btn-danger btn-sm" id="det-decision-delete">L&ouml;schen</button></div></div>
+<div class="detail-body" style="padding:.5rem .9rem .65rem">
+  <dl class="detail-props" style="margin-bottom:.6rem">
+    <dt>ID</dt><dd><code>${esc(dec.id)}</code></dd>
+    <dt>Domain</dt><dd><code>${esc(domainCanonical)}</code></dd>
+    <dt>Owner</dt><dd>${esc(dec.owner||'&ndash;')}</dd>
+    <dt>Summary</dt><dd>${esc(dec.summary||'&ndash;')}</dd>
+    <dt>Context</dt><dd>${esc(dec.context||'&ndash;')}</dd>
+    <dt>DMN-File</dt><dd>${dec.has_dmn?'<code>'+esc(dec.dmn_file||'decision.dmn')+'</code>':'<span class="badge badge-warning">noch keine DMN-Datei</span>'}</dd>
+    <dt>Inputs</dt><dd>${ios(dec.inputs,'input-data')}</dd>
+    <dt>Outputs</dt><dd>${ios(dec.outputs,'')}</dd>
+  </dl>
+  ${decisionDRGSummary(defs)}
+  <div class="dmn-toolbar">
+    <div><span class="dmn-toolbar-title">DMN-Editor</span><span class="dmn-toolbar-count">${defs?.decisions?.length||0} Decisions</span></div>
+    <div class="bpmn-dialog-actions">
+      <span class="bpmn-inline-status" id="dmn-inline-status"></span>
+      <button class="bpmn-fs-btn" id="dmn-view-drd" title="Decision Requirements Diagram">DRD</button>
+      <button class="bpmn-fs-btn" id="dmn-view-table" title="Decision Table">Tabelle</button>
+      <button class="bpmn-fs-btn" id="dmn-view-literal" title="Literal Expression">FEEL</button>
+      <button class="bpmn-save-btn" id="dmn-save">Speichern</button>
+    </div>
+  </div>
+  <div id="dmn-canvas" class="dmn-canvas" data-decision-id="${esc(dec.id)}" data-decision-domain="${esc(domainCanonical)}"><div class="detail-empty">Lade DMN&hellip;</div></div>
+</div>`;
+}
+
+async function loadDecisionExplorerDetail(row){
+  const decisionID=row.dataset.decisionId;
+  const domainCanonical=row.dataset.decisionDomain||row.dataset.domainCanonical;
+  if(!decisionID||!domainCanonical){detail.innerHTML='<div class="detail-empty">Decision nicht aufl&ouml;sbar.</div>';return;}
+  detail.innerHTML='<div class="detail-empty">Lade Decision&hellip;</div>';
+  let dec=null;
+  let defs=null;
+  let xml=null;
+  try{
+    const r=await fetch('/api/v1/domains/'+encodeURIComponent(domainCanonical)+'/decisions/'+encodeURIComponent(decisionID));
+    if(!r.ok)throw new Error(await r.text().catch(()=>'')||'Decision-Metadaten konnten nicht geladen werden');
+    dec=await r.json();
+  }catch(err){detail.innerHTML=`<div style="padding:1rem"><div class="nerror show">${esc(err.message)}</div></div>`;return;}
+  if(dec.has_dmn){
+    try{
+      const xr=await fetch('/api/v1/domains/'+encodeURIComponent(domainCanonical)+'/decisions/'+encodeURIComponent(decisionID)+'/dmn');
+      if(xr.ok)xml=await xr.text();
+    }catch(_){/* fall through to seed */}
+    try{
+      const dr=await fetch('/api/v1/domains/'+encodeURIComponent(domainCanonical)+'/decisions/'+encodeURIComponent(decisionID)+'/definitions');
+      if(dr.ok)defs=await dr.json();
+    }catch(_){/* parsed structure is optional */}
+  }
+  if(!xml||!xml.trim())xml=dmnSeedXML(dec);
+  detail.innerHTML=renderDecisionDetail(dec,defs,domainCanonical);
+  detail.querySelector('#det-decision-delete')?.addEventListener('click',async()=>{
+    if(!confirm('Decision "'+(dec.name||dec.id)+'" wirklich l&ouml;schen?'))return;
+    const dr=await fetch('/api/v1/domains/'+encodeURIComponent(domainCanonical)+'/decisions/'+encodeURIComponent(dec.id),{method:'DELETE'});
+    if(dr.ok||dr.status===204){const treeRow=Array.from(tree.querySelectorAll('.cn-row[data-kind="decision"]')).find(r=>r.dataset.decisionId===dec.id);if(treeRow)treeRow.closest('.cn')?.remove();detail.innerHTML='<div class="detail-empty">Decision gel&ouml;scht.</div>';}else{alert('Fehler beim L&ouml;schen der Decision');}
+  });
+  setTimeout(()=>initDmnEditor(detail,dec,domainCanonical,xml),50);
+}
+
+async function initDmnEditor(container,dec,domainCanonical,xml){
+  const canvas=container.querySelector('#dmn-canvas');
+  if(!canvas)return;
+  const status=container.querySelector('#dmn-inline-status');
+  const saveBtn=container.querySelector('#dmn-save');
+  const setStatus=(msg,isError=false)=>{if(status){status.textContent=msg||'';status.style.color=isError?'#dc2626':'#64748b';}};
+  if(!window.NomosDmnModelerJS){canvas.innerHTML='<pre style="padding:1rem;white-space:pre-wrap;font-size:.78rem">'+esc(xml)+'</pre>';setStatus('dmn-js nicht geladen — Roh-XML',true);if(saveBtn)saveBtn.disabled=true;return;}
+  canvas.innerHTML='';
+  let modeler;
+  try{
+    modeler=new window.NomosDmnModelerJS({container:canvas,keyboard:{bindTo:canvas}});
+    await modeler.importXML(xml);
+    // Default to DRD overview if multiple decisions exist; else first view.
+    try{const views=modeler.getViews?.()||[];const drd=views.find(v=>v.type==='drd');if(drd)modeler.open(drd);}catch(_){}
+    setStatus('Bereit');
+  }catch(e){console.error('dmn-js error:',e);setStatus(e.message||'DMN konnte nicht geladen werden',true);canvas.innerHTML=`<div class="detail-empty">${esc(e.message||'DMN konnte nicht geladen werden')}</div>`;if(saveBtn)saveBtn.disabled=true;return;}
+  // View switcher buttons map to dmn-js's view types.
+  const openView=(type)=>{try{const v=(modeler.getViews?.()||[]).find(v=>v.type===type);if(v)modeler.open(v);}catch(_){}};
+  container.querySelector('#dmn-view-drd')?.addEventListener('click',()=>openView('drd'));
+  container.querySelector('#dmn-view-table')?.addEventListener('click',()=>{
+    try{const v=(modeler.getViews?.()||[]).find(v=>v.type==='decisionTable');if(v){modeler.open(v);return;}}catch(_){}
+    // Fall back: open first decision's table view.
+    try{const dec=(modeler.getViews?.()||[]).find(v=>v.type==='decisionTable'||v.element?.decisionLogic?.$type==='dmn:DecisionTable');if(dec)modeler.open(dec);}catch(_){}
+  });
+  container.querySelector('#dmn-view-literal')?.addEventListener('click',()=>openView('literalExpression'));
+  saveBtn?.addEventListener('click',async()=>{
+    if(!modeler)return;
+    saveBtn.disabled=true;setStatus('Speichere&hellip;');
+    try{
+      const {xml:newXML}=await modeler.saveXML({format:true});
+      const r=await fetch('/api/v1/domains/'+encodeURIComponent(domainCanonical)+'/decisions/'+encodeURIComponent(dec.id)+'/dmn',{method:'PUT',headers:{'Content-Type':'application/xml'},body:newXML});
+      if(!r.ok){const msg=await r.text().catch(()=>'');throw new Error(msg||'Speichern fehlgeschlagen');}
+      setStatus('Gespeichert &check;');
+      setTimeout(()=>setStatus(''),3000);
+    }catch(e){console.error('dmn save error:',e);setStatus(e.message||'Fehler',true);}finally{saveBtn.disabled=false;}
+  });
+}
+
 function wireBPMNMethodDrop(canvasEl,modeler,proc){
   canvasEl.addEventListener('dragover',e=>{
     if(!window._dragServiceMethod&&!window._dragDecision)return;
