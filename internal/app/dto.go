@@ -1,5 +1,7 @@
 package app
 
+import "github.com/nomos/nomos/internal/model"
+
 type CosmosDTO struct {
 	Path               string `json:"path"`
 	ID                 string `json:"id"`
@@ -659,4 +661,29 @@ type UpdateDecisionRequest struct {
 	Context string          `json:"context,omitempty"`
 	Inputs  []DecisionIODTO `json:"inputs,omitempty"`
 	Outputs []DecisionIODTO `json:"outputs,omitempty"`
+}
+
+// DecisionTracesDTO is the response for listing decision traces.
+type DecisionTracesDTO struct {
+	Domain     string                `json:"domain"`
+	DecisionID string                `json:"decision_id"`
+	Count      int                   `json:"count"`
+	Items      []model.DecisionTrace `json:"items"`
+}
+
+// TraceVerifyEntryDTO is the per-trace verification status.
+type TraceVerifyEntryDTO struct {
+	TraceID   string `json:"trace_id"`
+	Timestamp string `json:"timestamp,omitempty"`
+	OK        bool   `json:"ok"`
+	Issue     string `json:"issue,omitempty"`
+}
+
+// DecisionTraceVerifyDTO is the response for the verify endpoint.
+type DecisionTraceVerifyDTO struct {
+	Domain     string                `json:"domain"`
+	DecisionID string                `json:"decision_id"`
+	Count      int                   `json:"count"`
+	OK         bool                  `json:"ok"`
+	Items      []TraceVerifyEntryDTO `json:"items"`
 }

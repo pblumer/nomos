@@ -24,6 +24,7 @@ ADRs record significant architectural and technology decisions. Each ADR capture
 | [ADR-0014](ADR-0014-DRAFT-nomos-self-model-bundle.md) | Nomos-Selbstmodellierung als versioniertes Cosmos-Bundle (Nomos-as-Nomos) | Draft |
 | [ADR-0015](ADR-0015-default-http-port-7373.md) | Default-Port `7373` für `nomos serve` | Accepted |
 | [ADR-0016](ADR-0016-DRAFT-graph-storage-and-query-model.md) | Graph-Speicherung und Abfragemodell des Cosmos (Git-projizierter openCypher-Graph) | Draft |
+| [ADR-0017](ADR-0017-DRAFT-decision-traceability.md) | Decision Traceability via inhaltsadressierte, hash-verkettete Trace-Artefakte | Draft |
 
 ## Superseded / legacy stubs
 

@@ -424,3 +424,38 @@ type Decision struct {
 	Inputs  []DecisionIO `yaml:"inputs,omitempty" json:"inputs,omitempty"`
 	Outputs []DecisionIO `yaml:"outputs,omitempty" json:"outputs,omitempty"`
 }
+
+// Evaluator captures who/what triggered a decision evaluation.
+type Evaluator struct {
+	ID        string `yaml:"id,omitempty" json:"id,omitempty"`
+	IP        string `yaml:"ip,omitempty" json:"ip,omitempty"`
+	UserAgent string `yaml:"user_agent,omitempty" json:"user_agent,omitempty"`
+}
+
+// EngineInfo identifies the engine that produced a trace.
+type EngineInfo struct {
+	Name    string `yaml:"name" json:"name"`
+	Version string `yaml:"version" json:"version"`
+	Commit  string `yaml:"commit,omitempty" json:"commit,omitempty"`
+}
+
+// DecisionTrace is the persisted, content-addressed record of one decision evaluation.
+// The TraceID is a sha256 over a canonical JSON encoding of all other fields (excluding
+// TraceID itself), forming a hash chain via ParentTraceID for tamper-evidence.
+type DecisionTrace struct {
+	SchemaVersion   int            `yaml:"schema_version" json:"schema_version"`
+	TraceID         string         `yaml:"trace_id" json:"trace_id"`
+	ParentTraceID   string         `yaml:"parent_trace_id,omitempty" json:"parent_trace_id,omitempty"`
+	Timestamp       string         `yaml:"timestamp" json:"timestamp"`
+	Domain          string         `yaml:"domain" json:"domain"`
+	DecisionID      string         `yaml:"decision_id" json:"decision_id"`
+	DecisionName    string         `yaml:"decision_name,omitempty" json:"decision_name,omitempty"`
+	DecisionVersion string         `yaml:"decision_version" json:"decision_version"`
+	RuleHash        string         `yaml:"rule_hash" json:"rule_hash"`
+	Inputs          map[string]any `yaml:"inputs" json:"inputs"`
+	Outputs         map[string]any `yaml:"outputs" json:"outputs"`
+	MatchedRules    []string       `yaml:"matched_rules,omitempty" json:"matched_rules,omitempty"`
+	HitPolicy       string         `yaml:"hit_policy,omitempty" json:"hit_policy,omitempty"`
+	Evaluator       Evaluator      `yaml:"evaluator,omitempty" json:"evaluator,omitempty"`
+	Engine          EngineInfo     `yaml:"engine" json:"engine"`
+}

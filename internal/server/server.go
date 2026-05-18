@@ -342,12 +342,28 @@ func (h *handler) apiDomainDecisionByID(w http.ResponseWriter, r *http.Request, 
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 			return
 		}
-		result, err := app.EvaluateDecision(h.cosmosPath, domain, id, req)
+		result, trace, err := app.EvaluateDecisionWithTrace(h.cosmosPath, domain, id, req, evaluatorFromRequest(r))
 		if err != nil {
+			// If evaluation succeeded but persisting the trace failed we still want to
+			// surface the result, since callers may treat the trace as best-effort.
+			if result != nil && trace == nil {
+				writeJSON(w, http.StatusOK, map[string]any{
+					"result":      result,
+					"trace_error": err.Error(),
+				})
+				return
+			}
 			h.apiErr(w, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, result)
+		writeJSON(w, http.StatusOK, map[string]any{
+			"result": result,
+			"trace":  trace,
+		})
+		return
+	}
+	if len(tail) >= 1 && tail[0] == "traces" {
+		h.apiDomainDecisionTraces(w, r, domain, id, tail[1:])
 		return
 	}
 	if len(tail) == 1 && tail[0] == "dmn" {
@@ -1661,3 +1677,64 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 func htmlNotFound(w http.ResponseWriter, r *http.Request) { http.NotFound(w, r) }
+
+// evaluatorFromRequest builds a model.Evaluator from an HTTP request.
+// IP is taken from X-Forwarded-For if present, otherwise from RemoteAddr.
+// User identity is taken from the X-Nomos-User header (optional).
+func evaluatorFromRequest(r *http.Request) model.Evaluator {
+	ip := r.RemoteAddr
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		if i := strings.Index(xff, ","); i >= 0 {
+			ip = strings.TrimSpace(xff[:i])
+		} else {
+			ip = strings.TrimSpace(xff)
+		}
+	} else if i := strings.LastIndex(ip, ":"); i >= 0 {
+		ip = ip[:i]
+	}
+	return model.Evaluator{
+		ID:        r.Header.Get("X-Nomos-User"),
+		IP:        ip,
+		UserAgent: r.UserAgent(),
+	}
+}
+
+func (h *handler) apiDomainDecisionTraces(w http.ResponseWriter, r *http.Request, domain, id string, tail []string) {
+	switch {
+	case len(tail) == 0:
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		dto, err := app.ListDecisionTraces(h.cosmosPath, domain, id)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, dto)
+	case len(tail) == 1 && tail[0] == "verify":
+		if r.Method != http.MethodPost && r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		dto, err := app.VerifyDecisionTraces(h.cosmosPath, domain, id)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, dto)
+	case len(tail) == 1:
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		tr, err := app.GetDecisionTrace(h.cosmosPath, domain, id, tail[0])
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, tr)
+	default:
+		htmlNotFound(w, r)
+	}
+}
