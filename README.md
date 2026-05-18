@@ -217,9 +217,11 @@ Recommended SemVer evolution:
 
 ## Running the Nomos Web UI
 
-`./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080`
+`./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:7373`
 
 Pages: `/`, `/domains`, `/graph`, `/validate`.
+
+> Default-Port: `7373`. Frei wählbar via `--listen host:port`.
 
 `/domains` is now an explorer-style tree view (Cosmos → Domains → Services) with a detail pane and contextual creation actions. For normal domain creation, select a parent node and enter only the new segment. Nomos composes the canonical namespace. Advanced mode allows full canonical input.
 
@@ -239,10 +241,10 @@ The read-only Nomos Web UI is served directly by `nomos serve` using embedded Go
 ```bash
 make build
 ./scripts/create-demo-cosmos.sh /tmp/nomos-demo
-./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080
+./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:7373
 ```
 
-Open `http://127.0.0.1:8080`.
+Open `http://127.0.0.1:7373`.
 
 
 ## Blueprint relationships in the demo cosmos
@@ -288,7 +290,7 @@ Shared read-side error codes include `COSMOS_MISSING`, `COSMOS_LOAD_FAILED`, `DO
 Nomos now includes a server-rendered Go web UI for browsing and managing a local Cosmos repository without introducing a primary database or a separate frontend build chain. Start it with:
 
 ```bash
-./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080
+./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:7373
 ```
 
 The UI exposes a dashboard, Cosmos doctor checks, domain and service explorers, namespace tree, Mermaid graph, validation findings, verification evidence, blueprint browsing, instance browsing, and an API index. Domain and service creation are supported through contextual forms and the matching API endpoints; verification writes the same `.nomos/evidence` files as the CLI. On `/domains`, normal creation is guided by the selected tree node: select a parent domain or namespace, choose **Add child domain**, enter only a segment such as `test2`, and review the live canonical preview before submitting. Creating a new top-level domain remains available from the page header/root panel, while **Advanced: create by canonical name** remains available for power users who intentionally want to type the full canonical namespace. All data remains file-first and Git-first in the selected Cosmos path.

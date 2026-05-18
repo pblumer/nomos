@@ -352,7 +352,7 @@ Startet einen HTTP-Server.
 
 **Flags:**
 - `--path` (Default: `.`)
-- `--listen` (Default: `127.0.0.1:8080`)
+- `--listen` (Default: `127.0.0.1:7373`)
 
 **Endpoints:**
 - `GET /health` → `{ "status": "ok", "service": "nomos", "version": "..." }`
@@ -398,7 +398,7 @@ Notes:
 - If `--short` and `--format` are both set, `--short` wins and only the version string is printed.
 
 ## Web UI
-Run `./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080`.
+Run `./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:7373`.
 
 ### Go Web UI (read-only)
 
@@ -407,7 +407,7 @@ Run `./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080`.
 ```bash
 make build
 COSMOS_PATH=/tmp/nomos-demo NOMOS_BIN=./bin/nomos ./scripts/create-demo-cosmos.sh
-./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080
+./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:7373
 ```
 
 ---
@@ -424,8 +424,8 @@ When `nomos serve` is running, the Go HTTP server exposes machine-readable and i
 Example:
 
 ```bash
-./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080
-open http://127.0.0.1:8080/swagger
+./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:7373
+open http://127.0.0.1:7373/swagger
 ```
 
 ---
@@ -529,7 +529,7 @@ Shared error codes include `COSMOS_MISSING`, `COSMOS_LOAD_FAILED`, `DOMAIN_NOT_F
 The Go-served web UI is available through `nomos serve` and is intended to be the primary human-facing interface for the local Cosmos repository:
 
 ```bash
-./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:8080
+./bin/nomos serve --path /tmp/nomos-demo --listen 127.0.0.1:7373
 ```
 
 The UI is server-rendered from embedded Go templates and static assets. It reuses `internal/app` DTOs and application functions for reads, creation, validation, graph, namespace, blueprint, instance, doctor, and verification operations.

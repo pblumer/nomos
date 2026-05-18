@@ -891,7 +891,7 @@ func serveCmd() *cobra.Command {
 		fmt.Fprintf(cmd.OutOrStdout(), "Nomos server listening on http://%s\nCosmos path: %s\n", listen, p)
 		return http.ListenAndServe(listen, newServeMux(p))
 	}}
-	c.Flags().String("listen", "127.0.0.1:8080", "")
+	c.Flags().String("listen", "127.0.0.1:7373", "")
 	c.Flags().String("path", ".", "Path to the Cosmos repository")
 	return c
 }
