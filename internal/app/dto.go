@@ -129,6 +129,7 @@ type NamespaceTreeNodeDTO struct {
 	CanMaterializeDomain bool                       `json:"canMaterializeDomain"`
 	FulfillmentCount     int                        `json:"fulfillmentCount,omitempty"`
 	TreeTarget           string                     `json:"treeTarget,omitempty"`
+	MethodName           string                     `json:"methodName,omitempty"`
 	Children             []NamespaceTreeNodeDTO     `json:"children,omitempty"`
 }
 
