@@ -2,20 +2,168 @@ id: service-uci-manager
 type: service
 name: uci-manager
 version: "0.1.0"
-status: beta
+status: stable
 owner: Nomos Core Team
 owned_by: core.nomos
 operated_by:
   - core.nomos
-summary: Verwaltet User Contact Interfaces (UCIs) — die definierten Einstiegspunkte für menschliche Interaktion mit Nomos-Funktionen.
+summary: Verwaltet Namespace-Navigation, Service-Graphs und die Abhängigkeitsvisualisierung des Cosmos.
+methods:
+  - name: namespace_tree
+    summary: Namespace-Baum abrufen
+    parameters:
+      - name: path
+        type: string
+      - name: format
+        type: enum[text,json]
+  - name: graph
+    summary: Service-Abhängigkeitsgraph generieren
+    parameters:
+      - name: path
+        type: string
+      - name: format
+        type: enum[text,json,mermaid]
+  - name: servicegraph_create
+    summary: Service-Graph erstellen
+    parameters:
+      - name: file
+        type: string
+        required: true
+      - name: path
+        type: string
+  - name: servicegraph_list
+    summary: Service-Graphs auflisten
+    parameters:
+      - name: path
+        type: string
+  - name: servicegraph_get
+    summary: Service-Graph abrufen
+    parameters:
+      - name: id
+        type: string
+        required: true
+  - name: servicegraph_delete
+    summary: Service-Graph löschen
+    parameters:
+      - name: id
+        type: string
+        required: true
+  - name: servicegraph_mermaid
+    summary: Service-Graph als Mermaid-Diagramm exportieren
+    parameters:
+      - name: id
+        type: string
+        required: true
+  - name: servicegraph_execution
+    summary: Ausführungsreihenfolge eines Service-Graphs berechnen
+    parameters:
+      - name: id
+        type: string
+        required: true
 capabilities:
-  - id: cap-list-ucis
-    name: UCIs auflisten
-    summary: Gibt alle UCIs eines Cosmos zurück.
-    stability: beta
+  - id: cap-namespace-tree
+    name: Namespace-Baum
+    summary: Hierarchischen Namespace-Baum aller Domains und Services abrufen.
+    stability: stable
     side_effect: read_only
     connectors:
+      - type: cli
+        invocation: "nomos namespace tree"
+        args:
+          - name: path
+            flag: "--path"
+          - name: format
+            flag: "--format"
+            enum: [text, json]
       - type: rest
         method: GET
-        path: /api/v1/uci
-        auth: none
+        path: /api/v1/namespaces
+      - type: rest
+        method: POST
+        path: /api/v1/namespaces/{namespace}/domains
+  - id: cap-graph
+    name: Service-Abhängigkeitsgraph
+    summary: Mermaid-basierten Service-Dependency-Graph für den gesamten Cosmos generieren.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: cli
+        invocation: "nomos graph"
+        args:
+          - name: path
+            flag: "--path"
+          - name: format
+            flag: "--format"
+            enum: [text, json]
+      - type: rest
+        method: GET
+        path: /api/v1/graph
+  - id: cap-servicegraph-crud
+    name: Service-Graph-Verwaltung
+    summary: Benannte Service-Graphs erstellen, abrufen, löschen und als Mermaid exportieren.
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: cli
+        invocation: "nomos servicegraph list"
+        args:
+          - name: path
+            flag: "--path"
+          - name: format
+            flag: "--format"
+            enum: [text, json]
+      - type: cli
+        invocation: "nomos servicegraph get"
+        args:
+          - name: id
+            positional: true
+            required: true
+          - name: path
+            flag: "--path"
+      - type: cli
+        invocation: "nomos servicegraph create"
+        args:
+          - name: file
+            positional: true
+            required: true
+          - name: path
+            flag: "--path"
+      - type: cli
+        invocation: "nomos servicegraph delete"
+        args:
+          - name: id
+            positional: true
+            required: true
+          - name: path
+            flag: "--path"
+      - type: cli
+        invocation: "nomos servicegraph mermaid"
+        args:
+          - name: id
+            positional: true
+            required: true
+          - name: path
+            flag: "--path"
+      - type: cli
+        invocation: "nomos servicegraph execution"
+        args:
+          - name: id
+            positional: true
+            required: true
+          - name: path
+            flag: "--path"
+          - name: format
+            flag: "--format"
+            enum: [text, json]
+      - type: rest
+        method: GET
+        path: /api/v1/servicegraphs
+      - type: rest
+        method: POST
+        path: /api/v1/servicegraphs
+      - type: rest
+        method: GET
+        path: /api/v1/servicegraphs/{id}
+      - type: rest
+        method: DELETE
+        path: /api/v1/servicegraphs/{id}

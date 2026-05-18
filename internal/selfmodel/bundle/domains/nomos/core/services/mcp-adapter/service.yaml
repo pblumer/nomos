@@ -7,43 +7,186 @@ owner: Nomos Core Team
 owned_by: core.nomos
 operated_by:
   - core.nomos
-summary: MCP-Server-Schnittstelle für KI-Agenten. Exponiert alle Nomos-Funktionen als MCP-Tools und -Ressourcen.
+summary: MCP-Server (Model Context Protocol) für KI-Agenten-Integration. Exponiert alle Nomos-Funktionen als MCP-Tools via stdio oder HTTP.
+methods:
+  - name: mcp_serve_stdio
+    summary: MCP-Server über stdio starten (für Claude Code / AI-Agenten)
+    parameters:
+      - name: path
+        type: string
+  - name: mcp_serve_http
+    summary: MCP-Server über HTTP/SSE starten
+    parameters:
+      - name: path
+        type: string
+      - name: listen
+        type: string
+  - name: nomos_cosmos_info
+    summary: "MCP-Tool: Cosmos-Metadaten abrufen"
+  - name: nomos_list_domains
+    summary: "MCP-Tool: Alle Domains auflisten"
+  - name: nomos_get_domain
+    summary: "MCP-Tool: Domain-Details abrufen"
+    parameters:
+      - name: domain
+        type: string
+        required: true
+  - name: nomos_list_services
+    summary: "MCP-Tool: Services einer Domain auflisten"
+    parameters:
+      - name: domain
+        type: string
+        required: true
+  - name: nomos_get_service
+    summary: "MCP-Tool: Service-Details abrufen"
+    parameters:
+      - name: domain
+        type: string
+        required: true
+      - name: service
+        type: string
+        required: true
+  - name: nomos_validate
+    summary: "MCP-Tool: Cosmos validieren"
+  - name: nomos_list_decisions
+    summary: "MCP-Tool: Decision Tables einer Domain auflisten"
+    parameters:
+      - name: domain
+        type: string
+        required: true
+  - name: nomos_evaluate_decision
+    summary: "MCP-Tool: Decision Table auswerten"
+    parameters:
+      - name: domain
+        type: string
+        required: true
+      - name: id
+        type: string
+        required: true
+      - name: inputs
+        type: object
+        required: true
+  - name: nomos_list_blueprints
+    summary: "MCP-Tool: Alle Blueprints auflisten"
 capabilities:
-  - id: cap-mcp-serve
-    name: MCP Server starten
-    summary: Startet den MCP-Server (stdio oder HTTP) für KI-Agenten-Integration.
+  - id: cap-mcp-stdio
+    name: MCP Server stdio
+    summary: Startet MCP-Server über stdio für direkte KI-Agenten-Integration (z.B. Claude Code).
+    stability: stable
+    side_effect: none
+    connectors:
+      - type: cli
+        invocation: "nomos mcp serve"
+        args:
+          - name: path
+            flag: "--path"
+            default: "."
+  - id: cap-mcp-http
+    name: MCP Server HTTP
+    summary: Startet MCP-Server als HTTP/SSE-Endpoint (Streamable HTTP Transport).
     stability: stable
     side_effect: network_egress
     connectors:
       - type: cli
-        invocation: "nomos mcp"
+        invocation: "nomos mcp http"
         args:
           - name: path
             flag: "--path"
-            required: false
             default: "."
-          - name: transport
-            flag: "--transport"
-            required: false
-            enum: [stdio, http]
-            default: stdio
-  - id: cap-mcp-validate
-    name: MCP Tool nomos.validate
-    summary: Validiert einen Cosmos-Workspace via MCP-Tool-Aufruf.
+          - name: listen
+            flag: "--listen"
+            default: "127.0.0.1:7374"
+      - type: rest
+        method: POST
+        path: /mcp
+        description: MCP Streamable HTTP Transport Endpoint
+  - id: cap-tool-cosmos-info
+    name: MCP Tool nomos_cosmos_info
+    summary: Gibt Cosmos-Metadaten zurück (ID, Name, Version, Status, Domain-Anzahl, Service-Anzahl).
     stability: stable
     side_effect: read_only
     connectors:
       - type: mcp
-        tool: nomos.validate
+        tool: nomos_cosmos_info
         kind: tool
         idempotent: true
-  - id: cap-mcp-list-domains
-    name: MCP Tool nomos.list_domains
-    summary: Listet alle Domains eines Cosmos via MCP.
+  - id: cap-tool-list-domains
+    name: MCP Tool nomos_list_domains
+    summary: Listet alle Domains mit Zusammenfassung (canonical, owner, status, service_count).
     stability: stable
     side_effect: read_only
     connectors:
       - type: mcp
-        tool: nomos.list_domains
+        tool: nomos_list_domains
+        kind: tool
+        idempotent: true
+  - id: cap-tool-get-domain
+    name: MCP Tool nomos_get_domain
+    summary: Gibt detaillierte Domain-Informationen inkl. Services und Decisions zurück.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: mcp
+        tool: nomos_get_domain
+        kind: tool
+        idempotent: true
+  - id: cap-tool-list-services
+    name: MCP Tool nomos_list_services
+    summary: Listet alle Services einer Domain mit ID, Name, Owner, Status und Capabilities.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: mcp
+        tool: nomos_list_services
+        kind: tool
+        idempotent: true
+  - id: cap-tool-get-service
+    name: MCP Tool nomos_get_service
+    summary: Gibt detaillierte Service-Informationen inkl. Methoden und Pfad zurück.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: mcp
+        tool: nomos_get_service
+        kind: tool
+        idempotent: true
+  - id: cap-tool-validate
+    name: MCP Tool nomos_validate
+    summary: Validiert den gesamten Cosmos und gibt Findings zurück (code, severity, message, path).
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: mcp
+        tool: nomos_validate
+        kind: tool
+        idempotent: true
+  - id: cap-tool-list-decisions
+    name: MCP Tool nomos_list_decisions
+    summary: Listet alle Decision Tables einer Domain.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: mcp
+        tool: nomos_list_decisions
+        kind: tool
+        idempotent: true
+  - id: cap-tool-evaluate-decision
+    name: MCP Tool nomos_evaluate_decision
+    summary: Wertet eine Decision Table mit den gegebenen Inputs aus.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: mcp
+        tool: nomos_evaluate_decision
+        kind: tool
+        idempotent: false
+  - id: cap-tool-list-blueprints
+    name: MCP Tool nomos_list_blueprints
+    summary: Listet alle Blueprints mit ID, Typ, Name, Status und Owner.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: mcp
+        tool: nomos_list_blueprints
         kind: tool
         idempotent: true

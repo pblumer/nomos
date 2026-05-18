@@ -7,33 +7,772 @@ owner: Nomos Core Team
 owned_by: core.nomos
 operated_by:
   - core.nomos
-summary: Verwaltet den Blueprint- und Instance-Katalog eines Cosmos (Produkte, Services, Prozesse, Instanzen).
+summary: Verwaltet alle Cosmos-Artefakte (Domains, Services, Blueprints, Instanzen, Prozesse, Decisions) als versionierte YAML-Dateien.
+methods:
+  - name: cosmos_init
+    summary: Neuen Cosmos-Workspace anlegen
+    parameters:
+      - name: path
+        type: string
+        required: true
+      - name: force
+        type: bool
+      - name: git
+        type: bool
+      - name: without_self
+        type: bool
+  - name: cosmos_info
+    summary: Cosmos-Metadaten abrufen
+    parameters:
+      - name: path
+        type: string
+      - name: format
+        type: enum[text,json]
+  - name: domain_add
+    summary: Domain erstellen
+    parameters:
+      - name: dns
+        type: string
+        required: true
+      - name: owner
+        type: string
+      - name: path
+        type: string
+  - name: domain_list
+    summary: Alle Domains auflisten
+    parameters:
+      - name: path
+        type: string
+      - name: format
+        type: enum[text,json]
+  - name: domain_get
+    summary: Domain-Details abrufen
+    parameters:
+      - name: domain
+        type: string
+        required: true
+      - name: path
+        type: string
+  - name: domain_delete
+    summary: Domain löschen
+    parameters:
+      - name: dns
+        type: string
+        required: true
+      - name: path
+        type: string
+  - name: service_add
+    summary: Service in Domain erstellen
+    parameters:
+      - name: name
+        type: string
+        required: true
+      - name: domain
+        type: string
+        required: true
+      - name: owner
+        type: string
+      - name: path
+        type: string
+  - name: service_list
+    summary: Services einer Domain auflisten
+    parameters:
+      - name: domain
+        type: string
+        required: true
+      - name: path
+        type: string
+  - name: service_get
+    summary: Service-Details abrufen
+    parameters:
+      - name: name
+        type: string
+        required: true
+      - name: domain
+        type: string
+        required: true
+  - name: service_delete
+    summary: Service löschen
+    parameters:
+      - name: name
+        type: string
+        required: true
+      - name: domain
+        type: string
+        required: true
+  - name: blueprint_create
+    summary: Blueprint erstellen
+    parameters:
+      - name: id
+        type: string
+        required: true
+      - name: name
+        type: string
+        required: true
+      - name: type
+        type: enum[product_blueprint,service_blueprint]
+      - name: version
+        type: string
+      - name: owner
+        type: string
+      - name: summary
+        type: string
+  - name: blueprint_list
+    summary: Alle Blueprints auflisten
+  - name: blueprint_show
+    summary: Blueprint-Details abrufen
+    parameters:
+      - name: id
+        type: string
+        required: true
+  - name: blueprint_publish
+    summary: Blueprint veröffentlichen (draft → published)
+    parameters:
+      - name: id
+        type: string
+        required: true
+  - name: blueprint_delete
+    summary: Blueprint löschen
+    parameters:
+      - name: id
+        type: string
+        required: true
+  - name: instance_create
+    summary: Instanz erstellen
+    parameters:
+      - name: id
+        type: string
+        required: true
+      - name: blueprint_ref
+        type: string
+        required: true
+      - name: type
+        type: enum[product_instance,service_instance]
+      - name: name
+        type: string
+      - name: owner
+        type: string
+  - name: instance_list
+    summary: Instanzen auflisten
+    parameters:
+      - name: filter
+        type: string
+      - name: format
+        type: enum[text,json]
+  - name: instance_show
+    summary: Instanz-Details abrufen
+    parameters:
+      - name: id
+        type: string
+        required: true
+  - name: instance_delete
+    summary: Instanz löschen
+    parameters:
+      - name: id
+        type: string
+        required: true
+  - name: process_create
+    summary: Prozess für ein Produkt anlegen
+    parameters:
+      - name: product
+        type: string
+        required: true
+      - name: name
+        type: string
+      - name: id
+        type: string
+  - name: process_list
+    summary: Prozesse auflisten
+    parameters:
+      - name: product
+        type: string
+      - name: path
+        type: string
+  - name: process_show
+    summary: Prozess-Details abrufen
+    parameters:
+      - name: id
+        type: string
+        required: true
+  - name: decision_list
+    summary: Decision Tables einer Domain auflisten
+    parameters:
+      - name: domain
+        type: string
+        required: true
+  - name: decision_evaluate
+    summary: Decision Table auswerten
+    parameters:
+      - name: domain
+        type: string
+        required: true
+      - name: id
+        type: string
+        required: true
+      - name: inputs
+        type: object
+        required: true
+  - name: self_import
+    summary: Self-Model aus Binary in Cosmos importieren
+    parameters:
+      - name: path
+        type: string
+      - name: force_overwrite_self
+        type: bool
+  - name: self_status
+    summary: Self-Model-Status prüfen
+  - name: self_diff
+    summary: Diff zwischen Binary-Bundle und Workspace-Self-Model anzeigen
+  - name: self_upgrade
+    summary: Workspace-Self-Model auf aktuelle Binary-Version upgraden
 capabilities:
-  - id: cap-list-blueprints
-    name: Blueprints auflisten
-    summary: Gibt alle Blueprint-Produkte und -Services eines Cosmos zurück.
+  - id: cap-cosmos-lifecycle
+    name: Cosmos-Lifecycle
+    summary: Cosmos initialisieren und Metadaten abrufen.
     stability: stable
-    side_effect: read_only
+    connectors:
+      - type: cli
+        invocation: "nomos cosmos init"
+        args:
+          - name: path
+            positional: true
+            required: true
+          - name: force
+            flag: "--force"
+          - name: git
+            flag: "--git"
+          - name: without-self
+            flag: "--without-self"
+        exit_codes:
+          - code: 0
+            meaning: ok
+          - code: 1
+            meaning: error
+      - type: cli
+        invocation: "nomos cosmos info"
+        args:
+          - name: path
+            flag: "--path"
+          - name: format
+            flag: "--format"
+            enum: [text, json]
+      - type: rest
+        method: GET
+        path: /api/v1/cosmos
+  - id: cap-domain-crud
+    name: Domain-Verwaltung
+    summary: Domains erstellen, auflisten, abrufen, umbenennen und löschen.
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: cli
+        invocation: "nomos domain add"
+        args:
+          - name: dns
+            positional: true
+            required: true
+          - name: owner
+            flag: "--owner"
+          - name: path
+            flag: "--path"
+      - type: cli
+        invocation: "nomos domain list"
+        args:
+          - name: path
+            flag: "--path"
+          - name: format
+            flag: "--format"
+            enum: [text, json]
+      - type: cli
+        invocation: "nomos domain get"
+        args:
+          - name: domain
+            positional: true
+            required: true
+          - name: path
+            flag: "--path"
+      - type: cli
+        invocation: "nomos domain delete"
+        args:
+          - name: dns
+            positional: true
+            required: true
+          - name: path
+            flag: "--path"
+      - type: rest
+        method: GET
+        path: /api/v1/domains
+      - type: rest
+        method: POST
+        path: /api/v1/domains
+      - type: rest
+        method: GET
+        path: /api/v1/domains/{domain}
+      - type: rest
+        method: PUT
+        path: /api/v1/domains/{domain}
+      - type: rest
+        method: DELETE
+        path: /api/v1/domains/{domain}
+      - type: rest
+        method: POST
+        path: /api/v1/domains/{domain}/children
+      - type: mcp
+        tool: nomos_list_domains
+        kind: tool
+        idempotent: true
+      - type: mcp
+        tool: nomos_get_domain
+        kind: tool
+        idempotent: true
+  - id: cap-service-crud
+    name: Service-Verwaltung
+    summary: Services innerhalb einer Domain erstellen, auflisten, abrufen und löschen.
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: cli
+        invocation: "nomos service add"
+        args:
+          - name: name
+            positional: true
+            required: true
+          - name: domain
+            flag: "--domain"
+            required: true
+          - name: owner
+            flag: "--owner"
+          - name: path
+            flag: "--path"
+      - type: cli
+        invocation: "nomos service list"
+        args:
+          - name: domain
+            flag: "--domain"
+            required: true
+          - name: path
+            flag: "--path"
+      - type: cli
+        invocation: "nomos service get"
+        args:
+          - name: name
+            positional: true
+            required: true
+          - name: domain
+            flag: "--domain"
+            required: true
+      - type: cli
+        invocation: "nomos service delete"
+        args:
+          - name: name
+            positional: true
+            required: true
+          - name: domain
+            flag: "--domain"
+            required: true
+      - type: rest
+        method: GET
+        path: /api/v1/domains/{domain}/services
+      - type: rest
+        method: POST
+        path: /api/v1/domains/{domain}/services
+      - type: rest
+        method: GET
+        path: /api/v1/domains/{domain}/services/{service}
+      - type: rest
+        method: PUT
+        path: /api/v1/domains/{domain}/services/{service}
+      - type: rest
+        method: DELETE
+        path: /api/v1/domains/{domain}/services/{service}
+      - type: rest
+        method: GET
+        path: /api/v1/services/refs
+      - type: rest
+        method: GET
+        path: /api/v1/services/{domain}/{service}
+      - type: mcp
+        tool: nomos_list_services
+        kind: tool
+        idempotent: true
+      - type: mcp
+        tool: nomos_get_service
+        kind: tool
+        idempotent: true
+  - id: cap-service-methods
+    name: Service-Methoden
+    summary: Methoden und Parameter eines Services dokumentieren und verwalten.
+    stability: stable
+    side_effect: mutates_workspace
     connectors:
       - type: rest
         method: GET
-        path: /api/v1/products
-        auth: none
+        path: /api/v1/services/{domain}/{service}/methods
+      - type: rest
+        method: POST
+        path: /api/v1/services/{domain}/{service}/methods
+      - type: rest
+        method: GET
+        path: /api/v1/services/{domain}/{service}/methods/{method}
+      - type: rest
+        method: PUT
+        path: /api/v1/services/{domain}/{service}/methods/{method}
+      - type: rest
+        method: DELETE
+        path: /api/v1/services/{domain}/{service}/methods/{method}
+  - id: cap-blueprint-crud
+    name: Blueprint-Verwaltung
+    summary: Produkt- und Service-Blueprints erstellen, bearbeiten, publizieren und löschen.
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: cli
+        invocation: "nomos blueprint create"
+        args:
+          - name: id
+            flag: "--id"
+            required: true
+          - name: name
+            flag: "--name"
+            required: true
+          - name: type
+            flag: "--type"
+            enum: [product_blueprint, service_blueprint]
+          - name: version
+            flag: "--version"
+          - name: owner
+            flag: "--owner"
+          - name: path
+            flag: "--path"
+      - type: cli
+        invocation: "nomos blueprint list"
+        args:
+          - name: path
+            flag: "--path"
+          - name: format
+            flag: "--format"
+            enum: [text, json]
+      - type: cli
+        invocation: "nomos blueprint show"
+        args:
+          - name: id
+            positional: true
+            required: true
+          - name: path
+            flag: "--path"
+      - type: cli
+        invocation: "nomos blueprint delete"
+        args:
+          - name: id
+            positional: true
+            required: true
+      - type: cli
+        invocation: "nomos blueprint publish"
+        args:
+          - name: id
+            positional: true
+            required: true
+      - type: rest
+        method: GET
+        path: /api/v1/blueprints
+      - type: rest
+        method: POST
+        path: /api/v1/blueprints
+      - type: rest
+        method: GET
+        path: /api/v1/blueprints/{id}
+      - type: rest
+        method: PATCH
+        path: /api/v1/blueprints/{id}
+      - type: rest
+        method: DELETE
+        path: /api/v1/blueprints/{id}
+      - type: rest
+        method: POST
+        path: /api/v1/blueprints/{id}/publish
+      - type: rest
+        method: POST
+        path: /api/v1/blueprints/{id}/requirements
+      - type: rest
+        method: PATCH
+        path: /api/v1/blueprints/{id}/requirements/{reqId}
+      - type: rest
+        method: DELETE
+        path: /api/v1/blueprints/{id}/requirements/{reqId}
+      - type: rest
+        method: POST
+        path: /api/v1/blueprints/{id}/attributes
+      - type: rest
+        method: DELETE
+        path: /api/v1/blueprints/{id}/attributes/{attrId}
+      - type: rest
+        method: POST
+        path: /api/v1/blueprints/{id}/attributes/{attrId}/rules
+      - type: rest
+        method: DELETE
+        path: /api/v1/blueprints/{id}/attributes/{attrId}/rules/{ruleId}
+      - type: rest
+        method: POST
+        path: /api/v1/blueprints/{id}/service-blueprints
+      - type: rest
+        method: DELETE
+        path: /api/v1/blueprints/{id}/service-blueprints/{svcId}
       - type: mcp
-        tool: nomos.list_products
+        tool: nomos_list_blueprints
         kind: tool
         idempotent: true
-  - id: cap-manage-decisions
-    name: DMN-Entscheidungen verwalten
-    summary: CRUD für DMN 1.5 Decision Tables und Evaluation via FEEL-Engine.
+  - id: cap-instance-crud
+    name: Instanz-Verwaltung
+    summary: Produkt- und Service-Instanzen erstellen, auflisten, bearbeiten und löschen.
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: cli
+        invocation: "nomos instance create"
+        args:
+          - name: id
+            flag: "--id"
+            required: true
+          - name: blueprint-ref
+            flag: "--blueprint-ref"
+            required: true
+          - name: type
+            flag: "--type"
+            enum: [product_instance, service_instance]
+          - name: name
+            flag: "--name"
+          - name: owner
+            flag: "--owner"
+          - name: path
+            flag: "--path"
+      - type: cli
+        invocation: "nomos instance list"
+        args:
+          - name: filter
+            flag: "--filter"
+          - name: format
+            flag: "--format"
+            enum: [text, json]
+          - name: path
+            flag: "--path"
+      - type: cli
+        invocation: "nomos instance show"
+        args:
+          - name: id
+            positional: true
+            required: true
+          - name: path
+            flag: "--path"
+      - type: rest
+        method: GET
+        path: /api/v1/instances
+      - type: rest
+        method: POST
+        path: /api/v1/instances
+      - type: rest
+        method: GET
+        path: /api/v1/instances/{id}
+      - type: rest
+        method: PATCH
+        path: /api/v1/instances/{id}
+      - type: rest
+        method: DELETE
+        path: /api/v1/instances/{id}
+      - type: rest
+        method: PATCH
+        path: /api/v1/instances/{id}/attribute-values
+      - type: rest
+        method: POST
+        path: /api/v1/product-instances/{id}/service-instances
+  - id: cap-process-crud
+    name: Prozess- und BPMN-Verwaltung
+    summary: Prozesse anlegen, BPMN-Diagramme verwalten, Schritte/Trigger/Teilnehmer konfigurieren.
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: cli
+        invocation: "nomos process create"
+        args:
+          - name: product
+            flag: "--product"
+            required: true
+          - name: name
+            flag: "--name"
+          - name: id
+            flag: "--id"
+          - name: path
+            flag: "--path"
+      - type: cli
+        invocation: "nomos process list"
+        args:
+          - name: product
+            flag: "--product"
+          - name: path
+            flag: "--path"
+      - type: cli
+        invocation: "nomos process show"
+        args:
+          - name: id
+            positional: true
+            required: true
+      - type: cli
+        invocation: "nomos process tasks"
+        args:
+          - name: id
+            positional: true
+            required: true
+      - type: rest
+        method: GET
+        path: /api/v1/products/{id}/processes
+      - type: rest
+        method: POST
+        path: /api/v1/products/{id}/processes
+      - type: rest
+        method: GET
+        path: /api/v1/processes/{id}
+      - type: rest
+        method: DELETE
+        path: /api/v1/processes/{id}
+      - type: rest
+        method: GET
+        path: /api/v1/processes/{id}/bpmn
+      - type: rest
+        method: PUT
+        path: /api/v1/processes/{id}/bpmn
+      - type: rest
+        method: GET
+        path: /api/v1/processes/{id}/tasks
+      - type: rest
+        method: PUT
+        path: /api/v1/processes/{id}/participant
+      - type: rest
+        method: GET
+        path: /api/v1/processes/{id}/triggers
+      - type: rest
+        method: PUT
+        path: /api/v1/processes/{id}/triggers
+      - type: rest
+        method: PUT
+        path: /api/v1/processes/{id}/task-mappings
+      - type: rest
+        method: GET
+        path: /api/v1/processes/{id}/steps
+      - type: rest
+        method: POST
+        path: /api/v1/processes/{id}/steps
+      - type: rest
+        method: PUT
+        path: /api/v1/processes/{id}/steps/{stepId}
+      - type: rest
+        method: DELETE
+        path: /api/v1/processes/{id}/steps/{stepId}
+  - id: cap-decisions-crud
+    name: Decision-Table-Verwaltung
+    summary: DMN 1.5 Decision Tables erstellen, auswerten und Traces verwalten.
     stability: stable
     side_effect: mutates_workspace
     connectors:
       - type: rest
         method: GET
         path: /api/v1/domains/{domain}/decisions
-        auth: none
+      - type: rest
+        method: POST
+        path: /api/v1/domains/{domain}/decisions
+      - type: rest
+        method: GET
+        path: /api/v1/domains/{domain}/decisions/{id}
+      - type: rest
+        method: PUT
+        path: /api/v1/domains/{domain}/decisions/{id}
+      - type: rest
+        method: DELETE
+        path: /api/v1/domains/{domain}/decisions/{id}
+      - type: rest
+        method: GET
+        path: /api/v1/domains/{domain}/decisions/{id}/dmn
+      - type: rest
+        method: PUT
+        path: /api/v1/domains/{domain}/decisions/{id}/dmn
+      - type: rest
+        method: GET
+        path: /api/v1/domains/{domain}/decisions/{id}/definitions
       - type: rest
         method: POST
         path: /api/v1/domains/{domain}/decisions/{id}/evaluate
-        auth: none
+      - type: rest
+        method: GET
+        path: /api/v1/domains/{domain}/decisions/{id}/traces
+      - type: rest
+        method: GET
+        path: /api/v1/domains/{domain}/decisions/{id}/traces/{traceId}
+      - type: rest
+        method: POST
+        path: /api/v1/domains/{domain}/decisions/{id}/traces/verify
+      - type: mcp
+        tool: nomos_list_decisions
+        kind: tool
+        idempotent: true
+      - type: mcp
+        tool: nomos_evaluate_decision
+        kind: tool
+        idempotent: false
+  - id: cap-self-model
+    name: Self-Model-Verwaltung
+    summary: Self-Model aus dem Binary-Bundle importieren, prüfen und upgraden.
+    stability: stable
+    connectors:
+      - type: cli
+        invocation: "nomos self import"
+        args:
+          - name: path
+            flag: "--path"
+          - name: force-overwrite-self
+            flag: "--force-overwrite-self"
+      - type: cli
+        invocation: "nomos self status"
+        args:
+          - name: path
+            flag: "--path"
+          - name: format
+            flag: "--format"
+            enum: [text, json]
+      - type: cli
+        invocation: "nomos self diff"
+        args:
+          - name: path
+            flag: "--path"
+      - type: cli
+        invocation: "nomos self upgrade"
+        args:
+          - name: path
+            flag: "--path"
+  - id: cap-product-management
+    name: Produkt-Verwaltung
+    summary: Produkte (Blueprints) in Domains anlegen, verschieben und Fulfillment-Services konfigurieren.
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: rest
+        method: GET
+        path: /api/v1/domains/{domain}/products
+      - type: rest
+        method: POST
+        path: /api/v1/domains/{domain}/products
+      - type: rest
+        method: GET
+        path: /api/v1/products/{id}
+      - type: rest
+        method: GET
+        path: /api/v1/products/{id}/collaboration
+      - type: rest
+        method: POST
+        path: /api/v1/products/{id}/move
+      - type: rest
+        method: POST
+        path: /api/v1/products/{id}/fulfillment-services
+      - type: rest
+        method: PUT
+        path: /api/v1/products/{id}/fulfillment-services/{idx}
+      - type: rest
+        method: DELETE
+        path: /api/v1/products/{id}/fulfillment-services/{idx}

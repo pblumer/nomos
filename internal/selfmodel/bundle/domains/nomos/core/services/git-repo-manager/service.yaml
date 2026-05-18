@@ -7,11 +7,29 @@ owner: Nomos Core Team
 owned_by: core.nomos
 operated_by:
   - core.nomos
-summary: Verwaltet den Git-Repository-Workspace als versionierte Quelle der Wahrheit für alle Cosmos-Artefakte.
+summary: Git-Integration für den Cosmos-Workspace und DNS-basierte Domain-Verifizierung.
+methods:
+  - name: cosmos_init_git
+    summary: Git-Repository im Cosmos-Workspace initialisieren
+    parameters:
+      - name: path
+        type: string
+        required: true
+      - name: git
+        type: bool
+        required: true
+  - name: verify_domain
+    summary: Domain-Ownership via DNS-TXT-Record verifizieren
+    parameters:
+      - name: dns
+        type: string
+        required: true
+      - name: path
+        type: string
 capabilities:
-  - id: cap-cosmos-init
-    name: Cosmos initialisieren
-    summary: Legt einen neuen Cosmos-Workspace an, optional mit Git-Init und Self-Model-Import.
+  - id: cap-git-init
+    name: Git-Repository initialisieren
+    summary: Cosmos-Workspace als Git-Repository anlegen (via --git Flag bei cosmos init).
     stability: stable
     side_effect: mutates_git
     connectors:
@@ -24,11 +42,25 @@ capabilities:
           - name: git
             flag: "--git"
             required: false
-          - name: without-self
-            flag: "--without-self"
-            required: false
         exit_codes:
           - code: 0
             meaning: ok
           - code: 1
             meaning: error
+  - id: cap-verify-domain
+    name: Domain verifizieren
+    summary: Ownership einer DNS-Domain via TXT-Record prüfen und im Workspace vermerken.
+    stability: stable
+    side_effect: network_egress
+    connectors:
+      - type: cli
+        invocation: "nomos verify domain"
+        args:
+          - name: dns
+            positional: true
+            required: true
+          - name: path
+            flag: "--path"
+      - type: rest
+        method: POST
+        path: /api/v1/verify/domain/{domain}

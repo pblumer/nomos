@@ -7,31 +7,149 @@ owner: Nomos Core Team
 owned_by: core.nomos
 operated_by:
   - core.nomos
-summary: Eingebettete Web-UI (Cosmos Explorer, Domain Explorer, Blueprint Editor) — wird durch "nomos serve" bereitgestellt.
+summary: Eingebettete Web-UI (Cosmos Explorer, Domain Explorer, Blueprint Editor, BPMN-Editor) — als Go-Templates in den Binary kompiliert und via "nomos serve" bereitgestellt.
 capabilities:
   - id: cap-cosmos-explorer
     name: Cosmos Explorer
-    summary: Interaktive Baumansicht des gesamten Cosmos mit Namespace-Navigation.
+    summary: Dashboard mit Namespace-Baum, Service-Graph und Validierungs-Übersicht.
     stability: stable
     side_effect: read_only
-    related_uci:
-      - cosmos-explorer
     connectors:
       - type: rest
         method: GET
+        path: /
+      - type: rest
+        method: GET
         path: /cosmos
-        auth: none
-  - id: cap-domain-explorer
-    name: Domain Explorer
-    summary: Detailansicht einer Domain mit Services, Produkten und Prozessen.
+  - id: cap-domain-pages
+    name: Domain-Seiten
+    summary: Domainliste und Detailansicht mit Services, Produkten, Entscheidungen und BPMN-Prozessen.
     stability: stable
     side_effect: read_only
-    related_uci:
-      - domain-explorer
-  - id: cap-blueprint-editor
-    name: Blueprint Editor
-    summary: Formular-Editor für Product- und Service-Blueprints.
-    stability: beta
-    side_effect: mutates_workspace
-    related_uci:
-      - blueprint-editor
+    connectors:
+      - type: rest
+        method: GET
+        path: /domains
+      - type: rest
+        method: GET
+        path: /domains/{domain}
+      - type: rest
+        method: GET
+        path: /domains/create
+      - type: rest
+        method: GET
+        path: /domains/create-top-level
+      - type: rest
+        method: GET
+        path: /domains/create-advanced
+      - type: rest
+        method: GET
+        path: /domains/create-child
+  - id: cap-service-pages
+    name: Service-Seiten
+    summary: Serviceliste und Detailansicht mit Methoden, Capabilities und Connectors.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: rest
+        method: GET
+        path: /services
+      - type: rest
+        method: GET
+        path: /services/{domain}/{service}
+      - type: rest
+        method: GET
+        path: /services/create
+  - id: cap-blueprint-pages
+    name: Blueprint-Seiten
+    summary: Blueprintliste und Detailansicht mit Attributen, Regeln und Anforderungen.
+    stability: stable
+    connectors:
+      - type: rest
+        method: GET
+        path: /blueprints
+      - type: rest
+        method: GET
+        path: /blueprints/{id}
+  - id: cap-instance-pages
+    name: Instanz-Seiten
+    summary: Instanzliste und Detailansicht mit Compliance-Status und Attributwerten.
+    stability: stable
+    connectors:
+      - type: rest
+        method: GET
+        path: /instances
+      - type: rest
+        method: GET
+        path: /instances/{id}
+  - id: cap-namespace-page
+    name: Namespace-Seite
+    summary: Interaktiver Namespace-Baum mit Drag-and-Drop-BPMN-Integration.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: rest
+        method: GET
+        path: /namespaces
+  - id: cap-graph-page
+    name: Graph-Seite
+    summary: Mermaid-basierte Service-Abhängigkeitsvisualisierung.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: rest
+        method: GET
+        path: /graph
+  - id: cap-validate-page
+    name: Validierungs-Seite
+    summary: Tabellarische Darstellung aller Validierungs-Findings mit Severity-Filterung.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: rest
+        method: GET
+        path: /validate
+  - id: cap-requirements-page
+    name: Anforderungs-Matrix
+    summary: Tabellarische Übersicht aller Blueprint-Anforderungen und deren Erfüllungsstatus.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: rest
+        method: GET
+        path: /requirements
+  - id: cap-rules-page
+    name: Regeln-Seite
+    summary: Übersicht aller Validierungsregeln und Qualitätskriterien.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: rest
+        method: GET
+        path: /rules
+  - id: cap-verify-page
+    name: Verifikations-Seite
+    summary: DNS-Domain-Verifikationsassistent.
+    stability: stable
+    connectors:
+      - type: rest
+        method: GET
+        path: /verify
+  - id: cap-api-docs-page
+    name: API-Dokumentation
+    summary: Swagger-UI mit vollständiger OpenAPI 3.0 Spezifikation.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: rest
+        method: GET
+        path: /api
+  - id: cap-static-assets
+    name: Statische Assets
+    summary: CSS, JavaScript und weitere statische Ressourcen, die in den Binary eingebettet sind.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: rest
+        method: GET
+        path: /static/*
