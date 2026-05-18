@@ -113,7 +113,7 @@ func TestWebShellPagesAndAPI(t *testing.T) { /* same as before */
 	if rr := get(h, "/services/identity.blumer.cloud/user-account"); rr.Code != 200 {
 		t.Fatal(rr.Code)
 	} else {
-		hasAll(t, rr.Body.String(), "user-account", "identity.blumer.cloud", "Service Metadata")
+		hasAll(t, rr.Body.String(), "user-account", "identity.blumer.cloud", "Metadata")
 	}
 	if rr := get(h, "/graph"); rr.Code != 200 {
 		t.Fatal(rr.Code)

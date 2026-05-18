@@ -1,2 +1,109 @@
 {{define "service_detail"}}{{template "layout" .}}{{end}}{{define "content_service_detail"}}
-<section class="page-header"><div><h2>{{.ServiceDTO.Name}}</h2><p>Service in <a href="/domains/{{.ServiceDTO.Domain}}">{{.ServiceDTO.Domain}}</a></p></div><a class="button button-secondary" href="/api/v1/domains/{{.ServiceDTO.Domain}}/services/{{.ServiceDTO.Name}}">API JSON</a></section><section class="card"><h3>Service Metadata</h3><dl class="details-list"><dt>Owner</dt><dd>{{.ServiceDTO.Owner}}</dd><dt>Status</dt><dd><span class="badge">{{.ServiceDTO.Status}}</span></dd><dt>Path</dt><dd><code>{{.ServiceDTO.Path}}</code></dd></dl></section>{{end}}
+<section class="page-header">
+  <div>
+    <h2>{{.ServiceDTO.Name}}</h2>
+    <p>Service in <a href="/domains/{{.ServiceDTO.Domain}}">{{.ServiceDTO.Domain}}</a></p>
+  </div>
+  <a class="button button-secondary" href="/api/v1/domains/{{.ServiceDTO.Domain}}/services/{{.ServiceDTO.Name}}">API JSON</a>
+</section>
+
+<section class="card">
+  <h3>Metadata</h3>
+  <dl class="details-list">
+    <dt>Owner</dt><dd>{{.ServiceDTO.Owner}}</dd>
+    <dt>Status</dt><dd><span class="badge">{{.ServiceDTO.Status}}</span></dd>
+    <dt>Path</dt><dd><code>{{.ServiceDTO.Path}}</code></dd>
+    {{if .ServiceDTO.OwnedBy}}<dt>Owned by</dt><dd>{{.ServiceDTO.OwnedBy}}</dd>{{end}}
+    {{if .ServiceDTO.OperatedBy}}<dt>Operated by</dt><dd>{{range .ServiceDTO.OperatedBy}}{{.}} {{end}}</dd>{{end}}
+  </dl>
+</section>
+
+{{if .ServiceDTO.Methods}}
+<section class="card">
+  <h3>Methods</h3>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Summary</th>
+        <th>Parameters</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .ServiceDTO.Methods}}
+      <tr>
+        <td><code>{{.Name}}</code></td>
+        <td>{{.Summary}}</td>
+        <td>
+          {{if .Parameters}}
+          <div class="param-list">
+            {{range .Parameters}}
+            <span class="param-chip{{if .Required}} param-required{{end}}" title="{{.Description}}">
+              <span class="param-name">{{.Name}}</span>
+              <span class="param-type">{{.Type}}</span>
+              {{if .In}}<span class="param-in param-in-{{.In}}">{{.In}}</span>{{end}}
+              {{if .Required}}<span class="param-req">*</span>{{end}}
+            </span>
+            {{end}}
+          </div>
+          {{else}}—{{end}}
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</section>
+{{end}}
+
+{{if .ServiceDTO.CapabilityDefs}}
+<section class="card">
+  <h3>Capabilities</h3>
+  {{range .ServiceDTO.CapabilityDefs}}
+  <div class="capability-block">
+    <div class="capability-header">
+      <strong>{{.Name}}</strong>
+      {{if .Stability}}<span class="badge">{{.Stability}}</span>{{end}}
+      {{if .SideEffect}}<span class="badge badge-neutral">{{.SideEffect}}</span>{{end}}
+      {{if .ConnectorTypes}}<span class="badge badge-info">{{.ConnectorTypes}}</span>{{end}}
+    </div>
+    {{if .Summary}}<p class="capability-summary">{{.Summary}}</p>{{end}}
+    {{if .Connectors}}
+    <div class="connector-list">
+      {{range .Connectors}}
+      <div class="connector-chip connector-{{.Type}}">
+        {{if eq .Type "rest"}}<span class="http-method">{{.Method}}</span> <code>{{.Path}}</code>{{end}}
+        {{if eq .Type "cli"}}<code>{{.Invocation}}</code>{{end}}
+        {{if eq .Type "mcp"}}<span class="mcp-label">MCP</span> <code>{{.Tool}}</code>{{end}}
+      </div>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+</section>
+{{end}}
+
+<style>
+.param-list{display:flex;flex-wrap:wrap;gap:.3rem}
+.param-chip{display:inline-flex;align-items:center;gap:.2rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:.3rem;padding:.15rem .4rem;font-size:.75rem}
+.param-chip.param-required{border-color:#fca5a5;background:#fff5f5}
+.param-name{font-weight:600;color:#1e293b}
+.param-type{color:#64748b}
+.param-in{padding:.05rem .25rem;border-radius:.2rem;font-size:.7rem;font-weight:600;text-transform:uppercase}
+.param-in-path{background:#fef3c7;color:#92400e}
+.param-in-query{background:#dbeafe;color:#1e40af}
+.param-in-body{background:#dcfce7;color:#166534}
+.param-in-header{background:#f3e8ff;color:#6b21a8}
+.param-req{color:#ef4444;font-weight:700}
+.capability-block{border:1px solid #e2e8f0;border-radius:.5rem;padding:1rem;margin-bottom:.75rem}
+.capability-header{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
+.capability-summary{color:#475569;font-size:.875rem;margin:.25rem 0 .5rem}
+.connector-list{display:flex;flex-direction:column;gap:.25rem}
+.connector-chip{display:inline-flex;align-items:center;gap:.4rem;padding:.2rem .5rem;border-radius:.25rem;font-size:.78rem}
+.connector-rest{background:#eff6ff;border:1px solid #bfdbfe}
+.connector-cli{background:#f0fdf4;border:1px solid #bbf7d0}
+.connector-mcp{background:#faf5ff;border:1px solid #e9d5ff}
+.http-method{font-weight:700;font-size:.7rem;color:#1d4ed8}
+.mcp-label{font-weight:700;font-size:.7rem;color:#7c3aed}
+</style>
+{{end}}

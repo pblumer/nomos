@@ -58,6 +58,7 @@ type DomainDTO struct {
 type MethodParameterDTO struct {
 	Name        string `json:"name"`
 	Type        string `json:"type"`
+	In          string `json:"in,omitempty"` // path | query | body | header
 	Required    bool   `json:"required,omitempty"`
 	Description string `json:"description,omitempty"`
 }

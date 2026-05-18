@@ -15,17 +15,21 @@ methods:
       - name: path
         type: string
         required: true
+        description: Workspace-Verzeichnis
       - name: git
         type: bool
         required: true
+        in: query
   - name: verify_domain
     summary: Domain-Ownership via DNS-TXT-Record verifizieren
     parameters:
       - name: dns
         type: string
         required: true
+        in: path
       - name: path
         type: string
+        description: Workspace-Verzeichnis
 capabilities:
   - id: cap-git-init
     name: Git-Repository initialisieren

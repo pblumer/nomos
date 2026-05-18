@@ -14,13 +14,16 @@ methods:
     parameters:
       - name: path
         type: string
+        description: Workspace-Verzeichnis
   - name: mcp_serve_http
     summary: MCP-Server über HTTP/SSE starten
     parameters:
       - name: path
         type: string
+        description: Workspace-Verzeichnis
       - name: listen
         type: string
+        description: "Bind-Adresse (z.B. 127.0.0.1:7374)"
   - name: nomos_cosmos_info
     summary: "MCP-Tool: Cosmos-Metadaten abrufen"
   - name: nomos_list_domains
@@ -31,21 +34,25 @@ methods:
       - name: domain
         type: string
         required: true
+        in: body
   - name: nomos_list_services
     summary: "MCP-Tool: Services einer Domain auflisten"
     parameters:
       - name: domain
         type: string
         required: true
+        in: body
   - name: nomos_get_service
     summary: "MCP-Tool: Service-Details abrufen"
     parameters:
       - name: domain
         type: string
         required: true
+        in: body
       - name: service
         type: string
         required: true
+        in: body
   - name: nomos_validate
     summary: "MCP-Tool: Cosmos validieren"
   - name: nomos_list_decisions
@@ -54,18 +61,22 @@ methods:
       - name: domain
         type: string
         required: true
+        in: body
   - name: nomos_evaluate_decision
     summary: "MCP-Tool: Decision Table auswerten"
     parameters:
       - name: domain
         type: string
         required: true
+        in: body
       - name: id
         type: string
         required: true
+        in: body
       - name: inputs
         type: object
         required: true
+        in: body
   - name: nomos_list_blueprints
     summary: "MCP-Tool: Alle Blueprints auflisten"
 capabilities:

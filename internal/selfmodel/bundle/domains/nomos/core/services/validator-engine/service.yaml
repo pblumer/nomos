@@ -14,37 +14,44 @@ methods:
     parameters:
       - name: path
         type: string
+        description: Workspace-Verzeichnis
       - name: format
         type: enum[text,json]
+        in: query
   - name: blueprint_validate
     summary: Einzelnen Blueprint validieren
     parameters:
       - name: id
         type: string
         required: true
+        in: path
   - name: instance_verify
     summary: Instanz gegen Blueprint prüfen
     parameters:
       - name: id
         type: string
         required: true
+        in: path
   - name: servicegraph_validate
     summary: Service-Graph auf Konsistenz prüfen
     parameters:
       - name: id
         type: string
         required: true
+        in: path
   - name: process_validate
     summary: Prozess-Definition validieren
     parameters:
       - name: id
         type: string
         required: true
+        in: path
   - name: cosmos_doctor
     summary: Häufige Konfigurationsprobleme im Cosmos erkennen
     parameters:
       - name: path
         type: string
+        description: Workspace-Verzeichnis
 capabilities:
   - id: cap-validate-cosmos
     name: Cosmos validieren

@@ -14,29 +14,36 @@ methods:
     parameters:
       - name: path
         type: string
+        description: Workspace-Verzeichnis
       - name: listen
         type: string
+        description: "Bind-Adresse (z.B. 127.0.0.1:8080)"
   - name: key_create
     summary: API-Key erstellen
     parameters:
       - name: name
         type: string
         required: true
+        in: body
       - name: path
         type: string
+        description: Workspace-Verzeichnis
   - name: key_list
     summary: API-Keys auflisten
     parameters:
       - name: path
         type: string
+        description: Workspace-Verzeichnis
   - name: key_revoke
     summary: API-Key widerrufen
     parameters:
       - name: name
         type: string
         required: true
+        in: path
       - name: path
         type: string
+        description: Workspace-Verzeichnis
 capabilities:
   - id: cap-serve
     name: HTTP-Server starten

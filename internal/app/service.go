@@ -169,7 +169,7 @@ func serviceDTO(domain string, s cosmosfs.ServiceNode) ServiceDTO {
 	for _, m := range s.Metadata.Methods {
 		params := make([]MethodParameterDTO, 0, len(m.Parameters))
 		for _, p := range m.Parameters {
-			params = append(params, MethodParameterDTO{Name: p.Name, Type: p.Type, Required: p.Required, Description: p.Description})
+			params = append(params, MethodParameterDTO{Name: p.Name, Type: p.Type, In: p.In, Required: p.Required, Description: p.Description})
 		}
 		methods = append(methods, MethodDefinitionDTO{Name: m.Name, Summary: m.Summary, Parameters: params})
 	}

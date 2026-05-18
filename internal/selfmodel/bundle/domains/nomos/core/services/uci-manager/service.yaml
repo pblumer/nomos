@@ -14,52 +14,64 @@ methods:
     parameters:
       - name: path
         type: string
+        description: Workspace-Verzeichnis
       - name: format
         type: enum[text,json]
+        in: query
   - name: graph
     summary: Service-Abhängigkeitsgraph generieren
     parameters:
       - name: path
         type: string
+        description: Workspace-Verzeichnis
       - name: format
         type: enum[text,json,mermaid]
+        in: query
   - name: servicegraph_create
     summary: Service-Graph erstellen
     parameters:
       - name: file
         type: string
         required: true
+        in: body
+        description: Pfad zur YAML-Datei mit der Service-Graph-Definition
       - name: path
         type: string
+        description: Workspace-Verzeichnis
   - name: servicegraph_list
     summary: Service-Graphs auflisten
     parameters:
       - name: path
         type: string
+        description: Workspace-Verzeichnis
   - name: servicegraph_get
     summary: Service-Graph abrufen
     parameters:
       - name: id
         type: string
         required: true
+        in: path
   - name: servicegraph_delete
     summary: Service-Graph löschen
     parameters:
       - name: id
         type: string
         required: true
+        in: path
   - name: servicegraph_mermaid
     summary: Service-Graph als Mermaid-Diagramm exportieren
     parameters:
       - name: id
         type: string
         required: true
+        in: path
   - name: servicegraph_execution
     summary: Ausführungsreihenfolge eines Service-Graphs berechnen
     parameters:
       - name: id
         type: string
         required: true
+        in: path
 capabilities:
   - id: cap-namespace-tree
     name: Namespace-Baum

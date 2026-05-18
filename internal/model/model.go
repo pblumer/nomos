@@ -45,6 +45,7 @@ type ServiceLevelInfo struct {
 type MethodParameter struct {
 	Name        string `yaml:"name" json:"name"`
 	Type        string `yaml:"type" json:"type"`
+	In          string `yaml:"in,omitempty" json:"in,omitempty"` // path | query | body | header
 	Required    bool   `yaml:"required,omitempty" json:"required,omitempty"`
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 }

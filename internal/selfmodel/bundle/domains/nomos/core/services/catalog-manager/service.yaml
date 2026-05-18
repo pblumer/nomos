@@ -15,108 +15,139 @@ methods:
       - name: path
         type: string
         required: true
+        description: Workspace-Verzeichnis
       - name: force
         type: bool
+        in: query
       - name: git
         type: bool
+        in: query
       - name: without_self
         type: bool
+        in: query
   - name: cosmos_info
     summary: Cosmos-Metadaten abrufen
     parameters:
       - name: path
         type: string
+        description: Workspace-Verzeichnis
       - name: format
         type: enum[text,json]
+        in: query
   - name: domain_add
     summary: Domain erstellen
     parameters:
       - name: dns
         type: string
         required: true
+        in: body
       - name: owner
         type: string
+        in: body
       - name: path
         type: string
+        description: Workspace-Verzeichnis
   - name: domain_list
     summary: Alle Domains auflisten
     parameters:
       - name: path
         type: string
+        description: Workspace-Verzeichnis
       - name: format
         type: enum[text,json]
+        in: query
   - name: domain_get
     summary: Domain-Details abrufen
     parameters:
       - name: domain
         type: string
         required: true
+        in: path
       - name: path
         type: string
+        description: Workspace-Verzeichnis
   - name: domain_delete
     summary: Domain löschen
     parameters:
       - name: dns
         type: string
         required: true
+        in: path
       - name: path
         type: string
+        description: Workspace-Verzeichnis
   - name: service_add
     summary: Service in Domain erstellen
     parameters:
       - name: name
         type: string
         required: true
+        in: body
       - name: domain
         type: string
         required: true
+        in: path
       - name: owner
         type: string
+        in: body
       - name: path
         type: string
+        description: Workspace-Verzeichnis
   - name: service_list
     summary: Services einer Domain auflisten
     parameters:
       - name: domain
         type: string
         required: true
+        in: path
       - name: path
         type: string
+        description: Workspace-Verzeichnis
   - name: service_get
     summary: Service-Details abrufen
     parameters:
       - name: name
         type: string
         required: true
+        in: path
       - name: domain
         type: string
         required: true
+        in: path
   - name: service_delete
     summary: Service löschen
     parameters:
       - name: name
         type: string
         required: true
+        in: path
       - name: domain
         type: string
         required: true
+        in: path
   - name: blueprint_create
     summary: Blueprint erstellen
     parameters:
       - name: id
         type: string
         required: true
+        in: body
       - name: name
         type: string
         required: true
+        in: body
       - name: type
         type: enum[product_blueprint,service_blueprint]
+        in: body
       - name: version
         type: string
+        in: body
       - name: owner
         type: string
+        in: body
       - name: summary
         type: string
+        in: body
   - name: blueprint_list
     summary: Alle Blueprints auflisten
   - name: blueprint_show
@@ -125,100 +156,124 @@ methods:
       - name: id
         type: string
         required: true
+        in: path
   - name: blueprint_publish
     summary: Blueprint veröffentlichen (draft → published)
     parameters:
       - name: id
         type: string
         required: true
+        in: path
   - name: blueprint_delete
     summary: Blueprint löschen
     parameters:
       - name: id
         type: string
         required: true
+        in: path
   - name: instance_create
     summary: Instanz erstellen
     parameters:
       - name: id
         type: string
         required: true
+        in: body
       - name: blueprint_ref
         type: string
         required: true
+        in: body
       - name: type
         type: enum[product_instance,service_instance]
+        in: body
       - name: name
         type: string
+        in: body
       - name: owner
         type: string
+        in: body
   - name: instance_list
     summary: Instanzen auflisten
     parameters:
       - name: filter
         type: string
+        in: query
       - name: format
         type: enum[text,json]
+        in: query
   - name: instance_show
     summary: Instanz-Details abrufen
     parameters:
       - name: id
         type: string
         required: true
+        in: path
   - name: instance_delete
     summary: Instanz löschen
     parameters:
       - name: id
         type: string
         required: true
+        in: path
   - name: process_create
     summary: Prozess für ein Produkt anlegen
     parameters:
       - name: product
         type: string
         required: true
+        in: path
       - name: name
         type: string
+        in: body
       - name: id
         type: string
+        in: body
   - name: process_list
     summary: Prozesse auflisten
     parameters:
       - name: product
         type: string
+        in: path
       - name: path
         type: string
+        description: Workspace-Verzeichnis
   - name: process_show
     summary: Prozess-Details abrufen
     parameters:
       - name: id
         type: string
         required: true
+        in: path
   - name: decision_list
     summary: Decision Tables einer Domain auflisten
     parameters:
       - name: domain
         type: string
         required: true
+        in: path
   - name: decision_evaluate
     summary: Decision Table auswerten
     parameters:
       - name: domain
         type: string
         required: true
+        in: path
       - name: id
         type: string
         required: true
+        in: path
       - name: inputs
         type: object
         required: true
+        in: body
   - name: self_import
     summary: Self-Model aus Binary in Cosmos importieren
     parameters:
       - name: path
         type: string
+        description: Workspace-Verzeichnis
       - name: force_overwrite_self
         type: bool
+        in: query
   - name: self_status
     summary: Self-Model-Status prüfen
   - name: self_diff
