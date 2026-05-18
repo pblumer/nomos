@@ -269,7 +269,47 @@ type Process struct {
 	Steps          []ProcessStep        `yaml:"steps,omitempty" json:"steps,omitempty"`
 	BPMN           BPMNReference        `yaml:"bpmn" json:"bpmn"`
 	TaskMappings   []ProcessTaskMapping `yaml:"task_mappings,omitempty" json:"task_mappings,omitempty"`
+	Triggers       []ProcessTrigger     `yaml:"triggers,omitempty" json:"triggers,omitempty"`
 	Notes          string               `yaml:"notes,omitempty" json:"notes,omitempty"`
+}
+
+// ProcessTrigger binds a BPMN start event to a runtime trigger (timer cron,
+// message event, signal or conditional). The trigger type must match the
+// underlying BPMN element's event definition; configuration sub-blocks
+// carry the runtime details (cron expression, event topic, …).
+//
+// See ADR-0018 for the design rationale.
+type ProcessTrigger struct {
+	BPMNElementID string                    `yaml:"bpmn_element_id" json:"bpmn_element_id"`
+	Type          string                    `yaml:"type" json:"type"`
+	Name          string                    `yaml:"name,omitempty" json:"name,omitempty"`
+	Description   string                    `yaml:"description,omitempty" json:"description,omitempty"`
+	Timer         *TimerTriggerConfig       `yaml:"timer,omitempty" json:"timer,omitempty"`
+	Message       *MessageTriggerConfig     `yaml:"message,omitempty" json:"message,omitempty"`
+	Signal        *SignalTriggerConfig      `yaml:"signal,omitempty" json:"signal,omitempty"`
+	Conditional   *ConditionalTriggerConfig `yaml:"conditional,omitempty" json:"conditional,omitempty"`
+}
+
+type TimerTriggerConfig struct {
+	Cron        string `yaml:"cron,omitempty" json:"cron,omitempty"`
+	ISODuration string `yaml:"iso_duration,omitempty" json:"iso_duration,omitempty"`
+	ISODate     string `yaml:"iso_date,omitempty" json:"iso_date,omitempty"`
+	Timezone    string `yaml:"timezone,omitempty" json:"timezone,omitempty"`
+}
+
+type MessageTriggerConfig struct {
+	EventRef       string `yaml:"event_ref,omitempty" json:"event_ref,omitempty"`
+	Topic          string `yaml:"topic,omitempty" json:"topic,omitempty"`
+	Filter         string `yaml:"filter,omitempty" json:"filter,omitempty"`
+	CorrelationKey string `yaml:"correlation_key,omitempty" json:"correlation_key,omitempty"`
+}
+
+type SignalTriggerConfig struct {
+	SignalRef string `yaml:"signal_ref,omitempty" json:"signal_ref,omitempty"`
+}
+
+type ConditionalTriggerConfig struct {
+	Expression string `yaml:"expression,omitempty" json:"expression,omitempty"`
 }
 
 type StepInputBinding struct {
