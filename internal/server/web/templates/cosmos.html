@@ -505,7 +505,6 @@ document.addEventListener('click',e=>{if(e.target.closest('#proc-tree-toggle'))s
 
 const params=new URLSearchParams(location.search);
 const sel=params.get('selected');
-if(sel){const[kind,...rest]=sel.split(':');const id=rest.join(':');let row;if(kind==='process-steps-parent'){row=Array.from(tree.querySelectorAll('.cn-row[data-kind="process-steps-parent"]')).find(r=>r.dataset.treeTarget===id||r.dataset.canonical===id||r.dataset.id===id);}else{row=Array.from(tree.querySelectorAll(`.cn-row[data-kind="${kind}"]`)).find(r=>r.dataset.canonical===id||r.dataset.id===id);}if(row){expandToRow(row);if(kind==='product'&&params.get('expand')==='fulfillment')expandProductFulfillment(row);row.classList.add('selected');loadDetail(row);setTimeout(()=>row.scrollIntoView({block:'nearest',behavior:'smooth'}),50);}}
 function expandToRow(row){let ul=row.closest('.cn-children');while(ul){ul.classList.remove('collapsed');const btn=ul.previousElementSibling?.querySelector('.cn-toggle');if(btn)btn.classList.add('open');ul=ul.parentElement?.closest('.cn-children');}}
 function expandOwnChildren(row){const ul=row.closest('.cn')?.querySelector(':scope > .cn-children');if(ul){ul.classList.remove('collapsed');row.querySelector('.cn-toggle')?.classList.add('open');}}
 function expandProductFulfillment(productRow){expandOwnChildren(productRow);const fulfillmentRow=productRow.closest('.cn')?.querySelector(':scope > .cn-children > .cn > .cn-row[data-kind="product-fulfillment-parent"]');if(fulfillmentRow)expandOwnChildren(fulfillmentRow);}
@@ -580,6 +579,7 @@ function doAddBlueprint(row){openModal('Blueprint hinzufuegen',`<div class="nfie
 function getNamespacePath(row){const parts=[];let li=row.closest('.cn');while(li){const r=li.querySelector(':scope > .cn-row');if(!r)break;const k=r.dataset.kind;if(k==='namespace'||k==='domain')parts.unshift(r.querySelector('.cn-label')?.textContent.trim()||'');else break;li=li.parentElement?.closest('.cn');}return parts[0]||'';}
 
 const detail=$('detail-panel');
+if(sel){const[kind,...rest]=sel.split(':');const id=rest.join(':');let row;if(kind==='process-steps-parent'){row=Array.from(tree.querySelectorAll('.cn-row[data-kind="process-steps-parent"]')).find(r=>r.dataset.treeTarget===id||r.dataset.canonical===id||r.dataset.id===id);}else{row=Array.from(tree.querySelectorAll(`.cn-row[data-kind="${kind}"]`)).find(r=>r.dataset.canonical===id||r.dataset.id===id);}if(row){expandToRow(row);if(kind==='product'&&params.get('expand')==='fulfillment')expandProductFulfillment(row);row.classList.add('selected');loadDetail(row);setTimeout(()=>row.scrollIntoView({block:'nearest',behavior:'smooth'}),50);}}
 function iconDiv(kind){const icons={domain:'dns',service:'settings',blueprint:'assignment',cosmos:'account_tree',namespace:'public',decision:'rule'};return `<div class="detail-kind-icon icon-${kind}">${icons[kind]||'folder'}</div>`;}
 
 async function loadDetail(row){const kind=row.dataset.kind,id=row.dataset.id,canonical=row.dataset.canonical;
