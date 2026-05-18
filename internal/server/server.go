@@ -10,7 +10,9 @@ import (
 	"strconv"
 	"strings"
 
+	mcphttp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/nomos/nomos/internal/app"
+	"github.com/nomos/nomos/internal/mcpserver"
 	"github.com/nomos/nomos/internal/model"
 	versionpkg "github.com/nomos/nomos/internal/version"
 )
@@ -62,6 +64,9 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/domains/create-advanced", h.createTopLevelDomainPage)
 	mux.HandleFunc("/domains/create-child", h.createChildDomainPage)
 	mux.HandleFunc("/services/create", h.createServicePage)
+	mux.Handle("/mcp", mcphttp.NewStreamableHTTPHandler(func(_ *http.Request) *mcphttp.Server {
+		return mcpserver.New(cosmosPath)
+	}, nil))
 	mux.HandleFunc("/", h.routes)
 	return mux
 }
