@@ -344,6 +344,67 @@ XML
 
 
 echo ""
+echo "==> Erstelle Commerce-Domain mit Services und Methoden"
+"$NOMOS_BIN" domain add commerce.blumer.cloud --path "$COSMOS_PATH" --owner "Commerce Team"
+"$NOMOS_BIN" service add checkout  --domain commerce.blumer.cloud --path "$COSMOS_PATH" --owner "Commerce Team"
+"$NOMOS_BIN" service add inventory --domain commerce.blumer.cloud --path "$COSMOS_PATH" --owner "Commerce Team"
+"$NOMOS_BIN" service add payment   --domain commerce.blumer.cloud --path "$COSMOS_PATH" --owner "Commerce Team"
+
+cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/commerce/services/checkout/service.yaml" <<'YAML'
+id: service-checkout
+type: service
+name: checkout
+version: 0.1.0
+status: draft
+owner: Commerce Team
+owned_by: commerce.blumer.cloud
+operated_by:
+  - commerce.blumer.cloud
+methods:
+  - name: initiateOrder
+  - name: confirmOrder
+  - name: cancelOrder
+  - name: getOrderStatus
+summary: Handles order creation and lifecycle management.
+YAML
+
+cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/commerce/services/inventory/service.yaml" <<'YAML'
+id: service-inventory
+type: service
+name: inventory
+version: 0.1.0
+status: draft
+owner: Commerce Team
+owned_by: commerce.blumer.cloud
+operated_by:
+  - commerce.blumer.cloud
+methods:
+  - name: checkStock
+  - name: reserveItems
+  - name: releaseItems
+  - name: getInventoryLevel
+summary: Manages stock levels and item reservations.
+YAML
+
+cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/commerce/services/payment/service.yaml" <<'YAML'
+id: service-payment
+type: service
+name: payment
+version: 0.1.0
+status: draft
+owner: Commerce Team
+owned_by: commerce.blumer.cloud
+operated_by:
+  - commerce.blumer.cloud
+methods:
+  - name: processPayment
+  - name: refundPayment
+  - name: getPaymentStatus
+  - name: authorizePayment
+summary: Processes payments and refunds for orders.
+YAML
+
+echo ""
 echo "==> Cosmos Info"
 "$NOMOS_BIN" cosmos info --path "$COSMOS_PATH"
 

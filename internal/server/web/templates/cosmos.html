@@ -1,8 +1,8 @@
 {{define "cosmos"}}{{template "layout" .}}{{end}}
 
 {{define "cosmos_page_node"}}
-<li class="cn" data-kind="{{.Kind}}" data-node-type="{{if eq .Kind "product"}}product{{else if eq .Kind "domain"}}domain{{else}}{{.Kind}}{{end}}" data-id="{{if .Canonical}}{{.Canonical}}{{else}}{{.Label}}{{end}}" data-canonical="{{.Canonical}}" data-domain-canonical="{{if eq .Kind "domain"}}{{.Canonical}}{{end}}" data-tree-path="{{.TreePath}}" data-git-path="{{.GitPath}}"{{if eq .Kind "product"}} data-product-id="{{.Product.ID}}" data-current-domain="{{.Product.OfferedBy}}" data-product-name="{{.Product.Name}}" draggable="true"{{end}}{{if .Fulfillment}} data-service-ref="{{.Fulfillment.ServiceRef}}" data-role="{{.Fulfillment.Role}}" data-required="{{.Fulfillment.Required}}" data-resolution-status="{{.Fulfillment.ResolutionStatus}}" data-fulfillment-type="{{.Fulfillment.FulfillmentType}}" data-resolved-domain="{{.Fulfillment.ResolvedDomain}}" data-resolved-service="{{.Fulfillment.ResolvedService}}" data-service-level-label="{{.Fulfillment.ServiceLevelLabel}}" data-tree-target="{{.Fulfillment.TreeTarget}}" data-product-id="{{.Product.ID}}"{{end}}{{if .Fulfillment}} title="{{.Fulfillment.ServiceRef}} · {{.Fulfillment.Role}} · {{if .Fulfillment.Required}}required{{else}}optional{{end}} · {{.Fulfillment.ResolutionStatus}} · {{.Fulfillment.FulfillmentType}}"{{end}}{{if .ProcessStep}} data-tree-target="{{.TreeTarget}}" data-product-id="{{.Product.ID}}" title="{{if eq .ProcessStep.TaskType "businessRuleTask"}}Business Rule · Gateway wertet Outputs aus{{else}}{{.ProcessStep.ServiceRef}}{{if .ProcessStep.Method}} · {{.ProcessStep.Method}}(){{end}}{{if .ProcessStep.Role}} · {{.ProcessStep.Role}}{{end}} · {{if .ProcessStep.Required}}required{{else}}optional{{end}}{{end}}"{{end}}{{if eq .Kind "process-steps-parent"}} data-tree-target="{{.TreeTarget}}" data-product-id="{{.Product.ID}}"{{end}}{{if .Service}} data-domain="{{.Service.Domain}}"{{else if .Product}} data-domain="{{.Product.OfferedBy}}"{{else if eq .Kind "service-parent"}} data-domain="{{.Canonical}}"{{else if eq .Kind "product-parent"}} data-domain="{{.Canonical}}"{{end}}>
-  <div class="cn-row" data-kind="{{.Kind}}" data-node-type="{{if eq .Kind "product"}}product{{else if eq .Kind "domain"}}domain{{else}}{{.Kind}}{{end}}" data-id="{{if .Canonical}}{{.Canonical}}{{else}}{{.Label}}{{end}}" data-canonical="{{.Canonical}}" data-domain-canonical="{{if eq .Kind "domain"}}{{.Canonical}}{{end}}" data-tree-path="{{.TreePath}}" data-git-path="{{.GitPath}}"{{if eq .Kind "product"}} data-product-id="{{.Product.ID}}" data-current-domain="{{.Product.OfferedBy}}" data-product-name="{{.Product.Name}}" draggable="true"{{end}}{{if .Fulfillment}} data-service-ref="{{.Fulfillment.ServiceRef}}" data-role="{{.Fulfillment.Role}}" data-required="{{.Fulfillment.Required}}" data-resolution-status="{{.Fulfillment.ResolutionStatus}}" data-fulfillment-type="{{.Fulfillment.FulfillmentType}}" data-resolved-domain="{{.Fulfillment.ResolvedDomain}}" data-resolved-service="{{.Fulfillment.ResolvedService}}" data-service-level-label="{{.Fulfillment.ServiceLevelLabel}}" data-tree-target="{{.Fulfillment.TreeTarget}}" data-product-id="{{.Product.ID}}"{{end}}{{if .Fulfillment}} title="{{.Fulfillment.ServiceRef}} · {{.Fulfillment.Role}} · {{if .Fulfillment.Required}}required{{else}}optional{{end}} · {{.Fulfillment.ResolutionStatus}} · {{.Fulfillment.FulfillmentType}}"{{end}}{{if .ProcessStep}} data-tree-target="{{.TreeTarget}}" data-product-id="{{.Product.ID}}" title="{{if eq .ProcessStep.TaskType "businessRuleTask"}}Business Rule · Gateway wertet Outputs aus{{else}}{{.ProcessStep.ServiceRef}}{{if .ProcessStep.Method}} · {{.ProcessStep.Method}}(){{end}}{{if .ProcessStep.Role}} · {{.ProcessStep.Role}}{{end}} · {{if .ProcessStep.Required}}required{{else}}optional{{end}}{{end}}"{{end}}{{if eq .Kind "process-steps-parent"}} data-tree-target="{{.TreeTarget}}" data-product-id="{{.Product.ID}}"{{end}}{{if .Service}} data-domain="{{.Service.Domain}}"{{else if .Product}} data-domain="{{.Product.OfferedBy}}"{{else if eq .Kind "service-parent"}} data-domain="{{.Canonical}}"{{else if eq .Kind "product-parent"}} data-domain="{{.Canonical}}"{{end}}>
+<li class="cn" data-kind="{{.Kind}}" data-node-type="{{if eq .Kind "product"}}product{{else if eq .Kind "domain"}}domain{{else}}{{.Kind}}{{end}}" data-id="{{if .Canonical}}{{.Canonical}}{{else}}{{.Label}}{{end}}" data-canonical="{{.Canonical}}" data-domain-canonical="{{if eq .Kind "domain"}}{{.Canonical}}{{end}}" data-tree-path="{{.TreePath}}" data-git-path="{{.GitPath}}"{{if eq .Kind "product"}} data-product-id="{{.Product.ID}}" data-current-domain="{{.Product.OfferedBy}}" data-product-name="{{.Product.Name}}" draggable="true"{{end}}{{if eq .Kind "service-method"}} data-method-name="{{.MethodName}}" draggable="true" title="{{.MethodName}}() — {{.Canonical}}"{{end}}{{if .Fulfillment}} data-service-ref="{{.Fulfillment.ServiceRef}}" data-role="{{.Fulfillment.Role}}" data-required="{{.Fulfillment.Required}}" data-resolution-status="{{.Fulfillment.ResolutionStatus}}" data-fulfillment-type="{{.Fulfillment.FulfillmentType}}" data-resolved-domain="{{.Fulfillment.ResolvedDomain}}" data-resolved-service="{{.Fulfillment.ResolvedService}}" data-service-level-label="{{.Fulfillment.ServiceLevelLabel}}" data-tree-target="{{.Fulfillment.TreeTarget}}" data-product-id="{{.Product.ID}}"{{end}}{{if .Fulfillment}} title="{{.Fulfillment.ServiceRef}} · {{.Fulfillment.Role}} · {{if .Fulfillment.Required}}required{{else}}optional{{end}} · {{.Fulfillment.ResolutionStatus}} · {{.Fulfillment.FulfillmentType}}"{{end}}{{if .ProcessStep}} data-tree-target="{{.TreeTarget}}" data-product-id="{{.Product.ID}}" title="{{if eq .ProcessStep.TaskType "businessRuleTask"}}Business Rule · Gateway wertet Outputs aus{{else}}{{.ProcessStep.ServiceRef}}{{if .ProcessStep.Method}} · {{.ProcessStep.Method}}(){{end}}{{if .ProcessStep.Role}} · {{.ProcessStep.Role}}{{end}} · {{if .ProcessStep.Required}}required{{else}}optional{{end}}{{end}}"{{end}}{{if eq .Kind "process-steps-parent"}} data-tree-target="{{.TreeTarget}}" data-product-id="{{.Product.ID}}"{{end}}{{if .Service}} data-domain="{{.Service.Domain}}"{{else if .Product}} data-domain="{{.Product.OfferedBy}}"{{else if eq .Kind "service-parent"}} data-domain="{{.Canonical}}"{{else if eq .Kind "product-parent"}} data-domain="{{.Canonical}}"{{end}}>
+  <div class="cn-row" data-kind="{{.Kind}}" data-node-type="{{if eq .Kind "product"}}product{{else if eq .Kind "domain"}}domain{{else}}{{.Kind}}{{end}}" data-id="{{if .Canonical}}{{.Canonical}}{{else}}{{.Label}}{{end}}" data-canonical="{{.Canonical}}" data-domain-canonical="{{if eq .Kind "domain"}}{{.Canonical}}{{end}}" data-tree-path="{{.TreePath}}" data-git-path="{{.GitPath}}"{{if eq .Kind "product"}} data-product-id="{{.Product.ID}}" data-current-domain="{{.Product.OfferedBy}}" data-product-name="{{.Product.Name}}" draggable="true"{{end}}{{if eq .Kind "service-method"}} data-method-name="{{.MethodName}}" draggable="true" title="{{.MethodName}}() — {{.Canonical}}"{{end}}{{if .Fulfillment}} data-service-ref="{{.Fulfillment.ServiceRef}}" data-role="{{.Fulfillment.Role}}" data-required="{{.Fulfillment.Required}}" data-resolution-status="{{.Fulfillment.ResolutionStatus}}" data-fulfillment-type="{{.Fulfillment.FulfillmentType}}" data-resolved-domain="{{.Fulfillment.ResolvedDomain}}" data-resolved-service="{{.Fulfillment.ResolvedService}}" data-service-level-label="{{.Fulfillment.ServiceLevelLabel}}" data-tree-target="{{.Fulfillment.TreeTarget}}" data-product-id="{{.Product.ID}}"{{end}}{{if .Fulfillment}} title="{{.Fulfillment.ServiceRef}} · {{.Fulfillment.Role}} · {{if .Fulfillment.Required}}required{{else}}optional{{end}} · {{.Fulfillment.ResolutionStatus}} · {{.Fulfillment.FulfillmentType}}"{{end}}{{if .ProcessStep}} data-tree-target="{{.TreeTarget}}" data-product-id="{{.Product.ID}}" title="{{if eq .ProcessStep.TaskType "businessRuleTask"}}Business Rule · Gateway wertet Outputs aus{{else}}{{.ProcessStep.ServiceRef}}{{if .ProcessStep.Method}} · {{.ProcessStep.Method}}(){{end}}{{if .ProcessStep.Role}} · {{.ProcessStep.Role}}{{end}} · {{if .ProcessStep.Required}}required{{else}}optional{{end}}{{end}}"{{end}}{{if eq .Kind "process-steps-parent"}} data-tree-target="{{.TreeTarget}}" data-product-id="{{.Product.ID}}"{{end}}{{if .Service}} data-domain="{{.Service.Domain}}"{{else if .Product}} data-domain="{{.Product.OfferedBy}}"{{else if eq .Kind "service-parent"}} data-domain="{{.Canonical}}"{{else if eq .Kind "product-parent"}} data-domain="{{.Canonical}}"{{end}}>
     {{if .Children}}<button class="cn-toggle" aria-label="toggle">&#9658;</button>{{else}}<span class="cn-leaf"></span>{{end}}
     <span class="cn-icon mi">{{if eq .Kind "cosmos"}}account_tree{{else if eq .Kind "domain"}}dns{{else if eq .Kind "product-parent"}}inventory_2{{else if eq .Kind "product"}}inventory_2{{else if eq .Kind "process-steps-parent"}}account_tree{{else if eq .Kind "process-step"}}{{if and .ProcessStep (eq .ProcessStep.TaskType "businessRuleTask")}}rule{{else}}play_circle{{end}}{{else if eq .Kind "product-fulfillment-parent"}}folder_managed{{else if eq .Kind "product-fulfillment-service"}}{{if and .Fulfillment (ne .Fulfillment.ResolutionStatus "resolved")}}warning{{else}}settings{{end}}{{else if eq .Kind "product-fulfillment-empty"}}info{{else if eq .Kind "service-parent"}}folder_managed{{else if eq .Kind "service"}}settings{{else if eq .Kind "service-method"}}function{{else if eq .Kind "namespace"}}public{{else if eq .Kind "blueprint-parent"}}description{{else if eq .Kind "blueprint"}}assignment{{else}}folder{{end}}</span>
     <span class="cn-label">{{.Label}}</span>
@@ -429,7 +429,13 @@ const knownDomains=[{{range $i,$d:=.Domains}}{{if $i}},{{end}}{canonical:{{print
 
 const tree=$('cosmos-tree');
 let draggedProductRow=null;
-tree.addEventListener('dragstart',e=>{const row=e.target.closest('.cn-row[data-node-type="product"],.cn[data-node-type="product"]')?.querySelector?.('.cn-row')||e.target.closest('.cn-row[data-node-type="product"]');if(!row)return;draggedProductRow=row;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',row.dataset.productId||row.dataset.id);});
+tree.addEventListener('dragstart',e=>{
+  // Service-method drag → pre-fill BPMN serviceTask on drop
+  const mrow=e.target.closest('.cn-row[data-kind="service-method"],.cn[data-kind="service-method"]')?.querySelector?.('.cn-row')||e.target.closest('.cn-row[data-kind="service-method"]');
+  if(mrow){window._dragServiceMethod={serviceRef:mrow.dataset.canonical||'',methodName:mrow.dataset.methodName||mrow.dataset.id||''};e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData('text/plain','service-method:'+window._dragServiceMethod.serviceRef+'/'+window._dragServiceMethod.methodName);return;}
+  // Product drag → move to domain
+  const row=e.target.closest('.cn-row[data-node-type="product"],.cn[data-node-type="product"]')?.querySelector?.('.cn-row')||e.target.closest('.cn-row[data-node-type="product"]');if(!row)return;draggedProductRow=row;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',row.dataset.productId||row.dataset.id);
+});
 tree.addEventListener('dragover',e=>{const row=e.target.closest('.cn-row[data-node-type="domain"]');if(!row||!draggedProductRow)return;const target=row.dataset.domainCanonical||row.dataset.canonical;if(target&&target!==draggedProductRow.dataset.currentDomain){e.preventDefault();row.classList.add('drag-over-domain');}else{row.classList.add('drag-invalid');}});
 tree.addEventListener('dragleave',e=>{const row=e.target.closest('.cn-row');row?.classList.remove('drag-over-domain','drag-invalid');});
 tree.addEventListener('drop',e=>{const row=e.target.closest('.cn-row[data-node-type="domain"]');tree.querySelectorAll('.drag-over-domain,.drag-invalid').forEach(r=>r.classList.remove('drag-over-domain','drag-invalid'));if(!row||!draggedProductRow)return;const target=row.dataset.domainCanonical||row.dataset.canonical;if(target&&target!==draggedProductRow.dataset.currentDomain){e.preventDefault();doMoveProduct(draggedProductRow,target);}else alert('Produkt wird bereits von dieser Domäne angeboten.');draggedProductRow=null;});
@@ -1179,6 +1185,66 @@ async function initBPMNStandalone(container,proc){
   container.querySelector('#bpmn-fs-open')?.addEventListener('click',()=>openBPMNModelerDialog(xml,proc));
   // Resizable split handle
   wireProcResizeHandle(container);
+  // Drag service-method from tree → create BPMN serviceTask
+  if(modeler){wireBPMNMethodDrop(canvas,modeler,proc);}
+}
+function wireBPMNMethodDrop(canvasEl,modeler,proc){
+  canvasEl.addEventListener('dragover',e=>{
+    if(!window._dragServiceMethod)return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect='copy';
+    canvasEl.style.outline='2px dashed #6366f1';
+  });
+  canvasEl.addEventListener('dragleave',()=>{canvasEl.style.outline='';});
+  canvasEl.addEventListener('drop',e=>{
+    canvasEl.style.outline='';
+    const drag=window._dragServiceMethod;
+    window._dragServiceMethod=null;
+    if(!drag)return;
+    e.preventDefault();
+    // Convert client coords → canvas coords
+    let x=200,y=200;
+    try{
+      const vb=modeler.get('canvas').viewbox();
+      const rect=canvasEl.getBoundingClientRect();
+      x=Math.round((e.clientX-rect.left)/vb.scale+vb.x);
+      y=Math.round((e.clientY-rect.top)/vb.scale+vb.y);
+    }catch(_){}
+    // Create a bpmn:Task shape
+    let newShape=null;
+    try{
+      const ef=modeler.get('elementFactory');
+      const modeling=modeler.get('modeling');
+      const root=modeler.get('canvas').getRootElement();
+      const methodLabel=drag.methodName||drag.serviceRef.split('/').pop()||'Task';
+      newShape=ef.createShape({type:'bpmn:Task',width:100,height:80,name:methodLabel});
+      modeling.createShape(newShape,{x,y},root);
+    }catch(err){console.error('bpmn create shape error:',err);return;}
+    // Pre-fill the properties panel
+    const elementId=newShape?.id;
+    if(!elementId)return;
+    // Build synthetic item so the panel renders with service/method pre-filled
+    const syntheticItem={id:elementId,name:newShape.businessObject?.name||drag.methodName||'',task_type:'serviceTask',service_ref:drag.serviceRef,method:drag.methodName,role:'supporting',required:true,mapping_status:'unmapped'};
+    // Inject into proc.steps so lookup finds it
+    if(!proc.steps)proc.steps=[];
+    proc.steps=proc.steps.filter(s=>s.id!==elementId);
+    proc.steps.push(syntheticItem);
+    setBPMNDetail(canvasEl,proc,elementId,modeler);
+    // Pre-select the service in the dropdown after panel renders
+    setTimeout(async()=>{
+      const panel=canvasEl.closest('.proc-standalone-workbench')?.querySelector('.proc-standalone-side');
+      if(!panel)return;
+      const svcSel=panel.querySelector('#tp-service');
+      if(svcSel&&drag.serviceRef){
+        // Trigger change to load methods, then set method
+        svcSel.value=drag.serviceRef;
+        svcSel.dispatchEvent(new Event('change'));
+        await new Promise(r=>setTimeout(r,400));
+        const mSel=panel.querySelector('#tp-method');
+        if(mSel&&drag.methodName)mSel.value=drag.methodName;
+      }
+    },200);
+  });
 }
 function wireProcResizeHandle(container){
   const handle=container.querySelector('.proc-resize-handle');
