@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import Login from "./Login";
+import { Logo } from "./components/Logo";
 
 const AUTH_TOKEN_STORAGE_KEY = "nomos.auth.token";
 const AUTH_USER_STORAGE_KEY = "nomos.auth.user";
@@ -312,9 +313,7 @@ function App() {
       <aside className="fixed left-0 top-0 w-64 h-full bg-slate-900 border-r border-slate-800 shadow-xl flex flex-col z-50">
         <div className="px-6 py-6">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
-              <span aria-hidden="true" className="material-symbols-outlined text-white text-sm">account_balance</span>
-            </div>
+            <Logo size={36} className="shrink-0 drop-shadow-[0_4px_12px_rgba(99,102,241,0.45)]" title="Nomos" />
             <div>
               <h1 className="text-xl font-black tracking-tighter text-white">Nomos</h1>
               <p className="text-[10px] text-slate-400 font-medium tracking-widest uppercase">Governance Platform</p>
