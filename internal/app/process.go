@@ -247,13 +247,18 @@ func processDTO(path string, n processNode, includeValidation bool) ProcessDTO {
 	for _, m := range n.Meta.TaskMappings {
 		dto.TaskMappings = append(dto.TaskMappings, ProcessTaskMappingDTO{BPMNElementID: m.BPMNElementID, TaskName: m.TaskName, BPMNElementType: m.BPMNElementType, ServiceRef: m.ServiceRef, Method: m.Method, Role: m.Role, Required: m.Required, Notes: m.Notes})
 	}
+	var starts []StartEventInfo
 	if data, err := os.ReadFile(bpmnPath); err == nil {
 		if tasks, err := ExtractBPMNTasks(string(data)); err == nil {
 			dto.Tasks = withMappingStatus(tasks, dto.TaskMappings)
 		}
+		if evs, err := ExtractBPMNStartEvents(string(data)); err == nil {
+			starts = evs
+		}
 	}
+	dto.Triggers = mergeTriggerView(starts, n.Meta.Triggers)
 	if includeValidation {
-		dto.Validation = validateProcessDTO(path, dto)
+		dto.Validation = validateProcessDTO(path, dto, starts)
 	}
 	return dto
 }
@@ -463,7 +468,7 @@ func withMappingStatus(tasks []BPMNTaskDTO, mappings []ProcessTaskMappingDTO) []
 	return tasks
 }
 
-func validateProcessDTO(path string, p ProcessDTO) ProcessValidationDTO {
+func validateProcessDTO(path string, p ProcessDTO, starts []StartEventInfo) ProcessValidationDTO {
 	findings := []FindingDTO{}
 	add := func(code, severity, msg string) {
 		findings = append(findings, FindingDTO{Code: code, Severity: severity, Message: msg, ArtifactType: "process", ArtifactID: p.ID})
@@ -543,6 +548,7 @@ func validateProcessDTO(path string, p ProcessDTO) ProcessValidationDTO {
 			add("BPMN_TASK_UNMAPPED", "warning", "BPMN task is not mapped to a service: "+firstNonEmpty(t.Name, t.ID))
 		}
 	}
+	validateTriggers(p, starts, add)
 	status := "ready"
 	for _, f := range findings {
 		if f.Severity == "error" {

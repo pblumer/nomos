@@ -519,10 +519,53 @@ type ProcessDTO struct {
 	Steps          []ProcessStepDTO        `json:"steps,omitempty"`
 	BPMN           BPMNReferenceDTO        `json:"bpmn"`
 	TaskMappings   []ProcessTaskMappingDTO `json:"task_mappings,omitempty"`
+	Triggers       []ProcessTriggerDTO     `json:"triggers,omitempty"`
 	Path           string                  `json:"path,omitempty"`
 	BPMNPath       string                  `json:"bpmn_path,omitempty"`
 	Tasks          []BPMNTaskDTO           `json:"tasks,omitempty"`
 	Validation     ProcessValidationDTO    `json:"validation"`
+}
+
+// ProcessTriggerDTO is the merged view of a start event's BPMN definition
+// and its YAML-configured runtime binding. `DetectedType` is taken from the
+// BPMN XML; `Type` and config sub-blocks come from the YAML.
+type ProcessTriggerDTO struct {
+	BPMNElementID string                       `json:"bpmn_element_id"`
+	Name          string                       `json:"name,omitempty"`
+	Description   string                       `json:"description,omitempty"`
+	Type          string                       `json:"type"`
+	DetectedType  string                       `json:"detected_type,omitempty"`
+	Timer         *TimerTriggerConfigDTO       `json:"timer,omitempty"`
+	Message       *MessageTriggerConfigDTO     `json:"message,omitempty"`
+	Signal        *SignalTriggerConfigDTO      `json:"signal,omitempty"`
+	Conditional   *ConditionalTriggerConfigDTO `json:"conditional,omitempty"`
+	Configured    bool                         `json:"configured"`
+}
+
+type TimerTriggerConfigDTO struct {
+	Cron        string `json:"cron,omitempty"`
+	ISODuration string `json:"iso_duration,omitempty"`
+	ISODate     string `json:"iso_date,omitempty"`
+	Timezone    string `json:"timezone,omitempty"`
+}
+
+type MessageTriggerConfigDTO struct {
+	EventRef       string `json:"event_ref,omitempty"`
+	Topic          string `json:"topic,omitempty"`
+	Filter         string `json:"filter,omitempty"`
+	CorrelationKey string `json:"correlation_key,omitempty"`
+}
+
+type SignalTriggerConfigDTO struct {
+	SignalRef string `json:"signal_ref,omitempty"`
+}
+
+type ConditionalTriggerConfigDTO struct {
+	Expression string `json:"expression,omitempty"`
+}
+
+type UpdateProcessTriggersRequest struct {
+	Triggers []ProcessTriggerDTO `json:"triggers"`
 }
 
 type ProcessStepDTO struct {

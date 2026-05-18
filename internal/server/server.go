@@ -656,6 +656,32 @@ func (h *handler) apiProcessRoutes(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, dto)
 		return
 	}
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "triggers" {
+		switch r.Method {
+		case http.MethodGet:
+			triggers, err := app.GetProcessTriggers(h.cosmosPath, parts[0])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"items": triggers, "count": len(triggers)})
+		case http.MethodPut:
+			var req app.UpdateProcessTriggersRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			dto, err := app.UpdateProcessTriggers(h.cosmosPath, parts[0], req)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+		return
+	}
 	if len(parts) == 2 && parts[0] != "" && parts[1] == "task-mappings" {
 		if r.Method != http.MethodPut {
 			w.WriteHeader(http.StatusMethodNotAllowed)
