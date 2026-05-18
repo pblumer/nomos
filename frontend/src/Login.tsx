@@ -1,5 +1,7 @@
 import { FormEvent, useState } from "react";
 
+import { Logo } from "./components/Logo";
+
 type LoginProps = {
   apiBaseUrl: string;
   onLoggedIn: (token: string, username: string) => void;
@@ -55,9 +57,7 @@ function Login({ apiBaseUrl, onLoggedIn }: LoginProps) {
         aria-label="Sign in"
       >
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-9 h-9 bg-indigo-500 rounded-lg flex items-center justify-center">
-            <span aria-hidden="true" className="material-symbols-outlined text-white text-sm">account_balance</span>
-          </div>
+          <Logo size={40} title="Nomos" />
           <h1 className="text-xl font-semibold text-slate-900">Nomos</h1>
         </div>
         <p className="text-sm text-slate-600 mb-6">Please sign in to continue.</p>
