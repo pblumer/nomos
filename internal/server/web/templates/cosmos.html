@@ -1092,6 +1092,27 @@ async function renderBPMNModelerInline(target,xml,proc){
   }catch(e){console.error('bpmn modeler inline error:',e);try{modeler.destroy();}catch(_){}bpmnTaskFallback(target,proc);return null;}
   return modeler;
 }
+function augmentBPMNPalette(modeler){
+  try{
+    const palette=modeler.get('palette');
+    const create=modeler.get('create');
+    const elementFactory=modeler.get('elementFactory');
+    let translate;try{translate=modeler.get('translate');}catch(_){translate=s=>s;}
+    const entry=(type,className,title)=>{
+      const start=event=>{const shape=elementFactory.createShape({type});create.start(event,shape);};
+      return {group:'activity',className,title:translate(title),action:{dragstart:start,click:start}};
+    };
+    palette.registerProvider({
+      getPaletteEntries(){
+        return {
+          'create.nomos-service-task':entry('bpmn:ServiceTask','bpmn-icon-service-task','Service Task einfügen'),
+          'create.nomos-user-task':entry('bpmn:UserTask','bpmn-icon-user-task','User Task einfügen'),
+          'create.nomos-business-rule-task':entry('bpmn:BusinessRuleTask','bpmn-icon-business-rule-task','Business Rule Task einfügen'),
+        };
+      }
+    });
+  }catch(e){console.warn('augmentBPMNPalette failed:',e);}
+}
 function restrictBPMNPalette(modeler,target){
   const hidePalette=new Set(['create.task','create.user-task','create.send-task','create.receive-task','create.manual-task','create.script-task','create.call-activity','create.subprocess-expanded']);
   const hideReplace=new Set(['replace-with-task','replace-with-user-task','replace-with-send-task','replace-with-receive-task','replace-with-manual-task','replace-with-script-task','replace-with-call-activity','replace-with-collapsed-subprocess','replace-with-expanded-subprocess']);
@@ -1139,6 +1160,7 @@ function openBPMNModelerDialog(xml,proc){
       if(warnings?.length)console.warn('bpmn-js modeler warnings:',warnings);
       modeler.get('canvas').zoom('fit-viewport');
       restrictBPMNPalette(modeler,canvas);
+      augmentBPMNPalette(modeler);
       wireBPMNSelection(modeler,canvas,proc);
       setStatus('Bearbeiten möglich');
     }catch(e){console.error('bpmn-js modeler error:',e);setStatus('BPMN konnte nicht geladen werden',true);canvas.innerHTML=`<div class="detail-empty">${esc(e.message||'BPMN konnte nicht geladen werden')}</div>`;if(saveBtn)saveBtn.disabled=true;}
@@ -1170,7 +1192,7 @@ async function initBPMNStandalone(container,proc){
   }catch(e){console.error('bpmn fetch error:',e);bpmnTaskFallback(canvas,proc);return;}
   let modeler=null;
   try{modeler=await renderBPMNModelerInline(canvas,xml,proc);}catch(e){console.error('bpmn-js error:',e);bpmnTaskFallback(canvas,proc);return;}
-  if(modeler)restrictBPMNPalette(modeler,canvas);
+  if(modeler){restrictBPMNPalette(modeler,canvas);augmentBPMNPalette(modeler);}
   const zc=modeler?.get('canvas');
   if(zc)setTimeout(()=>{try{zc.zoom('fit-viewport');}catch(_){}},80);
   const palBtn=container.querySelector('#bpmn-std-palette-toggle');
