@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 
+import Login from "./Login";
+
+const AUTH_TOKEN_STORAGE_KEY = "nomos.auth.token";
+const AUTH_USER_STORAGE_KEY = "nomos.auth.user";
+
 type Product = {
   id: string;
   name: string;
@@ -148,6 +153,50 @@ function App() {
   const [editProduct, setEditProduct] = useState({ name: "", version: "", description: "" });
   const [searchQuery, setSearchQuery] = useState("");
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "";
+  const [authRequired, setAuthRequired] = useState(false);
+  const [authToken, setAuthToken] = useState<string | null>(() => {
+    try { return localStorage.getItem(AUTH_TOKEN_STORAGE_KEY); } catch { return null; }
+  });
+  const [authUser, setAuthUser] = useState<string | null>(() => {
+    try { return localStorage.getItem(AUTH_USER_STORAGE_KEY); } catch { return null; }
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/v1/auth/status`);
+        if (!response.ok) return;
+        const data = (await response.json()) as { auth_required?: boolean };
+        if (!cancelled) setAuthRequired(Boolean(data.auth_required));
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [apiBaseUrl]);
+
+  useEffect(() => {
+    const handler = () => { setAuthToken(null); setAuthUser(null); };
+    window.addEventListener("nomos:unauthorized", handler);
+    return () => window.removeEventListener("nomos:unauthorized", handler);
+  }, []);
+
+  const handleLoggedIn = (token: string, username: string) => {
+    try {
+      localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+      localStorage.setItem(AUTH_USER_STORAGE_KEY, username);
+    } catch { /* ignore */ }
+    setAuthToken(token);
+    setAuthUser(username);
+  };
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+      localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+    } catch { /* ignore */ }
+    setAuthToken(null);
+    setAuthUser(null);
+  };
 
   const readErrorMessage = async (response: Response) => {
     try { const payload = (await response.json()) as { detail?: string }; if (payload?.detail) return payload.detail; } catch { /* ignore */ }
@@ -254,6 +303,10 @@ function App() {
     return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">Draft</span>;
   };
 
+  if (authRequired && !authToken) {
+    return <Login apiBaseUrl={apiBaseUrl} onLoggedIn={handleLoggedIn} />;
+  }
+
   return (
     <div className="min-h-screen bg-background font-sans">
       <aside className="fixed left-0 top-0 w-64 h-full bg-slate-900 border-r border-slate-800 shadow-xl flex flex-col z-50">
@@ -286,11 +339,24 @@ function App() {
         </nav>
         <div className="px-6 py-4 border-t border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold">JD</div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">John Doe</p>
-              <p className="text-xs text-slate-500 truncate">Compliance Officer</p>
+            <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold">
+              {(authUser ?? "JD").slice(0, 2).toUpperCase()}
             </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white truncate">{authUser ?? "John Doe"}</p>
+              <p className="text-xs text-slate-500 truncate">{authRequired ? "Signed in" : "Compliance Officer"}</p>
+            </div>
+            {authRequired && authToken && (
+              <button
+                type="button"
+                onClick={handleLogout}
+                aria-label="Sign out"
+                title="Sign out"
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-md transition-all"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-base">logout</span>
+              </button>
+            )}
           </div>
         </div>
       </aside>
