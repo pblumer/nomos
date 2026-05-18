@@ -255,19 +255,20 @@ type DecisionTable struct {
 // ProcessStep is one ordered step in a fulfillment process. Each step maps to
 // a service call (ArchiMate function/trigger).
 type ProcessStep struct {
-	ID         string             `yaml:"id" json:"id"`
-	Name       string             `yaml:"name" json:"name"`
-	TaskType   string             `yaml:"task_type,omitempty" json:"task_type,omitempty"`
-	ServiceRef string             `yaml:"service_ref" json:"service_ref"`
-	Method     string             `yaml:"method,omitempty" json:"method,omitempty"`
-	Role       string             `yaml:"role,omitempty" json:"role,omitempty"`
-	Required   bool               `yaml:"required" json:"required"`
-	Notes      string             `yaml:"notes,omitempty" json:"notes,omitempty"`
-	DependsOn  []string           `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
-	Inputs     []StepInputBinding `yaml:"inputs,omitempty" json:"inputs,omitempty"`
-	Outputs    []StepOutputSchema `yaml:"outputs,omitempty" json:"outputs,omitempty"`
-	Decision   *DecisionTable     `yaml:"decision,omitempty" json:"decision,omitempty"`
-	Gateway    *DecisionGateway   `yaml:"gateway,omitempty" json:"gateway,omitempty"`
+	ID          string             `yaml:"id" json:"id"`
+	Name        string             `yaml:"name" json:"name"`
+	TaskType    string             `yaml:"task_type,omitempty" json:"task_type,omitempty"`
+	ServiceRef  string             `yaml:"service_ref" json:"service_ref"`
+	Method      string             `yaml:"method,omitempty" json:"method,omitempty"`
+	DecisionRef string             `yaml:"decision_ref,omitempty" json:"decision_ref,omitempty"`
+	Role        string             `yaml:"role,omitempty" json:"role,omitempty"`
+	Required    bool               `yaml:"required" json:"required"`
+	Notes       string             `yaml:"notes,omitempty" json:"notes,omitempty"`
+	DependsOn   []string           `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
+	Inputs      []StepInputBinding `yaml:"inputs,omitempty" json:"inputs,omitempty"`
+	Outputs     []StepOutputSchema `yaml:"outputs,omitempty" json:"outputs,omitempty"`
+	Decision    *DecisionTable     `yaml:"decision,omitempty" json:"decision,omitempty"`
+	Gateway     *DecisionGateway   `yaml:"gateway,omitempty" json:"gateway,omitempty"`
 }
 
 type BPMNReference struct {
