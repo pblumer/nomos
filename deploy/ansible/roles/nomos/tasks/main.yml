@@ -51,10 +51,17 @@
     - restart nomos
 
 - name: Bootstrap cosmos if not present
-  become_user: "{{ nomos_user }}"
   command:
     cmd: "{{ nomos_home }}/nomos cosmos init {{ nomos_cosmos_path }}"
     creates: "{{ nomos_cosmos_path }}/.nomos/cosmos.yaml"
+
+- name: Fix cosmos ownership
+  file:
+    path: "{{ nomos_cosmos_path }}"
+    state: directory
+    owner: "{{ nomos_user }}"
+    group: "{{ nomos_user }}"
+    recurse: true
 
 - name: Enable and start nomos service
   systemd:
