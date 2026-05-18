@@ -68,7 +68,7 @@ func NewHandler(cosmosPath string) http.Handler {
 		return mcpserver.New(cosmosPath)
 	}, nil))
 	mux.HandleFunc("/", h.routes)
-	return mux
+	return apiKeyAuth(cosmosPath, mux)
 }
 func must[T any](v T, err error) T {
 	if err != nil {

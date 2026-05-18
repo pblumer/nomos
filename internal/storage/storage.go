@@ -21,6 +21,8 @@ func EvidenceDir(workspace string) string { return filepath.Join(NomosDir(worksp
 func IndexDir(workspace string) string    { return filepath.Join(NomosDir(workspace), "index") }
 func CacheDir(workspace string) string    { return filepath.Join(NomosDir(workspace), "cache") }
 func UCIDir(workspace string) string      { return filepath.Join(NomosDir(workspace), "uci") }
+func KeysFile(workspace string) string    { return filepath.Join(NomosDir(workspace), "keys.yaml") }
+
 func SelfModelDir(workspace string) string {
 	return filepath.Join(DomainsDir(workspace), "nomos", "core")
 }
