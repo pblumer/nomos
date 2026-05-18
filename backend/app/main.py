@@ -4,7 +4,10 @@ from pathlib import Path
 import yaml
 from fastapi import Body, FastAPI, HTTPException
 
+from .auth import AuthMiddleware, auth_required, issue_token, verify_credentials
+
 app = FastAPI(title="Nomos API", version="0.1.0")
+app.add_middleware(AuthMiddleware)
 
 
 def _products_dir() -> Path:
@@ -354,6 +357,23 @@ def _prepare_product_for_write(product: dict[str, object]) -> dict[str, object]:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/api/v1/auth/status")
+def auth_status() -> dict[str, bool]:
+    return {"auth_required": auth_required()}
+
+
+@app.post("/api/v1/auth/login")
+def login(payload: dict[str, str] = Body(...)) -> dict[str, object]:
+    if not auth_required():
+        raise HTTPException(status_code=400, detail="Authentication is disabled")
+    username = str(payload.get("username", "")).strip()
+    password = str(payload.get("password", ""))
+    if not verify_credentials(username, password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    token, expires_at = issue_token(username)
+    return {"token": token, "expires_at": expires_at, "username": username}
 
 
 @app.get("/api/v1/products")
