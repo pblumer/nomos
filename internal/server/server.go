@@ -332,6 +332,24 @@ func (h *handler) apiDomainDecisions(w http.ResponseWriter, r *http.Request, dom
 }
 
 func (h *handler) apiDomainDecisionByID(w http.ResponseWriter, r *http.Request, domain, id string, tail []string) {
+	if len(tail) == 1 && tail[0] == "evaluate" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var req app.EvaluateDecisionRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+			return
+		}
+		result, err := app.EvaluateDecision(h.cosmosPath, domain, id, req)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+		return
+	}
 	if len(tail) == 1 && tail[0] == "dmn" {
 		switch r.Method {
 		case http.MethodGet:

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/nomos/nomos/internal/cosmosfs"
+	"github.com/nomos/nomos/internal/dmn"
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/model"
 )
@@ -247,6 +248,45 @@ func decisionIOsFromDTO(dtos []DecisionIODTO) []model.DecisionIO {
 		out = append(out, model.DecisionIO{Name: v.Name, Type: v.Type, Description: v.Description})
 	}
 	return out
+}
+
+// EvaluateDecisionRequest holds the input map for a decision evaluation.
+type EvaluateDecisionRequest struct {
+	Inputs map[string]any `json:"inputs"`
+}
+
+// EvaluateDecision loads the DMN file for a decision and evaluates it against the provided inputs.
+func EvaluateDecision(path, domainCanonical, id string, req EvaluateDecisionRequest) (*dmn.Result, error) {
+	d, err := findDomainNode(path, domainCanonical)
+	if err != nil {
+		return nil, err
+	}
+	nodes, err := cosmosfs.ScanDecisions(d.Path)
+	if err != nil {
+		return nil, err
+	}
+	for _, n := range nodes {
+		if n.Metadata.ID != id {
+			continue
+		}
+		if n.DMNPath == "" {
+			return nil, Error(CodeInvalidInput, "No DMN file for decision: "+id, http.StatusNotFound, nil)
+		}
+		data, err := os.ReadFile(n.DMNPath)
+		if err != nil {
+			return nil, err
+		}
+		table, err := dmn.ParseDMN(data)
+		if err != nil {
+			return nil, Error(CodeInvalidInput, "DMN parse error: "+err.Error(), http.StatusUnprocessableEntity, err)
+		}
+		result, err := dmn.Evaluate(table, req.Inputs)
+		if err != nil {
+			return nil, Error(CodeInvalidInput, "DMN evaluation error: "+err.Error(), http.StatusUnprocessableEntity, err)
+		}
+		return result, nil
+	}
+	return nil, Error(CodeInvalidInput, "Decision not found: "+id, http.StatusNotFound, nil)
 }
 
 func nextDecisionID(domainPath string) string {
