@@ -54,7 +54,7 @@ func ListProductProcesses(path, productID string) (ProcessesDTO, error) {
 	want := map[string]bool{}
 	found := false
 	for _, bp := range tree.Blueprints {
-		if bp.Metadata.ID == productID && bp.Metadata.Type == "product_blueprint" {
+		if bp.Metadata.ID == productID && (bp.Metadata.Type == "product_blueprint" || bp.Metadata.Type == "product") {
 			found = true
 			for _, id := range bp.Metadata.Processes {
 				want[id] = true

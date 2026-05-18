@@ -292,7 +292,7 @@ func productSummariesOfferedBy(tree cosmosfs.Tree, domainCanonical string) []Pro
 	canonical := namespace.Canonical(domainCanonical)
 	out := []ProductSummaryDTO{}
 	for _, b := range tree.Blueprints {
-		if b.Metadata.Type != "product_blueprint" || namespace.Canonical(b.Metadata.OfferedBy) != canonical {
+		if (b.Metadata.Type != "product_blueprint" && b.Metadata.Type != "product") || namespace.Canonical(b.Metadata.OfferedBy) != canonical {
 			continue
 		}
 		out = append(out, productSummaryDTO(tree, b.Metadata, b.Path))

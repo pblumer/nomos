@@ -159,7 +159,7 @@ func scanBlueprintArtifacts(root string) ([]BlueprintNode, error) {
 		if err := fsx.ReadYAML(path, &b); err != nil {
 			return err
 		}
-		if b.Type == "product_blueprint" || b.Type == "service_blueprint" {
+		if b.Type == "product_blueprint" || b.Type == "service_blueprint" || b.Type == "product" || b.Type == "service" {
 			nodes = append(nodes, BlueprintNode{Path: path, Metadata: b})
 		}
 		return nil
