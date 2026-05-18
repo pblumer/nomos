@@ -1,14 +1,15 @@
 package model
 
 type Cosmos struct {
-	ID      string   `yaml:"id" json:"id"`
-	Type    string   `yaml:"type" json:"type"`
-	Name    string   `yaml:"name" json:"name"`
-	Version string   `yaml:"version" json:"version"`
-	Status  string   `yaml:"status" json:"status"`
-	Owner   string   `yaml:"owner" json:"owner"`
-	Summary string   `yaml:"summary" json:"summary"`
-	Domains []string `yaml:"domains" json:"domains"`
+	ID        string        `yaml:"id" json:"id"`
+	Type      string        `yaml:"type" json:"type"`
+	Name      string        `yaml:"name" json:"name"`
+	Version   string        `yaml:"version" json:"version"`
+	Status    string        `yaml:"status" json:"status"`
+	Owner     string        `yaml:"owner" json:"owner"`
+	Summary   string        `yaml:"summary" json:"summary"`
+	Domains   []string      `yaml:"domains" json:"domains"`
+	SelfModel *SelfModelRef `yaml:"self_model,omitempty" json:"self_model,omitempty"`
 }
 
 type Domain struct {
@@ -69,21 +70,89 @@ func (m *MethodDefinition) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	return unmarshal((*plain)(m))
 }
 
+// ConnectorArg describes one argument of a CLI connector.
+type ConnectorArg struct {
+	Name        string   `yaml:"name" json:"name"`
+	Flag        string   `yaml:"flag,omitempty" json:"flag,omitempty"`
+	Positional  bool     `yaml:"positional,omitempty" json:"positional,omitempty"`
+	Required    bool     `yaml:"required,omitempty" json:"required,omitempty"`
+	Default     string   `yaml:"default,omitempty" json:"default,omitempty"`
+	Enum        []string `yaml:"enum,omitempty" json:"enum,omitempty"`
+	Description string   `yaml:"description,omitempty" json:"description,omitempty"`
+}
+
+// ConnectorExitCode documents a CLI exit code.
+type ConnectorExitCode struct {
+	Code    int    `yaml:"code" json:"code"`
+	Meaning string `yaml:"meaning" json:"meaning"`
+}
+
+// Connector describes one access point (CLI, REST, or MCP) for a capability.
+type Connector struct {
+	Type        string `yaml:"type" json:"type"` // cli | rest | mcp
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+	// CLI
+	Invocation string              `yaml:"invocation,omitempty" json:"invocation,omitempty"`
+	Args       []ConnectorArg      `yaml:"args,omitempty" json:"args,omitempty"`
+	ExitCodes  []ConnectorExitCode `yaml:"exit_codes,omitempty" json:"exit_codes,omitempty"`
+	// REST
+	Method              string `yaml:"method,omitempty" json:"method,omitempty"`
+	Path                string `yaml:"path,omitempty" json:"path,omitempty"`
+	RequestContentType  string `yaml:"request_content_type,omitempty" json:"request_content_type,omitempty"`
+	ResponseContentType string `yaml:"response_content_type,omitempty" json:"response_content_type,omitempty"`
+	Auth                string `yaml:"auth,omitempty" json:"auth,omitempty"`
+	// MCP
+	Tool       string `yaml:"tool,omitempty" json:"tool,omitempty"`
+	Kind       string `yaml:"kind,omitempty" json:"kind,omitempty"`
+	Idempotent *bool  `yaml:"idempotent,omitempty" json:"idempotent,omitempty"`
+}
+
+// ServiceCapability describes one named capability of a service, with optional
+// connector metadata. It unmarshals from both plain strings ("cap-name") and
+// full objects so existing service.yaml files remain valid.
+type ServiceCapability struct {
+	ID         string      `yaml:"id" json:"id"`
+	Name       string      `yaml:"name" json:"name"`
+	Summary    string      `yaml:"summary,omitempty" json:"summary,omitempty"`
+	Stability  string      `yaml:"stability,omitempty" json:"stability,omitempty"`
+	SideEffect string      `yaml:"side_effect,omitempty" json:"side_effect,omitempty"`
+	Connectors []Connector `yaml:"connectors,omitempty" json:"connectors,omitempty"`
+	RelatedUCI []string    `yaml:"related_uci,omitempty" json:"related_uci,omitempty"`
+}
+
+func (c *ServiceCapability) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err == nil {
+		c.ID = s
+		c.Name = s
+		return nil
+	}
+	type plain ServiceCapability
+	return unmarshal((*plain)(c))
+}
+
+// SelfModelRef records the embedded self-model bundle version imported into a cosmos.
+type SelfModelRef struct {
+	Version        string `yaml:"version" json:"version"`
+	BundleChecksum string `yaml:"bundle_checksum,omitempty" json:"bundle_checksum,omitempty"`
+	ImportedAt     string `yaml:"imported_at,omitempty" json:"imported_at,omitempty"`
+}
+
 type Service struct {
-	ID                string             `yaml:"id" json:"id"`
-	Type              string             `yaml:"type" json:"type"`
-	Name              string             `yaml:"name" json:"name"`
-	Version           string             `yaml:"version" json:"version"`
-	Status            string             `yaml:"status" json:"status"`
-	Owner             string             `yaml:"owner" json:"owner"`
-	OwnedBy           string             `yaml:"owned_by,omitempty" json:"owned_by,omitempty"`
-	OperatedBy        []string           `yaml:"operated_by,omitempty" json:"operated_by,omitempty"`
-	Capabilities      []string           `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
-	SupportedProducts []string           `yaml:"supported_products,omitempty" json:"supported_products,omitempty"`
-	Methods           []MethodDefinition `yaml:"methods,omitempty" json:"methods,omitempty"`
-	Summary           string             `yaml:"summary" json:"summary"`
-	SLA               *ServiceLevelInfo  `yaml:"sla,omitempty" json:"sla,omitempty"`
-	OLA               *ServiceLevelInfo  `yaml:"ola,omitempty" json:"ola,omitempty"`
+	ID                string              `yaml:"id" json:"id"`
+	Type              string              `yaml:"type" json:"type"`
+	Name              string              `yaml:"name" json:"name"`
+	Version           string              `yaml:"version" json:"version"`
+	Status            string              `yaml:"status" json:"status"`
+	Owner             string              `yaml:"owner" json:"owner"`
+	OwnedBy           string              `yaml:"owned_by,omitempty" json:"owned_by,omitempty"`
+	OperatedBy        []string            `yaml:"operated_by,omitempty" json:"operated_by,omitempty"`
+	Capabilities      []ServiceCapability `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
+	SupportedProducts []string            `yaml:"supported_products,omitempty" json:"supported_products,omitempty"`
+	Methods           []MethodDefinition  `yaml:"methods,omitempty" json:"methods,omitempty"`
+	Summary           string              `yaml:"summary" json:"summary"`
+	SLA               *ServiceLevelInfo   `yaml:"sla,omitempty" json:"sla,omitempty"`
+	OLA               *ServiceLevelInfo   `yaml:"ola,omitempty" json:"ola,omitempty"`
 }
 
 type Variant struct {

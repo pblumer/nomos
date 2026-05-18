@@ -1,0 +1,39 @@
+id: service-catalog-manager
+type: service
+name: catalog-manager
+version: "0.1.0"
+status: stable
+owner: Nomos Core Team
+owned_by: core.nomos
+operated_by:
+  - core.nomos
+summary: Verwaltet den Blueprint- und Instance-Katalog eines Cosmos (Produkte, Services, Prozesse, Instanzen).
+capabilities:
+  - id: cap-list-blueprints
+    name: Blueprints auflisten
+    summary: Gibt alle Blueprint-Produkte und -Services eines Cosmos zurück.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: rest
+        method: GET
+        path: /api/v1/products
+        auth: none
+      - type: mcp
+        tool: nomos.list_products
+        kind: tool
+        idempotent: true
+  - id: cap-manage-decisions
+    name: DMN-Entscheidungen verwalten
+    summary: CRUD für DMN 1.5 Decision Tables und Evaluation via FEEL-Engine.
+    stability: stable
+    side_effect: mutates_workspace
+    connectors:
+      - type: rest
+        method: GET
+        path: /api/v1/domains/{domain}/decisions
+        auth: none
+      - type: rest
+        method: POST
+        path: /api/v1/domains/{domain}/decisions/{id}/evaluate
+        auth: none

@@ -1,0 +1,59 @@
+id: service-validator-engine
+type: service
+name: validator-engine
+version: "0.1.0"
+status: stable
+owner: Nomos Core Team
+owned_by: core.nomos
+operated_by:
+  - core.nomos
+summary: Deterministische Validierung von Cosmos-Artefakten gegen Struktur- und Referenzregeln.
+capabilities:
+  - id: cap-validate-cosmos
+    name: Cosmos validieren
+    summary: Vollständige strukturelle und referentielle Validierung eines Cosmos-Workspace.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: cli
+        invocation: "nomos validate"
+        args:
+          - name: path
+            flag: "--path"
+            required: false
+            default: "."
+          - name: format
+            flag: "--format"
+            required: false
+            enum: [text, json]
+            default: text
+        exit_codes:
+          - code: 0
+            meaning: ok
+          - code: 1
+            meaning: findings_present
+          - code: 2
+            meaning: invocation_error
+      - type: rest
+        method: POST
+        path: /api/v1/validate
+        auth: none
+      - type: mcp
+        tool: nomos.validate
+        kind: tool
+        idempotent: true
+    related_uci:
+      - validation-view
+  - id: cap-cosmos-doctor
+    name: Cosmos Doctor
+    summary: Schnell-Check des Cosmos auf häufige Konfigurationsprobleme.
+    stability: stable
+    side_effect: read_only
+    connectors:
+      - type: cli
+        invocation: "nomos cosmos doctor"
+        args:
+          - name: path
+            flag: "--path"
+            required: false
+            default: "."

@@ -1,4 +1,4 @@
-.PHONY: help test vet fmt build run demo validate-demo serve-demo clean version version-json release-build
+.PHONY: help test vet fmt build run demo validate-demo serve-demo clean version version-json release-build validate-self-model
 
 VERSION ?= dev
 BUILT_BY ?= source
@@ -14,7 +14,7 @@ LDFLAGS := -X $(MODULE)/internal/version.Version=$(VERSION) \
 	-X $(MODULE)/internal/version.BuiltBy=$(BUILT_BY)
 
 help:
-	@echo "Targets: fmt vet test build version version-json release-build demo validate-demo serve-demo clean"
+	@echo "Targets: fmt vet test build version version-json release-build demo validate-demo serve-demo validate-self-model clean"
 fmt:
 	gofmt -w .
 vet:
@@ -37,5 +37,12 @@ validate-demo: build
 	./bin/nomos validate --path ./tmp/demo-cosmos
 serve-demo: build
 	./bin/nomos serve --path ./tmp/demo-cosmos --listen 127.0.0.1:8080
+validate-self-model: build
+	@tmp=$$(mktemp -d) && \
+	  ./bin/nomos cosmos init --without-self $$tmp && \
+	  ./bin/nomos self import --path $$tmp && \
+	  ./bin/nomos validate --path $$tmp && \
+	  ./bin/nomos self status --path $$tmp && \
+	  rm -rf $$tmp
 clean:
 	rm -rf ./bin ./tmp

@@ -1,0 +1,17 @@
+id: nomos-self-model
+version: "0.1.0"
+nomos_version: "0.1.0"
+generated: 2026-05-18
+source_locale: de
+supported_locales: [de]
+connector_schema_version: "1"
+manifest:
+  - domains/nomos/core/domain.yaml
+  - domains/nomos/core/services/git-repo-manager/service.yaml
+  - domains/nomos/core/services/validator-engine/service.yaml
+  - domains/nomos/core/services/rest-adapter/service.yaml
+  - domains/nomos/core/services/mcp-adapter/service.yaml
+  - domains/nomos/core/services/web-adapter/service.yaml
+  - domains/nomos/core/services/catalog-manager/service.yaml
+  - domains/nomos/core/services/uci-manager/service.yaml
+  - catalog/blueprints/products/nomos-core-engine.yaml

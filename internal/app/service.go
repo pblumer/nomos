@@ -169,7 +169,19 @@ func serviceDTO(domain string, s cosmosfs.ServiceNode) ServiceDTO {
 		}
 		methods = append(methods, MethodDefinitionDTO{Name: m.Name, Summary: m.Summary, Parameters: params})
 	}
-	return ServiceDTO{Name: s.Name, Domain: domain, Owner: fallback(s.Metadata.Owner, "unknown"), OwnedBy: ownedBy, OperatedBy: s.Metadata.OperatedBy, Capabilities: s.Metadata.Capabilities, SupportedProducts: s.Metadata.SupportedProducts, Methods: methods, Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path}
+	capNames := make([]string, 0, len(s.Metadata.Capabilities))
+	var capDefs []ServiceCapabilityDTO
+	for _, c := range s.Metadata.Capabilities {
+		capNames = append(capNames, c.Name)
+		if len(c.Connectors) > 0 || c.Summary != "" || c.Stability != "" {
+			connDTOs := make([]ConnectorDTO, 0, len(c.Connectors))
+			for _, cn := range c.Connectors {
+				connDTOs = append(connDTOs, ConnectorDTO{Type: cn.Type, Description: cn.Description, Invocation: cn.Invocation, Method: cn.Method, Path: cn.Path, Auth: cn.Auth, Tool: cn.Tool, Kind: cn.Kind})
+			}
+			capDefs = append(capDefs, ServiceCapabilityDTO{ID: c.ID, Name: c.Name, Summary: c.Summary, Stability: c.Stability, SideEffect: c.SideEffect, Connectors: connDTOs, RelatedUCI: c.RelatedUCI})
+		}
+	}
+	return ServiceDTO{Name: s.Name, Domain: domain, Owner: fallback(s.Metadata.Owner, "unknown"), OwnedBy: ownedBy, OperatedBy: s.Metadata.OperatedBy, Capabilities: capNames, CapabilityDefs: capDefs, SupportedProducts: s.Metadata.SupportedProducts, Methods: methods, Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path}
 }
 
 func AddServiceMethod(path, domainName, serviceName, method string) (ServiceDTO, error) {

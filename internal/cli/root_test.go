@@ -423,7 +423,7 @@ func TestGraphFailsWhenCosmosYAMLMissing(t *testing.T) {
 
 func TestGraphHandlesCosmosWithoutDomains(t *testing.T) {
 	p := t.TempDir()
-	_, _, _ = executeCommand(t, "cosmos", "init", p)
+	_, _, _ = executeCommand(t, "cosmos", "init", p, "--without-self")
 	out, _, err := executeCommand(t, "graph", "--path", p)
 	if err != nil {
 		t.Fatal(err)
@@ -438,7 +438,7 @@ func TestGraphHandlesCosmosWithoutDomains(t *testing.T) {
 
 func TestGraphHandlesDomainWithoutServices(t *testing.T) {
 	p := t.TempDir()
-	_, _, _ = executeCommand(t, "cosmos", "init", p)
+	_, _, _ = executeCommand(t, "cosmos", "init", p, "--without-self")
 	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p)
 	out, _, err := executeCommand(t, "graph", "--path", p)
 	if err != nil {
@@ -454,7 +454,7 @@ func TestGraphHandlesDomainWithoutServices(t *testing.T) {
 
 func TestCosmosInfoReportsFilesystemDomainCount(t *testing.T) {
 	p := t.TempDir()
-	_, _, _ = executeCommand(t, "cosmos", "init", p)
+	_, _, _ = executeCommand(t, "cosmos", "init", p, "--without-self")
 	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p)
 	_, _, _ = executeCommand(t, "domain", "add", "platform.blumer.cloud", "--path", p)
 	_, _, _ = executeCommand(t, "domain", "add", "governance.blumer.cloud", "--path", p)
@@ -469,7 +469,7 @@ func TestCosmosInfoReportsFilesystemDomainCount(t *testing.T) {
 
 func TestCosmosInfoReportsZeroWhenNoDomains(t *testing.T) {
 	p := t.TempDir()
-	_, _, _ = executeCommand(t, "cosmos", "init", p)
+	_, _, _ = executeCommand(t, "cosmos", "init", p, "--without-self")
 	out, _, err := executeCommand(t, "cosmos", "info", "--path", p)
 	if err != nil {
 		t.Fatal(err)
@@ -481,7 +481,7 @@ func TestCosmosInfoReportsZeroWhenNoDomains(t *testing.T) {
 
 func TestCosmosInfoIgnoresIncompleteDomainDirectories(t *testing.T) {
 	p := t.TempDir()
-	_, _, _ = executeCommand(t, "cosmos", "init", p)
+	_, _, _ = executeCommand(t, "cosmos", "init", p, "--without-self")
 	if err := os.MkdirAll(filepath.Join(storage.DomainsDir(p), "incomplete.example.com"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -536,7 +536,7 @@ func TestRootCommandContainsExpectedSubcommands(t *testing.T) {
 func createParityCosmos(t *testing.T) string {
 	t.Helper()
 	p := t.TempDir()
-	_, _, _ = executeCommand(t, "cosmos", "init", p)
+	_, _, _ = executeCommand(t, "cosmos", "init", p, "--without-self")
 	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p, "--owner", "Identity Team")
 	_, _, _ = executeCommand(t, "domain", "add", "platform.blumer.cloud", "--path", p, "--owner", "Platform Team")
 	_, _, _ = executeCommand(t, "service", "add", "user-account", "--domain", "identity.blumer.cloud", "--path", p, "--owner", "Identity Team")

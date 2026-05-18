@@ -62,6 +62,12 @@ func validateCrossArtifacts(tree cosmosfs.Tree, res *Result) {
 	serviceRefs := make(map[string]bool)
 	for _, d := range tree.Domains {
 		domains[canonical(d.Name)] = true
+		if d.Metadata.DNSName != "" {
+			domains[canonical(d.Metadata.DNSName)] = true
+		}
+		if d.Metadata.CanonicalName != "" {
+			domains[canonical(d.Metadata.CanonicalName)] = true
+		}
 	}
 	for _, d := range tree.Domains {
 		domainName := canonical(d.Name)
