@@ -118,7 +118,7 @@ checksum: sha256:<…>
 
 Jeder Self-Model-Service deklariert seine Funktionen als
 `capabilities`-Eintrag mit Connector-Block. Das ist eine schlanke,
-optionale Erweiterung des bestehenden Service-Schemas:
+optionale Erweiterung des bestehenden Service-Schemas. Beispiel:
 
 ```yaml
 id: service-validator-engine
@@ -133,14 +133,38 @@ capabilities:
   - id: cap-validate-cosmos
     name: Validate Cosmos
     summary: Deterministische Vollvalidierung eines Cosmos-Workspaces.
+    stability: stable
+    side_effect: read_only
     connectors:
       - type: cli
         invocation: "nomos validate"
+        args:
+          - name: path
+            flag: "--path"
+            required: false
+            default: "."
+          - name: format
+            flag: "--format"
+            required: false
+            enum: [text, json]
+            default: text
+        exit_codes:
+          - code: 0
+            meaning: ok
+          - code: 1
+            meaning: findings_present
+          - code: 2
+            meaning: invocation_error
       - type: rest
         method: POST
         path: /api/v1/validate
+        request_content_type: application/json
+        response_content_type: application/json
+        auth: none
       - type: mcp
         tool: nomos.validate
+        kind: tool          # tool | resource | prompt
+        idempotent: true
     inputs_schema_ref: schemas/validate-input.yaml
     outputs_schema_ref: schemas/validate-output.yaml
     related_uci:
@@ -148,8 +172,66 @@ capabilities:
 summary: Strukturelle und referentielle Validierung von Cosmos-Artefakten.
 ```
 
-Connector-Typen fuer MVP: `cli`, `rest`, `mcp`. Weitere (z. B. `webhook`,
-`grpc`) koennen spaeter ergaenzt werden, ohne das Schema umzustossen.
+#### 3.1 Schema fuer `capabilities[].connectors[]`
+
+Pflicht- und optionale Felder pro Connector-Typ. Unbekannte Felder werden
+beim Parsen ignoriert (forward-compatible); fehlende Pflichtfelder fuehren
+zu Validator-Findings (`code: SELF.CONNECTOR.MISSING_FIELD`).
+
+**Gemeinsame Felder (alle Connector-Typen):**
+
+| Feld | Typ | Pflicht | Bedeutung |
+|---|---|---|---|
+| `type` | enum `cli` \| `rest` \| `mcp` | ja | Connector-Klasse. Weitere Werte ohne Schema-Bruch nicht erlaubt — neue Typen brauchen einen Schema-Bump. |
+| `description` | string | nein | Kurzbeschreibung; wird in der UI gerendert. |
+
+Felder, die fuer **alle Capabilities** (nicht pro Connector) gelten,
+stehen auf der Capability-Ebene:
+
+| Feld | Typ | Pflicht | Bedeutung |
+|---|---|---|---|
+| `stability` | enum `experimental` \| `beta` \| `stable` \| `deprecated` | nein, Default `stable` | Reifegrad. `deprecated` erzeugt Validator-Warnung. |
+| `side_effect` | enum `read_only` \| `mutates_workspace` \| `mutates_git` \| `network_egress` | nein, Default `read_only` | Beeinflusst UI-Bestaetigungsdialoge und MCP-`idempotent`-Default. |
+
+**`type: cli`:**
+
+| Feld | Typ | Pflicht | Bedeutung |
+|---|---|---|---|
+| `invocation` | string | ja | Vollstaendiges CLI-Pattern, beginnend mit `nomos`. |
+| `args[].name` | string | ja | Logischer Argumentname (identisch zum REST-Body-Feld, sofern moeglich). |
+| `args[].flag` | string | nein | Konkreter CLI-Flag (z. B. `--path`). Fehlt bei Positional-Args. |
+| `args[].positional` | bool | nein, Default `false` | Positional vs. Flag. |
+| `args[].required` | bool | nein, Default `false` | |
+| `args[].default` | scalar | nein | Default-Wert; nur dokumentarisch. |
+| `args[].enum` | list | nein | Erlaubte Werte. |
+| `exit_codes[].code` | int | ja | |
+| `exit_codes[].meaning` | string | ja | Symbolischer Name (Snake-Case). |
+
+**`type: rest`:**
+
+| Feld | Typ | Pflicht | Bedeutung |
+|---|---|---|---|
+| `method` | enum `GET` \| `POST` \| `PUT` \| `PATCH` \| `DELETE` | ja | |
+| `path` | string | ja | Pfad relativ zur Server-Basis, inkl. Pfadparameter (`/api/v1/foo/{id}`). |
+| `request_content_type` | string | nein, Default `application/json` | |
+| `response_content_type` | string | nein, Default `application/json` | |
+| `auth` | enum `none` \| `session` \| `token` | nein, Default `session` | Erwartetes Auth-Schema (rein dokumentarisch in MVP). |
+
+**`type: mcp`:**
+
+| Feld | Typ | Pflicht | Bedeutung |
+|---|---|---|---|
+| `tool` | string | ja | Vollqualifizierter MCP-Tool-Name (Dot-Notation, z. B. `nomos.validate`). |
+| `kind` | enum `tool` \| `resource` \| `prompt` | nein, Default `tool` | MCP-Primitive (ADR-0008). |
+| `idempotent` | bool | nein, Default abgeleitet von `side_effect == read_only` | Steuert, ob MCP-Hosts den Aufruf cachen/retry-en duerfen. |
+
+**Schema-Identitaet und -Versionierung:** Das vollstaendige JSON-Schema liegt
+unter `internal/selfmodel/schema/capability-connector.schema.json` im
+Repository und wird in `bundle.yaml` via `connector_schema_version: "1"`
+referenziert. Schema-Bumps (`"2"`, …) erfolgen ueber ein eigenes ADR.
+
+Connector-Typen fuer MVP sind damit abschliessend: `cli`, `rest`, `mcp`.
+Weitere (z. B. `webhook`, `grpc`) erfordern einen Schema-Bump.
 
 ### 4. Bootstrap und Import
 
@@ -217,6 +299,121 @@ markiert die Domain aber visuell als **System**/**Read-only**. UCIs aus dem
 Bundle werden im UCI-Explorer (ADR-0013) wie normale UCIs gelistet, jedoch
 ebenfalls als Read-only gekennzeichnet.
 
+### 8. Idempotenz beim Re-Init und Re-Import
+
+`cosmos init` und `nomos self import` muessen wiederholbar sein, ohne den
+Workspace zu beschaedigen oder benutzereigene Aenderungen unbemerkt zu
+ueberschreiben. Es gelten folgende Regeln:
+
+**Erkennung des Workspace-Zustands.** `.nomos/cosmos.yaml` enthaelt nach
+einem erfolgreichen Import den Block (siehe Abschnitt 5):
+
+```yaml
+self_model:
+  version: "0.1.0"
+  bundle_checksum: sha256:<…>     # Checksumme aus bundle.yaml zum Importzeitpunkt
+  imported_at: 2026-05-18T10:11:12Z
+```
+
+Beim Re-Init/Re-Import vergleicht Nomos drei Werte:
+
+1. `binary_bundle_checksum`  — Checksumme des Bundles im laufenden Binary.
+2. `workspace_recorded_checksum` — Wert aus `.nomos/cosmos.yaml`.
+3. `workspace_actual_checksum` — neu berechnet ueber alle Dateien unter
+   `.nomos/domains/core.nomos/`, `.nomos/catalog/blueprints/{products,services}/nomos-*`
+   (Self-Model-Anteil im Katalog) und `.nomos/uci/` (nur Self-Model-UCIs,
+   per Manifest aufgelistet).
+
+**Entscheidungs-Matrix:**
+
+| Fall | Binary == Recorded | Recorded == Actual | Verhalten |
+|---|---|---|---|
+| A — Frisch | n/a (kein `self_model`-Block) | n/a | Import wie gehabt. |
+| B — No-op | ja | ja | Nichts schreiben, `imported_at` nicht aktualisieren. Exit 0. |
+| C — Binary-Upgrade noetig | nein | ja | Hinweis: "Binary-Version X, Workspace Y. Nutze `nomos self upgrade`." Kein automatisches Schreiben. |
+| D — Lokale Aenderungen | ja | nein | Validator-Finding `SELF.WORKSPACE.MODIFIED` mit Liste der abweichenden Dateien. Kein Schreiben ohne `--force-overwrite-self`. |
+| E — Drift + Version | nein | nein | Wie D, zusaetzlich Hinweis aus C. |
+
+**`cosmos init` auf bereits initialisiertem Verzeichnis:** Verhaelt sich
+weiterhin wie bisher (Fehler ohne `--force`); zusaetzlich aktiviert
+`--force` den Pfad fuer Faelle B/C/D/E gemaess Matrix — nicht ein
+blindes Ueberschreiben.
+
+**`nomos self import` auf existierendem Bundle:** Default ist Fall B/D
+ohne Schreiboperation; `--force-overwrite-self` ueberschreibt
+Self-Model-Dateien (Fall D/E). Benutzer-Artefakte ausserhalb des
+Self-Model-Scopes werden niemals angefasst.
+
+**Git-Verhalten.** Der Importer erzeugt nie Commits selbst — er schreibt
+nur ins Working-Tree. So bleibt der bestehende Workflow (Branch → Commit
+→ PR) intakt; bei Re-Imports ist ein leerer `git diff` der Beweis fuer
+Fall B.
+
+### 9. i18n der UCI- und Capability-Labels
+
+Self-Model-Artefakte werden in englischen IDs und mit lokalisierbaren
+Labels ausgeliefert. Lokalisierung ist ein separater, optionaler Layer
+und keine Schema-Erweiterung pro Sprache.
+
+**Source-Sprache.** Alle YAML-Felder mit Anzeigetext (`name`, `summary`,
+`description`, `title`) werden im Bundle in **Deutsch** als Source-Locale
+gepflegt — analog zum aktuellen Repo-Bestand und ADR-0013. Die Source-Locale
+ist in `bundle.yaml` markiert:
+
+```yaml
+source_locale: de
+supported_locales: [de, en]
+```
+
+**Uebersetzungsablage.** Uebersetzungen liegen pro Artefakt-Verzeichnis
+unter `i18n/<bcp47>.yaml` neben dem Hauptartefakt, nicht im Hauptartefakt
+selbst:
+
+```text
+.nomos/uci/cosmos-explorer/
+  uci.yaml                      # source (de)
+  i18n/
+    en.yaml
+    fr.yaml
+```
+
+Eine `i18n/en.yaml` enthaelt nur die uebersetzbaren Schluessel:
+
+```yaml
+title: Cosmos Explorer
+description: |
+  Browse the namespace tree, domains, services, and products of a Nomos cosmos.
+```
+
+Fuer Services und Capabilities analog unter
+`.nomos/domains/core.nomos/services/<svc>/i18n/<bcp47>.yaml`:
+
+```yaml
+name: Validator Engine
+summary: Structural and referential validation of cosmos artefacts.
+capabilities:
+  cap-validate-cosmos:
+    name: Validate Cosmos
+    summary: Deterministic full validation of a cosmos workspace.
+```
+
+**Aufloesung zur Laufzeit.** UI und REST/MCP-Adapter ermitteln die
+gewuenschte Locale via Accept-Language (Web) bzw. CLI-Flag
+`--locale <bcp47>` (CLI/MCP). Aufloesung: angefragte Locale → Fallback-Kette
+→ `source_locale`. Fehlende Schluessel fallen pro Feld auf die Source zurueck;
+keine harte Fehlerbedingung.
+
+**Validierung.** Der Self-Model-Validator prueft, dass jede
+`i18n/<locale>.yaml` ausschliesslich Schluessel aus dem Source-Artefakt
+enthaelt (`SELF.I18N.UNKNOWN_KEY`) und dass fuer in `supported_locales`
+gelistete Sprachen Pflichtfelder (`name`, `title`) vorhanden sind
+(`SELF.I18N.MISSING_REQUIRED`). Fehlende optionale Felder erzeugen nur
+Info-Findings.
+
+**Out of Scope fuer MVP.** Pluralregeln, ICU-Message-Format und
+Right-to-Left-spezifische Layout-Hinweise werden nicht im Bundle
+abgelegt; das bleibt Verantwortung der UCI-Implementierungen.
+
 ## Verworfene Alternativen
 
 **Self-Model nur als statisches Markdown / OpenAPI-Doc**: Wuerde Nomos
@@ -263,13 +460,15 @@ schwierig. Abgelehnt — reservierter `nomos`-Namespace ist eindeutig.
 
 ### Offene Punkte
 
-- Genaue Schema-Definition fuer `capabilities[].connectors[]` → eigener
-  Schema-Entwurf im PR zur Implementierung dieses ADR.
 - Verhaeltnis zum geplanten Service-Plugin-Modell (ADR-0011-DRAFT): Self-Model
   beschreibt Built-in-Services; Plugins haetten analoge Beschreibungen.
-- Mehrsprachigkeit der UCI-Labels — vorerst nur Deutsch, i18n als Backlog.
-- Verhalten bei `nomos cosmos init` in bestehenden Self-Model-Cosmos
-  (Idempotenz) — im Implementierungs-PR zu klaeren.
+  Konkrete Abstimmung erfolgt im PR zu ADR-0011.
+- Auslieferungsumfang der initialen `supported_locales`: MVP startet mit
+  `[de]`; `en` ist im Schema vorgesehen, aber inhaltlich noch nicht
+  ausgeliefert.
+- Format der Capability-Inputs-/Outputs-Schemas (`inputs_schema_ref`,
+  `outputs_schema_ref`) — JSON Schema vs. eigenes Schlankformat, zu
+  entscheiden im Implementierungs-PR.
 
 ## Referenz
 
