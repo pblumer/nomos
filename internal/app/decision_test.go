@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/nomos/nomos/internal/storage"
@@ -91,23 +92,11 @@ func TestGetDecisionDMN_ReturnsRawXML(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDecisionDMN: %v", err)
 	}
-	if !contains(raw, "<decisionTable") || !contains(raw, "Provisioning Eligibility") {
-		t.Errorf("unexpected DMN xml: %s", raw[:min(200, len(raw))])
-	}
-}
-
-func contains(haystack, needle string) bool {
-	for i := 0; i+len(needle) <= len(haystack); i++ {
-		if haystack[i:i+len(needle)] == needle {
-			return true
+	if !strings.Contains(raw, "<decisionTable") || !strings.Contains(raw, "Provisioning Eligibility") {
+		head := raw
+		if len(head) > 200 {
+			head = head[:200]
 		}
+		t.Errorf("unexpected DMN xml: %s", head)
 	}
-	return false
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

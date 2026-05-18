@@ -43,29 +43,29 @@ package model
 // DMNDefinitions is the root <definitions> element of a DMN file
 // (one Decision Requirements Graph + optional DRD layout).
 type DMNDefinitions struct {
-	ID              string                       `yaml:"id" json:"id"`
-	Name            string                       `yaml:"name" json:"name"`
-	Namespace       string                       `yaml:"namespace,omitempty" json:"namespace,omitempty"`
-	ExpressionLang  string                       `yaml:"expression_language,omitempty" json:"expression_language,omitempty"`
-	TypeLang        string                       `yaml:"type_language,omitempty" json:"type_language,omitempty"`
-	ExporterName    string                       `yaml:"exporter,omitempty" json:"exporter,omitempty"`
-	ExporterVersion string                       `yaml:"exporter_version,omitempty" json:"exporter_version,omitempty"`
-	Description     string                       `yaml:"description,omitempty" json:"description,omitempty"`
-	ItemDefinitions []DMNItemDefinition          `yaml:"item_definitions,omitempty" json:"item_definitions,omitempty"`
-	InputData       []DMNInputData               `yaml:"input_data,omitempty" json:"input_data,omitempty"`
-	Decisions       []DMNDecision                `yaml:"decisions,omitempty" json:"decisions,omitempty"`
-	BKMs            []DMNBusinessKnowledgeModel  `yaml:"business_knowledge_models,omitempty" json:"business_knowledge_models,omitempty"`
-	DecisionService []DMNDecisionService         `yaml:"decision_services,omitempty" json:"decision_services,omitempty"`
-	KnowledgeSource []DMNKnowledgeSource         `yaml:"knowledge_sources,omitempty" json:"knowledge_sources,omitempty"`
-	Imports         []DMNImport                  `yaml:"imports,omitempty" json:"imports,omitempty"`
-	Diagrams        []DMNDiagram                 `yaml:"diagrams,omitempty" json:"diagrams,omitempty"`
+	ID              string                      `yaml:"id" json:"id"`
+	Name            string                      `yaml:"name" json:"name"`
+	Namespace       string                      `yaml:"namespace,omitempty" json:"namespace,omitempty"`
+	ExpressionLang  string                      `yaml:"expression_language,omitempty" json:"expression_language,omitempty"`
+	TypeLang        string                      `yaml:"type_language,omitempty" json:"type_language,omitempty"`
+	ExporterName    string                      `yaml:"exporter,omitempty" json:"exporter,omitempty"`
+	ExporterVersion string                      `yaml:"exporter_version,omitempty" json:"exporter_version,omitempty"`
+	Description     string                      `yaml:"description,omitempty" json:"description,omitempty"`
+	ItemDefinitions []DMNItemDefinition         `yaml:"item_definitions,omitempty" json:"item_definitions,omitempty"`
+	InputData       []DMNInputData              `yaml:"input_data,omitempty" json:"input_data,omitempty"`
+	Decisions       []DMNDecision               `yaml:"decisions,omitempty" json:"decisions,omitempty"`
+	BKMs            []DMNBusinessKnowledgeModel `yaml:"business_knowledge_models,omitempty" json:"business_knowledge_models,omitempty"`
+	DecisionService []DMNDecisionService        `yaml:"decision_services,omitempty" json:"decision_services,omitempty"`
+	KnowledgeSource []DMNKnowledgeSource        `yaml:"knowledge_sources,omitempty" json:"knowledge_sources,omitempty"`
+	Imports         []DMNImport                 `yaml:"imports,omitempty" json:"imports,omitempty"`
+	Diagrams        []DMNDiagram                `yaml:"diagrams,omitempty" json:"diagrams,omitempty"`
 }
 
 // DMNImport references another DMN model (<import>).
 type DMNImport struct {
-	Name       string `yaml:"name,omitempty" json:"name,omitempty"`
-	Namespace  string `yaml:"namespace" json:"namespace"`
-	ImportType string `yaml:"import_type,omitempty" json:"import_type,omitempty"`
+	Name        string `yaml:"name,omitempty" json:"name,omitempty"`
+	Namespace   string `yaml:"namespace" json:"namespace"`
+	ImportType  string `yaml:"import_type,omitempty" json:"import_type,omitempty"`
 	LocationURI string `yaml:"location_uri,omitempty" json:"location_uri,omitempty"`
 }
 
@@ -73,24 +73,24 @@ type DMNImport struct {
 // Nested ItemComponents form a composite/struct type; AllowedValues constrain
 // scalar types via FEEL unary tests.
 type DMNItemDefinition struct {
-	ID                string              `yaml:"id,omitempty" json:"id,omitempty"`
-	Name              string               `yaml:"name" json:"name"`
-	Description       string               `yaml:"description,omitempty" json:"description,omitempty"`
-	Label             string               `yaml:"label,omitempty" json:"label,omitempty"`
-	TypeRef           string               `yaml:"type_ref,omitempty" json:"type_ref,omitempty"`
-	TypeLanguage      string               `yaml:"type_language,omitempty" json:"type_language,omitempty"`
-	IsCollection      bool                 `yaml:"is_collection,omitempty" json:"is_collection,omitempty"`
-	FunctionItem      *DMNFunctionItem     `yaml:"function_item,omitempty" json:"function_item,omitempty"`
-	AllowedValues     []string             `yaml:"allowed_values,omitempty" json:"allowed_values,omitempty"`
-	TypeConstraint    []string             `yaml:"type_constraint,omitempty" json:"type_constraint,omitempty"`
-	ItemComponents    []DMNItemDefinition  `yaml:"item_components,omitempty" json:"item_components,omitempty"`
+	ID             string              `yaml:"id,omitempty" json:"id,omitempty"`
+	Name           string              `yaml:"name" json:"name"`
+	Description    string              `yaml:"description,omitempty" json:"description,omitempty"`
+	Label          string              `yaml:"label,omitempty" json:"label,omitempty"`
+	TypeRef        string              `yaml:"type_ref,omitempty" json:"type_ref,omitempty"`
+	TypeLanguage   string              `yaml:"type_language,omitempty" json:"type_language,omitempty"`
+	IsCollection   bool                `yaml:"is_collection,omitempty" json:"is_collection,omitempty"`
+	FunctionItem   *DMNFunctionItem    `yaml:"function_item,omitempty" json:"function_item,omitempty"`
+	AllowedValues  []string            `yaml:"allowed_values,omitempty" json:"allowed_values,omitempty"`
+	TypeConstraint []string            `yaml:"type_constraint,omitempty" json:"type_constraint,omitempty"`
+	ItemComponents []DMNItemDefinition `yaml:"item_components,omitempty" json:"item_components,omitempty"`
 }
 
 // DMNFunctionItem describes the signature of a function-typed
 // itemDefinition (<functionItem>).
 type DMNFunctionItem struct {
-	OutputTypeRef string                `yaml:"output_type_ref,omitempty" json:"output_type_ref,omitempty"`
-	Parameters    []DMNInformationItem  `yaml:"parameters,omitempty" json:"parameters,omitempty"`
+	OutputTypeRef string               `yaml:"output_type_ref,omitempty" json:"output_type_ref,omitempty"`
+	Parameters    []DMNInformationItem `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 }
 
 // DMNInformationItem is a typed named value (<variable> / <informationItem>).
@@ -116,17 +116,17 @@ type DMNInputData struct {
 // Logic carries the decision's evaluation body and Requirements link to
 // upstream InputData / Decisions / BKMs / KnowledgeSources.
 type DMNDecision struct {
-	ID                       string                       `yaml:"id" json:"id"`
-	Name                     string                       `yaml:"name" json:"name"`
-	Label                    string                       `yaml:"label,omitempty" json:"label,omitempty"`
-	Description              string                       `yaml:"description,omitempty" json:"description,omitempty"`
-	Question                 string                       `yaml:"question,omitempty" json:"question,omitempty"`
-	AllowedAnswers           string                       `yaml:"allowed_answers,omitempty" json:"allowed_answers,omitempty"`
-	Variable                 DMNInformationItem           `yaml:"variable" json:"variable"`
-	InformationRequirements  []DMNInformationRequirement  `yaml:"information_requirements,omitempty" json:"information_requirements,omitempty"`
-	KnowledgeRequirements    []DMNKnowledgeRequirement    `yaml:"knowledge_requirements,omitempty" json:"knowledge_requirements,omitempty"`
-	AuthorityRequirements    []DMNAuthorityRequirement    `yaml:"authority_requirements,omitempty" json:"authority_requirements,omitempty"`
-	Logic                    *DMNLogic                    `yaml:"logic,omitempty" json:"logic,omitempty"`
+	ID                      string                      `yaml:"id" json:"id"`
+	Name                    string                      `yaml:"name" json:"name"`
+	Label                   string                      `yaml:"label,omitempty" json:"label,omitempty"`
+	Description             string                      `yaml:"description,omitempty" json:"description,omitempty"`
+	Question                string                      `yaml:"question,omitempty" json:"question,omitempty"`
+	AllowedAnswers          string                      `yaml:"allowed_answers,omitempty" json:"allowed_answers,omitempty"`
+	Variable                DMNInformationItem          `yaml:"variable" json:"variable"`
+	InformationRequirements []DMNInformationRequirement `yaml:"information_requirements,omitempty" json:"information_requirements,omitempty"`
+	KnowledgeRequirements   []DMNKnowledgeRequirement   `yaml:"knowledge_requirements,omitempty" json:"knowledge_requirements,omitempty"`
+	AuthorityRequirements   []DMNAuthorityRequirement   `yaml:"authority_requirements,omitempty" json:"authority_requirements,omitempty"`
+	Logic                   *DMNLogic                   `yaml:"logic,omitempty" json:"logic,omitempty"`
 }
 
 // DMNBusinessKnowledgeModel (BKM) packages reusable decision logic
@@ -145,15 +145,15 @@ type DMNBusinessKnowledgeModel struct {
 // DMNDecisionService publishes a subset of decisions as a callable service
 // (<decisionService>).
 type DMNDecisionService struct {
-	ID                string             `yaml:"id" json:"id"`
-	Name              string             `yaml:"name" json:"name"`
-	Label             string             `yaml:"label,omitempty" json:"label,omitempty"`
-	Description       string             `yaml:"description,omitempty" json:"description,omitempty"`
-	Variable          DMNInformationItem `yaml:"variable" json:"variable"`
-	OutputDecisions   []string           `yaml:"output_decisions,omitempty" json:"output_decisions,omitempty"`
-	EncapsulatedDecisions []string       `yaml:"encapsulated_decisions,omitempty" json:"encapsulated_decisions,omitempty"`
-	InputDecisions    []string           `yaml:"input_decisions,omitempty" json:"input_decisions,omitempty"`
-	InputData         []string           `yaml:"input_data,omitempty" json:"input_data,omitempty"`
+	ID                    string             `yaml:"id" json:"id"`
+	Name                  string             `yaml:"name" json:"name"`
+	Label                 string             `yaml:"label,omitempty" json:"label,omitempty"`
+	Description           string             `yaml:"description,omitempty" json:"description,omitempty"`
+	Variable              DMNInformationItem `yaml:"variable" json:"variable"`
+	OutputDecisions       []string           `yaml:"output_decisions,omitempty" json:"output_decisions,omitempty"`
+	EncapsulatedDecisions []string           `yaml:"encapsulated_decisions,omitempty" json:"encapsulated_decisions,omitempty"`
+	InputDecisions        []string           `yaml:"input_decisions,omitempty" json:"input_decisions,omitempty"`
+	InputData             []string           `yaml:"input_data,omitempty" json:"input_data,omitempty"`
 }
 
 // DMNKnowledgeSource is a non-executable authority such as a policy or expert
@@ -223,33 +223,33 @@ type DMNLogic struct {
 
 // DMNDecisionTable is a tabular boxed expression (<decisionTable>).
 type DMNDecisionTable struct {
-	HitPolicy        string                   `yaml:"hit_policy" json:"hit_policy"` // UNIQUE | FIRST | PRIORITY | ANY | COLLECT | RULE ORDER | OUTPUT ORDER
-	Aggregation      string                   `yaml:"aggregation,omitempty" json:"aggregation,omitempty"` // SUM | MIN | MAX | COUNT (COLLECT only)
-	PreferredOrient  string                   `yaml:"preferred_orientation,omitempty" json:"preferred_orientation,omitempty"`
-	OutputLabel      string                   `yaml:"output_label,omitempty" json:"output_label,omitempty"`
-	Inputs           []DMNDecisionTableInput  `yaml:"inputs,omitempty" json:"inputs,omitempty"`
-	Outputs          []DMNDecisionTableOutput `yaml:"outputs,omitempty" json:"outputs,omitempty"`
-	Annotations      []DMNRuleAnnotationClause `yaml:"annotations,omitempty" json:"annotations,omitempty"`
-	Rules            []DMNDecisionRule        `yaml:"rules,omitempty" json:"rules,omitempty"`
+	HitPolicy       string                    `yaml:"hit_policy" json:"hit_policy"`                       // UNIQUE | FIRST | PRIORITY | ANY | COLLECT | RULE ORDER | OUTPUT ORDER
+	Aggregation     string                    `yaml:"aggregation,omitempty" json:"aggregation,omitempty"` // SUM | MIN | MAX | COUNT (COLLECT only)
+	PreferredOrient string                    `yaml:"preferred_orientation,omitempty" json:"preferred_orientation,omitempty"`
+	OutputLabel     string                    `yaml:"output_label,omitempty" json:"output_label,omitempty"`
+	Inputs          []DMNDecisionTableInput   `yaml:"inputs,omitempty" json:"inputs,omitempty"`
+	Outputs         []DMNDecisionTableOutput  `yaml:"outputs,omitempty" json:"outputs,omitempty"`
+	Annotations     []DMNRuleAnnotationClause `yaml:"annotations,omitempty" json:"annotations,omitempty"`
+	Rules           []DMNDecisionRule         `yaml:"rules,omitempty" json:"rules,omitempty"`
 }
 
 // DMNDecisionTableInput models <input> of a decision table.
 type DMNDecisionTableInput struct {
-	ID            string   `yaml:"id,omitempty" json:"id,omitempty"`
-	Label         string   `yaml:"label,omitempty" json:"label,omitempty"`
-	Expression    string   `yaml:"expression" json:"expression"`
-	TypeRef       string   `yaml:"type_ref,omitempty" json:"type_ref,omitempty"`
-	InputValues   []string `yaml:"input_values,omitempty" json:"input_values,omitempty"`
+	ID          string   `yaml:"id,omitempty" json:"id,omitempty"`
+	Label       string   `yaml:"label,omitempty" json:"label,omitempty"`
+	Expression  string   `yaml:"expression" json:"expression"`
+	TypeRef     string   `yaml:"type_ref,omitempty" json:"type_ref,omitempty"`
+	InputValues []string `yaml:"input_values,omitempty" json:"input_values,omitempty"`
 }
 
 // DMNDecisionTableOutput models <output> of a decision table.
 type DMNDecisionTableOutput struct {
-	ID            string   `yaml:"id,omitempty" json:"id,omitempty"`
-	Name          string   `yaml:"name,omitempty" json:"name,omitempty"`
-	Label         string   `yaml:"label,omitempty" json:"label,omitempty"`
-	TypeRef       string   `yaml:"type_ref,omitempty" json:"type_ref,omitempty"`
-	OutputValues  []string `yaml:"output_values,omitempty" json:"output_values,omitempty"`
-	DefaultValue  string   `yaml:"default_value,omitempty" json:"default_value,omitempty"`
+	ID           string   `yaml:"id,omitempty" json:"id,omitempty"`
+	Name         string   `yaml:"name,omitempty" json:"name,omitempty"`
+	Label        string   `yaml:"label,omitempty" json:"label,omitempty"`
+	TypeRef      string   `yaml:"type_ref,omitempty" json:"type_ref,omitempty"`
+	OutputValues []string `yaml:"output_values,omitempty" json:"output_values,omitempty"`
+	DefaultValue string   `yaml:"default_value,omitempty" json:"default_value,omitempty"`
 }
 
 // DMNRuleAnnotationClause names an annotation column (<ruleAnnotationClause>).
@@ -287,8 +287,8 @@ type DMNContextEntry struct {
 
 // DMNInvocation calls a BKM with positional or named bindings (<invocation>).
 type DMNInvocation struct {
-	CalledFunction *DMNLogic     `yaml:"called_function" json:"called_function"`
-	Bindings       []DMNBinding  `yaml:"bindings,omitempty" json:"bindings,omitempty"`
+	CalledFunction *DMNLogic    `yaml:"called_function" json:"called_function"`
+	Bindings       []DMNBinding `yaml:"bindings,omitempty" json:"bindings,omitempty"`
 }
 
 // DMNBinding is one parameter binding inside an invocation (<binding>).
@@ -332,16 +332,16 @@ type DMNFor struct {
 
 // DMNEvery is a universal quantifier (DMN 1.4+, <every>).
 type DMNEvery struct {
-	Iterator   string    `yaml:"iterator" json:"iterator"`
-	In         *DMNLogic `yaml:"in" json:"in"`
-	Satisfies  *DMNLogic `yaml:"satisfies" json:"satisfies"`
+	Iterator  string    `yaml:"iterator" json:"iterator"`
+	In        *DMNLogic `yaml:"in" json:"in"`
+	Satisfies *DMNLogic `yaml:"satisfies" json:"satisfies"`
 }
 
 // DMNSome is an existential quantifier (DMN 1.4+, <some>).
 type DMNSome struct {
-	Iterator   string    `yaml:"iterator" json:"iterator"`
-	In         *DMNLogic `yaml:"in" json:"in"`
-	Satisfies  *DMNLogic `yaml:"satisfies" json:"satisfies"`
+	Iterator  string    `yaml:"iterator" json:"iterator"`
+	In        *DMNLogic `yaml:"in" json:"in"`
+	Satisfies *DMNLogic `yaml:"satisfies" json:"satisfies"`
 }
 
 // DMNFilter is a boxed list filter (DMN 1.4+, <filter>).
@@ -354,10 +354,10 @@ type DMNFilter struct {
 
 // DMNDiagram captures one DRD: a visual layout over the DRG (<DMNDI:DMNDiagram>).
 type DMNDiagram struct {
-	ID    string         `yaml:"id,omitempty" json:"id,omitempty"`
-	Name  string         `yaml:"name,omitempty" json:"name,omitempty"`
-	Shapes []DMNShape    `yaml:"shapes,omitempty" json:"shapes,omitempty"`
-	Edges  []DMNEdge     `yaml:"edges,omitempty" json:"edges,omitempty"`
+	ID     string     `yaml:"id,omitempty" json:"id,omitempty"`
+	Name   string     `yaml:"name,omitempty" json:"name,omitempty"`
+	Shapes []DMNShape `yaml:"shapes,omitempty" json:"shapes,omitempty"`
+	Edges  []DMNEdge  `yaml:"edges,omitempty" json:"edges,omitempty"`
 }
 
 // DMNShape places a DRG element on the diagram (<DMNDI:DMNShape>).
@@ -372,9 +372,9 @@ type DMNShape struct {
 
 // DMNEdge routes a DRG requirement on the diagram (<DMNDI:DMNEdge>).
 type DMNEdge struct {
-	ID            string         `yaml:"id,omitempty" json:"id,omitempty"`
-	DMNElementRef string         `yaml:"dmn_element_ref" json:"dmn_element_ref"`
-	Waypoints     []DMNWaypoint  `yaml:"waypoints,omitempty" json:"waypoints,omitempty"`
+	ID            string        `yaml:"id,omitempty" json:"id,omitempty"`
+	DMNElementRef string        `yaml:"dmn_element_ref" json:"dmn_element_ref"`
+	Waypoints     []DMNWaypoint `yaml:"waypoints,omitempty" json:"waypoints,omitempty"`
 }
 
 // DMNWaypoint is one point of an edge polyline.

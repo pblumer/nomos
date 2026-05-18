@@ -210,10 +210,10 @@ type xmlDecisionTableFull struct {
 func (x xmlDecisionTableFull) typeRef() string { return pickTypeRef(x.TypeRefAttr, x.TypeRefElem) }
 
 type xmlInputFull struct {
-	ID              string             `xml:"id,attr"`
-	Label           string             `xml:"label,attr"`
-	InputExpression xmlInputExprFull   `xml:"inputExpression"`
-	InputValues     *xmlTextList       `xml:"inputValues"`
+	ID              string           `xml:"id,attr"`
+	Label           string           `xml:"label,attr"`
+	InputExpression xmlInputExprFull `xml:"inputExpression"`
+	InputValues     *xmlTextList     `xml:"inputValues"`
 }
 
 type xmlInputExprFull struct {
@@ -280,9 +280,9 @@ type xmlContextEntry struct {
 }
 
 type xmlInvocation struct {
-	ID      string       `xml:"id,attr"`
-	TypeRef string       `xml:"typeRef,attr"`
-	Label   string       `xml:"label,attr"`
+	ID      string `xml:"id,attr"`
+	TypeRef string `xml:"typeRef,attr"`
+	Label   string `xml:"label,attr"`
 	xmlLogicChildren
 	Bindings []xmlBinding `xml:"binding"`
 }
@@ -302,9 +302,9 @@ type xmlFunctionDefinition struct {
 }
 
 type xmlList struct {
-	ID      string             `xml:"id,attr"`
-	TypeRef string             `xml:"typeRef,attr"`
-	Label   string             `xml:"label,attr"`
+	ID      string `xml:"id,attr"`
+	TypeRef string `xml:"typeRef,attr"`
+	Label   string `xml:"label,attr"`
 	// Items must be heterogeneous, so we collect each variant into its own
 	// slice and merge them in document order via parser convention.
 	DecisionTableItems      []xmlDecisionTableFull  `xml:"decisionTable"`
