@@ -520,6 +520,14 @@ type ProcessParticipantDTO struct {
 	Ref  string `json:"ref,omitempty"`
 }
 
+// ProcessLaneDTO mirrors a bpmn:lane and its service binding so clients
+// can render lane→service relationships without re-parsing BPMN.
+type ProcessLaneDTO struct {
+	BPMNLaneID string `json:"bpmn_lane_id"`
+	Name       string `json:"name,omitempty"`
+	ServiceRef string `json:"service_ref,omitempty"`
+}
+
 // CollaborationParticipantDTO is one entry in a product's collaboration view,
 // pairing a process with the participant (surrounding system) that executes it.
 type CollaborationParticipantDTO struct {
@@ -548,6 +556,7 @@ type ProcessDTO struct {
 	RelatedProduct string                  `json:"related_product"`
 	Participant    *ProcessParticipantDTO  `json:"participant,omitempty"`
 	Steps          []ProcessStepDTO        `json:"steps,omitempty"`
+	Lanes          []ProcessLaneDTO        `json:"lanes,omitempty"`
 	BPMN           BPMNReferenceDTO        `json:"bpmn"`
 	TaskMappings   []ProcessTaskMappingDTO `json:"task_mappings,omitempty"`
 	Triggers       []ProcessTriggerDTO     `json:"triggers,omitempty"`

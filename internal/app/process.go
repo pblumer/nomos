@@ -157,6 +157,15 @@ func UpdateProcessBPMN(path, id, xmlText string) (ProcessDTO, error) {
 	if err := os.WriteFile(dto.BPMNPath, []byte(xmlText), 0o644); err != nil {
 		return ProcessDTO{}, Error(CodeInternalError, "Failed to write BPMN: "+err.Error(), http.StatusInternalServerError, err)
 	}
+	// Mirror lane → service bindings from BPMN into the YAML so the catalog
+	// API can reason about lane membership without re-parsing the diagram.
+	if lanes, err := ExtractBPMNLanes(xmlText); err == nil {
+		node, nerr := findProcessNode(path, id)
+		if nerr == nil {
+			node.Meta.Lanes = lanes
+			_ = fsx.WriteYAML(node.Path, node.Meta)
+		}
+	}
 	return GetProcess(path, id)
 }
 
@@ -257,6 +266,9 @@ func processDTO(path string, n processNode, includeValidation bool) ProcessDTO {
 	}
 	for _, m := range n.Meta.TaskMappings {
 		dto.TaskMappings = append(dto.TaskMappings, ProcessTaskMappingDTO{BPMNElementID: m.BPMNElementID, TaskName: m.TaskName, BPMNElementType: m.BPMNElementType, ServiceRef: m.ServiceRef, CapabilityRef: m.CapabilityRef, Method: m.Method, Role: m.Role, Required: m.Required, Notes: m.Notes})
+	}
+	for _, l := range n.Meta.Lanes {
+		dto.Lanes = append(dto.Lanes, ProcessLaneDTO{BPMNLaneID: l.BPMNLaneID, Name: l.Name, ServiceRef: l.ServiceRef})
 	}
 	var starts []StartEventInfo
 	if data, err := os.ReadFile(bpmnPath); err == nil {
@@ -473,6 +485,67 @@ func ExtractBPMNTasks(xmlText string) ([]BPMNTaskDTO, error) {
 		}
 	}
 	return tasks, nil
+}
+
+// bpmnLaneServicePrefix marks a bpmn:documentation entry that binds the
+// surrounding bpmn:lane to a Nomos service. The remainder of the text is
+// treated as the service canonical ref (e.g. "identity.blumer.cloud/user-account").
+const bpmnLaneServicePrefix = "nomos-service-ref:"
+
+// ExtractBPMNLanes returns every bpmn:lane in the file together with its
+// optional service binding (decoded from a bpmn:documentation child whose
+// text starts with the nomos-service-ref: prefix).
+func ExtractBPMNLanes(xmlText string) ([]model.ProcessLane, error) {
+	dec := xml.NewDecoder(bytes.NewBufferString(xmlText))
+	lanes := []model.ProcessLane{}
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		se, ok := tok.(xml.StartElement)
+		if !ok || se.Name.Local != "lane" {
+			continue
+		}
+		var lane model.ProcessLane
+		for _, a := range se.Attr {
+			switch a.Name.Local {
+			case "id":
+				lane.BPMNLaneID = a.Value
+			case "name":
+				lane.Name = a.Value
+			}
+		}
+		// Walk children of <bpmn:lane> looking for <bpmn:documentation> entries.
+		for {
+			t, err := dec.Token()
+			if err == io.EOF || err != nil {
+				break
+			}
+			if end, ok := t.(xml.EndElement); ok && end.Name.Local == "lane" {
+				break
+			}
+			child, ok := t.(xml.StartElement)
+			if !ok || child.Name.Local != "documentation" {
+				continue
+			}
+			var text string
+			if err := dec.DecodeElement(&text, &child); err != nil {
+				continue
+			}
+			text = strings.TrimSpace(text)
+			if strings.HasPrefix(text, bpmnLaneServicePrefix) {
+				lane.ServiceRef = strings.TrimSpace(strings.TrimPrefix(text, bpmnLaneServicePrefix))
+			}
+		}
+		if lane.BPMNLaneID != "" {
+			lanes = append(lanes, lane)
+		}
+	}
+	return lanes, nil
 }
 
 func isStandardBPMNTask(id string) bool {

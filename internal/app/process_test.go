@@ -106,6 +106,48 @@ func TestProcessInvalidBPMNAndUnknownMapping(t *testing.T) {
 	}
 }
 
+func TestUpdateProcessBPMNMirrorsLaneServiceBindings(t *testing.T) {
+	p := createAppTestCosmos(t)
+	product, err := CreateProductOffering(p, "identity.blumer.cloud", CreateProductOfferingRequest{ID: "PROD-LANE-001", Name: "Lane Product"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	proc, err := CreateProductProcess(p, product.ID, CreateProcessRequest{ID: "PRC-LANE-001", Name: "Lane Process"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	xml := `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Defs">
+  <bpmn:process id="Process_Lane" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_1">
+      <bpmn:lane id="Lane_Identity" name="Identity">
+        <bpmn:documentation>nomos-service-ref:identity.blumer.cloud/user-account</bpmn:documentation>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Unbound" name="Other"/>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="Start"/>
+    <bpmn:endEvent id="End"/>
+  </bpmn:process>
+</bpmn:definitions>`
+	updated, err := UpdateProcessBPMN(p, proc.ID, xml)
+	if err != nil {
+		t.Fatalf("update bpmn: %v", err)
+	}
+	if len(updated.Lanes) != 2 {
+		t.Fatalf("expected 2 lanes mirrored, got %d: %+v", len(updated.Lanes), updated.Lanes)
+	}
+	byID := map[string]ProcessLaneDTO{}
+	for _, l := range updated.Lanes {
+		byID[l.BPMNLaneID] = l
+	}
+	if got := byID["Lane_Identity"]; got.ServiceRef != "identity.blumer.cloud/user-account" || got.Name != "Identity" {
+		t.Fatalf("Lane_Identity mirror wrong: %+v", got)
+	}
+	if got := byID["Lane_Unbound"]; got.ServiceRef != "" || got.Name != "Other" {
+		t.Fatalf("Lane_Unbound mirror wrong: %+v", got)
+	}
+}
+
 func TestBackwardCompatibleProductWithoutProcesses(t *testing.T) {
 	p := createAppTestCosmos(t)
 	dir := filepath.Join(storage.CatalogDir(p), "blueprints", "products")
