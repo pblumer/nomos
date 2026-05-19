@@ -2213,6 +2213,43 @@ function decisionDRGSummary(defs){
   return parts.join('');
 }
 
+// dmnTopLevelOutputs returns the I/O entries for every top-level decision in
+// the DRG (i.e. those not required by another decision). For decisions whose
+// logic is a decisionTable, the table's <output> columns are the source of
+// truth: dmn-js routinely leaves the decision <variable> stale after the
+// column is renamed or retyped. Mirrors decisionOutputs() in
+// internal/app/decision.go so the "Outputs (aus Diagramm)" panel agrees with
+// the table header instead of showing a stale variable name/type.
+function dmnTopLevelOutputs(defs){
+  if(!defs||!Array.isArray(defs.decisions))return [];
+  const required=new Set();
+  defs.decisions.forEach(o=>(o.information_requirements||[]).forEach(ir=>{
+    if(ir.required_decision)required.add(String(ir.required_decision).replace(/^#/,''));
+  }));
+  const norm=t=>{
+    const s=(t||'').trim();if(!s)return '';
+    const std=['string','number','boolean','date','time','date and time','days and time duration','years and months duration','any'];
+    return std.includes(s.toLowerCase())?s.toLowerCase():s;
+  };
+  const out=[];
+  defs.decisions.forEach(d=>{
+    if(required.has(d.id))return;
+    const varName=(d.variable?.name||'').trim()||(d.name||'').trim();
+    const varType=norm(d.variable?.type_ref);
+    const cols=d.logic?.decision_table?.outputs||[];
+    if(cols.length>1){
+      cols.forEach(c=>{const n=(c.name||'').trim();if(n)out.push({name:n,type:norm(c.type_ref)});});
+    }else if(cols.length===1){
+      const n=(cols[0].name||'').trim()||varName;
+      const t=norm(cols[0].type_ref)||varType;
+      if(n)out.push({name:n,type:t});
+    }else if(varName){
+      out.push({name:varName,type:varType});
+    }
+  });
+  return out;
+}
+
 // collectDecisionOutputValues walks every decision table in the DMN definitions
 // and returns a map of output-variable-name → distinct values it can produce.
 // Explicit <outputValues> constraints win when set; otherwise we fall back to
@@ -2257,7 +2294,7 @@ function renderDecisionDetail(dec,defs,domainCanonical){
   // Inputs/Outputs: when the DMN diagram exists, it's the source of truth.
   // Prefer values parsed from the DMN; fall back to the YAML metadata otherwise.
   const dmnInputs=defs?.input_data?.map(x=>({name:x.name,type:x.variable?.type_ref||''}))||null;
-  const dmnOutputs=(defs?.decisions||[]).filter(d=>{const reqs=new Set();(defs.decisions||[]).forEach(o=>(o.information_requirements||[]).forEach(ir=>{if(ir.required_decision)reqs.add(String(ir.required_decision).replace(/^#/,''));}));return !reqs.has(d.id);}).map(d=>({name:d.variable?.name||d.name,type:d.variable?.type_ref||''}));
+  const dmnOutputs=dmnTopLevelOutputs(defs);
   const inputs=(dmnInputs&&dmnInputs.length)?dmnInputs:(dec.inputs||[]);
   const outputs=(dec.has_dmn&&dmnOutputs.length)?dmnOutputs:(dec.outputs||[]);
   const ioSource=dec.has_dmn?'<span class="muted" style="font-size:.72rem">(aus Diagramm)</span>':'';
