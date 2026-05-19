@@ -67,7 +67,20 @@ func GetDecision(path, domainCanonical, id string) (DecisionDTO, error) {
 	resolved, _ := idmigrate.Resolve(path, id)
 	for _, n := range nodes {
 		if n.Metadata.ID == id || n.Metadata.ID == resolved {
-			return decisionDTO(n), nil
+			dto := decisionDTO(n)
+			// Re-derive inputs from the DMN file so the response reflects
+			// column-level typeRef overrides for decisions whose cached
+			// metadata predates the fix in inputsFromDMN. This keeps the
+			// test-dialog input controls in sync with the evaluator without
+			// requiring users to re-save the DMN.
+			if n.DMNPath != "" {
+				if data, err := os.ReadFile(n.DMNPath); err == nil {
+					if defs, perr := dmn.ParseDefinitions(data); perr == nil && len(defs.InputData) > 0 {
+						dto.Inputs = decisionIODTOs(inputsFromDMN(defs))
+					}
+				}
+			}
+			return dto, nil
 		}
 	}
 	return DecisionDTO{}, Error(CodeInvalidInput, "Decision not found: "+id, http.StatusNotFound, nil)
