@@ -286,6 +286,36 @@
 .dec-history-empty{color:#64748b;font-size:.82rem;font-style:italic;padding:.4rem 0}
 .dec-history-error{color:#991b1b;font-size:.82rem;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:.4rem .6rem}
 .dec-history-list{display:flex;flex-direction:column;gap:.4rem}
+.dec-eval-form{border:1px solid #c7d2fe;border-radius:10px;background:linear-gradient(180deg,#eef2ff 0%,#f8fafc 100%);padding:.6rem .75rem;margin-bottom:.6rem}
+.dec-eval-form-head{display:flex;align-items:center;justify-content:space-between;gap:.4rem;margin-bottom:.45rem}
+.dec-eval-form-title{font-size:.75rem;font-weight:800;color:#3730a3;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:.3rem}
+.dec-eval-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.4rem .55rem}
+.dec-eval-field{display:flex;flex-direction:column;gap:.18rem;min-width:0}
+.dec-eval-field label{font-size:.7rem;font-weight:700;color:#475569;display:flex;align-items:center;gap:.3rem}
+.dec-eval-field label .type-hint{color:#94a3b8;font-weight:500;font-size:.65rem;font-family:ui-monospace,monospace}
+.dec-eval-field input[type=text],.dec-eval-field input[type=number],.dec-eval-field input[type=date],.dec-eval-field input[type=datetime-local],.dec-eval-field select{border:1px solid #cbd5e1;border-radius:6px;padding:.3rem .45rem;font-size:.8rem;background:#fff;width:100%;box-sizing:border-box;font-family:inherit}
+.dec-eval-field input:focus,.dec-eval-field select:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.15)}
+.dec-eval-field .bool-row{display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:#0f172a;padding:.2rem 0}
+.dec-eval-field .desc{font-size:.66rem;color:#64748b;font-style:italic}
+.dec-eval-actions{display:flex;align-items:center;gap:.5rem;margin-top:.5rem;flex-wrap:wrap}
+.dec-eval-run{background:#4f46e5;color:#fff;border:1px solid #4338ca;border-radius:7px;padding:.35rem .85rem;cursor:pointer;font-weight:800;font-size:.8rem;display:inline-flex;align-items:center;gap:.3rem}
+.dec-eval-run:hover{background:#4338ca}
+.dec-eval-run[disabled]{opacity:.55;cursor:not-allowed}
+.dec-eval-reset{background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:7px;padding:.35rem .75rem;cursor:pointer;font-weight:700;font-size:.78rem}
+.dec-eval-reset:hover{background:#f1f5f9}
+.dec-eval-status{font-size:.74rem;font-weight:700;display:inline-flex;align-items:center;gap:.3rem}
+.dec-eval-status.idle{color:#64748b}
+.dec-eval-status.run{color:#3730a3}
+.dec-eval-status.ok{color:#166534}
+.dec-eval-status.err{color:#991b1b}
+.dec-eval-result{margin-top:.55rem;padding:.45rem .6rem;border-radius:8px;font-size:.78rem;display:none;flex-direction:column;gap:.3rem}
+.dec-eval-result.show{display:flex}
+.dec-eval-result.ok{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46}
+.dec-eval-result.err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+.dec-eval-result .pills{display:flex;flex-wrap:wrap;gap:.25rem}
+.dec-eval-result .pill{font-family:ui-monospace,monospace;font-size:.72rem;background:#fff;border:1px solid #a7f3d0;color:#065f46;padding:.05rem .4rem;border-radius:5px}
+.dec-eval-result.err .pill{border-color:#fecaca;color:#991b1b}
+.dec-eval-empty{font-size:.78rem;color:#64748b;font-style:italic}
 .trace-card{border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;overflow:hidden;transition:border-color .12s}
 .trace-card.open{border-color:#c7d2fe;background:#fff;box-shadow:0 4px 14px rgba(99,102,241,.06)}
 .trace-summary{display:grid;grid-template-columns:auto 1fr auto auto;gap:.6rem;align-items:center;padding:.45rem .65rem;cursor:pointer;user-select:none}
@@ -2016,7 +2046,7 @@ function renderDecisionDetail(dec,defs,domainCanonical){
     </div>
   </div>
   <div id="dmn-canvas" class="dmn-canvas" data-decision-id="${esc(dec.id)}" data-decision-domain="${esc(domainCanonical)}"><div class="detail-empty">Lade DMN&hellip;</div></div>
-  ${dec.has_dmn?`<div id="dec-history" class="dec-history" data-decision-id="${esc(dec.id)}" data-decision-domain="${esc(domainCanonical)}"><div class="dec-history-head"><div class="dec-history-title"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:1.05rem">history</span>Evaluationen<span class="dec-history-count" id="dec-history-count">&hellip;</span></div><span class="dec-history-verify pending" id="dec-history-verify"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:.9rem">hourglass_empty</span>Pr&uuml;fe&hellip;</span></div><div class="dec-history-body" id="dec-history-body"><div class="dec-history-empty">Lade Trace-Historie&hellip;</div></div></div>`:''}
+  ${dec.has_dmn?`<div id="dec-history" class="dec-history" data-decision-id="${esc(dec.id)}" data-decision-domain="${esc(domainCanonical)}"><div class="dec-history-head"><div class="dec-history-title"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:1.05rem">play_circle</span>Testlauf &amp; Evaluationen<span class="dec-history-count" id="dec-history-count">&hellip;</span></div><span class="dec-history-verify pending" id="dec-history-verify"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:.9rem">hourglass_empty</span>Pr&uuml;fe&hellip;</span></div><div id="dec-eval-form" class="dec-eval-form"></div><div class="dec-history-body" id="dec-history-body"><div class="dec-history-empty">Lade Trace-Historie&hellip;</div></div></div>`:''}
 </div>`;
 }
 
@@ -2286,9 +2316,112 @@ function renderTraceCard(trace,defs,idx){
     </div>
   </div>`;
 }
+// Build the input form for triggering an evaluation. Field type is derived
+// from the declared input type so that POST /evaluate receives JSON values of
+// the correct shape (number, boolean, string, ISO date).
+function renderEvalForm(dec){
+  const inputs=Array.isArray(dec.inputs)?dec.inputs:[];
+  if(!inputs.length){
+    return `<div class="dec-eval-form-head"><span class="dec-eval-form-title"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:.95rem">science</span>Testlauf</span></div><div class="dec-eval-empty">Diese Decision hat keine deklarierten Inputs. F&uuml;ge im DMN-Editor Input-Variablen hinzu, um sie hier testen zu k&ouml;nnen.</div>`;
+  }
+  const field=(io)=>{
+    const t=String(io.type||'string').toLowerCase();
+    const name=esc(io.name||'');
+    const desc=io.description?`<span class="desc">${esc(io.description)}</span>`:'';
+    let input;
+    if(t==='boolean'){
+      input=`<label class="bool-row"><input type="checkbox" data-eval-name="${name}" data-eval-type="boolean"> <code>${name}</code></label>`;
+    }else if(t==='number'||t==='integer'||t==='int'||t==='float'||t==='double'||t==='decimal'){
+      input=`<input type="number" step="any" data-eval-name="${name}" data-eval-type="number" placeholder="z.B. 42">`;
+    }else if(t==='date'){
+      input=`<input type="date" data-eval-name="${name}" data-eval-type="date">`;
+    }else if(t==='datetime'||t==='date-time'||t==='datetime-local'){
+      input=`<input type="datetime-local" data-eval-name="${name}" data-eval-type="datetime">`;
+    }else{
+      input=`<input type="text" data-eval-name="${name}" data-eval-type="string" placeholder="${name}">`;
+    }
+    return `<div class="dec-eval-field"><label>${name}<span class="type-hint">: ${esc(t)}</span></label>${input}${desc}</div>`;
+  };
+  return `<div class="dec-eval-form-head"><span class="dec-eval-form-title"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:.95rem">science</span>Testlauf</span><span class="dec-eval-status idle" id="dec-eval-status">bereit</span></div><div class="dec-eval-grid">${inputs.map(field).join('')}</div><div class="dec-eval-actions"><button type="button" class="dec-eval-run" id="dec-eval-run"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:.95rem">play_arrow</span>Evaluieren</button><button type="button" class="dec-eval-reset" id="dec-eval-reset">Felder leeren</button></div><div class="dec-eval-result" id="dec-eval-result"></div>`;
+}
+// Collect the form values into the JSON payload expected by /evaluate.
+// Skips empty optional fields; throws on invalid number input.
+function collectEvalInputs(formEl){
+  const inputs={};
+  const fields=formEl.querySelectorAll('[data-eval-name]');
+  fields.forEach(el=>{
+    const name=el.dataset.evalName;
+    const type=el.dataset.evalType;
+    if(!name)return;
+    if(type==='boolean'){inputs[name]=!!el.checked;return;}
+    const raw=el.value;
+    if(raw===''||raw===null||raw===undefined)return; // omit empty
+    if(type==='number'){
+      const n=Number(raw);
+      if(Number.isNaN(n))throw new Error('Ungültige Zahl für '+name);
+      inputs[name]=n;return;
+    }
+    if(type==='datetime'){
+      // <input type=datetime-local> gives "YYYY-MM-DDTHH:mm" — pass as ISO-ish string.
+      inputs[name]=raw;return;
+    }
+    inputs[name]=raw;
+  });
+  return inputs;
+}
+function wireEvalForm(container,dec,defs,domainCanonical){
+  const formEl=container.querySelector('#dec-eval-form');
+  if(!formEl)return;
+  const statusEl=formEl.querySelector('#dec-eval-status');
+  const resultEl=formEl.querySelector('#dec-eval-result');
+  const runBtn=formEl.querySelector('#dec-eval-run');
+  const resetBtn=formEl.querySelector('#dec-eval-reset');
+  const setStatus=(text,cls)=>{if(!statusEl)return;statusEl.textContent=text;statusEl.className='dec-eval-status '+(cls||'idle');};
+  resetBtn?.addEventListener('click',()=>{
+    formEl.querySelectorAll('[data-eval-name]').forEach(el=>{
+      if(el.type==='checkbox')el.checked=false;else el.value='';
+    });
+    resultEl?.classList.remove('show','ok','err');
+    setStatus('bereit','idle');
+  });
+  runBtn?.addEventListener('click',async()=>{
+    if(!resultEl)return;
+    resultEl.classList.remove('show','ok','err');
+    let payload;
+    try{payload={inputs:collectEvalInputs(formEl)};}
+    catch(err){resultEl.classList.add('show','err');resultEl.innerHTML='<div><strong>Eingabefehler:</strong> '+esc(err.message)+'</div>';setStatus('Eingabefehler','err');return;}
+    runBtn.disabled=true;setStatus('läuft…','run');
+    try{
+      const r=await fetch('/api/v1/domains/'+encodeURIComponent(domainCanonical)+'/decisions/'+encodeURIComponent(dec.id)+'/evaluate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const data=await r.json().catch(()=>({}));
+      if(!r.ok){const msg=data?.error?.message||data?.error||r.statusText||'Evaluation fehlgeschlagen';throw new Error(msg);}
+      const outputs=(data.result&&data.result.outputs)||data.result||{};
+      const matched=(data.result&&data.result.matched_rules)||(data.trace&&data.trace.matched_rules)||[];
+      const outPills=Object.entries(outputs).map(([k,v])=>`<span class="pill"><strong>${esc(k)}</strong>=${fmtTraceVal(v)}</span>`).join('');
+      const ruleInfo=matched.length?`<div>Getroffene Regel(n): <code>${matched.map(esc).join(', ')}</code></div>`:'<div style="color:#92400e">Keine Regel zutreffend &mdash; Default oder leeres Ergebnis</div>';
+      resultEl.classList.add('show','ok');
+      resultEl.innerHTML=`<div><strong>Ergebnis:</strong></div><div class="pills">${outPills||'<span class="pill" style="color:#64748b;border-color:#e2e8f0">leer</span>'}</div>${ruleInfo}`;
+      setStatus('✓ ok','ok');
+      // Refresh history so the freshly persisted trace shows up at the top.
+      loadDecisionHistory(container,dec,defs,domainCanonical);
+    }catch(err){
+      resultEl.classList.add('show','err');
+      resultEl.innerHTML='<div><strong>Fehler:</strong> '+esc(err.message||'unbekannt')+'</div>';
+      setStatus('✗ Fehler','err');
+    }finally{runBtn.disabled=false;}
+  });
+}
+
 async function loadDecisionHistory(container,dec,defs,domainCanonical){
   const panel=container.querySelector('#dec-history');
   if(!panel)return;
+  // Mount the eval form once; subsequent reloads keep user inputs intact.
+  const formHost=panel.querySelector('#dec-eval-form');
+  if(formHost&&!formHost.dataset.mounted){
+    formHost.innerHTML=renderEvalForm(dec);
+    formHost.dataset.mounted='1';
+    wireEvalForm(container,dec,defs,domainCanonical);
+  }
   const body=panel.querySelector('#dec-history-body');
   const countEl=panel.querySelector('#dec-history-count');
   const verifyEl=panel.querySelector('#dec-history-verify');
