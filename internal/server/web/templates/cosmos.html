@@ -248,6 +248,7 @@
 .dmn-drg-chip.bkm{background:#fef3c7;color:#92400e;border-color:#fde68a}
 .dmn-drg-chip.ks{background:#f3e8ff;color:#6b21a8;border-color:#e9d5ff}
 .dmn-drg-chip.ds{background:#dcfce7;color:#166534;border-color:#bbf7d0}
+.dec-meta.collapsed{display:none}
 .bpmn-map-dot{display:inline-block;width:14px;height:14px;border-radius:999px;border:2px solid #fff;box-shadow:0 1px 4px rgba(15,23,42,.25)}.bpmn-map-dot.mapped{background:#10b981}.bpmn-map-dot.unmapped{background:#f59e0b}
 .bpmn-detail-panel{border:1px solid #dbeafe;border-radius:12px;background:#f8fbff;padding:.75rem;margin:.6rem 0 .8rem}.bpmn-detail-panel.is-empty{color:#64748b;font-size:.82rem;background:#f8fafc;border-style:dashed}.bpmn-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;margin-bottom:.55rem}.bpmn-detail-title{font-weight:800;color:#0f172a;font-size:.92rem}.bpmn-detail-subtitle{font-size:.74rem;color:#64748b;margin-top:.1rem}.bpmn-detail-grid{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:.3rem .75rem;font-size:.78rem}.bpmn-detail-grid dt{color:#64748b;font-weight:700}.bpmn-detail-grid dd{margin:0;min-width:0;word-break:break-word}.bpmn-detail-section{margin-top:.6rem}.bpmn-detail-section h5{margin:0 0 .3rem;font-size:.75rem;color:#475569}.bpmn-detail-chips{display:flex;flex-wrap:wrap;gap:.25rem}.bpmn-detail-code{font-family:ui-monospace,monospace;background:#eef2ff;color:#3730a3;border-radius:5px;padding:1px 5px}.bpmn-canvas .djs-shape.bpmn-selected .djs-visual>:not(text){stroke:#4f46e5!important;stroke-width:2px!important;filter:drop-shadow(0 0 2px rgba(79,70,229,.22))}.bpmn-canvas .djs-shape.bpmn-selected text,.bpmn-canvas .djs-shape.bpmn-selected .djs-label{stroke:none!important;fill:#0f172a!important}.bpmn-canvas .djs-shape{cursor:pointer}.task-fallback-row.is-selected{border-color:#6366f1;background:#eef2ff;box-shadow:inset 3px 0 0 #6366f1}
 .tp-panel{display:flex;flex-direction:column;gap:0}.tp-tabs{display:flex;border-bottom:2px solid #e2e8f0;margin-bottom:.65rem}.tp-tab{flex:1;padding:.4rem .5rem;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;font-size:.78rem;font-weight:700;color:#64748b;transition:color .1s}.tp-tab.active{color:#4338ca;border-bottom-color:#4338ca}.tp-tab-panel.hidden{display:none}.tp-header{display:flex;align-items:center;gap:.6rem;padding:.3rem 0 .65rem;border-bottom:1px solid #e2e8f0;margin-bottom:.6rem}.tp-type-icon{width:38px;height:38px;border-radius:10px;background:#eef2ff;color:#4338ca;display:grid;place-items:center;flex-shrink:0}.tp-type-label{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:.1rem}.tp-name-display{font-size:.9rem;font-weight:700;color:#0f172a;word-break:break-word;line-height:1.2}.tp-section{border:1px solid #e2e8f0;border-radius:9px;overflow:hidden;margin-bottom:.4rem}.tp-section-head{display:flex;align-items:center;justify-content:space-between;padding:.38rem .6rem;background:#f8fafc;cursor:pointer;user-select:none;font-size:.73rem;font-weight:800;color:#334155}.tp-section-head:hover{background:#f1f5f9}.tp-section-arrow{font-style:normal;font-size:.7rem;color:#94a3b8}.tp-section-body{padding:.5rem .6rem;display:flex;flex-direction:column;gap:.4rem;border-top:1px solid #f1f5f9}.tp-field{display:flex;flex-direction:column;gap:.18rem}.tp-label{font-size:.71rem;font-weight:700;color:#64748b}.tp-input{border:1px solid #cbd5e1;border-radius:6px;padding:.3rem .45rem;font-size:.79rem;width:100%;box-sizing:border-box;font-family:inherit;resize:vertical;background:#fff;color:#0f172a;line-height:1.4}.tp-input:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.15)}.tp-input[readonly]{background:#f8fafc;color:#64748b;cursor:default}.tp-input-code{font-family:ui-monospace,monospace;font-size:.74rem;background:#f1f5f9;border-color:#e2e8f0;color:#475569}.tp-select{border:1px solid #cbd5e1;border-radius:6px;padding:.3rem .4rem;font-size:.78rem;background:#fff;cursor:pointer;width:100%;color:#0f172a}.tp-select:focus{outline:none;border-color:#6366f1}.tp-check-row{display:flex;align-items:center;gap:.35rem;font-size:.78rem;color:#475569;cursor:pointer}.tp-actions{padding:.6rem 0 .1rem;display:flex;gap:.5rem;align-items:center}.tp-save-btn{background:#4f46e5;color:#fff;border:none;border-radius:7px;padding:.38rem .9rem;font-size:.8rem;font-weight:800;cursor:pointer;flex-shrink:0}.tp-save-btn:hover{background:#4338ca}.tp-save-btn:disabled{opacity:.55;cursor:not-allowed}.tp-status{font-size:.72rem;color:#64748b;flex:1}.tp-status.ok{color:#059669}.tp-status.err{color:#dc2626}
@@ -1809,19 +1810,30 @@ function decisionDRGSummary(defs){
 
 function renderDecisionDetail(dec,defs,domainCanonical){
   const ios=(arr,cls)=>arr?.length?arr.map(io=>`<span class="dmn-drg-chip ${cls}">${esc(io.name)}${io.type?' : '+esc(io.type):''}</span>`).join(' '):'<span class="muted">—</span>';
-  return `<div class="detail-head" style="padding:.65rem 1.2rem .5rem"><div class="detail-head-left">${iconDiv('decision')}<div><div class="detail-title">${esc(dec.name||dec.id)}</div><div class="detail-subtitle">Decision · ${esc(dec.status||'draft')} · v${esc(dec.version||'0.1.0')}${dec.number?' · '+esc(dec.number):''}</div></div></div><div style="display:flex;gap:.4rem;align-items:center"><a class="btn btn-secondary btn-sm" href="/api/v1/domains/${encodeURIComponent(domainCanonical)}/decisions/${encodeURIComponent(dec.id)}">API</a><button class="btn btn-danger btn-sm" id="det-decision-delete">L&ouml;schen</button></div></div>
-<div class="detail-body" style="padding:.5rem .9rem .65rem">
-  <dl class="detail-props" style="margin-bottom:.6rem">
-    <dt>ID</dt><dd><code>${esc(dec.id)}</code></dd>
-    <dt>Domain</dt><dd><code>${esc(domainCanonical)}</code></dd>
-    <dt>Owner</dt><dd>${dec.owner?esc(dec.owner):'&ndash;'}</dd>
-    <dt>Summary</dt><dd>${dec.summary?esc(dec.summary):'&ndash;'}</dd>
-    <dt>Context</dt><dd>${dec.context?esc(dec.context):'&ndash;'}</dd>
-    <dt>DMN-File</dt><dd>${dec.has_dmn?'<code>'+esc(dec.dmn_file||'decision.dmn')+'</code>':'<span class="badge badge-warning">noch keine DMN-Datei</span>'}</dd>
-    <dt>Inputs</dt><dd>${ios(dec.inputs,'input-data')}</dd>
-    <dt>Outputs</dt><dd>${ios(dec.outputs,'')}</dd>
-  </dl>
-  ${decisionDRGSummary(defs)}
+  // Inputs/Outputs: when the DMN diagram exists, it's the source of truth.
+  // Prefer values parsed from the DMN; fall back to the YAML metadata otherwise.
+  const dmnInputs=defs?.input_data?.map(x=>({name:x.name,type:x.variable?.type_ref||''}))||null;
+  const dmnOutputs=(defs?.decisions||[]).filter(d=>{const reqs=new Set();(defs.decisions||[]).forEach(o=>(o.information_requirements||[]).forEach(ir=>{if(ir.required_decision)reqs.add(String(ir.required_decision).replace(/^#/,''));}));return !reqs.has(d.id);}).map(d=>({name:d.variable?.name||d.name,type:d.variable?.type_ref||''}));
+  const inputs=(dmnInputs&&dmnInputs.length)?dmnInputs:(dec.inputs||[]);
+  const outputs=(dec.has_dmn&&dmnOutputs.length)?dmnOutputs:(dec.outputs||[]);
+  const ioSource=dec.has_dmn?'<span class="muted" style="font-size:.72rem">(aus Diagramm)</span>':'';
+  // Default-collapsed once a DMN exists so the editor gets the vertical space.
+  const collapsed=!!dec.has_dmn;
+  const toggleIcon=collapsed?'expand_more':'expand_less';
+  const toggleTitle=collapsed?'Details einblenden':'Details ausblenden';
+  return `<div class="detail-head" style="padding:.5rem 1.2rem .4rem"><div class="detail-head-left">${iconDiv('decision')}<div><div class="detail-title">${esc(dec.name||dec.id)}</div><div class="detail-subtitle"><code>${esc(dec.id)}</code> · ${esc(dec.status||'draft')} · v${esc(dec.version||'0.1.0')}${dec.number?' · '+esc(dec.number):''} · ${esc(domainCanonical)}</div></div></div><div style="display:flex;gap:.4rem;align-items:center"><button class="btn btn-secondary btn-sm" id="det-decision-meta-toggle" title="${toggleTitle}" aria-expanded="${collapsed?'false':'true'}"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:1.05rem;vertical-align:middle">${toggleIcon}</span></button><button class="btn btn-secondary btn-sm" id="det-decision-edit">Bearbeiten</button><a class="btn btn-secondary btn-sm" href="/api/v1/domains/${encodeURIComponent(domainCanonical)}/decisions/${encodeURIComponent(dec.id)}">API</a><button class="btn btn-danger btn-sm" id="det-decision-delete">L&ouml;schen</button></div></div>
+<div class="detail-body" style="padding:.4rem .9rem .55rem">
+  <div id="dec-meta" class="dec-meta${collapsed?' collapsed':''}">
+    <dl class="detail-props" style="margin-bottom:.5rem">
+      <dt>Owner</dt><dd>${dec.owner?esc(dec.owner):'&ndash;'}</dd>
+      <dt>Summary</dt><dd>${dec.summary?esc(dec.summary):'&ndash;'}</dd>
+      <dt>Context</dt><dd>${dec.context?esc(dec.context):'&ndash;'}</dd>
+      <dt>DMN-File</dt><dd>${dec.has_dmn?'<code>'+esc(dec.dmn_file||'decision.dmn')+'</code>':'<span class="badge badge-warning">noch keine DMN-Datei</span>'}</dd>
+      <dt>Inputs ${ioSource}</dt><dd>${ios(inputs,'input-data')}</dd>
+      <dt>Outputs ${ioSource}</dt><dd>${ios(outputs,'')}</dd>
+    </dl>
+    ${decisionDRGSummary(defs)}
+  </div>
   <div class="dmn-toolbar">
     <div><span class="dmn-toolbar-title">DMN-Editor</span><span class="dmn-toolbar-count">${defs?.decisions?.length||0} Decisions</span></div>
     <div class="bpmn-dialog-actions">
@@ -1834,6 +1846,61 @@ function renderDecisionDetail(dec,defs,domainCanonical){
   </div>
   <div id="dmn-canvas" class="dmn-canvas" data-decision-id="${esc(dec.id)}" data-decision-domain="${esc(domainCanonical)}"><div class="detail-empty">Lade DMN&hellip;</div></div>
 </div>`;
+}
+
+function doEditDecision(dec,domainCanonical){
+  const ioRow=(prefix,name='',type='string')=>`<div class="dec-io-row" data-prefix="${prefix}" style="display:flex;gap:.35rem;margin-bottom:.3rem"><input class="dec-io-name" placeholder="Name" value="${esc(name)}" style="flex:1;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.82rem"><select class="dec-io-type" style="width:110px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.82rem"><option value="string"${type==='string'?' selected':''}>string</option><option value="number"${type==='number'?' selected':''}>number</option><option value="boolean"${type==='boolean'?' selected':''}>boolean</option><option value="date"${type==='date'?' selected':''}>date</option></select><button type="button" class="btn btn-secondary btn-sm dec-io-rm" title="Entfernen">&#x2715;</button></div>`;
+  const ioList=(prefix,arr)=>((arr&&arr.length)?arr:[{name:'',type:'string'}]).map(io=>ioRow(prefix,io.name||'',io.type||'string')).join('');
+  const ioNote=dec.has_dmn?`<div class="nfield-hint" style="color:#64748b;font-size:.78rem;margin-top:.2rem">Inputs/Outputs werden aus dem DMN-Diagramm abgeleitet und sind hier nicht editierbar.</div>`:'';
+  const ioDisabled=dec.has_dmn?'style="pointer-events:none;opacity:.55"':'';
+  const statusVal=dec.status||'draft';
+  const statusOpts=['draft','active','deprecated'].map(s=>`<option value="${s}"${s===statusVal?' selected':''}>${s}</option>`).join('');
+  openModal('Decision bearbeiten: '+(dec.name||dec.id),
+`<div class="nfield"><label>ID <span style="font-size:.72rem;color:#94a3b8;font-weight:400">(nicht änderbar)</span></label><input value="${esc(dec.id)}" disabled style="background:#f8fafc;color:#64748b;cursor:default" /></div>
+<div class="nfield"><label>Domain</label><input value="${esc(domainCanonical)}" disabled style="background:#f8fafc;color:#64748b;cursor:default" /></div>
+<div class="nfield"><label>Name</label><input id="ed-name" value="${esc(dec.name||'')}" /></div>
+<div class="nfield"><label>Number <span style="font-size:.72rem;color:#94a3b8;font-weight:400">(fachliche Nummer)</span></label><input id="ed-number" value="${esc(dec.number||'')}" placeholder="DEC-IDC-001" /></div>
+<div class="nfield"><label>Version</label><input id="ed-version" value="${esc(dec.version||'0.1.0')}" /></div>
+<div class="nfield"><label>Status</label><select id="ed-status">${statusOpts}</select></div>
+<div class="nfield"><label>Owner</label><input id="ed-owner" value="${esc(dec.owner||'')}" /></div>
+<div class="nfield"><label>Summary</label><textarea id="ed-summary" rows="2">${esc(dec.summary||'')}</textarea></div>
+<div class="nfield"><label>Context</label><textarea id="ed-context" rows="2">${esc(dec.context||'')}</textarea></div>
+<div class="nfield" ${ioDisabled}><label>Inputs</label><div id="ed-inputs">${ioList('ed-in',dec.inputs)}</div>${dec.has_dmn?'':'<button type="button" class="btn btn-secondary btn-sm" id="ed-add-in">+ Input</button>'}${ioNote}</div>
+<div class="nfield" ${ioDisabled}><label>Outputs</label><div id="ed-outputs">${ioList('ed-out',dec.outputs)}</div>${dec.has_dmn?'':'<button type="button" class="btn btn-secondary btn-sm" id="ed-add-out">+ Output</button>'}${ioNote}</div>`,
+  async()=>{
+    const name=$('ed-name')?.value.trim();
+    if(!name)throw new Error('Name erforderlich');
+    const collect=(parentId)=>{const out=[];document.querySelectorAll('#'+parentId+' .dec-io-row').forEach(r=>{const n=r.querySelector('.dec-io-name')?.value.trim();const t=r.querySelector('.dec-io-type')?.value||'string';if(n)out.push({name:n,type:t});});return out;};
+    const body={
+      name,
+      number:$('ed-number')?.value.trim()||'',
+      version:$('ed-version')?.value.trim()||'0.1.0',
+      status:$('ed-status')?.value||'draft',
+      owner:$('ed-owner')?.value.trim()||'unknown',
+      summary:$('ed-summary')?.value.trim()||'',
+      context:$('ed-context')?.value.trim()||'',
+    };
+    // Inputs/Outputs are diagram-derived once a DMN exists; only send them
+    // when there is no DMN yet to avoid clobbering the diagram-synced state.
+    if(!dec.has_dmn){
+      body.inputs=collect('ed-inputs');
+      body.outputs=collect('ed-outputs');
+    }
+    const r=await fetch('/api/v1/domains/'+encodeURIComponent(domainCanonical)+'/decisions/'+encodeURIComponent(dec.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(d.error?.message||'Speichern fehlgeschlagen');
+    closeModal();
+    location.href='/cosmos?selected=decision:'+encodeURIComponent(domainCanonical+'/decisions/'+dec.id);
+  },'Speichern');
+  if(!dec.has_dmn){
+    setTimeout(()=>{
+      const onRemove=(e)=>{const btn=e.target.closest('.dec-io-rm');if(!btn)return;const row=btn.closest('.dec-io-row');const list=row?.parentElement;if(list&&list.querySelectorAll('.dec-io-row').length>1)row.remove();};
+      $('ed-inputs')?.addEventListener('click',onRemove);
+      $('ed-outputs')?.addEventListener('click',onRemove);
+      $('ed-add-in')?.addEventListener('click',()=>{$('ed-inputs').insertAdjacentHTML('beforeend',ioRow('ed-in','','string'));});
+      $('ed-add-out')?.addEventListener('click',()=>{$('ed-outputs').insertAdjacentHTML('beforeend',ioRow('ed-out','','string'));});
+    },0);
+  }
 }
 
 async function loadDecisionExplorerDetail(row){
@@ -1863,6 +1930,17 @@ async function loadDecisionExplorerDetail(row){
   // Otherwise leave xml null and let the picker prompt for a type.
   if(dec.has_dmn && (!xml||!xml.trim()))xml=dmnSeedXML(dec,'table');
   detail.innerHTML=renderDecisionDetail(dec,defs,domainCanonical);
+  detail.querySelector('#det-decision-edit')?.addEventListener('click',()=>doEditDecision(dec,domainCanonical));
+  detail.querySelector('#det-decision-meta-toggle')?.addEventListener('click',(e)=>{
+    const btn=e.currentTarget;
+    const meta=detail.querySelector('#dec-meta');
+    if(!meta)return;
+    const nowCollapsed=meta.classList.toggle('collapsed');
+    btn.setAttribute('aria-expanded',nowCollapsed?'false':'true');
+    btn.setAttribute('title',nowCollapsed?'Details einblenden':'Details ausblenden');
+    const icon=btn.querySelector('.mi');
+    if(icon)icon.textContent=nowCollapsed?'expand_more':'expand_less';
+  });
   detail.querySelector('#det-decision-delete')?.addEventListener('click',async()=>{
     if(!confirm('Decision "'+(dec.name||dec.id)+'" wirklich l&ouml;schen?'))return;
     const dr=await fetch('/api/v1/domains/'+encodeURIComponent(domainCanonical)+'/decisions/'+encodeURIComponent(dec.id),{method:'DELETE'});
