@@ -1268,11 +1268,89 @@ function hideBPMNStandalonePanel(proc){
   workbench.classList.remove('has-selection');
   panel.style.display='none';
 }
+function bpmnLaneParticipantHTML(element,proc){
+  const bo=element.businessObject||{};
+  const isPool=element.type==='bpmn:Participant';
+  const typeLabel=isPool?'Pool (Participant)':'Lane';
+  const typeBg=isPool?'#fef3c7':'#dbeafe';
+  const typeCl=isPool?'#92400e':'#1d4ed8';
+  const elementId=element.id||'';
+  const name=bo.name||'';
+  const currentRef=isPool?(proc.participant?.ref||''):'';
+  const icon=isPool
+    ?`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="4" width="16" height="12" rx="1"/><line x1="2" y1="8" x2="18" y2="8"/></svg>`
+    :`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="5" width="16" height="10" rx="1"/><line x1="5" y1="5" x2="5" y2="15"/></svg>`;
+  const refSection=isPool
+    ?`<div class="tp-section"><div class="tp-section-head">Referenz <span class="tp-section-arrow">▾</span></div><div class="tp-section-body"><div class="tp-field"><span class="tp-label">Domain / Service Ref</span><input class="tp-input tp-input-code" id="lp-ref" value="${esc(currentRef)}" placeholder="z.B. identity.blumer.cloud"></div><div class="tp-field" style="font-size:.7rem;color:#64748b">Wird beim Speichern in das YAML-Feld <code>participant.ref</code> übernommen.</div></div></div>`
+    :'';
+  const hint=isPool
+    ?'Name und Referenz werden beim Speichern des BPMN auch nach YAML <code>participant</code> synchronisiert.'
+    :'Lane-Name wird mit dem BPMN gespeichert.';
+  return `<div class="tp-panel" data-tp-element-id="${esc(elementId)}" data-lp-type="${esc(element.type||'')}">
+<div class="tp-header"><div class="tp-type-icon" style="background:${typeBg};color:${typeCl}">${icon}</div><div><div class="tp-type-label">${esc(typeLabel)}</div><div class="tp-name-display" id="lp-name-display">${esc(name||elementId)}</div></div></div>
+<div class="tp-section"><div class="tp-section-head">Allgemein <span class="tp-section-arrow">▾</span></div><div class="tp-section-body"><div class="tp-field"><span class="tp-label">Name</span><input class="tp-input" id="lp-name" value="${esc(name)}"></div><div class="tp-field"><span class="tp-label">ID</span><input class="tp-input tp-input-code" id="lp-id" readonly value="${esc(elementId)}"></div></div></div>
+${refSection}
+<div class="tp-actions"><span class="tp-status" id="lp-status">${hint}</span></div>
+</div>`;
+}
+function wireBPMNLanePanel(panel,element,modeler,proc){
+  const nameInput=panel.querySelector('#lp-name');
+  const nameDisplay=panel.querySelector('#lp-name-display');
+  const refInput=panel.querySelector('#lp-ref');
+  let modeling=null;try{modeling=modeler?.get('modeling');}catch(_){}
+  if(nameInput){
+    nameInput.addEventListener('input',()=>{
+      const value=nameInput.value;
+      if(nameDisplay)nameDisplay.textContent=value||element.id;
+      if(modeling){try{modeling.updateProperties(element,{name:value});}catch(e){console.warn('lane/participant name update failed:',e);}}
+    });
+  }
+  if(refInput&&element.type==='bpmn:Participant'){
+    if(!proc._participantOverride)proc._participantOverride={};
+    refInput.addEventListener('input',()=>{proc._participantOverride.ref=refInput.value;});
+  }
+  panel.querySelectorAll('.tp-section-head').forEach(head=>{
+    head.addEventListener('click',()=>{
+      const body=head.nextElementSibling;
+      if(body){body.classList.toggle('hidden');const arrow=head.querySelector('.tp-section-arrow');if(arrow)arrow.textContent=body.classList.contains('hidden')?'▸':'▾';}
+    });
+  });
+}
+function setBPMNLaneDetail(target,proc,element,modeler){
+  const panel=findBPMNDetailPanel(target,proc);
+  if(!panel)return;
+  const standaloneWorkbench=panel.closest('.proc-standalone-workbench');
+  if(standaloneWorkbench){standaloneWorkbench.classList.add('has-selection');const aside=standaloneWorkbench.querySelector('.proc-standalone-side');if(aside)aside.style.display='';}
+  panel.classList.remove('is-empty');
+  panel.innerHTML=bpmnLaneParticipantHTML(element,proc);
+  wireBPMNLanePanel(panel,element,modeler,proc);
+}
+async function syncParticipantToYAML(modeler,proc){
+  if(!modeler)return;
+  let registry=null;try{registry=modeler.get('elementRegistry');}catch(_){return;}
+  const participants=registry.filter(el=>el.type==='bpmn:Participant');
+  if(!participants.length)return;
+  const bo=participants[0].businessObject||{};
+  const name=(bo.name||'').trim();
+  if(!name)return;
+  const overrideRef=proc._participantOverride?.ref;
+  const ref=(overrideRef!==undefined?overrideRef:(proc.participant?.ref||'')).trim();
+  if(proc.participant&&proc.participant.name===name&&(proc.participant.ref||'')===ref)return;
+  try{
+    const r=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id)+'/participant',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,ref})});
+    if(r.ok){proc.participant={name,ref};}
+  }catch(e){console.warn('participant sync failed:',e);}
+}
 function wireBPMNSelection(viewer,target,proc){
   try{
     const bus=viewer.get('eventBus');
-    const showFor=id=>{if(id)setBPMNDetail(target,proc,id,viewer);};
-    const showRoot=()=>{try{const root=viewer.get('canvas').getRootElement();if(root&&root.id)setBPMNDetail(target,proc,root.id,viewer);}catch(_){}};
+    const showFor=id=>{
+      if(!id)return;
+      let el=null;try{el=viewer.get('elementRegistry').get(id);}catch(_){}
+      if(el&&(el.type==='bpmn:Lane'||el.type==='bpmn:Participant')){setBPMNLaneDetail(target,proc,el,viewer);return;}
+      setBPMNDetail(target,proc,id,viewer);
+    };
+    const showRoot=()=>{try{const root=viewer.get('canvas').getRootElement();if(root&&root.id)showFor(root.id);}catch(_){}};
     bus.on('selection.changed',e=>{const sel=e.newSelection||[];if(sel.length===1)showFor(sel[0].id);else if(sel.length===0)showRoot();});
     bus.on('element.click',event=>{const id=event?.element?.id;if(id)showFor(id);});
     setTimeout(showRoot,80);
@@ -1391,6 +1469,7 @@ function openBPMNModelerDialog(xml,proc){
       const {xml:newXML}=await modeler.saveXML({format:true});
       const r=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id)+'/bpmn',{method:'PUT',headers:{'Content-Type':'application/xml'},body:newXML});
       if(!r.ok){const msg=await r.text().catch(()=>'');throw new Error(msg||'Speichern fehlgeschlagen');}
+      await syncParticipantToYAML(modeler,proc);
       setStatus('Gespeichert');
       location.reload();
     }catch(e){console.error('bpmn save error:',e);setStatus(e.message||'Speichern fehlgeschlagen',true);saveBtn.disabled=false;}
@@ -1425,7 +1504,7 @@ async function initBPMNStandalone(container,proc){
   const saveBtn=container.querySelector('#bpmn-std-save');
   const statusEl=container.querySelector('#bpmn-std-status');
   const setStatus=(msg,err=false)=>{if(statusEl){statusEl.textContent=msg;statusEl.style.color=err?'#dc2626':'#64748b';}};
-  saveBtn?.addEventListener('click',async()=>{if(!modeler)return;saveBtn.disabled=true;setStatus('Speichere…');try{const{xml:newXML}=await modeler.saveXML({format:true});const r=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id)+'/bpmn',{method:'PUT',headers:{'Content-Type':'application/xml'},body:newXML});if(!r.ok){const msg=await r.text().catch(()=>'');throw new Error(msg||'Speichern fehlgeschlagen');}setStatus('Gespeichert ✓');setTimeout(()=>setStatus(''),3000);}catch(e){console.error('bpmn save error:',e);setStatus(e.message||'Fehler',true);}finally{saveBtn.disabled=false;}});
+  saveBtn?.addEventListener('click',async()=>{if(!modeler)return;saveBtn.disabled=true;setStatus('Speichere…');try{const{xml:newXML}=await modeler.saveXML({format:true});const r=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id)+'/bpmn',{method:'PUT',headers:{'Content-Type':'application/xml'},body:newXML});if(!r.ok){const msg=await r.text().catch(()=>'');throw new Error(msg||'Speichern fehlgeschlagen');}await syncParticipantToYAML(modeler,proc);setStatus('Gespeichert ✓');setTimeout(()=>setStatus(''),3000);}catch(e){console.error('bpmn save error:',e);setStatus(e.message||'Fehler',true);}finally{saveBtn.disabled=false;}});
   container.querySelector('#bpmn-fs-open')?.addEventListener('click',()=>openBPMNModelerDialog(xml,proc));
   // Resizable split handle
   wireProcResizeHandle(container);
@@ -2025,7 +2104,7 @@ function wireSteps(container,d,proc){
   addBtn?.addEventListener('click',doAddStep);
   container.querySelector('#step-new-name')?.addEventListener('keydown',e=>{if(e.key==='Enter')doAddStep();});
 }
-async function initBPMN(container,d){const canvas=container.querySelector('#bpmn-canvas');if(!canvas||canvas.dataset.loaded)return;const pid=canvas.dataset.processId;if(!pid)return;const proc=(d.process_summary?.items||[]).find(p=>p.id===pid)||d.process_summary?.items?.[0]||{id:pid,tasks:[],steps:[]};const PALETTE_KEY='nomos-bpmn-palette-hidden';let palHidden=false;try{palHidden=localStorage.getItem(PALETTE_KEY)==='1';}catch(_){}if(palHidden)canvas.classList.add('palette-hidden');try{let xml='';try{const r=await fetch('/api/v1/processes/'+encodeURIComponent(pid)+'/bpmn');if(r.ok)xml=await r.text();}catch(fetchErr){console.warn('bpmn fetch failed, using generated view:',fetchErr);}canvas.dataset.xml=xml;const editor=container.querySelector('#bpmn-xml-editor');if(editor)editor.value=xml;const modeler=await renderBPMNModelerInline(canvas,xml,proc);canvas.dataset.loaded='1';if(modeler){restrictBPMNPalette(modeler,canvas);augmentBPMNPalette(modeler);wireBPMNMethodDrop(canvas,modeler,proc);}const zc=modeler?.get('canvas');if(zc)setTimeout(()=>{try{zc.zoom('fit-viewport');}catch(_){}},80);container.querySelector('#bpmn-zoom-in')?.addEventListener('click',()=>{try{zc?.zoom(zc.zoom()*1.25);}catch(_){}});container.querySelector('#bpmn-zoom-out')?.addEventListener('click',()=>{try{zc?.zoom(zc.zoom()*0.8);}catch(_){}});container.querySelector('#bpmn-zoom-fit')?.addEventListener('click',()=>{try{zc?.zoom('fit-viewport');}catch(_){}});const palBtn=container.querySelector('#bpmn-palette-toggle');if(palBtn){palBtn.classList.toggle('active',canvas.classList.contains('palette-hidden'));palBtn.addEventListener('click',()=>{const hidden=canvas.classList.toggle('palette-hidden');palBtn.classList.toggle('active',hidden);try{localStorage.setItem(PALETTE_KEY,hidden?'1':'0');}catch(_){}});}const saveBtn=container.querySelector('#bpmn-inline-save');const statusEl=container.querySelector('#bpmn-inline-status');const setStatus=(msg,err=false)=>{if(statusEl){statusEl.textContent=msg;statusEl.style.color=err?'#dc2626':'#64748b';}};saveBtn?.addEventListener('click',async()=>{if(!modeler)return;saveBtn.disabled=true;setStatus('Speichere…');try{const{xml:newXML}=await modeler.saveXML({format:true});const r=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id)+'/bpmn',{method:'PUT',headers:{'Content-Type':'application/xml'},body:newXML});if(!r.ok){const msg=await r.text().catch(()=>'');throw new Error(msg||'Speichern fehlgeschlagen');}setStatus('Gespeichert ✓');setTimeout(()=>setStatus(''),3000);}catch(e){console.error('bpmn save error:',e);setStatus(e.message||'Fehler',true);}finally{saveBtn.disabled=false;}});container.querySelector('#bpmn-fs-open')?.addEventListener('click',()=>openBPMNModelerDialog(xml,proc));}
+async function initBPMN(container,d){const canvas=container.querySelector('#bpmn-canvas');if(!canvas||canvas.dataset.loaded)return;const pid=canvas.dataset.processId;if(!pid)return;const proc=(d.process_summary?.items||[]).find(p=>p.id===pid)||d.process_summary?.items?.[0]||{id:pid,tasks:[],steps:[]};const PALETTE_KEY='nomos-bpmn-palette-hidden';let palHidden=false;try{palHidden=localStorage.getItem(PALETTE_KEY)==='1';}catch(_){}if(palHidden)canvas.classList.add('palette-hidden');try{let xml='';try{const r=await fetch('/api/v1/processes/'+encodeURIComponent(pid)+'/bpmn');if(r.ok)xml=await r.text();}catch(fetchErr){console.warn('bpmn fetch failed, using generated view:',fetchErr);}canvas.dataset.xml=xml;const editor=container.querySelector('#bpmn-xml-editor');if(editor)editor.value=xml;const modeler=await renderBPMNModelerInline(canvas,xml,proc);canvas.dataset.loaded='1';if(modeler){restrictBPMNPalette(modeler,canvas);augmentBPMNPalette(modeler);wireBPMNMethodDrop(canvas,modeler,proc);}const zc=modeler?.get('canvas');if(zc)setTimeout(()=>{try{zc.zoom('fit-viewport');}catch(_){}},80);container.querySelector('#bpmn-zoom-in')?.addEventListener('click',()=>{try{zc?.zoom(zc.zoom()*1.25);}catch(_){}});container.querySelector('#bpmn-zoom-out')?.addEventListener('click',()=>{try{zc?.zoom(zc.zoom()*0.8);}catch(_){}});container.querySelector('#bpmn-zoom-fit')?.addEventListener('click',()=>{try{zc?.zoom('fit-viewport');}catch(_){}});const palBtn=container.querySelector('#bpmn-palette-toggle');if(palBtn){palBtn.classList.toggle('active',canvas.classList.contains('palette-hidden'));palBtn.addEventListener('click',()=>{const hidden=canvas.classList.toggle('palette-hidden');palBtn.classList.toggle('active',hidden);try{localStorage.setItem(PALETTE_KEY,hidden?'1':'0');}catch(_){}});}const saveBtn=container.querySelector('#bpmn-inline-save');const statusEl=container.querySelector('#bpmn-inline-status');const setStatus=(msg,err=false)=>{if(statusEl){statusEl.textContent=msg;statusEl.style.color=err?'#dc2626':'#64748b';}};saveBtn?.addEventListener('click',async()=>{if(!modeler)return;saveBtn.disabled=true;setStatus('Speichere…');try{const{xml:newXML}=await modeler.saveXML({format:true});const r=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id)+'/bpmn',{method:'PUT',headers:{'Content-Type':'application/xml'},body:newXML});if(!r.ok){const msg=await r.text().catch(()=>'');throw new Error(msg||'Speichern fehlgeschlagen');}await syncParticipantToYAML(modeler,proc);setStatus('Gespeichert ✓');setTimeout(()=>setStatus(''),3000);}catch(e){console.error('bpmn save error:',e);setStatus(e.message||'Fehler',true);}finally{saveBtn.disabled=false;}});container.querySelector('#bpmn-fs-open')?.addEventListener('click',()=>openBPMNModelerDialog(xml,proc));}
 catch(e){console.error('bpmn render error:',e);bpmnTaskFallback(canvas,proc);}}
 function wireMappingSave(container,d,proc){container.querySelector('#mappings-save')?.addEventListener('click',async()=>saveMappings(container,d,proc));}
 async function saveMappings(container,d,proc){const p=proc||d.process_summary?.items?.[0];if(!p)return;const mappings=[];container.querySelectorAll('[data-map-service]').forEach(sel=>{if(!sel.value)return;const id=sel.dataset.mapService;mappings.push({bpmn_element_id:id,service_ref:sel.value,method:container.querySelector(`[data-map-method="${CSS.escape(id)}"]`)?.value.trim()||'',role:container.querySelector(`[data-map-role="${CSS.escape(id)}"]`)?.value||'primary',required:container.querySelector(`[data-map-required="${CSS.escape(id)}"]`)?.checked||false});});const r=await fetch('/api/v1/processes/'+encodeURIComponent(p.id)+'/task-mappings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_mappings:mappings})});if(r.ok)location.href='/cosmos?selected=product:'+encodeURIComponent(d.id);else alert('Saving task mappings failed');}
