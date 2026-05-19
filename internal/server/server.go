@@ -371,6 +371,10 @@ func (h *handler) apiDomainDecisionByID(w http.ResponseWriter, r *http.Request, 
 		h.apiDomainDecisionTraces(w, r, domain, id, tail[1:])
 		return
 	}
+	if len(tail) >= 1 && tail[0] == "scenarios" {
+		h.apiDomainDecisionScenarios(w, r, domain, id, tail[1:])
+		return
+	}
 	if len(tail) == 1 && tail[0] == "definitions" {
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -1940,6 +1944,100 @@ func (h *handler) apiDomainDecisionTraces(w http.ResponseWriter, r *http.Request
 			return
 		}
 		writeJSON(w, http.StatusOK, tr)
+	default:
+		htmlNotFound(w, r)
+	}
+}
+
+// apiDomainDecisionScenarios handles all routes under
+// /api/v1/domains/{domain}/decisions/{id}/scenarios:
+//
+//	GET    .../scenarios                       → list
+//	POST   .../scenarios                       → create (free-form or from_trace_id)
+//	POST   .../scenarios/from-trace/{traceID}  → shortcut: promote a trace
+//	GET    .../scenarios/{scenarioID}          → fetch one
+//	PUT    .../scenarios/{scenarioID}          → partial update
+//	DELETE .../scenarios/{scenarioID}          → remove
+func (h *handler) apiDomainDecisionScenarios(w http.ResponseWriter, r *http.Request, domain, id string, tail []string) {
+	switch {
+	case len(tail) == 0:
+		switch r.Method {
+		case http.MethodGet:
+			dto, err := app.ListDecisionScenarios(h.cosmosPath, domain, id)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+		case http.MethodPost:
+			var req app.CreateDecisionScenarioRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			s, err := app.CreateDecisionScenario(h.cosmosPath, domain, id, req)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusCreated, s)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	case len(tail) == 2 && tail[0] == "from-trace":
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		// Accept name (and optional description) either in the JSON body or
+		// as query params so the shortcut works for both UI fetches and curl.
+		var body struct {
+			Name        string `json:"name"`
+			Description string `json:"description,omitempty"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body.Name == "" {
+			body.Name = r.URL.Query().Get("name")
+		}
+		if body.Description == "" {
+			body.Description = r.URL.Query().Get("description")
+		}
+		s, err := app.CreateDecisionScenarioFromTrace(h.cosmosPath, domain, id, tail[1], body.Name, body.Description)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, s)
+	case len(tail) == 1:
+		switch r.Method {
+		case http.MethodGet:
+			s, err := app.GetDecisionScenario(h.cosmosPath, domain, id, tail[0])
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, s)
+		case http.MethodPut:
+			var req app.UpdateDecisionScenarioRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			s, err := app.UpdateDecisionScenario(h.cosmosPath, domain, id, tail[0], req)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, s)
+		case http.MethodDelete:
+			if err := app.DeleteDecisionScenario(h.cosmosPath, domain, id, tail[0]); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
 	default:
 		htmlNotFound(w, r)
 	}

@@ -786,6 +786,14 @@ type UpdateDecisionRequest struct {
 	Outputs []DecisionIODTO `json:"outputs,omitempty"`
 }
 
+// DecisionScenariosDTO is the response for listing decision scenarios.
+type DecisionScenariosDTO struct {
+	Domain     string                   `json:"domain"`
+	DecisionID string                   `json:"decision_id"`
+	Count      int                      `json:"count"`
+	Items      []model.DecisionScenario `json:"items"`
+}
+
 // DecisionTracesDTO is the response for listing decision traces.
 type DecisionTracesDTO struct {
 	Domain     string                `json:"domain"`
