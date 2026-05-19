@@ -1030,10 +1030,16 @@ async function loadDetail(row){const kind=row.dataset.kind,id=row.dataset.id,can
     if(!domain||!svcName||!methodName){detail.innerHTML='<div class="detail-empty">Keine Details verf&uuml;gbar.</div>';return;}
     detail.innerHTML='<div class="detail-empty">Lade&hellip;</div>';
     try{
-      const res=await fetch('/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svcName)+'/methods/'+encodeURIComponent(methodName));
-      const m=res.ok?await res.json():{name:methodName,parameters:[]};
-      detail.innerHTML=renderMethodDetail(m,domain,svcName);
+      const [methodRes,svcRes]=await Promise.all([
+        fetch('/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svcName)+'/methods/'+encodeURIComponent(methodName)),
+        fetch('/api/v1/domains/'+encodeURIComponent(domain)+'/services/'+encodeURIComponent(svcName)),
+      ]);
+      const m=methodRes.ok?await methodRes.json():{name:methodName,parameters:[]};
+      const svc=svcRes.ok?await svcRes.json():{};
+      const usedByCaps=(svc.capabilities||[]).filter(c=>(c.method_refs||[]).includes(methodName)).map(c=>({id:c.id,name:c.name||c.id}));
+      detail.innerHTML=renderMethodDetail(m,domain,svcName,usedByCaps);
       wireMethodDetail(detail,m,domain,svcName);
+      wireMethodCapabilityChips(detail,domain,svcName);
     }catch(_){detail.innerHTML='<div class="detail-empty">Fehler beim Laden.</div>';}
     return;
   }
@@ -3325,8 +3331,11 @@ function renderPayloadFields(fields){
   if(!fields||!fields.length)return'<p style="font-size:.8rem;color:#94a3b8;margin:.3rem 0">Keine Felder.</p>';
   return`<table class="data-table" style="margin-top:.3rem"><thead><tr><th>Name</th><th>Typ</th><th>Pflicht</th><th>Beispiel</th><th></th></tr></thead><tbody>${fields.map(f=>`<tr><td><code>${esc(f.name)}</code></td><td>${esc(f.type||'string')}</td><td>${f.required?'<span class="badge badge-active">ja</span>':'nein'}</td><td><code style="font-size:.7rem">${esc(f.example||'')}</code></td><td><button class="btn btn-danger btn-xs field-del-btn" data-field-name="${esc(f.name)}">&#x2715;</button></td></tr>`).join('')}</tbody></table>`;
 }
-function renderMethodDetail(m,domain,svc){
+function renderMethodDetail(m,domain,svc,usedByCaps){
   const params=m.parameters||[];
+  const capsHtml=(usedByCaps&&usedByCaps.length)
+    ? usedByCaps.map(c=>`<button type="button" class="chip method-cap-chip" data-cap-id="${esc(c.id)}" title="Capability &ouml;ffnen" style="cursor:pointer">${esc(c.name)}</button>`).join('')
+    : '<span style="color:#94a3b8;font-size:.8rem">Keine Capability verkn&uuml;pft diese Methode.</span>';
   const headers=m.headers||[];
   const payloadFields=(m.payload&&m.payload.fields)||[];
   const sec=m.security||{};
@@ -3338,6 +3347,8 @@ function renderMethodDetail(m,domain,svc){
   const ctOpts=['application/json','multipart/form-data','application/x-www-form-urlencoded','text/plain'].map(v=>`<option value="${v}"${(m.payload&&m.payload.content_type)===v?' selected':''}>${v}</option>`).join('');
   return `<div class="detail-head"><div class="detail-head-left"><div class="detail-kind-icon" style="background:#ede9fe;color:#6d28d9;font-family:'Material Symbols Outlined';font-size:18px;width:36px;height:36px;border-radius:8px;display:grid;place-items:center">function</div><div><div class="detail-title">${methodHttpBadge(m.http_method)} ${esc(m.name)}</div><div class="detail-subtitle">Methode &middot; ${esc(domain)}/${esc(svc)}${m.path?` &middot; <code style="font-size:.75rem">${esc(m.path)}</code>`:''}</div></div></div></div>
 <div class="detail-body">
+<div class="detail-section-label">Verwendet von Capabilities <span style="background:#eef2ff;color:#4338ca;border-radius:5px;padding:0 5px;font-size:.7rem">${(usedByCaps||[]).length}</span></div>
+<div id="method-used-by-caps" style="display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.8rem">${capsHtml}</div>
 <div class="detail-section-label">Endpoint</div>
 <div style="display:grid;grid-template-columns:max-content 1fr;gap:.4rem .5rem;align-items:center;margin-bottom:.6rem">
   <label style="font-size:.78rem;color:#64748b">HTTP-Methode</label><select id="me-http-method" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">${httpOpts}</select>
@@ -3389,6 +3400,23 @@ function renderMethodDetail(m,domain,svc){
 <div id="field-status" style="font-size:.75rem;margin-top:.2rem;min-height:1.1em"></div>
 </div>
 <div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/services/${encodeURIComponent(domain)}/${encodeURIComponent(svc)}/methods/${encodeURIComponent(m.name)}">API JSON</a></div>`;
+}
+function wireMethodCapabilityChips(container,domain,svc){
+  container.querySelectorAll('.method-cap-chip').forEach(chip=>{
+    chip.addEventListener('click',()=>{
+      const capId=chip.dataset.capId;
+      if(!capId)return;
+      const targetCanonical=domain+'/'+svc+'/'+capId;
+      const targetRow=Array.from(tree.querySelectorAll('.cn-row[data-kind="capability"]')).find(r=>r.dataset.canonical===targetCanonical);
+      if(!targetRow)return;
+      expandToRow(targetRow);
+      tree.querySelectorAll('.cn-row.selected').forEach(r=>r.classList.remove('selected'));
+      targetRow.classList.add('selected');
+      loadDetail(targetRow);
+      history.replaceState(null,'','/cosmos?selected='+encodeURIComponent('capability:'+(targetRow.dataset.canonical||targetRow.dataset.id)));
+      setTimeout(()=>targetRow.scrollIntoView({block:'nearest',behavior:'smooth'}),50);
+    });
+  });
 }
 function wireMethodDetail(container,m,domain,svc){
   const methodsUrl='/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svc)+'/methods/'+encodeURIComponent(m.name);

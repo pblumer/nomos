@@ -220,6 +220,8 @@ capabilities:
     summary: Startet MCP-Server über stdio für direkte KI-Agenten-Integration (z.B. Claude Code).
     stability: stable
     side_effect: none
+    method_refs:
+      - mcp_serve_stdio
     connectors:
       - type: cli
         invocation: "nomos mcp serve"
@@ -232,6 +234,8 @@ capabilities:
     summary: Startet MCP-Server als HTTP/SSE-Endpoint (Streamable HTTP Transport).
     stability: stable
     side_effect: network_egress
+    method_refs:
+      - mcp_serve_http
     connectors:
       - type: cli
         invocation: "nomos mcp http"
@@ -251,6 +255,8 @@ capabilities:
     summary: Gibt Cosmos-Metadaten zurück (ID, Name, Version, Status, Domain-Anzahl, Service-Anzahl).
     stability: stable
     side_effect: read_only
+    method_refs:
+      - nomos_cosmos_info
     connectors:
       - type: mcp
         tool: nomos_cosmos_info
@@ -261,6 +267,8 @@ capabilities:
     summary: Listet alle Domains mit Zusammenfassung (canonical, owner, status, service_count).
     stability: stable
     side_effect: read_only
+    method_refs:
+      - nomos_list_domains
     connectors:
       - type: mcp
         tool: nomos_list_domains
@@ -271,6 +279,8 @@ capabilities:
     summary: Gibt detaillierte Domain-Informationen inkl. Services und Decisions zurück.
     stability: stable
     side_effect: read_only
+    method_refs:
+      - nomos_get_domain
     connectors:
       - type: mcp
         tool: nomos_get_domain
@@ -281,6 +291,8 @@ capabilities:
     summary: Listet alle Services einer Domain mit ID, Name, Owner, Status und Capabilities.
     stability: stable
     side_effect: read_only
+    method_refs:
+      - nomos_list_services
     connectors:
       - type: mcp
         tool: nomos_list_services
@@ -291,6 +303,8 @@ capabilities:
     summary: Gibt detaillierte Service-Informationen inkl. Methoden und Pfad zurück.
     stability: stable
     side_effect: read_only
+    method_refs:
+      - nomos_get_service
     connectors:
       - type: mcp
         tool: nomos_get_service
@@ -301,6 +315,8 @@ capabilities:
     summary: Validiert den gesamten Cosmos und gibt Findings zurück (code, severity, message, path).
     stability: stable
     side_effect: read_only
+    method_refs:
+      - nomos_validate
     connectors:
       - type: mcp
         tool: nomos_validate
@@ -311,6 +327,8 @@ capabilities:
     summary: Listet alle Decision Tables einer Domain.
     stability: stable
     side_effect: read_only
+    method_refs:
+      - nomos_list_decisions
     connectors:
       - type: mcp
         tool: nomos_list_decisions
@@ -321,6 +339,8 @@ capabilities:
     summary: Wertet eine Decision Table mit den gegebenen Inputs aus.
     stability: stable
     side_effect: read_only
+    method_refs:
+      - nomos_evaluate_decision
     connectors:
       - type: mcp
         tool: nomos_evaluate_decision
@@ -331,6 +351,8 @@ capabilities:
     summary: Listet alle Blueprints mit ID, Typ, Name, Status und Owner.
     stability: stable
     side_effect: read_only
+    method_refs:
+      - nomos_list_blueprints
     connectors:
       - type: mcp
         tool: nomos_list_blueprints
@@ -341,6 +363,8 @@ capabilities:
     summary: Erstellt eine neue Top-Level-Domain im Cosmos (dns, owner).
     stability: stable
     side_effect: mutates_workspace
+    method_refs:
+      - nomos_domain_add
     connectors:
       - type: mcp
         tool: nomos_domain_add
@@ -351,6 +375,8 @@ capabilities:
     summary: Erstellt einen neuen Service in einer bestehenden Domain (domain, name, owner).
     stability: stable
     side_effect: mutates_workspace
+    method_refs:
+      - nomos_service_add
     connectors:
       - type: mcp
         tool: nomos_service_add
@@ -361,6 +387,8 @@ capabilities:
     summary: Legt ein neues Produkt-Blueprint in einer Domain an (domain, id, name).
     stability: stable
     side_effect: mutates_workspace
+    method_refs:
+      - nomos_product_create
     connectors:
       - type: mcp
         tool: nomos_product_create
@@ -371,6 +399,8 @@ capabilities:
     summary: Erstellt einen BPMN-Prozess für ein bestehendes Produkt (product_id, name).
     stability: stable
     side_effect: mutates_workspace
+    method_refs:
+      - nomos_process_create
     connectors:
       - type: mcp
         tool: nomos_process_create
@@ -381,6 +411,8 @@ capabilities:
     summary: Fügt einem Prozess einen geordneten Schritt hinzu. Unterstützt service_task, business_rule_task und weitere BPMN-Task-Typen mit capability_ref und decision_ref.
     stability: stable
     side_effect: mutates_workspace
+    method_refs:
+      - nomos_process_step_add
     connectors:
       - type: mcp
         tool: nomos_process_step_add
@@ -391,6 +423,8 @@ capabilities:
     summary: Legt eine neue Decision Table (DMN) in einer Domain an (domain, id, name).
     stability: stable
     side_effect: mutates_workspace
+    method_refs:
+      - nomos_decision_create
     connectors:
       - type: mcp
         tool: nomos_decision_create
@@ -401,6 +435,8 @@ capabilities:
     summary: Erstellt eine Produkt- oder Service-Instanz aus einem Blueprint (id, blueprint_ref, type).
     stability: stable
     side_effect: mutates_workspace
+    method_refs:
+      - nomos_instance_create
     connectors:
       - type: mcp
         tool: nomos_instance_create

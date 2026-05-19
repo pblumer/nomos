@@ -285,6 +285,9 @@ capabilities:
     name: Cosmos-Lifecycle
     summary: Cosmos initialisieren und Metadaten abrufen.
     stability: stable
+    method_refs:
+      - cosmos_init
+      - cosmos_info
     connectors:
       - type: collaboration
         artifact_ref: collab-cosmos-lifecycle
@@ -324,6 +327,11 @@ capabilities:
     summary: Domains erstellen, auflisten, abrufen, umbenennen und löschen.
     stability: stable
     side_effect: mutates_workspace
+    method_refs:
+      - domain_add
+      - domain_list
+      - domain_get
+      - domain_delete
     connectors:
       - type: cli
         invocation: "nomos domain add"
@@ -390,6 +398,11 @@ capabilities:
     summary: Services innerhalb einer Domain erstellen, auflisten, abrufen und löschen.
     stability: stable
     side_effect: mutates_workspace
+    method_refs:
+      - service_add
+      - service_list
+      - service_get
+      - service_delete
     connectors:
       - type: cli
         invocation: "nomos service add"
@@ -485,6 +498,12 @@ capabilities:
     summary: Produkt- und Service-Blueprints erstellen, bearbeiten, publizieren und löschen.
     stability: stable
     side_effect: mutates_workspace
+    method_refs:
+      - blueprint_create
+      - blueprint_list
+      - blueprint_show
+      - blueprint_publish
+      - blueprint_delete
     connectors:
       - type: cli
         invocation: "nomos blueprint create"
@@ -586,6 +605,11 @@ capabilities:
     summary: Produkt- und Service-Instanzen erstellen, auflisten, bearbeiten und löschen.
     stability: stable
     side_effect: mutates_workspace
+    method_refs:
+      - instance_create
+      - instance_list
+      - instance_show
+      - instance_delete
     connectors:
       - type: cli
         invocation: "nomos instance create"
@@ -649,6 +673,10 @@ capabilities:
     summary: Prozesse anlegen, BPMN-Diagramme verwalten, Schritte/Trigger/Teilnehmer konfigurieren.
     stability: stable
     side_effect: mutates_workspace
+    method_refs:
+      - process_create
+      - process_list
+      - process_show
     connectors:
       - type: cli
         invocation: "nomos process create"
@@ -731,6 +759,9 @@ capabilities:
     summary: DMN 1.5 Decision Tables erstellen, auswerten und Traces verwalten.
     stability: stable
     side_effect: mutates_workspace
+    method_refs:
+      - decision_list
+      - decision_evaluate
     connectors:
       - type: rest
         method: GET
@@ -780,6 +811,11 @@ capabilities:
     name: Self-Model-Verwaltung
     summary: Self-Model aus dem Binary-Bundle importieren, prüfen und upgraden.
     stability: stable
+    method_refs:
+      - self_import
+      - self_status
+      - self_diff
+      - self_upgrade
     connectors:
       - type: cli
         invocation: "nomos self import"
