@@ -20,7 +20,7 @@ ADRs record significant architectural and technology decisions. Each ADR capture
 | [ADR-0010](ADR-0010-DRAFT-well-known-endpoint-and-domain-proof.md) | Well-known-Endpoint-Spezifikation und Domain-Proof-Format | Draft |
 | [ADR-0011](ADR-0011-DRAFT-service-plugin-model-and-hot-reload.md) | Service-Plugin-Modell und Hot-Reload-Isolation | Draft |
 | [ADR-0012](ADR-0012-DRAFT-global-cosmos-index-service.md) | Globaler Cosmos-Index-Service (opt-in Crawler) | Draft |
-| [ADR-0013](ADR-0013-user-contact-interfaces.md) | User Contact Interfaces (UCI) als erstklassige Nomos-Artefakte | Draft |
+| [ADR-0013](ADR-0013-user-interfaces.md) | User Interfaces (UI) als erstklassige Nomos-Artefakte | Draft |
 | [ADR-0014](ADR-0014-DRAFT-nomos-self-model-bundle.md) | Nomos-Selbstmodellierung als versioniertes Cosmos-Bundle (Nomos-as-Nomos) | Draft |
 | [ADR-0015](ADR-0015-default-http-port-7373.md) | Default-Port `7373` für `nomos serve` | Accepted |
 | [ADR-0016](ADR-0016-DRAFT-graph-storage-and-query-model.md) | Graph-Speicherung und Abfragemodell des Cosmos (Git-projizierter openCypher-Graph) | Draft |

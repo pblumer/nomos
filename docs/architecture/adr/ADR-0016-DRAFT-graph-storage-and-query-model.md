@@ -12,7 +12,7 @@ Draft
 
 Der Nomos-Cosmos ist konzeptionell ein **Graph**: Produkte, Anforderungen,
 Business Rules, Entscheidungen, Prozesse, Tasks, Skills, Servicegraph-Knoten,
-UCIs, Findings und ihre Beziehungen bilden ein zusammenhängendes Netzwerk
+UIs, Findings und ihre Beziehungen bilden ein zusammenhängendes Netzwerk
 (vgl. [ADR-0009](ADR-0009-nomos-cosmos-network-and-core-engine.md) und das
 Fachliche Metamodell 0.2 unter `docs/concepts/fachliches-metamodell-0.2.md`,
 das mit Servicegraph, Graph-Node, Graph-Edge und Graph-Rule bereits explizit
@@ -67,7 +67,7 @@ versioniert werden.
    Neo4j-Instanz als Read-Modell angebunden werden — die Quelle bleibt Git.
 5. **Knoten- und Kantentypen folgen dem Fachlichen Metamodell 0.2**
    (Servicegraph) und werden um die in 0.1 etablierten Artefakttypen
-   ergänzt (Product, Rule, Decision, Process, Task, Skill, Finding, UCI).
+   ergänzt (Product, Rule, Decision, Process, Task, Skill, Finding, UI).
 
 ## Begründung
 
@@ -111,7 +111,7 @@ versioniert werden.
 
 Knoten: `Product`, `ProductVariant`, `Requirement`, `Rule`, `Decision`,
 `Process`, `Task`, `Skill`, `Servicegraph`, `GraphNode`, `Finding`,
-`UCI`, `Service` (Nomos-Self-Model, [ADR-0014](ADR-0014-DRAFT-nomos-self-model-bundle.md)).
+`UI`, `Service` (Nomos-Self-Model, [ADR-0014](ADR-0014-DRAFT-nomos-self-model-bundle.md)).
 
 Kanten (Beispiele, vollständige Liste folgt im Implementierungs-PR):
 `REALIZES`, `REFERENCES`, `VALIDATES`, `DECIDES_ON`, `TRIGGERS`,

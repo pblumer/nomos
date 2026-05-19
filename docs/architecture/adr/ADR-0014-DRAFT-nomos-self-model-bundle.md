@@ -24,12 +24,12 @@ Konkret fehlt:
 
 1. Eine **versionierte Beschreibung** der Services, die Nomos selbst erbringt
    (Git-Repo-Manager, Validator Engine, Service-Router, REST-/MCP-/Web-Adapter,
-   Catalog-Manager, UCI-Manager etc.) im selben YAML-Format wie alle anderen
+   Catalog-Manager, UI-Manager etc.) im selben YAML-Format wie alle anderen
    Cosmos-Artefakte.
 2. Eine **Auflistung der Funktionen / Capabilities**, die diese Services
    bereitstellen — inklusive ihrer REST-Endpunkte, MCP-Tools und CLI-Kommandos
    als Connector-Metadaten.
-3. Eine Verknuepfung zu den **UCIs** (ADR-0013), die Nomos selbst mitliefert
+3. Eine Verknuepfung zu den **UIs** (ADR-0013), die Nomos selbst mitliefert
    (Cosmos Explorer, Domain Explorer, Blueprint Editor, Validation View, …).
 4. Ein **Bootstrap-Mechanismus**, der diese Selbstbeschreibung beim Anlegen
    eines neuen Cosmos ohne Mehraufwand verfuegbar macht.
@@ -42,7 +42,7 @@ Nomos-eigene Funktion zu zeigen und zu sehen, *wie* sie modelliert ist.
 
 Nomos liefert sich selbst als **Self-Model-Bundle**: ein versionierter, im
 Binary eingebetteter Satz von Cosmos-Artefakten, der die Services, Capabilities
-und UCIs der jeweiligen Nomos-Version beschreibt und bei Bedarf in jeden
+und UIs der jeweiligen Nomos-Version beschreibt und bei Bedarf in jeden
 Cosmos-Workspace materialisiert werden kann.
 
 ### 1. Reservierter Namespace und kanonische Domain
@@ -93,14 +93,14 @@ internal/selfmodel/bundle/
     blueprints/
       products/nomos-core-engine.yaml
       services/<service-blueprint>.yaml
-  uci/
+  ui/
     cosmos-explorer/
-      uci.yaml
+      ui.yaml
       schema.yaml
-    domain-explorer/uci.yaml
-    blueprint-editor/uci.yaml
-    validation-view/uci.yaml
-    uci-explorer/uci.yaml
+    domain-explorer/ui.yaml
+    blueprint-editor/ui.yaml
+    validation-view/ui.yaml
+    ui-explorer/ui.yaml
 ```
 
 Die Bundle-Version ist an die Nomos-Binary-Version gebunden:
@@ -167,8 +167,8 @@ capabilities:
         idempotent: true
     inputs_schema_ref: schemas/validate-input.yaml
     outputs_schema_ref: schemas/validate-output.yaml
-    related_uci:
-      - uci-validation-view
+    related_ui:
+      - ui-validation-view
 summary: Strukturelle und referentielle Validierung von Cosmos-Artefakten.
 ```
 
@@ -242,7 +242,7 @@ Das Bundle wird auf zwei Wegen in einen Cosmos materialisiert:
 ```bash
 nomos cosmos init ./my-cosmos --git
 # Materialisiert zusaetzlich .nomos/domains/core.nomos/, das
-# zugehoerige Catalog-Bundle und die UCIs unter .nomos/uci/.
+# zugehoerige Catalog-Bundle und die UIs unter .nomos/ui/.
 ```
 
 Das Default-Verhalten **importiert das Self-Model**. Wer das nicht moechte
@@ -262,7 +262,7 @@ nomos self upgrade          # ueberschreibt Workspace-Bundle mit Binary-Version
 ```
 
 Import schreibt unter `.nomos/domains/core.nomos/`, `.nomos/catalog/` und
-`.nomos/uci/` — also dieselbe Struktur wie fuer jedes andere Artefakt. Der
+`.nomos/ui/` — also dieselbe Struktur wie fuer jedes andere Artefakt. Der
 Cosmos enthaelt damit sein eigenes Werkzeug als regulaere, validierbare
 Artefakte.
 
@@ -295,8 +295,8 @@ jeder andere Cosmos:
 ### 7. Web-UI
 
 Die bestehende Cosmos-Explorer-UI rendert `core.nomos` ohne Sonderfall,
-markiert die Domain aber visuell als **System**/**Read-only**. UCIs aus dem
-Bundle werden im UCI-Explorer (ADR-0013) wie normale UCIs gelistet, jedoch
+markiert die Domain aber visuell als **System**/**Read-only**. UIs aus dem
+Bundle werden im UI-Explorer (ADR-0013) wie normale UIs gelistet, jedoch
 ebenfalls als Read-only gekennzeichnet.
 
 ### 8. Idempotenz beim Re-Init und Re-Import
@@ -321,7 +321,7 @@ Beim Re-Init/Re-Import vergleicht Nomos drei Werte:
 2. `workspace_recorded_checksum` — Wert aus `.nomos/cosmos.yaml`.
 3. `workspace_actual_checksum` — neu berechnet ueber alle Dateien unter
    `.nomos/domains/core.nomos/`, `.nomos/catalog/blueprints/{products,services}/nomos-*`
-   (Self-Model-Anteil im Katalog) und `.nomos/uci/` (nur Self-Model-UCIs,
+   (Self-Model-Anteil im Katalog) und `.nomos/ui/` (nur Self-Model-UIs,
    per Manifest aufgelistet).
 
 **Entscheidungs-Matrix:**
@@ -349,7 +349,7 @@ nur ins Working-Tree. So bleibt der bestehende Workflow (Branch → Commit
 → PR) intakt; bei Re-Imports ist ein leerer `git diff` der Beweis fuer
 Fall B.
 
-### 9. i18n der UCI- und Capability-Labels
+### 9. i18n der UI- und Capability-Labels
 
 Self-Model-Artefakte werden in englischen IDs und mit lokalisierbaren
 Labels ausgeliefert. Lokalisierung ist ein separater, optionaler Layer
@@ -370,8 +370,8 @@ unter `i18n/<bcp47>.yaml` neben dem Hauptartefakt, nicht im Hauptartefakt
 selbst:
 
 ```text
-.nomos/uci/cosmos-explorer/
-  uci.yaml                      # source (de)
+.nomos/ui/cosmos-explorer/
+  ui.yaml                       # source (de)
   i18n/
     en.yaml
     fr.yaml
@@ -412,7 +412,7 @@ Info-Findings.
 
 **Out of Scope fuer MVP.** Pluralregeln, ICU-Message-Format und
 Right-to-Left-spezifische Layout-Hinweise werden nicht im Bundle
-abgelegt; das bleibt Verantwortung der UCI-Implementierungen.
+abgelegt; das bleibt Verantwortung der UI-Implementierungen.
 
 ## Verworfene Alternativen
 
@@ -441,10 +441,10 @@ schwierig. Abgelehnt — reservierter `nomos`-Namespace ist eindeutig.
 - Das Prinzip aus ADR-0009 wird konkret und ueberpruefbar.
 - Jeder neue Cosmos hat ohne Zusatzaufwand eine maschinenlesbare
   Beschreibung der Nomos-Funktionen, ihrer Connector-Endpunkte und der
-  zugehoerigen UCIs.
+  zugehoerigen UIs.
 - KI-Agenten (ADR-0008, MCP) koennen ueber den normalen Artefakt-Zugriff
   herausfinden, *wie* sie mit Nomos sprechen — keine separate API-Doku noetig.
-- UCIs aus ADR-0013 bekommen mit `core.nomos`-UCIs ihren ersten realen
+- UIs aus ADR-0013 bekommen mit `core.nomos`-UIs ihren ersten realen
   Anwendungsfall.
 - Validierung des Self-Models im Build ist ein hartes Quality-Gate gegen
   Drift zwischen Code und Modell.
@@ -478,4 +478,4 @@ schwierig. Abgelehnt — reservierter `nomos`-Namespace ist eindeutig.
 - ADR-0008 — MCP Server als KI-Agenten-Schnittstelle
 - ADR-0009 — Nomos Cosmos Netzwerkarchitektur und Core Engine
   (Prinzip "Nomos betreibt sich mit Nomos")
-- ADR-0013 — User Contact Interfaces (UCI)
+- ADR-0013 — User Interfaces (UI)

@@ -20,7 +20,7 @@ func CatalogServicegraphsDir(workspace string) string {
 func EvidenceDir(workspace string) string { return filepath.Join(NomosDir(workspace), "evidence") }
 func IndexDir(workspace string) string    { return filepath.Join(NomosDir(workspace), "index") }
 func CacheDir(workspace string) string    { return filepath.Join(NomosDir(workspace), "cache") }
-func UCIDir(workspace string) string      { return filepath.Join(NomosDir(workspace), "uci") }
+func UIDir(workspace string) string       { return filepath.Join(NomosDir(workspace), "ui") }
 func KeysFile(workspace string) string    { return filepath.Join(NomosDir(workspace), "keys.yaml") }
 
 func SelfModelDir(workspace string) string {

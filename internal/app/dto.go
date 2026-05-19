@@ -91,7 +91,7 @@ type ServiceCapabilityDTO struct {
 	Stability      string         `json:"stability,omitempty"`
 	SideEffect     string         `json:"side_effect,omitempty"`
 	Connectors     []ConnectorDTO `json:"connectors,omitempty"`
-	RelatedUCI     []string       `json:"related_uci,omitempty"`
+	RelatedUI      []string       `json:"related_ui,omitempty"`
 	ConnectorTypes string         `json:"connector_types,omitempty"` // e.g. "CLI · REST · MCP"
 }
 

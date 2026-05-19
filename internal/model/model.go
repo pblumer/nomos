@@ -122,7 +122,7 @@ type ServiceCapability struct {
 	Stability  string      `yaml:"stability,omitempty" json:"stability,omitempty"`
 	SideEffect string      `yaml:"side_effect,omitempty" json:"side_effect,omitempty"`
 	Connectors []Connector `yaml:"connectors,omitempty" json:"connectors,omitempty"`
-	RelatedUCI []string    `yaml:"related_uci,omitempty" json:"related_uci,omitempty"`
+	RelatedUI  []string    `yaml:"related_ui,omitempty" json:"related_ui,omitempty"`
 }
 
 func (c *ServiceCapability) UnmarshalYAML(unmarshal func(interface{}) error) error {
