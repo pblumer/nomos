@@ -273,6 +273,11 @@
 .dmn-drg-chip.bkm{background:#fef3c7;color:#92400e;border-color:#fde68a}
 .dmn-drg-chip.ks{background:#f3e8ff;color:#6b21a8;border-color:#e9d5ff}
 .dmn-drg-chip.ds{background:#dcfce7;color:#166534;border-color:#bbf7d0}
+.dmn-out-row{display:flex;flex-direction:column;gap:.2rem;margin-bottom:.3rem}
+.dmn-out-row:last-child{margin-bottom:0}
+.dmn-out-values{display:flex;flex-wrap:wrap;gap:.2rem;align-items:center;padding-left:.4rem}
+.dmn-out-values-label{font-size:.7rem;color:#64748b}
+.dmn-out-value-chip{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:5px;padding:.1rem .4rem;font-size:.72rem;font-family:ui-monospace,Menlo,monospace}
 .dec-meta.collapsed{display:none}
 /* ── Decision-History (Traces) ── */
 .dec-history{margin-top:.7rem;border:1px solid #e2e8f0;border-radius:14px;background:#fff;padding:.7rem .85rem}
@@ -2196,6 +2201,45 @@ function decisionDRGSummary(defs){
   return parts.join('');
 }
 
+// collectDecisionOutputValues walks every decision table in the DMN definitions
+// and returns a map of output-variable-name → distinct values it can produce.
+// Explicit <outputValues> constraints win when set; otherwise we fall back to
+// the literal entries used across all rule rows. Result keys match both the
+// table's output `name` and the owning decision's variable name so the caller
+// can look up values regardless of where the output column was named.
+function collectDecisionOutputValues(defs){
+  const result={};
+  if(!defs)return result;
+  (defs.decisions||[]).forEach(d=>{
+    const dt=d?.logic?.decision_table;if(!dt)return;
+    const tableOutputs=dt.outputs||[];
+    const rules=dt.rules||[];
+    const decVarName=d.variable?.name||d.name||'';
+    tableOutputs.forEach((o,idx)=>{
+      const explicit=Array.isArray(o.output_values)?o.output_values.map(v=>String(v||'').trim()).filter(v=>v&&v!=='-'):[];
+      let vals;
+      if(explicit.length){
+        vals=explicit;
+      }else{
+        const seen=new Set();vals=[];
+        rules.forEach(r=>{
+          const raw=(r.output_entries||[])[idx];
+          const v=typeof raw==='string'?raw.trim():'';
+          if(!v||v==='-')return;
+          if(!seen.has(v)){seen.add(v);vals.push(v);}
+        });
+      }
+      if(!vals.length)return;
+      // Single-column tables often leave the column name empty and rely on
+      // the decision's variable name instead — register under both keys so
+      // the caller's lookup by variable name still works.
+      if(o.name)result[o.name]=vals;
+      if(decVarName&&!result[decVarName])result[decVarName]=vals;
+    });
+  });
+  return result;
+}
+
 function renderDecisionDetail(dec,defs,domainCanonical){
   const ios=(arr,cls)=>arr?.length?arr.map(io=>`<span class="dmn-drg-chip ${cls}">${esc(io.name)}${io.type?' : '+esc(io.type):''}</span>`).join(' '):'<span class="muted">—</span>';
   // Inputs/Outputs: when the DMN diagram exists, it's the source of truth.
@@ -2205,6 +2249,18 @@ function renderDecisionDetail(dec,defs,domainCanonical){
   const inputs=(dmnInputs&&dmnInputs.length)?dmnInputs:(dec.inputs||[]);
   const outputs=(dec.has_dmn&&dmnOutputs.length)?dmnOutputs:(dec.outputs||[]);
   const ioSource=dec.has_dmn?'<span class="muted" style="font-size:.72rem">(aus Diagramm)</span>':'';
+  // For each top-level output, collect the values its decision table can
+  // produce: explicit output_values constraints when present, otherwise the
+  // distinct literals used in the rule rows. Keyed by output variable name.
+  const outputValues=collectDecisionOutputValues(defs);
+  const renderOutputs=(arr)=>{
+    if(!arr?.length)return '<span class="muted">—</span>';
+    return arr.map(io=>{
+      const vals=outputValues[io.name]||[];
+      const valsHTML=vals.length?`<div class="dmn-out-values"><span class="dmn-out-values-label">Mögliche Werte:</span>${vals.map(v=>`<span class="dmn-out-value-chip">${esc(v)}</span>`).join('')}</div>`:'';
+      return `<div class="dmn-out-row"><span class="dmn-drg-chip">${esc(io.name)}${io.type?' : '+esc(io.type):''}</span>${valsHTML}</div>`;
+    }).join('');
+  };
   // Default-collapsed once a DMN exists so the editor gets the vertical space.
   const collapsed=!!dec.has_dmn;
   const toggleIcon=collapsed?'expand_more':'expand_less';
@@ -2218,7 +2274,7 @@ function renderDecisionDetail(dec,defs,domainCanonical){
       <dt>Context</dt><dd>${dec.context?esc(dec.context):'&ndash;'}</dd>
       <dt>DMN-File</dt><dd>${dec.has_dmn?'<code>'+esc(dec.dmn_file||'decision.dmn')+'</code>':'<span class="badge badge-warning">noch keine DMN-Datei</span>'}</dd>
       <dt>Inputs ${ioSource}</dt><dd>${ios(inputs,'input-data')}</dd>
-      <dt>Outputs ${ioSource}</dt><dd>${ios(outputs,'')}</dd>
+      <dt>Outputs ${ioSource}</dt><dd>${renderOutputs(outputs)}</dd>
     </dl>
     ${decisionDRGSummary(defs)}
   </div>
