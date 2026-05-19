@@ -42,6 +42,12 @@ steps:
     depends_on:
       - step-dns-gateway
     notes: Stellt sicher, dass der Namespace noch nicht vergeben ist.
+  - id: step-namespace-gateway
+    name: Namespace frei?
+    task_type: exclusive_gateway
+    required: true
+    depends_on:
+      - step-namespace-prüfen
   - id: step-domain-anlegen
     name: Domain anlegen
     task_type: service_task
@@ -51,7 +57,7 @@ steps:
     required: true
     role: system
     depends_on:
-      - step-namespace-prüfen
+      - step-namespace-gateway
     notes: Erstellt domain.yaml und Verzeichnisstruktur.
   - id: step-validieren
     name: Cosmos validieren
@@ -79,6 +85,10 @@ task_mappings:
     service_ref: core.nomos/uci-manager
     capability_ref: cap-namespace-resolve
     method: namespace_tree
+    required: true
+  - bpmn_element_id: Gateway_NamespaceFrei
+    bpmn_element_type: exclusiveGateway
+    task_name: Namespace frei?
     required: true
   - bpmn_element_id: Task_DomainAnlegen
     bpmn_element_type: serviceTask

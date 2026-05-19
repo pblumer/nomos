@@ -22,10 +22,19 @@
     </bpmn:endEvent>
     <bpmn:serviceTask id="Task_NamespacePrüfen" name="Namespace-Kollision&#10;prüfen">
       <bpmn:incoming>Flow_Format_Ja</bpmn:incoming>
-      <bpmn:outgoing>Flow_Namespace_Domain</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Namespace_Gateway</bpmn:outgoing>
     </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_NamespaceFrei" name="Namespace&#10;frei?">
+      <bpmn:incoming>Flow_Namespace_Gateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_Namespace_Ja</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Namespace_Nein</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="End_Fehler_Kollision" name="Fehler:&#10;Namespace belegt">
+      <bpmn:incoming>Flow_Namespace_Nein</bpmn:incoming>
+      <bpmn:errorEventDefinition id="ErrDef_Kollision"/>
+    </bpmn:endEvent>
     <bpmn:serviceTask id="Task_DomainAnlegen" name="Domain anlegen">
-      <bpmn:incoming>Flow_Namespace_Domain</bpmn:incoming>
+      <bpmn:incoming>Flow_Namespace_Ja</bpmn:incoming>
       <bpmn:outgoing>Flow_Domain_Validate</bpmn:outgoing>
     </bpmn:serviceTask>
     <bpmn:serviceTask id="Task_Validieren" name="Cosmos validieren">
@@ -39,14 +48,16 @@
     <bpmn:sequenceFlow id="Flow_DNS_Gateway" sourceRef="Task_DNSValidieren" targetRef="Gateway_FormatGültig"/>
     <bpmn:sequenceFlow id="Flow_Format_Ja" name="ja" sourceRef="Gateway_FormatGültig" targetRef="Task_NamespacePrüfen"/>
     <bpmn:sequenceFlow id="Flow_Format_Nein" name="nein" sourceRef="Gateway_FormatGültig" targetRef="End_Fehler"/>
-    <bpmn:sequenceFlow id="Flow_Namespace_Domain" sourceRef="Task_NamespacePrüfen" targetRef="Task_DomainAnlegen"/>
+    <bpmn:sequenceFlow id="Flow_Namespace_Gateway" sourceRef="Task_NamespacePrüfen" targetRef="Gateway_NamespaceFrei"/>
+    <bpmn:sequenceFlow id="Flow_Namespace_Ja" name="ja" sourceRef="Gateway_NamespaceFrei" targetRef="Task_DomainAnlegen"/>
+    <bpmn:sequenceFlow id="Flow_Namespace_Nein" name="nein" sourceRef="Gateway_NamespaceFrei" targetRef="End_Fehler_Kollision"/>
     <bpmn:sequenceFlow id="Flow_Domain_Validate" sourceRef="Task_DomainAnlegen" targetRef="Task_Validieren"/>
     <bpmn:sequenceFlow id="Flow_Validate_End" sourceRef="Task_Validieren" targetRef="End_Erfolg"/>
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_DomainAdd">
     <bpmndi:BPMNPlane id="Plane_DomainAdd" bpmnElement="Collab_DomainAdd">
       <bpmndi:BPMNShape id="Shape_Part" bpmnElement="Part_DomainAdd" isHorizontal="true">
-        <dc:Bounds x="100" y="50" width="1250" height="270"/>
+        <dc:Bounds x="100" y="50" width="1370" height="270"/>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Shape_Start" bpmnElement="Start_CLI">
         <dc:Bounds x="182" y="147" width="36" height="36"/>
@@ -66,15 +77,23 @@
       <bpmndi:BPMNShape id="Shape_NamespacePrüfen" bpmnElement="Task_NamespacePrüfen">
         <dc:Bounds x="550" y="125" width="120" height="80"/>
       </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_GwNamespace" bpmnElement="Gateway_NamespaceFrei" isMarkerVisible="true">
+        <dc:Bounds x="720" y="140" width="50" height="50"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="708" y="117" width="74" height="27"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndFehlerKollision" bpmnElement="End_Fehler_Kollision">
+        <dc:Bounds x="727" y="247" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="703" y="290" width="84" height="27"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Shape_DomainAnlegen" bpmnElement="Task_DomainAnlegen">
-        <dc:Bounds x="730" y="125" width="120" height="80"/>
+        <dc:Bounds x="830" y="125" width="120" height="80"/>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Shape_Validieren" bpmnElement="Task_Validieren">
-        <dc:Bounds x="910" y="125" width="120" height="80"/>
+        <dc:Bounds x="1010" y="125" width="120" height="80"/>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Shape_EndErfolg" bpmnElement="End_Erfolg">
-        <dc:Bounds x="1092" y="147" width="36" height="36"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="1072" y="190" width="76" height="14"/></bpmndi:BPMNLabel>
+        <dc:Bounds x="1192" y="147" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1172" y="190" width="76" height="14"/></bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Edge_Start_DNS" bpmnElement="Flow_Start_DNS">
         <di:waypoint x="218" y="165"/><di:waypoint x="270" y="165"/>
@@ -90,14 +109,22 @@
         <di:waypoint x="470" y="190"/><di:waypoint x="470" y="247"/>
         <bpmndi:BPMNLabel><dc:Bounds x="476" y="212" width="26" height="14"/></bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Edge_Namespace_Domain" bpmnElement="Flow_Namespace_Domain">
-        <di:waypoint x="670" y="165"/><di:waypoint x="730" y="165"/>
+      <bpmndi:BPMNEdge id="Edge_Namespace_Gateway" bpmnElement="Flow_Namespace_Gateway">
+        <di:waypoint x="670" y="165"/><di:waypoint x="720" y="165"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Namespace_Ja" bpmnElement="Flow_Namespace_Ja">
+        <di:waypoint x="770" y="165"/><di:waypoint x="830" y="165"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="785" y="147" width="14" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Namespace_Nein" bpmnElement="Flow_Namespace_Nein">
+        <di:waypoint x="745" y="190"/><di:waypoint x="745" y="247"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="751" y="212" width="26" height="14"/></bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Edge_Domain_Validate" bpmnElement="Flow_Domain_Validate">
-        <di:waypoint x="850" y="165"/><di:waypoint x="910" y="165"/>
+        <di:waypoint x="950" y="165"/><di:waypoint x="1010" y="165"/>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Edge_Validate_End" bpmnElement="Flow_Validate_End">
-        <di:waypoint x="1030" y="165"/><di:waypoint x="1092" y="165"/>
+        <di:waypoint x="1130" y="165"/><di:waypoint x="1192" y="165"/>
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
