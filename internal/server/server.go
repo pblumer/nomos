@@ -1428,10 +1428,7 @@ func (h *handler) dashboard(w http.ResponseWriter, r *http.Request) {
 		h.errorPage(w, r, statusOf(err), "Cosmos missing", err.Error())
 		return
 	}
-	val, _ := app.ValidateCosmos(h.cosmosPath)
-	bp, _ := app.ListBlueprints(h.cosmosPath)
-	inst, _ := app.ListInstances(h.cosmosPath)
-	h.page(w, "index", map[string]any{"ActiveNav": "dashboard", "PageTitle": "Dashboard", "Cosmos": co, "Validation": val, "BlueprintCount": bp.Count, "InstanceCount": inst.Count})
+	h.page(w, "index", map[string]any{"ActiveNav": "dashboard", "PageTitle": "Dashboard", "Cosmos": co})
 }
 func (h *handler) cosmosPage(w http.ResponseWriter, r *http.Request) {
 	co, err := app.GetCosmos(h.cosmosPath)
