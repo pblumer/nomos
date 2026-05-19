@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/nomos/nomos/internal/app"
@@ -32,8 +33,12 @@ func registerWriteTools(srv *mcp.Server, cosmosPath string) {
 	}, toolProcessCreate(cosmosPath))
 
 	mcp.AddTool(srv, &mcp.Tool{
-		Name:        "nomos_process_step_add",
-		Description: "Add an ordered step to a process. A step maps to a service method call (task) and optionally references a service capability (= BPMN collaboration boundary).",
+		Name: "nomos_process_step_add",
+		Description: "Add an ordered step to a process. " +
+			"For business_rule_task steps with a decision_ref an exclusive_gateway step is automatically appended " +
+			"(use gateway_name to set its label; defaults to '<step name>?'). " +
+			"The gateway branches (Ja/Nein with condition expressions) are resolved from the decision outputs at BPMN render time — " +
+			"no separate gateway tool call is needed.",
 	}, toolProcessStepAdd(cosmosPath))
 
 	mcp.AddTool(srv, &mcp.Tool{
@@ -175,8 +180,9 @@ type processStepAddIn struct {
 	ServiceRef    string `json:"service_ref,omitempty"    jsonschema:"service reference, e.g. core.nomos/catalog-manager"`
 	CapabilityRef string `json:"capability_ref,omitempty" jsonschema:"capability ID on the service (= collaboration boundary)"`
 	Method        string `json:"method,omitempty"         jsonschema:"service method name to invoke"`
-	TaskType      string `json:"task_type,omitempty"      jsonschema:"task type: service_task | business_rule_task | user_task | manual_task | script_task"`
-	DecisionRef   string `json:"decision_ref,omitempty"   jsonschema:"decision table ID for business_rule_task steps"`
+	TaskType      string `json:"task_type,omitempty"      jsonschema:"task type: service_task | business_rule_task | user_task | manual_task | script_task | exclusive_gateway. For business_rule_task + decision_ref a gateway is auto-appended; you rarely need to add exclusive_gateway manually."`
+	DecisionRef   string `json:"decision_ref,omitempty"   jsonschema:"decision ID referenced by a business_rule_task (e.g. dec-dns-format-check). Triggers automatic exclusive_gateway creation after this step."`
+	GatewayName   string `json:"gateway_name,omitempty"   jsonschema:"label for the auto-created exclusive gateway that follows a business_rule_task; leave empty to use '<step name>?'"`
 	Role          string `json:"role,omitempty"           jsonschema:"executing role or team"`
 	Required      bool   `json:"required,omitempty"       jsonschema:"whether this step is mandatory"`
 	Notes         string `json:"notes,omitempty"          jsonschema:"additional notes"`
@@ -202,7 +208,8 @@ func toolProcessStepAdd(path string) func(context.Context, *mcp.CallToolRequest,
 			return nil, nil, fmt.Errorf("process_step_add to %q: %w", in.ProcessID, err)
 		}
 		added := dto.Steps[len(dto.Steps)-1]
-		return textResult(map[string]any{
+
+		result := map[string]any{
 			"step_id":        added.ID,
 			"name":           added.Name,
 			"task_type":      added.TaskType,
@@ -211,8 +218,37 @@ func toolProcessStepAdd(path string) func(context.Context, *mcp.CallToolRequest,
 			"method":         added.Method,
 			"decision_ref":   added.DecisionRef,
 			"total_steps":    len(dto.Steps),
-		})
+		}
+
+		// Auto-append exclusive gateway for business_rule_task + decision_ref.
+		// Branch conditions (Ja/Nein) are resolved from the decision's boolean
+		// output at BPMN render time — no manual gateway call needed.
+		if isBusinessRuleTaskType(in.TaskType) && strings.TrimSpace(in.DecisionRef) != "" {
+			gwName := strings.TrimSpace(in.GatewayName)
+			if gwName == "" {
+				gwName = strings.TrimSpace(in.Name) + "?"
+			}
+			gwDTO, gwErr := app.AddProcessStep(path, in.ProcessID, app.UpsertProcessStepRequest{
+				Name:     gwName,
+				TaskType: "exclusive_gateway",
+				Required: true,
+			})
+			if gwErr == nil && len(gwDTO.Steps) > 0 {
+				gw := gwDTO.Steps[len(gwDTO.Steps)-1]
+				result["gateway_step_id"] = gw.ID
+				result["gateway_name"] = gw.Name
+				result["total_steps"] = len(gwDTO.Steps)
+				result["gateway_note"] = "exclusive_gateway auto-created; Ja/Nein branches with conditionExpression resolved from decision outputs at BPMN render time"
+			}
+		}
+
+		return textResult(result)
 	}
+}
+
+func isBusinessRuleTaskType(t string) bool {
+	t = strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(t, "_", ""), "bpmn:", ""))
+	return t == "businessruletask"
 }
 
 // ── decision_create ──────────────────────────────────────────────────────────
