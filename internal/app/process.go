@@ -116,7 +116,7 @@ func CreateProductProcess(path, productID string, req CreateProcessRequest) (Pro
 	if err := fsx.WriteYAML(filepath.Join(dir, fileBase+".yaml"), meta); err != nil {
 		return ProcessDTO{}, Error(CodeInternalError, "Failed to write process: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, bpmnFile), []byte(DefaultBPMNTemplate(meta.BPMN.ProcessID, product.Name)), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, bpmnFile), []byte(DefaultBPMNTemplate(meta.BPMN.ProcessID, meta.Name)), 0o644); err != nil {
 		return ProcessDTO{}, Error(CodeInternalError, "Failed to write BPMN: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	_ = attachProcessToProduct(path, productID, id)
@@ -263,6 +263,18 @@ func processDTO(path string, n processNode, includeValidation bool) ProcessDTO {
 	return dto
 }
 
+// syncBPMNFromSteps rewrites the process's BPMN file so the diagram reflects
+// the structured step list. Called whenever steps are added, updated, or
+// removed via the structured API so users see their tasks in the diagram.
+func syncBPMNFromSteps(node processNode) error {
+	bpmnPath := safeBPMNPath(filepath.Dir(node.Path), node.Meta.BPMN.File)
+	if bpmnPath == "" {
+		return nil
+	}
+	xmlText := BuildBPMNFromSteps(node.Meta.BPMN.ProcessID, node.Meta.Name, node.Meta.Steps)
+	return os.WriteFile(bpmnPath, []byte(xmlText), 0o644)
+}
+
 func AddProcessStep(path, id string, req UpsertProcessStepRequest) (ProcessDTO, error) {
 	if strings.TrimSpace(req.Name) == "" {
 		return ProcessDTO{}, Error(CodeInvalidInput, "step name is required", http.StatusBadRequest, nil)
@@ -291,6 +303,9 @@ func AddProcessStep(path, id string, req UpsertProcessStepRequest) (ProcessDTO, 
 	node.Meta.Steps = append(node.Meta.Steps, step)
 	if err := fsx.WriteYAML(node.Path, node.Meta); err != nil {
 		return ProcessDTO{}, Error(CodeInternalError, "Failed to write process: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	if err := syncBPMNFromSteps(node); err != nil {
+		return ProcessDTO{}, Error(CodeInternalError, "Failed to write BPMN: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	return GetProcess(path, id)
 }
@@ -330,6 +345,9 @@ func UpdateProcessStep(path, id, stepID string, req UpsertProcessStepRequest) (P
 	if err := fsx.WriteYAML(node.Path, node.Meta); err != nil {
 		return ProcessDTO{}, Error(CodeInternalError, "Failed to write process: "+err.Error(), http.StatusInternalServerError, err)
 	}
+	if err := syncBPMNFromSteps(node); err != nil {
+		return ProcessDTO{}, Error(CodeInternalError, "Failed to write BPMN: "+err.Error(), http.StatusInternalServerError, err)
+	}
 	return GetProcess(path, id)
 }
 
@@ -351,6 +369,9 @@ func RemoveProcessStep(path, id, stepID string) (ProcessDTO, error) {
 	node.Meta.Steps = filtered
 	if err := fsx.WriteYAML(node.Path, node.Meta); err != nil {
 		return ProcessDTO{}, Error(CodeInternalError, "Failed to write process: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	if err := syncBPMNFromSteps(node); err != nil {
+		return ProcessDTO{}, Error(CodeInternalError, "Failed to write BPMN: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	return GetProcess(path, id)
 }
@@ -648,49 +669,199 @@ func attachProcessToProduct(path, productID, processID string) error {
 }
 
 // DefaultBPMNTemplate generates a minimal blank BPMN collaboration with a
-// single participant pool. The pool name is set to the process name so users
-// can immediately see which process they are editing in the diagram.
-func DefaultBPMNTemplate(processID, productName string) string {
+// single participant pool. The pool name is the process name so users can
+// immediately see which process they are editing in the diagram.
+func DefaultBPMNTemplate(processID, processName string) string {
+	return BuildBPMNFromSteps(processID, processName, nil)
+}
+
+// BuildBPMNFromSteps generates a BPMN 2.0 collaboration XML where the pool is
+// labelled with the process name and each ProcessStep becomes a task laid out
+// in a single horizontal lane between Start and End. The structured step list
+// is treated as the source of truth for which tasks the process performs.
+func BuildBPMNFromSteps(processID, processName string, steps []model.ProcessStep) string {
 	if strings.TrimSpace(processID) == "" {
 		processID = "Process_ProductFulfillment"
 	}
-	name := firstNonEmpty(productName, "Product fulfillment")
+	poolName := firstNonEmpty(processName, "Process")
 	collabID := "Collab_" + sanitizeBPMNID(processID)
 	participantID := "Participant_" + sanitizeBPMNID(processID)
-	return `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_ProductProcess" targetNamespace="https://nomos.local/bpmn">
-  <bpmn:collaboration id="` + collabID + `">
-    <bpmn:participant id="` + participantID + `" name="` + xmlEscape(name) + `" processRef="` + processID + `" />
-  </bpmn:collaboration>
-  <bpmn:process id="` + processID + `" name="` + xmlEscape(name) + `" isExecutable="false">
-    <bpmn:startEvent id="StartEvent_Begin" name="Start">
-      <bpmn:outgoing>Flow_Start_End</bpmn:outgoing>
-    </bpmn:startEvent>
-    <bpmn:sequenceFlow id="Flow_Start_End" sourceRef="StartEvent_Begin" targetRef="EndEvent_Done" />
-    <bpmn:endEvent id="EndEvent_Done" name="End">
-      <bpmn:incoming>Flow_Start_End</bpmn:incoming>
-    </bpmn:endEvent>
-  </bpmn:process>
-  <bpmndi:BPMNDiagram id="BPMNDiagram_ProductProcess">
-    <bpmndi:BPMNPlane id="BPMNPlane_ProductProcess" bpmnElement="` + collabID + `">
-      <bpmndi:BPMNShape id="Shape_Participant" bpmnElement="` + participantID + `" isHorizontal="true">
-        <dc:Bounds x="100" y="80" width="400" height="160" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_StartEvent" bpmnElement="StartEvent_Begin">
-        <dc:Bounds x="182" y="142" width="36" height="36" />
-        <bpmndi:BPMNLabel><dc:Bounds x="188" y="185" width="24" height="14" /></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Shape_EndEvent" bpmnElement="EndEvent_Done">
-        <dc:Bounds x="432" y="142" width="36" height="36" />
-        <bpmndi:BPMNLabel><dc:Bounds x="438" y="185" width="24" height="14" /></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Edge_Start_End" bpmnElement="Flow_Start_End">
-        <di:waypoint x="218" y="160" /><di:waypoint x="432" y="160" />
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-</bpmn:definitions>
-`
+
+	const (
+		laneX        = 100
+		laneY        = 80
+		laneHeight   = 160
+		eventSize    = 36
+		taskWidth    = 120
+		taskHeight   = 80
+		gap          = 50
+		marginLeft   = 80
+		centerY      = 160
+		taskTop      = 120
+		labelOffsetY = 43
+	)
+
+	startEventID := "StartEvent_Begin"
+	endEventID := "EndEvent_Done"
+
+	var (
+		processBody bytes.Buffer
+		planeBody   bytes.Buffer
+		flows       bytes.Buffer
+		shapes      bytes.Buffer
+	)
+
+	// Position cursor on the lane (relative to lane left edge).
+	xCursor := laneX + marginLeft
+
+	// Start event.
+	processBody.WriteString("    <bpmn:startEvent id=\"" + startEventID + "\" name=\"Start\">\n")
+	startOutFlow := "Flow_Start_End"
+	if len(steps) > 0 {
+		startOutFlow = "Flow_Start_" + sanitizeBPMNID(bpmnTaskIDForStep(steps[0], 0))
+	}
+	processBody.WriteString("      <bpmn:outgoing>" + startOutFlow + "</bpmn:outgoing>\n")
+	processBody.WriteString("    </bpmn:startEvent>\n")
+	shapes.WriteString("      <bpmndi:BPMNShape id=\"Shape_Start\" bpmnElement=\"" + startEventID + "\">\n")
+	shapes.WriteString(fmt.Sprintf("        <dc:Bounds x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" />\n", xCursor, centerY-eventSize/2, eventSize, eventSize))
+	shapes.WriteString(fmt.Sprintf("        <bpmndi:BPMNLabel><dc:Bounds x=\"%d\" y=\"%d\" width=\"24\" height=\"14\" /></bpmndi:BPMNLabel>\n", xCursor+6, centerY-eventSize/2+labelOffsetY))
+	shapes.WriteString("      </bpmndi:BPMNShape>\n")
+	startRightX := xCursor + eventSize
+	xCursor += eventSize + gap
+
+	layouts := make([]bpmnStepLayout, len(steps))
+	prevOutFlow := startOutFlow
+	for i, s := range steps {
+		taskID := bpmnTaskIDForStep(s, i)
+		element := bpmnElementForStep(s.TaskType)
+		var nextFlow string
+		if i == len(steps)-1 {
+			nextFlow = "Flow_" + sanitizeBPMNID(taskID) + "_End"
+		} else {
+			next := steps[i+1]
+			nextTaskID := bpmnTaskIDForStep(next, i+1)
+			nextFlow = "Flow_" + sanitizeBPMNID(taskID) + "_" + sanitizeBPMNID(nextTaskID)
+		}
+		layouts[i] = bpmnStepLayout{
+			taskID:  taskID,
+			outFlow: nextFlow,
+			leftX:   xCursor,
+			rightX:  xCursor + taskWidth,
+		}
+		processBody.WriteString("    <bpmn:" + element + " id=\"" + taskID + "\" name=\"" + xmlEscape(firstNonEmpty(s.Name, taskID)) + "\">\n")
+		processBody.WriteString("      <bpmn:incoming>" + prevOutFlow + "</bpmn:incoming>\n")
+		processBody.WriteString("      <bpmn:outgoing>" + nextFlow + "</bpmn:outgoing>\n")
+		processBody.WriteString("    </bpmn:" + element + ">\n")
+		shapes.WriteString("      <bpmndi:BPMNShape id=\"Shape_" + taskID + "\" bpmnElement=\"" + taskID + "\">\n")
+		shapes.WriteString(fmt.Sprintf("        <dc:Bounds x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" />\n", xCursor, taskTop, taskWidth, taskHeight))
+		shapes.WriteString("      </bpmndi:BPMNShape>\n")
+		prevOutFlow = nextFlow
+		xCursor += taskWidth + gap
+	}
+
+	// End event.
+	processBody.WriteString("    <bpmn:endEvent id=\"" + endEventID + "\" name=\"End\">\n")
+	processBody.WriteString("      <bpmn:incoming>" + prevOutFlow + "</bpmn:incoming>\n")
+	processBody.WriteString("    </bpmn:endEvent>\n")
+	shapes.WriteString("      <bpmndi:BPMNShape id=\"Shape_End\" bpmnElement=\"" + endEventID + "\">\n")
+	shapes.WriteString(fmt.Sprintf("        <dc:Bounds x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" />\n", xCursor, centerY-eventSize/2, eventSize, eventSize))
+	shapes.WriteString(fmt.Sprintf("        <bpmndi:BPMNLabel><dc:Bounds x=\"%d\" y=\"%d\" width=\"24\" height=\"14\" /></bpmndi:BPMNLabel>\n", xCursor+6, centerY-eventSize/2+labelOffsetY))
+	shapes.WriteString("      </bpmndi:BPMNShape>\n")
+	endLeftX := xCursor
+	endRightX := xCursor + eventSize
+
+	// Sequence flows + edges.
+	// Start → first task / End.
+	firstTargetLeft := endLeftX
+	if len(layouts) > 0 {
+		firstTargetLeft = layouts[0].leftX
+	}
+	processBody.WriteString("    <bpmn:sequenceFlow id=\"" + startOutFlow + "\" sourceRef=\"" + startEventID + "\" targetRef=\"" + bpmnFirstTargetRef(layouts, endEventID) + "\" />\n")
+	flows.WriteString("      <bpmndi:BPMNEdge id=\"Edge_" + startOutFlow + "\" bpmnElement=\"" + startOutFlow + "\">\n")
+	flows.WriteString(fmt.Sprintf("        <di:waypoint x=\"%d\" y=\"%d\" /><di:waypoint x=\"%d\" y=\"%d\" />\n", startRightX, centerY, firstTargetLeft, centerY))
+	flows.WriteString("      </bpmndi:BPMNEdge>\n")
+
+	// Task → next.
+	for i, lay := range layouts {
+		var sourceRef, targetRef string
+		sourceRef = lay.taskID
+		if i == len(layouts)-1 {
+			targetRef = endEventID
+		} else {
+			targetRef = layouts[i+1].taskID
+		}
+		processBody.WriteString("    <bpmn:sequenceFlow id=\"" + lay.outFlow + "\" sourceRef=\"" + sourceRef + "\" targetRef=\"" + targetRef + "\" />\n")
+		var rightX, nextLeftX int
+		rightX = lay.rightX
+		if i == len(layouts)-1 {
+			nextLeftX = endLeftX
+		} else {
+			nextLeftX = layouts[i+1].leftX
+		}
+		flows.WriteString("      <bpmndi:BPMNEdge id=\"Edge_" + lay.outFlow + "\" bpmnElement=\"" + lay.outFlow + "\">\n")
+		flows.WriteString(fmt.Sprintf("        <di:waypoint x=\"%d\" y=\"%d\" /><di:waypoint x=\"%d\" y=\"%d\" />\n", rightX, centerY, nextLeftX, centerY))
+		flows.WriteString("      </bpmndi:BPMNEdge>\n")
+	}
+
+	// Lane width covers all shapes with padding.
+	laneWidth := endRightX - laneX + marginLeft
+	if laneWidth < 400 {
+		laneWidth = 400
+	}
+
+	planeBody.WriteString(fmt.Sprintf("      <bpmndi:BPMNShape id=\"Shape_Participant\" bpmnElement=\"%s\" isHorizontal=\"true\">\n", participantID))
+	planeBody.WriteString(fmt.Sprintf("        <dc:Bounds x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" />\n", laneX, laneY, laneWidth, laneHeight))
+	planeBody.WriteString("      </bpmndi:BPMNShape>\n")
+	planeBody.Write(shapes.Bytes())
+	planeBody.Write(flows.Bytes())
+
+	var out bytes.Buffer
+	out.WriteString("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+	out.WriteString("<bpmn:definitions xmlns:bpmn=\"http://www.omg.org/spec/BPMN/20100524/MODEL\" xmlns:bpmndi=\"http://www.omg.org/spec/BPMN/20100524/DI\" xmlns:dc=\"http://www.omg.org/spec/DD/20100524/DC\" xmlns:di=\"http://www.omg.org/spec/DD/20100524/DI\" id=\"Definitions_ProductProcess\" targetNamespace=\"https://nomos.local/bpmn\">\n")
+	out.WriteString("  <bpmn:collaboration id=\"" + collabID + "\">\n")
+	out.WriteString("    <bpmn:participant id=\"" + participantID + "\" name=\"" + xmlEscape(poolName) + "\" processRef=\"" + processID + "\" />\n")
+	out.WriteString("  </bpmn:collaboration>\n")
+	out.WriteString("  <bpmn:process id=\"" + processID + "\" name=\"" + xmlEscape(poolName) + "\" isExecutable=\"false\">\n")
+	out.Write(processBody.Bytes())
+	out.WriteString("  </bpmn:process>\n")
+	out.WriteString("  <bpmndi:BPMNDiagram id=\"BPMNDiagram_ProductProcess\">\n")
+	out.WriteString("    <bpmndi:BPMNPlane id=\"BPMNPlane_ProductProcess\" bpmnElement=\"" + collabID + "\">\n")
+	out.Write(planeBody.Bytes())
+	out.WriteString("    </bpmndi:BPMNPlane>\n")
+	out.WriteString("  </bpmndi:BPMNDiagram>\n")
+	out.WriteString("</bpmn:definitions>\n")
+	return out.String()
+}
+
+func bpmnTaskIDForStep(s model.ProcessStep, idx int) string {
+	base := strings.TrimSpace(s.ID)
+	if base == "" {
+		base = fmt.Sprintf("step-%d", idx+1)
+	}
+	return "Task_" + sanitizeBPMNID(base)
+}
+
+func bpmnElementForStep(taskType string) string {
+	switch normalizedStepTaskType(taskType) {
+	case "businessRuleTask":
+		return "businessRuleTask"
+	default:
+		return "serviceTask"
+	}
+}
+
+type bpmnStepLayout struct {
+	taskID  string
+	outFlow string
+	leftX   int
+	rightX  int
+}
+
+func bpmnFirstTargetRef(layouts []bpmnStepLayout, fallback string) string {
+	if len(layouts) == 0 {
+		return fallback
+	}
+	return layouts[0].taskID
 }
 func xmlEscape(s string) string {
 	var b bytes.Buffer
