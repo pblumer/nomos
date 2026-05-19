@@ -239,6 +239,62 @@ func TestGetDecision_ReDerivesInputTypeFromDMNColumn(t *testing.T) {
 	}
 }
 
+// When an <inputData>'s variable.name still carries the descriptive pill text
+// ("Value", "Customer Status") but the decision-table column expression
+// already uses the snake_case FEEL identifier the evaluator expects,
+// inputsFromDMN must still derive the column type and surface the
+// snake_case name. Otherwise the test dialog renders "Value (string)" while
+// the column is declared as number, and the inputs it sends never reach the
+// evaluator under the right key.
+func TestGetDecision_AlignsDescriptiveVariableNameToColumnExpression(t *testing.T) {
+	p := t.TempDir()
+	must := func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(os.MkdirAll(filepath.Dir(storage.CosmosFile(p)), 0o755))
+	must(os.WriteFile(storage.CosmosFile(p), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: Test Team\n"), 0o644))
+	domainDir := filepath.Join(storage.DomainsDir(p), "blumer.cloud")
+	must(os.MkdirAll(filepath.Join(domainDir, "decisions", "DEC-003"), 0o755))
+	must(os.WriteFile(filepath.Join(domainDir, "domain.yaml"), []byte("name: blumer.cloud\nowner: Test\nstatus: draft\n"), 0o644))
+	must(os.WriteFile(filepath.Join(domainDir, "decisions", "DEC-003", "decision.yaml"), []byte(
+		"id: DEC-003\ntype: decision\nname: Kreditpruefungsstufe evaluieren\nversion: 0.1.9\nstatus: draft\nowner: Test\ndmn_file: decision.dmn\n"), 0o644))
+	must(os.WriteFile(filepath.Join(domainDir, "decisions", "DEC-003", "decision.dmn"), []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20240513/MODEL/" id="Defs" name="Kreditpruefungsstufe evaluieren">
+  <inputData id="ID_value" name="Value"><variable id="V_value" name="Value"/></inputData>
+  <inputData id="ID_status" name="Customer Status"><variable id="V_status" name="Customer Status"/></inputData>
+  <decision id="Dec_1" name="Kreditpruefungsstufe evaluieren">
+    <variable id="Var_Dec1" name="kredit_stufe" typeRef="string"/>
+    <decisionTable id="DT_1" hitPolicy="FIRST">
+      <input id="In_value" label="value"><inputExpression id="IE_value" typeRef="number"><text>value</text></inputExpression></input>
+      <input id="In_status" label="customer_status"><inputExpression id="IE_status" typeRef="string"><text>customer_status</text></inputExpression></input>
+      <output id="Out_1" name="kredit_stufe" typeRef="string"/>
+      <rule id="R_1"><inputEntry id="IE_R1_1"><text>-</text></inputEntry><inputEntry id="IE_R1_2"><text>-</text></inputEntry><outputEntry id="OE_R1"><text>"x"</text></outputEntry></rule>
+    </decisionTable>
+  </decision>
+</definitions>`), 0o644))
+
+	dto, err := GetDecision(p, "blumer.cloud", "DEC-003")
+	if err != nil {
+		t.Fatalf("GetDecision: %v", err)
+	}
+	want := map[string]string{"value": "number", "customer_status": "string"}
+	if len(dto.Inputs) != len(want) {
+		t.Fatalf("inputs: got %+v, want %v", dto.Inputs, want)
+	}
+	for _, in := range dto.Inputs {
+		w, ok := want[in.Name]
+		if !ok {
+			t.Errorf("unexpected input name %q (expected snake_case column expression)", in.Name)
+			continue
+		}
+		if in.Type != w {
+			t.Errorf("input %q: got type %q, want %q", in.Name, in.Type, w)
+		}
+	}
+}
+
 func TestGetDecisionDMN_ReturnsRawXML(t *testing.T) {
 	p := createDecisionTestCosmos(t)
 	raw, err := GetDecisionDMN(p, "governance.blumer.com", "DEC-001")
