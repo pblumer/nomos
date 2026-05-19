@@ -554,6 +554,7 @@
   <div class="nctx-item" data-action="add-product"><span class="mi">inventory_2</span> Produkt hinzuf&uuml;gen</div>
   <div class="nctx-item" data-action="add-service"><span class="mi">add_circle</span> Service hinzuf&uuml;gen</div>
   <div class="nctx-item" data-action="add-decision"><span class="mi">gavel</span> Decision hinzuf&uuml;gen</div>
+  <div class="nctx-item" data-action="run-test"><span class="mi">play_arrow</span> Test ausf&uuml;hren&hellip;</div>
   <div class="nctx-item" data-action="move-product"><span class="mi">drive_file_move</span> Produkt verschieben</div>
   <div class="nctx-item" data-action="copy-service-ref"><span class="mi">content_copy</span> service_ref kopieren</div>
   <div class="nctx-item" data-action="add-blueprint"><span class="mi">add_circle</span> Blueprint hinzuf&uuml;gen</div>
@@ -693,7 +694,7 @@ function expandOwnChildren(row){const ul=row.closest('.cn')?.querySelector(':sco
 function expandProductFulfillment(productRow){expandOwnChildren(productRow);const fulfillmentRow=productRow.closest('.cn')?.querySelector(':scope > .cn-children > .cn > .cn-row[data-kind="product-fulfillment-parent"]');if(fulfillmentRow)expandOwnChildren(fulfillmentRow);}
 
 const ctx=$('nctx');let ctxRow=null;
-const CTX={cosmos:['add-domain'],namespace:['add-domain'],'domain-parent':['add-domain'],'namespace-parent':['add-domain'],domain:['add-subdomain','add-product','add-service','add-decision','verify-domain','edit','delete'],'product-parent':['add-product'],'service-parent':['add-service'],'decision-parent':['add-decision'],service:['edit','delete'],product:['move-product','edit','delete'],'product-fulfillment-service':['copy-service-ref'],'blueprint-parent':['add-blueprint'],blueprint:['edit','delete']};
+const CTX={cosmos:['add-domain'],namespace:['add-domain'],'domain-parent':['add-domain'],'namespace-parent':['add-domain'],domain:['add-subdomain','add-product','add-service','add-decision','verify-domain','edit','delete'],'product-parent':['add-product'],'service-parent':['add-service'],'decision-parent':['add-decision'],decision:['run-test'],service:['edit','delete'],product:['move-product','edit','delete'],'product-fulfillment-service':['copy-service-ref'],'blueprint-parent':['add-blueprint'],blueprint:['edit','delete']};
 function showCtx(x,y,row){ctxRow=row;const allowed=CTX[row.dataset.kind]||[];ctx.querySelectorAll('.nctx-item').forEach(it=>{it.style.display=allowed.includes(it.dataset.action)?'flex':'none';});ctx.querySelectorAll('.nctx-sep').forEach(s=>{s.style.display='block';});ctx.style.left=x+'px';ctx.style.top=y+'px';ctx.classList.add('open');requestAnimationFrame(()=>{const r=ctx.getBoundingClientRect();if(r.right>innerWidth)ctx.style.left=(x-r.width)+'px';if(r.bottom>innerHeight)ctx.style.top=(y-r.height)+'px';});}
 function hideCtx(){ctx.classList.remove('open');}
 ctx.addEventListener('click',e=>{const it=e.target.closest('.nctx-item');if(!it)return;e.stopPropagation();hideCtx();handleAction(it.dataset.action,ctxRow);});
@@ -708,7 +709,113 @@ function closeModal(){modal.classList.remove('open');}
 function showModalError(msg){modalError.textContent=msg;modalError.classList.add('show');}
 modalConfirm.addEventListener('click',async()=>{if(!modalSubmit)return;modalConfirm.disabled=true;const prev=modalConfirm.textContent;modalConfirm.textContent='Wird gespeichert…';try{await modalSubmit();}catch(err){showModalError(err.message);}finally{modalConfirm.disabled=false;modalConfirm.textContent=prev;}});
 
-function handleAction(action,row){if(!row)return;if(action==='copy-service-ref')navigator.clipboard?.writeText(row.dataset.serviceRef||'');else if(action==='move-product')doMoveProduct(row);else if(action==='delete')doDelete(row);else if(action==='verify-domain')doVerify(row);else if(action==='edit')doEdit(row);else if(action==='add-domain')doAddDomain(row);else if(action==='add-subdomain')doAddSubdomain(row);else if(action==='add-product')doAddProduct(row);else if(action==='add-service')doAddService(row);else if(action==='add-decision')doAddDecision(row);else if(action==='add-blueprint')doAddBlueprint(row);}
+function handleAction(action,row){if(!row)return;if(action==='copy-service-ref')navigator.clipboard?.writeText(row.dataset.serviceRef||'');else if(action==='move-product')doMoveProduct(row);else if(action==='delete')doDelete(row);else if(action==='verify-domain')doVerify(row);else if(action==='edit')doEdit(row);else if(action==='add-domain')doAddDomain(row);else if(action==='add-subdomain')doAddSubdomain(row);else if(action==='add-product')doAddProduct(row);else if(action==='add-service')doAddService(row);else if(action==='add-decision')doAddDecision(row);else if(action==='add-blueprint')doAddBlueprint(row);else if(action==='run-test')doRunTest(row);}
+
+async function doRunTest(row){
+  const decisionId=row.dataset.decisionId;
+  const domain=row.dataset.decisionDomain||row.dataset.domainCanonical;
+  if(!decisionId||!domain){alert('Decision nicht auflösbar.');return;}
+  const baseURL='/api/v1/domains/'+encodeURIComponent(domain)+'/decisions/'+encodeURIComponent(decisionId);
+  let dec=null,traces=[];
+  try{
+    const [decR,trR]=await Promise.all([fetch(baseURL),fetch(baseURL+'/traces').catch(()=>null)]);
+    if(!decR.ok)throw new Error(await decR.text().catch(()=>'')||'Decision konnte nicht geladen werden');
+    dec=await decR.json();
+    if(trR&&trR.ok){const dto=await trR.json().catch(()=>null);if(dto&&Array.isArray(dto.items))traces=dto.items.slice().reverse();}
+  }catch(err){alert(err.message);return;}
+  if(!dec.has_dmn){alert('Diese Decision hat noch keine DMN-Datei — ein Test ist erst nach dem Anlegen möglich.');return;}
+  const declaredInputs=Array.isArray(dec.inputs)?dec.inputs:[];
+  const scenarioOpts=['<option value="">— Neuer Test (leere Eingaben) —</option>']
+    .concat(traces.slice(0,20).map((t,i)=>{
+      const ts=esc((t.timestamp||'').replace('T',' ').replace(/\..+$/,''));
+      const summary=Object.entries(t.inputs||{}).map(([k,v])=>k+'='+JSON.stringify(v)).join(', ');
+      return '<option value="trace-'+i+'">'+ts+' · '+esc(summary).slice(0,80)+'</option>';
+    })).join('');
+  function fieldFor(inp){
+    const name=inp.name||'';
+    const type=(inp.type||'string').toLowerCase();
+    const desc=inp.description?' <span style="color:#64748b;font-size:.75rem">'+esc(inp.description)+'</span>':'';
+    let ctrl;
+    if(type==='boolean')ctrl='<select data-rt-name="'+esc(name)+'" data-rt-type="boolean"><option value="">—</option><option value="true">true</option><option value="false">false</option></select>';
+    else if(type==='number')ctrl='<input type="number" step="any" data-rt-name="'+esc(name)+'" data-rt-type="number" placeholder="z.B. 42">';
+    else if(type==='date')ctrl='<input type="date" data-rt-name="'+esc(name)+'" data-rt-type="date">';
+    else ctrl='<input type="text" data-rt-name="'+esc(name)+'" data-rt-type="string" placeholder="Wert…">';
+    return '<div class="nfield"><label><code>'+esc(name)+'</code> <span style="color:#64748b;font-size:.75rem">('+esc(type)+')</span>'+desc+'</label>'+ctrl+'</div>';
+  }
+  const inputsHTML=declaredInputs.length
+    ? declaredInputs.map(fieldFor).join('')
+    : '<div class="nfield"><label>Eingaben (Name / Wert)</label><div id="rt-dyn-rows"></div><button type="button" class="btn btn-secondary btn-sm" id="rt-add-row">+ Eingabe</button><div style="color:#64748b;font-size:.75rem;margin-top:.3rem">Numerische Werte und true/false werden automatisch erkannt.</div></div>';
+  const body=''
+    +'<div class="nfield"><label>Szenario</label><select id="rt-scenario">'+scenarioOpts+'</select><div style="color:#64748b;font-size:.75rem;margin-top:.2rem">Wähle einen früheren Trace, um die Eingaben vorzubelegen.</div></div>'
+    +'<div id="rt-fields">'+inputsHTML+'</div>'
+    +'<div id="rt-result" style="margin-top:.6rem"></div>';
+  function addDynRow(k,v){
+    const wrap=$('rt-dyn-rows');if(!wrap)return;
+    const r=document.createElement('div');r.className='rt-dyn-row';r.style.cssText='display:flex;gap:.4rem;margin-bottom:.3rem';
+    const vStr=v==null?'':(typeof v==='object'?JSON.stringify(v):String(v));
+    r.innerHTML='<input data-rt-k placeholder="Name" value="'+esc(k)+'" style="flex:1"><input data-rt-v placeholder="Wert" value="'+esc(vStr)+'" style="flex:2"><button type="button" class="btn btn-secondary btn-sm rt-dyn-del">×</button>';
+    r.querySelector('.rt-dyn-del').addEventListener('click',()=>r.remove());
+    wrap.appendChild(r);
+  }
+  openModal('Decision testen · '+(dec.name||dec.id),body,async()=>{
+    modalConfirm.textContent='Auswerten…';
+    const fields=$('rt-fields');
+    const inputs={};
+    if(declaredInputs.length){
+      fields.querySelectorAll('[data-rt-name]').forEach(el=>{
+        const n=el.dataset.rtName,t=el.dataset.rtType,v=el.value;
+        if(v===''||v==null)return;
+        if(t==='number'){const num=Number(v);if(!isNaN(num))inputs[n]=num;}
+        else if(t==='boolean')inputs[n]=v==='true';
+        else inputs[n]=v;
+      });
+    }else{
+      fields.querySelectorAll('.rt-dyn-row').forEach(row=>{
+        const k=row.querySelector('[data-rt-k]')?.value.trim();
+        const raw=row.querySelector('[data-rt-v]')?.value??'';
+        if(!k)return;
+        if(raw==='true')inputs[k]=true;
+        else if(raw==='false')inputs[k]=false;
+        else if(raw!==''&&!isNaN(Number(raw)))inputs[k]=Number(raw);
+        else inputs[k]=raw;
+      });
+    }
+    const resPanel=$('rt-result');resPanel.innerHTML='<div style="color:#64748b">Auswerten…</div>';
+    const r=await fetch(baseURL+'/evaluate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({inputs})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){resPanel.innerHTML='';throw new Error(d.error?.message||d.error||'Auswertung fehlgeschlagen');}
+    const result=d.result||{};
+    const outs=Object.entries(result.outputs||{}).map(([k,v])=>'<dt>'+esc(k)+'</dt><dd><code>'+esc(JSON.stringify(v))+'</code></dd>').join('')||'<dt>—</dt><dd><em>keine Outputs</em></dd>';
+    const matched=(result.matched_rules||[]).length?' · '+result.matched_rules.length+' Regel(n): '+esc(result.matched_rules.join(', ')):'';
+    const hp=result.hit_policy?' · Hit Policy: '+esc(result.hit_policy):'';
+    const traceId=d.trace?.trace_id?'<div style="color:#64748b;font-size:.72rem;margin-top:.35rem">Trace: <code>'+esc(d.trace.trace_id)+'</code></div>':'';
+    resPanel.innerHTML='<div style="border:1px solid #bbf7d0;background:#f0fdf4;border-radius:8px;padding:.6rem .75rem;margin-top:.4rem"><div style="font-weight:700;color:#166534;margin-bottom:.3rem">✓ Ergebnis'+hp+matched+'</div><dl class="detail-props" style="margin:0">'+outs+'</dl>'+traceId+'</div>';
+  },'Test ausführen');
+  // Wire scenario pre-fill and dynamic-row controls after the modal mounts.
+  setTimeout(()=>{
+    const sel=$('rt-scenario');
+    sel?.addEventListener('change',()=>{
+      const v=sel.value;if(!v.startsWith('trace-'))return;
+      const idx=parseInt(v.slice(6));const t=traces[idx];if(!t)return;
+      const fields=$('rt-fields');const ins=t.inputs||{};
+      if(declaredInputs.length){
+        fields.querySelectorAll('[data-rt-name]').forEach(el=>{
+          const val=ins[el.dataset.rtName];
+          if(val==null){el.value='';return;}
+          if(el.dataset.rtType==='boolean')el.value=val?'true':'false';
+          else el.value=String(val);
+        });
+      }else{
+        const dyn=$('rt-dyn-rows');if(dyn)dyn.innerHTML='';
+        Object.entries(ins).forEach(([k,v])=>addDynRow(k,v));
+      }
+    });
+    if(!declaredInputs.length){
+      $('rt-add-row')?.addEventListener('click',()=>addDynRow('',''));
+      addDynRow('','');
+    }
+  },0);
+}
 
 function domainOptions(current,target){return knownDomains.map(d=>`<option value="${esc(d.canonical)}" ${d.canonical===current?'disabled':''} ${d.canonical===target?'selected':''}>${esc(d.canonical)}${d.displayPath?' — '+esc(d.displayPath):''}${d.canonical===current?' (aktuell)':''}</option>`).join('');}
 async function doMoveProduct(row,targetDomain){
