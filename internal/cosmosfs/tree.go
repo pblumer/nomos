@@ -8,6 +8,7 @@ import (
 
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/model"
+	"github.com/nomos/nomos/internal/namespace"
 	"github.com/nomos/nomos/internal/storage"
 )
 
@@ -81,7 +82,15 @@ func LoadTree(path string) (Tree, error) {
 			if err := fsx.ReadYAML(domainYAML, &d); err != nil {
 				return err
 			}
-			dn := DomainNode{Path: current, Metadata: d, Name: firstNonEmpty(d.CanonicalName, d.Name, d.DNSName, filepath.Base(current))}
+			// Derive canonical from directory path (e.g. domains/nomos/core → core.nomos).
+			// This ensures multi-level domains match offered_by references without requiring
+			// the YAML name field to hold the full canonical.
+			pathDerived := ""
+			if rel, err := filepath.Rel(domainRoot, current); err == nil {
+				treePath := "/" + filepath.ToSlash(rel)
+				pathDerived, _ = namespace.TreePathToCanonical(treePath)
+			}
+			dn := DomainNode{Path: current, Metadata: d, Name: firstNonEmpty(d.CanonicalName, pathDerived, d.DNSName, d.Name, filepath.Base(current))}
 			sents, err := os.ReadDir(filepath.Join(current, "services"))
 			if err != nil && !os.IsNotExist(err) {
 				return err
