@@ -127,6 +127,10 @@
 .svc-elem-card-badges .chip-link:hover{background:#e0e7ff}
 .svc-elem-card-summary{margin:.45rem 0 0;font-size:.82rem;color:#475569;line-height:1.4}
 .svc-elem-card-meta{margin-top:.45rem;display:flex;flex-wrap:wrap;gap:.3rem}
+.ref-chip-group .chip{background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0;opacity:.85;transition:all .12s ease}
+.ref-chip-group .chip:hover{background:#e0e7ff;color:#3730a3;border-color:#c7d2fe;opacity:1}
+.ref-chip-group .chip.chip-active{background:#4f46e5;color:#fff;border-color:#4338ca;opacity:1;font-weight:700}
+.ref-chip-group .chip.chip-active:hover{background:#4338ca}
 .cn-row[data-kind="service-parent"] .cn-icon{color:#94a3b8}
 .cn-row[data-kind="blueprint"] .cn-icon{color:#059669}
 .cn-row[data-kind="blueprint-parent"] .cn-icon{color:#475569}
@@ -801,6 +805,10 @@ async function loadDetail(row){const kind=row.dataset.kind,id=row.dataset.id,can
       detail.innerHTML=renderMethodDetail(m,domain,svcName);
       wireMethodDetail(detail,m,domain,svcName);
     }catch(_){detail.innerHTML='<div class="detail-empty">Fehler beim Laden.</div>';}
+    return;
+  }
+  if(kind==='capability'||kind==='data-object'||kind==='user-interface'){
+    await loadServiceElementDetail(row,kind);
     return;
   }
   let url='';
@@ -2854,8 +2862,119 @@ function svcElementCard(it,cfg){
   const stab=it.stability?`<span class="chip">${esc(it.stability)}</span>`:'';
   const side=it.side_effect?`<span class="chip">${esc(it.side_effect)}</span>`:'';
   const url=it.url?`<a class="chip chip-link" href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.url)}</a>`:'';
-  return `<article class="svc-elem-card" data-search="${esc(search)}"><div class="svc-elem-card-head"><span class="mi svc-elem-card-icon" style="font-family:'Material Symbols Outlined';color:${cfg.color}">${cfg.icon==='database'?'data_object':cfg.icon==='devices'?'web_asset':'bolt'}</span><div class="svc-elem-card-title"><div class="svc-elem-card-name">${esc(it.name||it.id||'')}</div><code class="svc-elem-card-id">${esc(it.id||'')}</code></div><div class="svc-elem-card-badges">${badge}${stab}${side}</div></div>${it.summary?`<p class="svc-elem-card-summary">${esc(it.summary)}</p>`:''}${url?`<div class="svc-elem-card-meta">${url}</div>`:''}</article>`;
+  let refsLine='';
+  if(cfg.kind==='capability'){
+    const m=(it.method_refs||[]).length;const d=(it.data_object_refs||[]).length;
+    if(m||d){
+      const parts=[];
+      if(m)parts.push(`<span class="chip" title="verknüpfte Methoden">⚡ ${m} Method${m===1?'':'en'}</span>`);
+      if(d)parts.push(`<span class="chip" title="verknüpfte Data Objects">{} ${d} Data Object${d===1?'':'s'}</span>`);
+      refsLine=`<div class="svc-elem-card-meta">${parts.join('')}</div>`;
+    }
+  }
+  return `<article class="svc-elem-card" data-search="${esc(search)}"><div class="svc-elem-card-head"><span class="mi svc-elem-card-icon" style="font-family:'Material Symbols Outlined';color:${cfg.color}">${cfg.icon==='database'?'data_object':cfg.icon==='devices'?'web_asset':'bolt'}</span><div class="svc-elem-card-title"><div class="svc-elem-card-name">${esc(it.name||it.id||'')}</div><code class="svc-elem-card-id">${esc(it.id||'')}</code></div><div class="svc-elem-card-badges">${badge}${stab}${side}</div></div>${it.summary?`<p class="svc-elem-card-summary">${esc(it.summary)}</p>`:''}${url?`<div class="svc-elem-card-meta">${url}</div>`:''}${refsLine}</article>`;
 }
+// Resolve domain/service/id from a leaf node (capability/data-object/user-interface).
+// canonical = "<domain>/<service>/<itemId>"; data-domain is set from the parent service.
+function svcLeafCoords(row){
+  const domain=row.dataset.domain||'';
+  const canon=row.dataset.canonical||row.dataset.id||'';
+  const segs=canon.split('/').filter(Boolean);
+  const itemID=segs.length?segs[segs.length-1]:'';
+  const svcName=segs.length>=2?segs[segs.length-2]:'';
+  return {domain,svcName,itemID};
+}
+
+// Click handler for a single capability/data-object/user-interface leaf.
+// Loads the parent service, finds the item, and renders an editable detail panel.
+async function loadServiceElementDetail(row,kind){
+  const parentKind=kind+'-parent';const cfg=SVC_ELEMENT_CONFIG[parentKind];
+  if(!cfg){detail.innerHTML='<div class="detail-empty">Unbekannter Knoten.</div>';return;}
+  const {domain,svcName,itemID}=svcLeafCoords(row);
+  if(!domain||!svcName||!itemID){detail.innerHTML='<div class="detail-empty">Knoten nicht ermittelbar.</div>';return;}
+  detail.innerHTML='<div class="detail-empty">Lade…</div>';
+  try{
+    const res=await fetch('/api/v1/domains/'+encodeURIComponent(domain)+'/services/'+encodeURIComponent(svcName));
+    if(!res.ok){const d=await res.json().catch(()=>({}));detail.innerHTML=`<div style="padding:1rem"><div class="nerror show">${esc(d.error?.message||'Fehler')}</div></div>`;return;}
+    const svc=await res.json();
+    const items=svc[cfg.defsKey]||[];
+    const item=items.find(it=>it.id===itemID);
+    if(!item){detail.innerHTML='<div class="detail-empty">Eintrag nicht gefunden.</div>';return;}
+    renderSvcElementDetail(detail,svc,domain,svcName,cfg,item,row);
+  }catch(err){detail.innerHTML=`<div style="padding:1rem"><div class="nerror show">${esc(err.message)}</div></div>`;}
+}
+
+// Render the edit form for a capability/data-object/user-interface.
+// For capabilities, also render multi-select chips to link Methods + Data Objects.
+function renderSvcElementDetail(container,svc,domain,svcName,cfg,item,row){
+  const head=`<div class="detail-head"><div class="detail-head-left"><div class="detail-kind-icon" style="background:${cfg.bg};color:${cfg.color};font-family:'Material Symbols Outlined';font-size:18px;width:36px;height:36px;border-radius:8px;display:grid;place-items:center">${cfg.icon}</div><div><div class="detail-title">${esc(item.name||item.id)}</div><div class="detail-subtitle">${esc(cfg.title.replace(/s$/,''))} · ${esc(domain)}/${esc(svcName)}</div></div></div><div class="detail-actions-head"><button class="btn btn-danger btn-sm" id="svc-elem-delete" title="Löschen"><span class="mi" style="font-family:'Material Symbols Outlined'">delete</span></button></div></div>`;
+  const fieldHtml=(f)=>{
+    const val=item[f.id]||'';
+    if(f.type==='select'){
+      const opts=f.options.map(o=>`<option value="${esc(o)}"${o===val?' selected':''}>${esc(o||'–')}</option>`).join('');
+      return `<div class="nfield"><label>${esc(f.label)}</label><select id="se-${f.id}">${opts}</select></div>`;
+    }
+    return `<div class="nfield"><label>${esc(f.label)}</label><input id="se-${f.id}" value="${esc(val)}" placeholder="${esc(f.placeholder||'')}" /></div>`;
+  };
+  const extraFields=cfg.extraFields.map(fieldHtml).join('');
+  let linksHtml='';
+  if(cfg.kind==='capability'){
+    const allMethods=(svc.methods||[]).map(m=>m.name);
+    const allDataObjects=(svc.data_object_defs||[]).map(d=>({id:d.id,name:d.name||d.id}));
+    const methodRefs=item.method_refs||[];
+    const doRefs=item.data_object_refs||[];
+    linksHtml=`<div class="nfield"><label>Methoden (verknüpft)</label>${renderRefChips('se-method-refs',allMethods.map(m=>({id:m,name:m+'()'})),methodRefs,'Keine Methoden im Service')}</div><div class="nfield"><label>Data Objects (verknüpft)</label>${renderRefChips('se-do-refs',allDataObjects,doRefs,'Keine Data Objects im Service')}</div>`;
+  }
+  const body=`<div class="detail-body"><div class="nfield"><label>ID</label><input value="${esc(item.id)}" disabled style="background:#f8fafc;color:#64748b" /></div><div class="nfield"><label>Name</label><input id="se-name" value="${esc(item.name||'')}" /></div><div class="nfield"><label>Summary</label><textarea id="se-summary">${esc(item.summary||'')}</textarea></div>${extraFields}${linksHtml}</div>`;
+  const footer=`<div class="detail-footer"><button class="btn btn-primary" id="svc-elem-save"><span class="mi" style="font-family:'Material Symbols Outlined'">save</span> Speichern</button><span id="svc-elem-status" style="font-size:.8rem;color:#64748b;margin-left:.5rem"></span></div>`;
+  container.innerHTML=head+body+footer;
+  // Toggle ref chips
+  container.querySelectorAll('[data-ref-chip]').forEach(chip=>{
+    chip.addEventListener('click',()=>{
+      const on=chip.classList.toggle('chip-active');
+      chip.dataset.selected=on?'1':'0';
+    });
+  });
+  container.querySelector('#svc-elem-save')?.addEventListener('click',async()=>{
+    const status=container.querySelector('#svc-elem-status');
+    const btn=container.querySelector('#svc-elem-save');
+    btn.disabled=true;status.textContent='Speichert…';status.style.color='#64748b';
+    try{
+      const payload={name:container.querySelector('#se-name').value.trim(),summary:container.querySelector('#se-summary').value.trim()};
+      cfg.extraFields.forEach(f=>{const v=container.querySelector('#se-'+f.id)?.value;if(v!=null)payload[f.id]=v;});
+      if(cfg.kind==='capability'){
+        payload.method_refs=Array.from(container.querySelectorAll('#se-method-refs [data-ref-chip][data-selected="1"]')).map(c=>c.dataset.refId);
+        payload.data_object_refs=Array.from(container.querySelectorAll('#se-do-refs [data-ref-chip][data-selected="1"]')).map(c=>c.dataset.refId);
+      }
+      const r=await fetch('/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svcName)+'/'+cfg.endpoint+'/'+encodeURIComponent(item.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(d.error?.message||'Speichern fehlgeschlagen');
+      status.textContent='Gespeichert ✓';status.style.color='#047857';
+      setTimeout(()=>location.reload(),400);
+    }catch(err){status.textContent=err.message;status.style.color='#b91c1c';btn.disabled=false;}
+  });
+  container.querySelector('#svc-elem-delete')?.addEventListener('click',async()=>{
+    if(!confirm(`${cfg.title.replace(/s$/,'')} "${item.name||item.id}" wirklich löschen?`))return;
+    try{
+      const r=await fetch('/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svcName)+'/'+cfg.endpoint+'/'+encodeURIComponent(item.id),{method:'DELETE'});
+      if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error?.message||'Löschen fehlgeschlagen');}
+      location.reload();
+    }catch(err){alert(err.message);}
+  });
+}
+
+// Render an inline multi-select as togglable chips. Selected chips get
+// the 'chip-active' class and data-selected="1".
+function renderRefChips(containerId,options,selected,emptyMsg){
+  if(!options.length)return `<div class="nfield-hint" style="color:#94a3b8">${esc(emptyMsg)}</div>`;
+  const sel=new Set(selected||[]);
+  const chips=options.map(o=>{
+    const isOn=sel.has(o.id);
+    return `<span data-ref-chip data-ref-id="${esc(o.id)}" data-selected="${isOn?'1':'0'}" class="chip${isOn?' chip-active':''}" style="cursor:pointer;user-select:none">${esc(o.name||o.id)}</span>`;
+  }).join('');
+  return `<div id="${esc(containerId)}" class="ref-chip-group" style="display:flex;flex-wrap:wrap;gap:.3rem">${chips}</div>`;
+}
+
 function doAddServiceElement(domain,svcName,cfg,row){
   const extra=cfg.extraFields.map(f=>{
     if(f.type==='select'){const opts=f.options.map(o=>`<option value="${esc(o)}">${esc(o||'–')}</option>`).join('');return `<div class="nfield"><label>${esc(f.label)}</label><select id="af-elem-${f.id}">${opts}</select></div>`;}

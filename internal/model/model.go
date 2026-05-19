@@ -150,14 +150,20 @@ type Connector struct {
 // ServiceCapability describes one named capability of a service, with optional
 // connector metadata. It unmarshals from both plain strings ("cap-name") and
 // full objects so existing service.yaml files remain valid.
+//
+// MethodRefs and DataObjectRefs let a capability declare which of the
+// surrounding service's methods and data objects it is composed of. The
+// referenced values are method names and data-object IDs.
 type ServiceCapability struct {
-	ID         string      `yaml:"id" json:"id"`
-	Name       string      `yaml:"name" json:"name"`
-	Summary    string      `yaml:"summary,omitempty" json:"summary,omitempty"`
-	Stability  string      `yaml:"stability,omitempty" json:"stability,omitempty"`
-	SideEffect string      `yaml:"side_effect,omitempty" json:"side_effect,omitempty"`
-	Connectors []Connector `yaml:"connectors,omitempty" json:"connectors,omitempty"`
-	RelatedUCI []string    `yaml:"related_uci,omitempty" json:"related_uci,omitempty"`
+	ID             string      `yaml:"id" json:"id"`
+	Name           string      `yaml:"name" json:"name"`
+	Summary        string      `yaml:"summary,omitempty" json:"summary,omitempty"`
+	Stability      string      `yaml:"stability,omitempty" json:"stability,omitempty"`
+	SideEffect     string      `yaml:"side_effect,omitempty" json:"side_effect,omitempty"`
+	Connectors     []Connector `yaml:"connectors,omitempty" json:"connectors,omitempty"`
+	RelatedUCI     []string    `yaml:"related_uci,omitempty" json:"related_uci,omitempty"`
+	MethodRefs     []string    `yaml:"method_refs,omitempty" json:"method_refs,omitempty"`
+	DataObjectRefs []string    `yaml:"data_object_refs,omitempty" json:"data_object_refs,omitempty"`
 }
 
 func (c *ServiceCapability) UnmarshalYAML(unmarshal func(interface{}) error) error {

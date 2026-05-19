@@ -210,7 +210,7 @@ func serviceDTO(domain string, s cosmosfs.ServiceNode) ServiceDTO {
 			for _, cn := range c.Connectors {
 				connDTOs = append(connDTOs, ConnectorDTO{Type: cn.Type, Description: cn.Description, Invocation: cn.Invocation, Method: cn.Method, Path: cn.Path, Auth: cn.Auth, Tool: cn.Tool, Kind: cn.Kind, ArtifactRef: cn.ArtifactRef, ConsumerPool: cn.ConsumerPool, ProviderPool: cn.ProviderPool})
 			}
-			capDefs = append(capDefs, ServiceCapabilityDTO{ID: c.ID, Name: c.Name, Summary: c.Summary, Stability: c.Stability, SideEffect: c.SideEffect, Connectors: connDTOs, RelatedUCI: c.RelatedUCI, ConnectorTypes: connectorTypeLabel(c.Connectors)})
+			capDefs = append(capDefs, ServiceCapabilityDTO{ID: c.ID, Name: c.Name, Summary: c.Summary, Stability: c.Stability, SideEffect: c.SideEffect, Connectors: connDTOs, RelatedUCI: c.RelatedUCI, MethodRefs: c.MethodRefs, DataObjectRefs: c.DataObjectRefs, ConnectorTypes: connectorTypeLabel(c.Connectors)})
 		}
 	}
 	doNames := make([]string, 0, len(s.Metadata.DataObjects))
@@ -271,6 +271,9 @@ func RemoveServiceMethod(path, domainName, serviceName, method string) (ServiceD
 		}
 	}
 	raw.Methods = filtered
+	for i := range raw.Capabilities {
+		raw.Capabilities[i].MethodRefs = removeString(raw.Capabilities[i].MethodRefs, method)
+	}
 	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
@@ -390,6 +393,244 @@ func AddServiceUserInterface(path, domainName, serviceName string, ui model.Serv
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	return GetService(path, domainName, serviceName)
+}
+
+// UpdateServiceCapability performs a partial update of an existing capability
+// identified by capID. Pointer / slice fields in patch overwrite their
+// counterparts when non-nil; empty strings leave the existing value untouched.
+// MethodRefs and DataObjectRefs are always replaced (use empty slice to clear).
+func UpdateServiceCapability(path, domainName, serviceName, capID string, patch model.ServiceCapability) (ServiceDTO, error) {
+	svc, err := GetService(path, domainName, serviceName)
+	if err != nil {
+		return ServiceDTO{}, err
+	}
+	yamlPath := filepath.Join(svc.Path, "service.yaml")
+	var raw model.Service
+	if err := fsx.ReadYAML(yamlPath, &raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	found := false
+	for i, c := range raw.Capabilities {
+		if c.ID == capID {
+			if patch.Name != "" {
+				raw.Capabilities[i].Name = patch.Name
+			}
+			if patch.Summary != "" {
+				raw.Capabilities[i].Summary = patch.Summary
+			}
+			if patch.Stability != "" {
+				raw.Capabilities[i].Stability = patch.Stability
+			}
+			if patch.SideEffect != "" {
+				raw.Capabilities[i].SideEffect = patch.SideEffect
+			}
+			if patch.Connectors != nil {
+				raw.Capabilities[i].Connectors = patch.Connectors
+			}
+			if patch.RelatedUCI != nil {
+				raw.Capabilities[i].RelatedUCI = patch.RelatedUCI
+			}
+			raw.Capabilities[i].MethodRefs = patch.MethodRefs
+			raw.Capabilities[i].DataObjectRefs = patch.DataObjectRefs
+			found = true
+			break
+		}
+	}
+	if !found {
+		return ServiceDTO{}, Error(CodeServiceNotFound, "capability not found: "+capID, http.StatusNotFound, nil)
+	}
+	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetService(path, domainName, serviceName)
+}
+
+// RemoveServiceCapability deletes the capability identified by capID.
+func RemoveServiceCapability(path, domainName, serviceName, capID string) (ServiceDTO, error) {
+	svc, err := GetService(path, domainName, serviceName)
+	if err != nil {
+		return ServiceDTO{}, err
+	}
+	yamlPath := filepath.Join(svc.Path, "service.yaml")
+	var raw model.Service
+	if err := fsx.ReadYAML(yamlPath, &raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	filtered := raw.Capabilities[:0]
+	found := false
+	for _, c := range raw.Capabilities {
+		if c.ID == capID {
+			found = true
+			continue
+		}
+		filtered = append(filtered, c)
+	}
+	if !found {
+		return ServiceDTO{}, Error(CodeServiceNotFound, "capability not found: "+capID, http.StatusNotFound, nil)
+	}
+	raw.Capabilities = filtered
+	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetService(path, domainName, serviceName)
+}
+
+// UpdateServiceDataObject performs a partial update of a data object identified by doID.
+func UpdateServiceDataObject(path, domainName, serviceName, doID string, patch model.ServiceDataObject) (ServiceDTO, error) {
+	svc, err := GetService(path, domainName, serviceName)
+	if err != nil {
+		return ServiceDTO{}, err
+	}
+	yamlPath := filepath.Join(svc.Path, "service.yaml")
+	var raw model.Service
+	if err := fsx.ReadYAML(yamlPath, &raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	found := false
+	for i, d := range raw.DataObjects {
+		if d.ID == doID {
+			if patch.Name != "" {
+				raw.DataObjects[i].Name = patch.Name
+			}
+			if patch.Summary != "" {
+				raw.DataObjects[i].Summary = patch.Summary
+			}
+			if patch.Schema != "" {
+				raw.DataObjects[i].Schema = patch.Schema
+			}
+			if patch.Format != "" {
+				raw.DataObjects[i].Format = patch.Format
+			}
+			if patch.Stability != "" {
+				raw.DataObjects[i].Stability = patch.Stability
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		return ServiceDTO{}, Error(CodeServiceNotFound, "data object not found: "+doID, http.StatusNotFound, nil)
+	}
+	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetService(path, domainName, serviceName)
+}
+
+// RemoveServiceDataObject deletes the data object identified by doID and removes
+// any references to it from capability DataObjectRefs.
+func RemoveServiceDataObject(path, domainName, serviceName, doID string) (ServiceDTO, error) {
+	svc, err := GetService(path, domainName, serviceName)
+	if err != nil {
+		return ServiceDTO{}, err
+	}
+	yamlPath := filepath.Join(svc.Path, "service.yaml")
+	var raw model.Service
+	if err := fsx.ReadYAML(yamlPath, &raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	filtered := raw.DataObjects[:0]
+	found := false
+	for _, d := range raw.DataObjects {
+		if d.ID == doID {
+			found = true
+			continue
+		}
+		filtered = append(filtered, d)
+	}
+	if !found {
+		return ServiceDTO{}, Error(CodeServiceNotFound, "data object not found: "+doID, http.StatusNotFound, nil)
+	}
+	raw.DataObjects = filtered
+	for i := range raw.Capabilities {
+		raw.Capabilities[i].DataObjectRefs = removeString(raw.Capabilities[i].DataObjectRefs, doID)
+	}
+	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetService(path, domainName, serviceName)
+}
+
+// UpdateServiceUserInterface performs a partial update of a UI identified by uiID.
+func UpdateServiceUserInterface(path, domainName, serviceName, uiID string, patch model.ServiceUserInterface) (ServiceDTO, error) {
+	svc, err := GetService(path, domainName, serviceName)
+	if err != nil {
+		return ServiceDTO{}, err
+	}
+	yamlPath := filepath.Join(svc.Path, "service.yaml")
+	var raw model.Service
+	if err := fsx.ReadYAML(yamlPath, &raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	found := false
+	for i, u := range raw.UserInterfaces {
+		if u.ID == uiID {
+			if patch.Name != "" {
+				raw.UserInterfaces[i].Name = patch.Name
+			}
+			if patch.Summary != "" {
+				raw.UserInterfaces[i].Summary = patch.Summary
+			}
+			if patch.Channel != "" {
+				raw.UserInterfaces[i].Channel = patch.Channel
+			}
+			if patch.URL != "" {
+				raw.UserInterfaces[i].URL = patch.URL
+			}
+			if patch.Stability != "" {
+				raw.UserInterfaces[i].Stability = patch.Stability
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		return ServiceDTO{}, Error(CodeServiceNotFound, "user interface not found: "+uiID, http.StatusNotFound, nil)
+	}
+	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetService(path, domainName, serviceName)
+}
+
+// RemoveServiceUserInterface deletes the UI identified by uiID.
+func RemoveServiceUserInterface(path, domainName, serviceName, uiID string) (ServiceDTO, error) {
+	svc, err := GetService(path, domainName, serviceName)
+	if err != nil {
+		return ServiceDTO{}, err
+	}
+	yamlPath := filepath.Join(svc.Path, "service.yaml")
+	var raw model.Service
+	if err := fsx.ReadYAML(yamlPath, &raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	filtered := raw.UserInterfaces[:0]
+	found := false
+	for _, u := range raw.UserInterfaces {
+		if u.ID == uiID {
+			found = true
+			continue
+		}
+		filtered = append(filtered, u)
+	}
+	if !found {
+		return ServiceDTO{}, Error(CodeServiceNotFound, "user interface not found: "+uiID, http.StatusNotFound, nil)
+	}
+	raw.UserInterfaces = filtered
+	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetService(path, domainName, serviceName)
+}
+
+func removeString(s []string, v string) []string {
+	out := s[:0]
+	for _, x := range s {
+		if x != v {
+			out = append(out, x)
+		}
+	}
+	return out
 }
 
 // UpdateMethodParameters replaces the parameter list of a named method on a service.
