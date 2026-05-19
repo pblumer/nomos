@@ -39,7 +39,7 @@
 
 # Update the Docker container binary (Traefik routes to this container)
 - name: Copy binary into nomos Docker container
-  command: docker cp /tmp/nomos-linux-amd64 nomos:/usr/local/bin/nomos
+  command: docker cp {{ nomos_home }}/nomos nomos:/usr/local/bin/nomos
   notify: restart nomos docker
 
 - name: Install systemd service (web server)
