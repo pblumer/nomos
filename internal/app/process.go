@@ -20,6 +20,7 @@ import (
 var bpmnTaskTypes = map[string]bool{
 	"task": true, "userTask": true, "serviceTask": true, "businessRuleTask": true,
 	"manualTask": true, "scriptTask": true, "callActivity": true,
+	"exclusiveGateway": true,
 }
 
 type processNode struct {
@@ -281,7 +282,8 @@ func syncBPMNFromSteps(node processNode) error {
 	if bpmnPath == "" {
 		return nil
 	}
-	xmlText := BuildBPMNFromSteps(node.Meta.BPMN.ProcessID, node.Meta.Name, node.Meta.Steps)
+	cosmosPath := workspaceFromPath(node.Path)
+	xmlText := BuildBPMNFromSteps(cosmosPath, node.Meta.BPMN.ProcessID, node.Meta.Name, node.Meta.Steps)
 	return os.WriteFile(bpmnPath, []byte(xmlText), 0o644)
 }
 
@@ -682,14 +684,129 @@ func attachProcessToProduct(path, productID, processID string) error {
 // single participant pool. The pool name is the process name so users can
 // immediately see which process they are editing in the diagram.
 func DefaultBPMNTemplate(processID, processName string) string {
-	return BuildBPMNFromSteps(processID, processName, nil)
+	return BuildBPMNFromSteps("", processID, processName, nil)
+}
+
+// gwBranch is one outgoing branch of a BPMN exclusive gateway.
+type gwBranch struct {
+	flowID   string
+	targetID string
+	label    string
+	cond     string // conditionExpression (empty = unconditional)
+	errEndID string // non-empty → routes to an inline error end event
+}
+
+// workspaceFromPath walks up from a nested cosmos file path to the workspace root
+// (the directory that contains ".nomos/").
+func workspaceFromPath(p string) string {
+	dir := filepath.Dir(p)
+	for i := 0; i < 12; i++ {
+		if filepath.Base(dir) == ".nomos" {
+			return filepath.Dir(dir)
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+	return ""
+}
+
+// findDecisionByID scans all domain directories for a decision with the given ID.
+func findDecisionByID(cosmosPath, id string) *model.Decision {
+	if cosmosPath == "" || id == "" {
+		return nil
+	}
+	root := storage.DomainsDirForRead(cosmosPath)
+	var found *model.Decision
+	_ = filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
+		if err != nil || found != nil {
+			return err
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		for _, name := range []string{id + ".yaml", "decision.yaml"} {
+			var dec model.Decision
+			if fsx.ReadYAML(filepath.Join(p, name), &dec) == nil && dec.ID == id {
+				found = &dec
+				return filepath.SkipAll
+			}
+		}
+		return nil
+	})
+	return found
+}
+
+// gatewayBranches returns the outgoing branches for an exclusive gateway step.
+// When the step's Gateway.Conditions is empty, branches are auto-resolved from
+// the preceding businessRuleTask's decision outputs (boolean → Ja/Nein).
+func gatewayBranches(cosmosPath string, steps []model.ProcessStep, gwIdx int, gwID, defaultNextID string) []gwBranch {
+	s := steps[gwIdx]
+	sid := sanitizeBPMNID(gwID)
+
+	if s.Gateway != nil && len(s.Gateway.Conditions) > 0 {
+		out := make([]gwBranch, 0, len(s.Gateway.Conditions))
+		for ci, c := range s.Gateway.Conditions {
+			fid := fmt.Sprintf("Flow_%s_B%d", sid, ci+1)
+			target := defaultNextID
+			errEndID := ""
+			if c.TargetStep != "" {
+				for si, ss := range steps {
+					if ss.ID == c.TargetStep {
+						target = bpmnTaskIDForStep(ss, si)
+						break
+					}
+				}
+			} else if !isHappyGatewayValue(c.Value) {
+				errEndID = fmt.Sprintf("ErrEnd_%s_%d", sid, ci+1)
+				target = errEndID
+			}
+			cond := ""
+			if c.Output != "" {
+				op := firstNonEmpty(c.Operator, "==")
+				cond = fmt.Sprintf("${%s %s %s}", c.Output, op, c.Value)
+			}
+			out = append(out, gwBranch{flowID: fid, targetID: target, label: c.Label, cond: cond, errEndID: errEndID})
+		}
+		return out
+	}
+
+	// Auto-resolve: find the primary boolean output of the preceding businessRuleTask's decision.
+	gateVar := "result"
+	for j := gwIdx - 1; j >= 0; j-- {
+		if normalizedStepTaskType(steps[j].TaskType) == "businessRuleTask" && steps[j].DecisionRef != "" {
+			if dec := findDecisionByID(cosmosPath, steps[j].DecisionRef); dec != nil {
+				for _, o := range dec.Outputs {
+					if strings.EqualFold(o.Type, "boolean") {
+						gateVar = o.Name
+						break
+					}
+				}
+			}
+			break
+		}
+	}
+
+	errEndID := "ErrEnd_" + sid
+	return []gwBranch{
+		{flowID: "Flow_" + sid + "_Yes", targetID: defaultNextID, label: "Ja", cond: "${" + gateVar + " == true}"},
+		{flowID: "Flow_" + sid + "_No", targetID: errEndID, label: "Nein", cond: "${" + gateVar + " == false}", errEndID: errEndID},
+	}
+}
+
+func isHappyGatewayValue(v string) bool {
+	v = strings.ToLower(strings.TrimSpace(v))
+	return v == "true" || v == "yes" || v == "1"
 }
 
 // BuildBPMNFromSteps generates a BPMN 2.0 collaboration XML where the pool is
-// labelled with the process name and each ProcessStep becomes a task laid out
-// in a single horizontal lane between Start and End. The structured step list
-// is treated as the source of truth for which tasks the process performs.
-func BuildBPMNFromSteps(processID, processName string, steps []model.ProcessStep) string {
+// labelled with the process name and each ProcessStep becomes a task (or
+// exclusive gateway) laid out between Start and End. Exclusive gateways are
+// rendered with a diamond shape and an error end event for the rejection branch,
+// with conditions auto-resolved from the preceding businessRuleTask's decision.
+func BuildBPMNFromSteps(cosmosPath, processID, processName string, steps []model.ProcessStep) string {
 	if strings.TrimSpace(processID) == "" {
 		processID = "Process_ProductFulfillment"
 	}
@@ -698,21 +815,37 @@ func BuildBPMNFromSteps(processID, processName string, steps []model.ProcessStep
 	participantID := "Participant_" + sanitizeBPMNID(processID)
 
 	const (
-		laneX        = 100
-		laneY        = 80
-		laneHeight   = 160
-		eventSize    = 36
-		taskWidth    = 120
-		taskHeight   = 80
-		gap          = 50
-		marginLeft   = 80
-		centerY      = 160
-		taskTop      = 120
-		labelOffsetY = 43
+		laneX          = 100
+		laneY          = 80
+		laneHeightBase = 160
+		laneHeightGW   = 280
+		eventSize      = 36
+		taskWidth      = 120
+		taskHeight     = 80
+		gwSize         = 50
+		gap            = 50
+		marginLeft     = 80
+		centerY        = 160
+		taskTop        = 120
+		labelOffsetY   = 43
+		errorEndCY     = 260 // center-Y of error end events below main flow
+		errorEndSize   = 28
 	)
 
 	startEventID := "StartEvent_Begin"
 	endEventID := "EndEvent_Done"
+
+	hasGateways := false
+	for _, s := range steps {
+		if normalizedStepTaskType(s.TaskType) == "exclusiveGateway" {
+			hasGateways = true
+			break
+		}
+	}
+	laneHeight := laneHeightBase
+	if hasGateways {
+		laneHeight = laneHeightGW
+	}
 
 	var (
 		processBody bytes.Buffer
@@ -721,15 +854,14 @@ func BuildBPMNFromSteps(processID, processName string, steps []model.ProcessStep
 		shapes      bytes.Buffer
 	)
 
-	// Position cursor on the lane (relative to lane left edge).
 	xCursor := laneX + marginLeft
 
-	// Start event.
-	processBody.WriteString("    <bpmn:startEvent id=\"" + startEventID + "\" name=\"Start\">\n")
+	// ── Start event ───────────────────────────────────────────────────────────
 	startOutFlow := "Flow_Start_End"
 	if len(steps) > 0 {
 		startOutFlow = "Flow_Start_" + sanitizeBPMNID(bpmnTaskIDForStep(steps[0], 0))
 	}
+	processBody.WriteString("    <bpmn:startEvent id=\"" + startEventID + "\" name=\"Start\">\n")
 	processBody.WriteString("      <bpmn:outgoing>" + startOutFlow + "</bpmn:outgoing>\n")
 	processBody.WriteString("    </bpmn:startEvent>\n")
 	shapes.WriteString("      <bpmndi:BPMNShape id=\"Shape_Start\" bpmnElement=\"" + startEventID + "\">\n")
@@ -739,37 +871,101 @@ func BuildBPMNFromSteps(processID, processName string, steps []model.ProcessStep
 	startRightX := xCursor + eventSize
 	xCursor += eventSize + gap
 
-	layouts := make([]bpmnStepLayout, len(steps))
+	// ── Steps ─────────────────────────────────────────────────────────────────
+	type stepLayout struct {
+		taskID    string
+		outFlow   string // primary (happy) outgoing flow
+		leftX     int
+		rightX    int
+		isGateway bool
+		branches  []gwBranch
+	}
+	layouts := make([]stepLayout, len(steps))
 	prevOutFlow := startOutFlow
+
 	for i, s := range steps {
 		taskID := bpmnTaskIDForStep(s, i)
+
+		if normalizedStepTaskType(s.TaskType) == "exclusiveGateway" {
+			nextID := endEventID
+			if i+1 < len(steps) {
+				nextID = bpmnTaskIDForStep(steps[i+1], i+1)
+			}
+			branches := gatewayBranches(cosmosPath, steps, i, taskID, nextID)
+
+			// Primary (happy) flow = first branch without an error end.
+			primaryFlow := ""
+			for _, b := range branches {
+				if b.errEndID == "" {
+					primaryFlow = b.flowID
+					break
+				}
+			}
+			if primaryFlow == "" && len(branches) > 0 {
+				primaryFlow = branches[0].flowID
+			}
+
+			// Gateway element.
+			processBody.WriteString(fmt.Sprintf("    <bpmn:exclusiveGateway id=\"%s\" name=\"%s\">\n", taskID, xmlEscape(firstNonEmpty(s.Name, taskID))))
+			processBody.WriteString("      <bpmn:incoming>" + prevOutFlow + "</bpmn:incoming>\n")
+			for _, b := range branches {
+				processBody.WriteString("      <bpmn:outgoing>" + b.flowID + "</bpmn:outgoing>\n")
+			}
+			processBody.WriteString("    </bpmn:exclusiveGateway>\n")
+
+			// Inline error end events.
+			for _, b := range branches {
+				if b.errEndID != "" {
+					processBody.WriteString(fmt.Sprintf("    <bpmn:endEvent id=\"%s\" name=\"Abgelehnt\">\n", b.errEndID))
+					processBody.WriteString(fmt.Sprintf("      <bpmn:incoming>%s</bpmn:incoming>\n", b.flowID))
+					processBody.WriteString("      <bpmn:errorEventDefinition />\n")
+					processBody.WriteString("    </bpmn:endEvent>\n")
+				}
+			}
+
+			// Gateway diamond shape.
+			gwCenterX := xCursor + gwSize/2
+			shapes.WriteString(fmt.Sprintf("      <bpmndi:BPMNShape id=\"Shape_%s\" bpmnElement=\"%s\" isMarkerVisible=\"true\">\n", taskID, taskID))
+			shapes.WriteString(fmt.Sprintf("        <dc:Bounds x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" />\n", xCursor, centerY-gwSize/2, gwSize, gwSize))
+			shapes.WriteString("      </bpmndi:BPMNShape>\n")
+
+			// Error end event shapes.
+			for _, b := range branches {
+				if b.errEndID != "" {
+					errX := gwCenterX - errorEndSize/2
+					shapes.WriteString(fmt.Sprintf("      <bpmndi:BPMNShape id=\"Shape_%s\" bpmnElement=\"%s\">\n", b.errEndID, b.errEndID))
+					shapes.WriteString(fmt.Sprintf("        <dc:Bounds x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" />\n", errX, errorEndCY-errorEndSize/2, errorEndSize, errorEndSize))
+					shapes.WriteString("      </bpmndi:BPMNShape>\n")
+				}
+			}
+
+			layouts[i] = stepLayout{taskID: taskID, outFlow: primaryFlow, leftX: xCursor, rightX: xCursor + gwSize, isGateway: true, branches: branches}
+			prevOutFlow = primaryFlow
+			xCursor += gwSize + gap
+			continue
+		}
+
+		// Regular task.
 		element := bpmnElementForStep(s.TaskType)
-		var nextFlow string
+		var primaryFlow string
 		if i == len(steps)-1 {
-			nextFlow = "Flow_" + sanitizeBPMNID(taskID) + "_End"
+			primaryFlow = "Flow_" + sanitizeBPMNID(taskID) + "_End"
 		} else {
-			next := steps[i+1]
-			nextTaskID := bpmnTaskIDForStep(next, i+1)
-			nextFlow = "Flow_" + sanitizeBPMNID(taskID) + "_" + sanitizeBPMNID(nextTaskID)
+			primaryFlow = "Flow_" + sanitizeBPMNID(taskID) + "_" + sanitizeBPMNID(bpmnTaskIDForStep(steps[i+1], i+1))
 		}
-		layouts[i] = bpmnStepLayout{
-			taskID:  taskID,
-			outFlow: nextFlow,
-			leftX:   xCursor,
-			rightX:  xCursor + taskWidth,
-		}
-		processBody.WriteString("    <bpmn:" + element + " id=\"" + taskID + "\" name=\"" + xmlEscape(firstNonEmpty(s.Name, taskID)) + "\">\n")
+		processBody.WriteString(fmt.Sprintf("    <bpmn:%s id=\"%s\" name=\"%s\">\n", element, taskID, xmlEscape(firstNonEmpty(s.Name, taskID))))
 		processBody.WriteString("      <bpmn:incoming>" + prevOutFlow + "</bpmn:incoming>\n")
-		processBody.WriteString("      <bpmn:outgoing>" + nextFlow + "</bpmn:outgoing>\n")
-		processBody.WriteString("    </bpmn:" + element + ">\n")
-		shapes.WriteString("      <bpmndi:BPMNShape id=\"Shape_" + taskID + "\" bpmnElement=\"" + taskID + "\">\n")
+		processBody.WriteString("      <bpmn:outgoing>" + primaryFlow + "</bpmn:outgoing>\n")
+		processBody.WriteString(fmt.Sprintf("    </bpmn:%s>\n", element))
+		shapes.WriteString(fmt.Sprintf("      <bpmndi:BPMNShape id=\"Shape_%s\" bpmnElement=\"%s\">\n", taskID, taskID))
 		shapes.WriteString(fmt.Sprintf("        <dc:Bounds x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" />\n", xCursor, taskTop, taskWidth, taskHeight))
 		shapes.WriteString("      </bpmndi:BPMNShape>\n")
-		prevOutFlow = nextFlow
+		layouts[i] = stepLayout{taskID: taskID, outFlow: primaryFlow, leftX: xCursor, rightX: xCursor + taskWidth}
+		prevOutFlow = primaryFlow
 		xCursor += taskWidth + gap
 	}
 
-	// End event.
+	// ── End event ─────────────────────────────────────────────────────────────
 	processBody.WriteString("    <bpmn:endEvent id=\"" + endEventID + "\" name=\"End\">\n")
 	processBody.WriteString("      <bpmn:incoming>" + prevOutFlow + "</bpmn:incoming>\n")
 	processBody.WriteString("    </bpmn:endEvent>\n")
@@ -780,40 +976,70 @@ func BuildBPMNFromSteps(processID, processName string, steps []model.ProcessStep
 	endLeftX := xCursor
 	endRightX := xCursor + eventSize
 
-	// Sequence flows + edges.
-	// Start → first task / End.
+	// ── Sequence flows + DI edges ──────────────────────────────────────────────
+	firstTargetID := endEventID
 	firstTargetLeft := endLeftX
 	if len(layouts) > 0 {
+		firstTargetID = layouts[0].taskID
 		firstTargetLeft = layouts[0].leftX
 	}
-	processBody.WriteString("    <bpmn:sequenceFlow id=\"" + startOutFlow + "\" sourceRef=\"" + startEventID + "\" targetRef=\"" + bpmnFirstTargetRef(layouts, endEventID) + "\" />\n")
+	processBody.WriteString(fmt.Sprintf("    <bpmn:sequenceFlow id=\"%s\" sourceRef=\"%s\" targetRef=\"%s\" />\n", startOutFlow, startEventID, firstTargetID))
 	flows.WriteString("      <bpmndi:BPMNEdge id=\"Edge_" + startOutFlow + "\" bpmnElement=\"" + startOutFlow + "\">\n")
 	flows.WriteString(fmt.Sprintf("        <di:waypoint x=\"%d\" y=\"%d\" /><di:waypoint x=\"%d\" y=\"%d\" />\n", startRightX, centerY, firstTargetLeft, centerY))
 	flows.WriteString("      </bpmndi:BPMNEdge>\n")
 
-	// Task → next.
 	for i, lay := range layouts {
-		var sourceRef, targetRef string
-		sourceRef = lay.taskID
-		if i == len(layouts)-1 {
-			targetRef = endEventID
-		} else {
-			targetRef = layouts[i+1].taskID
-		}
-		processBody.WriteString("    <bpmn:sequenceFlow id=\"" + lay.outFlow + "\" sourceRef=\"" + sourceRef + "\" targetRef=\"" + targetRef + "\" />\n")
-		var rightX, nextLeftX int
-		rightX = lay.rightX
-		if i == len(layouts)-1 {
-			nextLeftX = endLeftX
-		} else {
+		nextRef := endEventID
+		nextLeftX := endLeftX
+		if i < len(layouts)-1 {
+			nextRef = layouts[i+1].taskID
 			nextLeftX = layouts[i+1].leftX
 		}
+
+		if lay.isGateway {
+			gwCenterX := lay.leftX + gwSize/2
+			gwRightX := lay.rightX
+			gwBottomY := centerY + gwSize/2
+
+			for _, b := range lay.branches {
+				// Sequence flow with condition.
+				if b.cond != "" {
+					processBody.WriteString(fmt.Sprintf("    <bpmn:sequenceFlow id=\"%s\" name=\"%s\" sourceRef=\"%s\" targetRef=\"%s\">\n", b.flowID, xmlEscape(b.label), lay.taskID, b.targetID))
+					processBody.WriteString(fmt.Sprintf("      <bpmn:conditionExpression>%s</bpmn:conditionExpression>\n", xmlEscape(b.cond)))
+					processBody.WriteString("    </bpmn:sequenceFlow>\n")
+				} else {
+					processBody.WriteString(fmt.Sprintf("    <bpmn:sequenceFlow id=\"%s\" name=\"%s\" sourceRef=\"%s\" targetRef=\"%s\" />\n", b.flowID, xmlEscape(b.label), lay.taskID, b.targetID))
+				}
+
+				// DI edge.
+				if b.errEndID != "" {
+					// Vertical: from gateway bottom → error end.
+					midY := (gwBottomY + errorEndCY) / 2
+					flows.WriteString(fmt.Sprintf("      <bpmndi:BPMNEdge id=\"Edge_%s\" bpmnElement=\"%s\">\n", b.flowID, b.flowID))
+					flows.WriteString(fmt.Sprintf("        <di:waypoint x=\"%d\" y=\"%d\" />\n", gwCenterX, gwBottomY))
+					flows.WriteString(fmt.Sprintf("        <di:waypoint x=\"%d\" y=\"%d\" />\n", gwCenterX, errorEndCY))
+					flows.WriteString(fmt.Sprintf("        <bpmndi:BPMNLabel><dc:Bounds x=\"%d\" y=\"%d\" width=\"40\" height=\"14\" /></bpmndi:BPMNLabel>\n", gwCenterX+5, midY))
+					flows.WriteString("      </bpmndi:BPMNEdge>\n")
+				} else {
+					// Horizontal: from gateway right → next element.
+					labelMidX := (gwRightX + nextLeftX) / 2
+					flows.WriteString(fmt.Sprintf("      <bpmndi:BPMNEdge id=\"Edge_%s\" bpmnElement=\"%s\">\n", b.flowID, b.flowID))
+					flows.WriteString(fmt.Sprintf("        <di:waypoint x=\"%d\" y=\"%d\" /><di:waypoint x=\"%d\" y=\"%d\" />\n", gwRightX, centerY, nextLeftX, centerY))
+					flows.WriteString(fmt.Sprintf("        <bpmndi:BPMNLabel><dc:Bounds x=\"%d\" y=\"%d\" width=\"24\" height=\"14\" /></bpmndi:BPMNLabel>\n", labelMidX-12, centerY-20))
+					flows.WriteString("      </bpmndi:BPMNEdge>\n")
+				}
+			}
+			continue
+		}
+
+		// Normal task → next.
+		processBody.WriteString(fmt.Sprintf("    <bpmn:sequenceFlow id=\"%s\" sourceRef=\"%s\" targetRef=\"%s\" />\n", lay.outFlow, lay.taskID, nextRef))
 		flows.WriteString("      <bpmndi:BPMNEdge id=\"Edge_" + lay.outFlow + "\" bpmnElement=\"" + lay.outFlow + "\">\n")
-		flows.WriteString(fmt.Sprintf("        <di:waypoint x=\"%d\" y=\"%d\" /><di:waypoint x=\"%d\" y=\"%d\" />\n", rightX, centerY, nextLeftX, centerY))
+		flows.WriteString(fmt.Sprintf("        <di:waypoint x=\"%d\" y=\"%d\" /><di:waypoint x=\"%d\" y=\"%d\" />\n", lay.rightX, centerY, nextLeftX, centerY))
 		flows.WriteString("      </bpmndi:BPMNEdge>\n")
 	}
 
-	// Lane width covers all shapes with padding.
+	// ── Assemble ──────────────────────────────────────────────────────────────
 	laneWidth := endRightX - laneX + marginLeft
 	if laneWidth < 400 {
 		laneWidth = 400
@@ -855,6 +1081,8 @@ func bpmnElementForStep(taskType string) string {
 	switch normalizedStepTaskType(taskType) {
 	case "businessRuleTask":
 		return "businessRuleTask"
+	case "exclusiveGateway":
+		return "exclusiveGateway"
 	default:
 		return "serviceTask"
 	}
@@ -913,8 +1141,10 @@ func dtoOutputsToModel(outs []StepOutputSchemaDTO) []model.StepOutputSchema {
 
 func normalizedStepTaskType(taskType string) string {
 	switch strings.TrimSpace(taskType) {
-	case "businessRuleTask", "bpmn:businessRuleTask":
+	case "businessRuleTask", "bpmn:businessRuleTask", "business_rule_task":
 		return "businessRuleTask"
+	case "exclusiveGateway", "exclusive_gateway", "bpmn:exclusiveGateway":
+		return "exclusiveGateway"
 	default:
 		return "serviceTask"
 	}
