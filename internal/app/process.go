@@ -132,6 +132,16 @@ func GetProcessBPMN(path, id string) (string, error) {
 	if err != nil {
 		return "", Error(CodeInvalidInput, "BPMN file not found: "+dto.BPMN.File, http.StatusNotFound, err)
 	}
+	// Auto-sync: if the BPMN has no tasks but the YAML has steps, the file
+	// was created before step-sync was implemented — regenerate it now.
+	tasks, _ := ExtractBPMNTasks(string(data))
+	if len(tasks) == 0 && len(dto.Steps) > 0 {
+		if node, nerr := findProcessNode(path, id); nerr == nil {
+			if serr := syncBPMNFromSteps(node); serr == nil {
+				data, _ = os.ReadFile(dto.BPMNPath)
+			}
+		}
+	}
 	return string(data), nil
 }
 
