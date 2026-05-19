@@ -11,6 +11,8 @@ import (
 	"github.com/nomos/nomos/internal/cosmosfs"
 	"github.com/nomos/nomos/internal/dmn"
 	"github.com/nomos/nomos/internal/fsx"
+	"github.com/nomos/nomos/internal/idgen"
+	"github.com/nomos/nomos/internal/idmigrate"
 	"github.com/nomos/nomos/internal/model"
 )
 
@@ -60,8 +62,10 @@ func GetDecision(path, domainCanonical, id string) (DecisionDTO, error) {
 	if err != nil {
 		return DecisionDTO{}, err
 	}
+	// ADR-0020: Legacy-IDs werden transparent via id-history aufgelöst.
+	resolved, _ := idmigrate.Resolve(path, id)
 	for _, n := range nodes {
-		if n.Metadata.ID == id {
+		if n.Metadata.ID == id || n.Metadata.ID == resolved {
 			return decisionDTO(n), nil
 		}
 	}
@@ -205,15 +209,123 @@ func UpdateDecisionDMN(path, domainCanonical, id, dmnXML string) (DecisionDTO, e
 		if err := os.WriteFile(dmnPath, []byte(dmnXML), 0o644); err != nil {
 			return DecisionDTO{}, err
 		}
-		// Record the dmn_file reference in the YAML metadata if not already set.
+		yamlDirty := false
 		if n.Metadata.DMNFile == "" {
 			n.Metadata.DMNFile = "decision.dmn"
+			yamlDirty = true
+		}
+		// Sync the artifact's inputs/outputs from the DMN diagram so it stays
+		// the source of truth. Best-effort: invalid XML doesn't fail the save.
+		// Conservative: only overwrite when the DMN actually declares the
+		// corresponding elements — empty seeds shouldn't wipe manually-entered
+		// metadata before the user drags <inputData> pills into the DRD.
+		if defs, perr := dmn.ParseDefinitions([]byte(dmnXML)); perr == nil {
+			if len(defs.InputData) > 0 {
+				ins := inputsFromDMN(defs)
+				if !decisionIOsEqual(ins, n.Metadata.Inputs) {
+					n.Metadata.Inputs = ins
+					yamlDirty = true
+				}
+			}
+			if len(defs.Decisions) > 0 {
+				outs := outputsFromDMN(defs)
+				if !decisionIOsEqual(outs, n.Metadata.Outputs) {
+					n.Metadata.Outputs = outs
+					yamlDirty = true
+				}
+			}
+		}
+		if yamlDirty {
 			_ = fsx.WriteYAML(filepath.Join(n.Path, "decision.yaml"), n.Metadata)
 		}
 		n.DMNPath = dmnPath
 		return decisionDTO(n), nil
 	}
 	return DecisionDTO{}, Error(CodeInvalidInput, "Decision not found: "+id, http.StatusNotFound, nil)
+}
+
+// inputsFromDMN maps DMN <inputData> nodes to the decision artifact's inputs.
+func inputsFromDMN(defs *model.DMNDefinitions) []model.DecisionIO {
+	if defs == nil {
+		return nil
+	}
+	out := make([]model.DecisionIO, 0, len(defs.InputData))
+	for _, in := range defs.InputData {
+		name := strings.TrimSpace(in.Variable.Name)
+		if name == "" {
+			name = strings.TrimSpace(in.Name)
+		}
+		if name == "" {
+			continue
+		}
+		out = append(out, model.DecisionIO{
+			Name:        name,
+			Type:        normalizeDMNType(in.Variable.TypeRef),
+			Description: strings.TrimSpace(in.Description),
+		})
+	}
+	return out
+}
+
+// outputsFromDMN maps each top-level <decision>'s variable to an output.
+// "Top-level" = decisions not required by any other decision in the DRG; if
+// the requirement graph is empty (single-decision DMN) every decision counts.
+func outputsFromDMN(defs *model.DMNDefinitions) []model.DecisionIO {
+	if defs == nil {
+		return nil
+	}
+	required := map[string]bool{}
+	for _, d := range defs.Decisions {
+		for _, ir := range d.InformationRequirements {
+			if ir.RequiredDecision != "" {
+				required[strings.TrimPrefix(ir.RequiredDecision, "#")] = true
+			}
+		}
+	}
+	out := make([]model.DecisionIO, 0, len(defs.Decisions))
+	for _, d := range defs.Decisions {
+		if required[d.ID] {
+			continue
+		}
+		name := strings.TrimSpace(d.Variable.Name)
+		if name == "" {
+			name = strings.TrimSpace(d.Name)
+		}
+		if name == "" {
+			continue
+		}
+		out = append(out, model.DecisionIO{
+			Name: name,
+			Type: normalizeDMNType(d.Variable.TypeRef),
+		})
+	}
+	return out
+}
+
+// normalizeDMNType lower-cases standard DMN/FEEL type refs and leaves custom
+// itemDefinition references untouched.
+func normalizeDMNType(t string) string {
+	s := strings.TrimSpace(t)
+	if s == "" {
+		return ""
+	}
+	switch strings.ToLower(s) {
+	case "string", "number", "boolean", "date", "time", "date and time", "days and time duration", "years and months duration", "any":
+		return strings.ToLower(s)
+	}
+	return s
+}
+
+func decisionIOsEqual(a, b []model.DecisionIO) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Name != b[i].Name || a[i].Type != b[i].Type || a[i].Description != b[i].Description {
+			return false
+		}
+	}
+	return true
 }
 
 func decisionDTO(n cosmosfs.DecisionNode) DecisionDTO {
@@ -322,7 +434,14 @@ func EvaluateDecision(path, domainCanonical, id string, req EvaluateDecisionRequ
 	return nil, Error(CodeInvalidInput, "Decision not found: "+id, http.StatusNotFound, nil)
 }
 
+// nextDecisionID erzeugt eine neue ID gemäß ADR-0020.
+// Bei einem Generator-Fehler (extrem unwahrscheinlich) fällt auf
+// das alte Schema zurück, damit Create-Aufrufe nie hart fehlschlagen.
 func nextDecisionID(domainPath string) string {
+	id, err := idgen.NewForType("decision")
+	if err == nil {
+		return id
+	}
 	nodes, _ := cosmosfs.ScanDecisions(domainPath)
 	return fmt.Sprintf("DEC-%03d", len(nodes)+1)
 }

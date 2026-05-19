@@ -15,6 +15,8 @@ import (
 	"github.com/nomos/nomos/internal/cosmosfs"
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/graph"
+	"github.com/nomos/nomos/internal/idgen"
+	"github.com/nomos/nomos/internal/idmigrate"
 	"github.com/nomos/nomos/internal/model"
 	"github.com/nomos/nomos/internal/namespace"
 	"github.com/nomos/nomos/internal/storage"
@@ -130,6 +132,11 @@ func BuildNamespaceTree(path string) (NamespaceTreeDTO, error) {
 	if err != nil {
 		return NamespaceTreeDTO{}, err
 	}
+	tree, err := load(path)
+	if err != nil {
+		return NamespaceTreeDTO{}, err
+	}
+	decIdx := buildDecisionIndex(tree)
 	root := NamespaceTreeNodeDTO{Label: fallback(cosmos.Name, "Local Cosmos"), Kind: "cosmos", CanOpenDetails: true}
 	namespaces := NamespaceTreeNodeDTO{Label: "Namespaces", Kind: "namespace-parent"}
 	for _, d := range domains.Domains {
@@ -137,11 +144,36 @@ func BuildNamespaceTree(path string) (NamespaceTreeDTO, error) {
 		if err != nil {
 			return NamespaceTreeDTO{}, err
 		}
-		insertDomain(&namespaces, full)
+		insertDomain(&namespaces, full, decIdx)
 	}
 	root.Children = append(root.Children, namespaces)
 	sortTree(&root)
 	return NamespaceTreeDTO{Root: root}, nil
+}
+
+// decisionIndexEntry locates a decision globally: the decision DTO plus the
+// canonical name of the domain that owns it (which may differ from the domain
+// whose product references it).
+type decisionIndexEntry struct {
+	Decision        DecisionDTO
+	DomainCanonical string
+}
+
+func buildDecisionIndex(tree cosmosfs.Tree) map[string]decisionIndexEntry {
+	idx := make(map[string]decisionIndexEntry)
+	for _, d := range tree.Domains {
+		canonical := namespace.Canonical(d.Name)
+		for _, dec := range d.Decisions {
+			if dec.Metadata.ID == "" {
+				continue
+			}
+			if _, exists := idx[dec.Metadata.ID]; exists {
+				continue
+			}
+			idx[dec.Metadata.ID] = decisionIndexEntry{Decision: decisionDTO(dec), DomainCanonical: canonical}
+		}
+	}
+	return idx
 }
 
 func domainDTO(tree cosmosfs.Tree, d cosmosfs.DomainNode, includeServices bool) DomainDTO {
@@ -559,7 +591,7 @@ func verificationStatus(status string) string {
 	}
 }
 
-func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
+func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO, decIdx map[string]decisionIndexEntry) {
 	node := root
 	parts := d.Namespace.TreeParts
 	for i, label := range parts {
@@ -638,15 +670,24 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 				productNode.Children = append(productNode.Children, processesParent)
 			}
 			if len(referencedDecisions) > 0 {
-				businessRulesParent := NamespaceTreeNodeDTO{Label: "Business Rules", Kind: "product-decision-parent", Canonical: product.ID + "/decisions", CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: false, FulfillmentCount: len(referencedDecisions)}
-				for _, dec := range d.Decisions {
-					if !referencedDecisions[dec.ID] {
+				refIDs := make([]string, 0, len(referencedDecisions))
+				for id := range referencedDecisions {
+					refIDs = append(refIDs, id)
+				}
+				sort.Strings(refIDs)
+				businessRulesParent := NamespaceTreeNodeDTO{Label: "Business Rules", Kind: "product-decision-parent", Canonical: product.ID + "/decisions", CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: false}
+				for _, refID := range refIDs {
+					entry, ok := decIdx[refID]
+					if !ok {
 						continue
 					}
-					dd := dec
-					businessRulesParent.Children = append(businessRulesParent.Children, NamespaceTreeNodeDTO{Label: dec.Name, Kind: "decision", Canonical: d.Canonical + "/decisions/" + dec.ID, CanonicalName: d.Canonical, Decision: &dd, Persisted: true, CanOpenDetails: true})
+					dd := entry.Decision
+					businessRulesParent.Children = append(businessRulesParent.Children, NamespaceTreeNodeDTO{Label: entry.Decision.Name, Kind: "decision", Canonical: entry.DomainCanonical + "/decisions/" + entry.Decision.ID, CanonicalName: entry.DomainCanonical, Decision: &dd, Persisted: true, CanOpenDetails: true})
 				}
-				productNode.Children = append(productNode.Children, businessRulesParent)
+				if len(businessRulesParent.Children) > 0 {
+					businessRulesParent.FulfillmentCount = len(businessRulesParent.Children)
+					productNode.Children = append(productNode.Children, businessRulesParent)
+				}
 			}
 			if len(product.Processes) == 0 && len(product.Fulfillment.RequiredServices) > 0 {
 				fulfillmentParent := NamespaceTreeNodeDTO{Label: "Fulfillment Services", Kind: "product-fulfillment-parent", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true, FulfillmentCount: len(product.Fulfillment.RequiredServices)}
@@ -777,8 +818,10 @@ func GetBlueprint(path, id string) (BlueprintDTO, error) {
 	if err != nil {
 		return BlueprintDTO{}, err
 	}
+	// ADR-0020: Legacy-IDs werden transparent via id-history aufgelöst.
+	resolved, _ := idmigrate.Resolve(path, id)
 	for _, b := range items.Blueprints {
-		if b.ID == id {
+		if b.ID == id || b.ID == resolved {
 			return b, nil
 		}
 	}
@@ -803,8 +846,9 @@ func GetInstance(path, id string) (InstanceDTO, error) {
 	if err != nil {
 		return InstanceDTO{}, err
 	}
+	resolved, _ := idmigrate.Resolve(path, id)
 	for _, i := range items.Instances {
-		if i.ID == id {
+		if i.ID == id || i.ID == resolved {
 			return i, nil
 		}
 	}
@@ -1279,11 +1323,15 @@ func CreateBlueprint(path string, bp model.Blueprint) error {
 	if _, err := os.Stat(storage.CosmosFile(path)); err != nil {
 		return Error(CodeCosmosMissing, ".nomos/cosmos.yaml not found", http.StatusNotFound, err)
 	}
-	if strings.TrimSpace(bp.ID) == "" {
-		return Error(CodeInvalidInput, "Blueprint ID is required", http.StatusBadRequest, nil)
-	}
 	if bp.Type != "product_blueprint" && bp.Type != "service_blueprint" {
 		return Error(CodeInvalidInput, "Blueprint type must be product_blueprint or service_blueprint", http.StatusBadRequest, nil)
+	}
+	if strings.TrimSpace(bp.ID) == "" {
+		generated, err := idgen.NewForType(bp.Type)
+		if err != nil {
+			return Error(CodeInternalError, "Failed to generate blueprint ID: "+err.Error(), http.StatusInternalServerError, err)
+		}
+		bp.ID = generated
 	}
 
 	existing, err := ListBlueprints(path)
@@ -1325,7 +1373,11 @@ func CreateProductOffering(path, domainCanonical string, req CreateProductOfferi
 	}
 	id := strings.TrimSpace(req.ID)
 	if id == "" {
-		return BlueprintDTO{}, Error(CodeInvalidInput, "Product ID is required", http.StatusBadRequest, nil)
+		generated, err := idgen.NewForType("product_blueprint")
+		if err != nil {
+			return BlueprintDTO{}, Error(CodeInternalError, "Failed to generate product ID: "+err.Error(), http.StatusInternalServerError, err)
+		}
+		id = generated
 	}
 	version := firstNonEmpty(strings.TrimSpace(req.Version), "0.1.0")
 	status := firstNonEmpty(strings.TrimSpace(req.Status), "draft")
@@ -1746,14 +1798,18 @@ func CreateInstance(path string, inst model.Instance) error {
 	if _, err := os.Stat(storage.CosmosFile(path)); err != nil {
 		return Error(CodeCosmosMissing, ".nomos/cosmos.yaml not found", http.StatusNotFound, err)
 	}
-	if strings.TrimSpace(inst.ID) == "" {
-		return Error(CodeInvalidInput, "Instance ID is required", http.StatusBadRequest, nil)
-	}
 	if inst.Type != "product_instance" && inst.Type != "service_instance" {
 		return Error(CodeInvalidInput, "Instance type must be product_instance or service_instance", http.StatusBadRequest, nil)
 	}
 	if strings.TrimSpace(inst.BlueprintRef) == "" {
 		return Error(CodeInvalidInput, "blueprint_ref is required", http.StatusBadRequest, nil)
+	}
+	if strings.TrimSpace(inst.ID) == "" {
+		generated, err := idgen.NewForType(inst.Type)
+		if err != nil {
+			return Error(CodeInternalError, "Failed to generate instance ID: "+err.Error(), http.StatusInternalServerError, err)
+		}
+		inst.ID = generated
 	}
 
 	existing, err := ListInstances(path)

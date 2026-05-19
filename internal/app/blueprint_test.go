@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/nomos/nomos/internal/idgen"
 	"github.com/nomos/nomos/internal/model"
 	"github.com/nomos/nomos/internal/storage"
 )
@@ -124,12 +125,26 @@ func TestCreateBlueprint_MissingCosmos(t *testing.T) {
 	}
 }
 
-func TestCreateBlueprint_EmptyID(t *testing.T) {
+func TestCreateBlueprint_EmptyID_AutoGenerates(t *testing.T) {
+	// ADR-0020: leere ID erzeugt eine system-generierte ID (Präfix PRD_ für product_blueprint).
 	p := createTestCosmosWithCatalog(t)
-	bp := model.Blueprint{ID: "", Type: "product_blueprint", Name: "Test", Version: "0.1.0", Status: "draft", Owner: "Team"}
-	err := CreateBlueprint(p, bp)
-	if err == nil {
-		t.Fatal("expected error for empty ID")
+	bp := model.Blueprint{ID: "", Type: "product_blueprint", Name: "AutoGenBP", Version: "0.1.0", Status: "draft", Owner: "Team"}
+	if err := CreateBlueprint(p, bp); err != nil {
+		t.Fatalf("CreateBlueprint with empty ID should auto-generate, got error: %v", err)
+	}
+	list, err := ListBlueprints(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, b := range list.Blueprints {
+		if b.Name == "AutoGenBP" && idgen.IsValidForType(b.ID, "product_blueprint") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected a blueprint with auto-generated PRD_ ID to be created")
 	}
 }
 
