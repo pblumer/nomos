@@ -267,7 +267,7 @@ func processDTO(path string, n processNode, includeValidation bool) ProcessDTO {
 		dto.Participant = &ProcessParticipantDTO{Name: p.Name, Ref: p.Ref}
 	}
 	for _, s := range n.Meta.Steps {
-		dto.Steps = append(dto.Steps, ProcessStepDTO{ID: s.ID, Name: s.Name, TaskType: normalizedStepTaskType(s.TaskType), ServiceRef: s.ServiceRef, CapabilityRef: s.CapabilityRef, Method: s.Method, DecisionRef: s.DecisionRef, Role: s.Role, Required: s.Required, Notes: s.Notes, DependsOn: s.DependsOn, Inputs: stepsInputsToDTO(s.Inputs), Outputs: stepsOutputsToDTO(s.Outputs), Decision: decisionToDTO(s.Decision), Gateway: gatewayToDTO(s.Gateway)})
+		dto.Steps = append(dto.Steps, ProcessStepDTO{ID: s.ID, Name: s.Name, TaskType: normalizedStepTaskType(s.TaskType), ServiceRef: s.ServiceRef, CapabilityRef: s.CapabilityRef, Method: s.Method, UserInterfaceRef: s.UserInterfaceRef, DecisionRef: s.DecisionRef, Role: s.Role, Required: s.Required, Notes: s.Notes, DependsOn: s.DependsOn, Inputs: stepsInputsToDTO(s.Inputs), Outputs: stepsOutputsToDTO(s.Outputs), Decision: decisionToDTO(s.Decision), Gateway: gatewayToDTO(s.Gateway)})
 	}
 	for _, m := range n.Meta.TaskMappings {
 		dto.TaskMappings = append(dto.TaskMappings, ProcessTaskMappingDTO{BPMNElementID: m.BPMNElementID, TaskName: m.TaskName, BPMNElementType: m.BPMNElementType, ServiceRef: m.ServiceRef, CapabilityRef: m.CapabilityRef, Method: m.Method, Role: m.Role, Required: m.Required, Notes: m.Notes})
@@ -313,21 +313,22 @@ func AddProcessStep(path, id string, req UpsertProcessStepRequest) (ProcessDTO, 
 		return ProcessDTO{}, err
 	}
 	step := model.ProcessStep{
-		ID:            newStepID(),
-		Name:          strings.TrimSpace(req.Name),
-		TaskType:      normalizedStepTaskType(req.TaskType),
-		ServiceRef:    strings.TrimSpace(req.ServiceRef),
-		CapabilityRef: strings.TrimSpace(req.CapabilityRef),
-		Method:        strings.TrimSpace(req.Method),
-		DecisionRef:   strings.TrimSpace(req.DecisionRef),
-		Role:          firstNonEmpty(strings.TrimSpace(req.Role), "supporting"),
-		Required:      req.Required,
-		Notes:         req.Notes,
-		DependsOn:     req.DependsOn,
-		Inputs:        dtoInputsToModel(req.Inputs),
-		Outputs:       dtoOutputsToModel(req.Outputs),
-		Decision:      decisionToModel(req.Decision, normalizedStepTaskType(req.TaskType)),
-		Gateway:       gatewayToModel(req.Gateway, normalizedStepTaskType(req.TaskType)),
+		ID:               newStepID(),
+		Name:             strings.TrimSpace(req.Name),
+		TaskType:         normalizedStepTaskType(req.TaskType),
+		ServiceRef:       strings.TrimSpace(req.ServiceRef),
+		CapabilityRef:    strings.TrimSpace(req.CapabilityRef),
+		Method:           strings.TrimSpace(req.Method),
+		UserInterfaceRef: strings.TrimSpace(req.UserInterfaceRef),
+		DecisionRef:      strings.TrimSpace(req.DecisionRef),
+		Role:             firstNonEmpty(strings.TrimSpace(req.Role), "supporting"),
+		Required:         req.Required,
+		Notes:            req.Notes,
+		DependsOn:        req.DependsOn,
+		Inputs:           dtoInputsToModel(req.Inputs),
+		Outputs:          dtoOutputsToModel(req.Outputs),
+		Decision:         decisionToModel(req.Decision, normalizedStepTaskType(req.TaskType)),
+		Gateway:          gatewayToModel(req.Gateway, normalizedStepTaskType(req.TaskType)),
 	}
 	node.Meta.Steps = append(node.Meta.Steps, step)
 	if err := fsx.WriteYAML(node.Path, node.Meta); err != nil {
@@ -355,6 +356,7 @@ func UpdateProcessStep(path, id, stepID string, req UpsertProcessStepRequest) (P
 			node.Meta.Steps[i].ServiceRef = strings.TrimSpace(req.ServiceRef)
 			node.Meta.Steps[i].CapabilityRef = strings.TrimSpace(req.CapabilityRef)
 			node.Meta.Steps[i].Method = strings.TrimSpace(req.Method)
+			node.Meta.Steps[i].UserInterfaceRef = strings.TrimSpace(req.UserInterfaceRef)
 			node.Meta.Steps[i].DecisionRef = strings.TrimSpace(req.DecisionRef)
 			node.Meta.Steps[i].Role = firstNonEmpty(strings.TrimSpace(req.Role), "supporting")
 			node.Meta.Steps[i].Required = req.Required
@@ -1236,6 +1238,12 @@ func bpmnElementForStep(taskType string) string {
 		return "businessRuleTask"
 	case "exclusiveGateway":
 		return "exclusiveGateway"
+	case "userTask":
+		return "userTask"
+	case "manualTask":
+		return "manualTask"
+	case "scriptTask":
+		return "scriptTask"
 	default:
 		return "serviceTask"
 	}
@@ -1298,6 +1306,12 @@ func normalizedStepTaskType(taskType string) string {
 		return "businessRuleTask"
 	case "exclusiveGateway", "exclusive_gateway", "bpmn:exclusiveGateway":
 		return "exclusiveGateway"
+	case "userTask", "bpmn:userTask", "user_task":
+		return "userTask"
+	case "manualTask", "bpmn:manualTask", "manual_task":
+		return "manualTask"
+	case "scriptTask", "bpmn:scriptTask", "script_task":
+		return "scriptTask"
 	default:
 		return "serviceTask"
 	}

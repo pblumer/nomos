@@ -60,8 +60,8 @@ type MethodHeader struct {
 
 // MethodSecurity describes the authentication scheme for a method endpoint.
 type MethodSecurity struct {
-	Scheme string `yaml:"scheme" json:"scheme"` // bearer | api-key | basic | none | oauth2
-	In     string `yaml:"in,omitempty" json:"in,omitempty"`   // header | query (for api-key)
+	Scheme string `yaml:"scheme" json:"scheme"`                 // bearer | api-key | basic | none | oauth2
+	In     string `yaml:"in,omitempty" json:"in,omitempty"`     // header | query (for api-key)
 	Name   string `yaml:"name,omitempty" json:"name,omitempty"` // header or query-param name
 }
 
@@ -466,21 +466,22 @@ type DecisionTable struct {
 // a service call (ArchiMate function/trigger). CapabilityRef identifies the
 // service capability (= BPMN collaboration boundary) being invoked.
 type ProcessStep struct {
-	ID            string             `yaml:"id" json:"id"`
-	Name          string             `yaml:"name" json:"name"`
-	TaskType      string             `yaml:"task_type,omitempty" json:"task_type,omitempty"`
-	ServiceRef    string             `yaml:"service_ref" json:"service_ref"`
-	CapabilityRef string             `yaml:"capability_ref,omitempty" json:"capability_ref,omitempty"`
-	Method        string             `yaml:"method,omitempty" json:"method,omitempty"`
-	DecisionRef   string             `yaml:"decision_ref,omitempty" json:"decision_ref,omitempty"`
-	Role          string             `yaml:"role,omitempty" json:"role,omitempty"`
-	Required      bool               `yaml:"required" json:"required"`
-	Notes         string             `yaml:"notes,omitempty" json:"notes,omitempty"`
-	DependsOn     []string           `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
-	Inputs        []StepInputBinding `yaml:"inputs,omitempty" json:"inputs,omitempty"`
-	Outputs       []StepOutputSchema `yaml:"outputs,omitempty" json:"outputs,omitempty"`
-	Decision      *DecisionTable     `yaml:"decision,omitempty" json:"decision,omitempty"`
-	Gateway       *DecisionGateway   `yaml:"gateway,omitempty" json:"gateway,omitempty"`
+	ID               string             `yaml:"id" json:"id"`
+	Name             string             `yaml:"name" json:"name"`
+	TaskType         string             `yaml:"task_type,omitempty" json:"task_type,omitempty"`
+	ServiceRef       string             `yaml:"service_ref" json:"service_ref"`
+	CapabilityRef    string             `yaml:"capability_ref,omitempty" json:"capability_ref,omitempty"`
+	Method           string             `yaml:"method,omitempty" json:"method,omitempty"`
+	UserInterfaceRef string             `yaml:"user_interface_ref,omitempty" json:"user_interface_ref,omitempty"` // for userTask: links to a ServiceUserInterface
+	DecisionRef      string             `yaml:"decision_ref,omitempty" json:"decision_ref,omitempty"`
+	Role             string             `yaml:"role,omitempty" json:"role,omitempty"`
+	Required         bool               `yaml:"required" json:"required"`
+	Notes            string             `yaml:"notes,omitempty" json:"notes,omitempty"`
+	DependsOn        []string           `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
+	Inputs           []StepInputBinding `yaml:"inputs,omitempty" json:"inputs,omitempty"`
+	Outputs          []StepOutputSchema `yaml:"outputs,omitempty" json:"outputs,omitempty"`
+	Decision         *DecisionTable     `yaml:"decision,omitempty" json:"decision,omitempty"`
+	Gateway          *DecisionGateway   `yaml:"gateway,omitempty" json:"gateway,omitempty"`
 }
 
 type BPMNReference struct {

@@ -308,6 +308,12 @@
 .pfc-io{display:flex;flex-wrap:wrap;gap:.2rem;margin-top:.3rem}
 .pfc-io-in{font-size:.68rem;color:#0369a1;background:#e0f2fe;padding:1px 6px;border-radius:5px;cursor:help}
 .pfc-io-out{font-size:.68rem;color:#059669;background:#d1fae5;padding:1px 6px;border-radius:5px;cursor:help}
+.pfc-typebadge{font-size:.67rem;font-weight:700;padding:1px 7px;border-radius:5px}
+.pfc-typebadge-svc{color:#0369a1;background:#e0f2fe}
+.pfc-typebadge-rule{color:#4338ca;background:#eef2ff}
+.pfc-typebadge-user{color:#7c3aed;background:#f3e8ff}
+.pfc-typebadge-manual{color:#b45309;background:#fef3c7}
+.pfc-typebadge-gw{color:#065f46;background:#d1fae5}
 .pflow-connector{display:flex;flex-direction:column;align-items:center;height:22px;position:relative}
 .pflow-line{width:2px;background:#e0e7ff;flex:1}
 .pflow-arrowhead{color:#a5b4fc;font-size:.65rem;line-height:1}
@@ -879,17 +885,24 @@ function renderDagSteps(steps){
   let n=0;
   function makeCard(s){
     n++;
-    const isRule=(s.task_type==='businessRuleTask');
+    const tt=s.task_type||'serviceTask';
+    const isRule=tt==='businessRuleTask';
+    const isUser=tt==='userTask';
+    const isManual=tt==='manualTask';
+    const isGW=tt==='exclusiveGateway';
     const svcShort=s.service_ref?(s.service_ref.includes('/')?s.service_ref.split('/').pop():s.service_ref):'';
     const ioIn=(s.inputs||[]).map(b=>`<span class="pfc-io-in" title="${esc(b.source)}">↓ ${esc(b.name)}${b.required?'*':''}</span>`).join('');
     const ioOut=(s.outputs||[]).map(o=>`<span class="pfc-io-out" title="${esc(o.type||'string')}">↑ ${esc(o.name)}</span>`).join('');
     const io=ioIn||ioOut?`<div class="pfc-io">${ioIn}${ioOut}</div>`:'';
     const deps=s.depends_on?.length?`<div class="pfc-deps">nach: ${s.depends_on.map(d=>esc(byId[d]?.name||d)).join(', ')}</div>`:'';
-    const taskBadge=isRule?'<span class="pfc-req" style="background:#fef3c7;color:#92400e">Business Rule</span>':'<span class="pfc-req" style="background:#e0f2fe;color:#0369a1">Service Task</span>';
+    const taskBadge=isRule?'<span class="pfc-typebadge pfc-typebadge-rule">Business Rule</span>':isUser?'<span class="pfc-typebadge pfc-typebadge-user">Benutzer Task</span>':isManual?'<span class="pfc-typebadge pfc-typebadge-manual">Manuell</span>':isGW?'<span class="pfc-typebadge pfc-typebadge-gw">Gateway</span>':'<span class="pfc-typebadge pfc-typebadge-svc">Service Task</span>';
     const decRef=isRule&&s.decision_ref?`<div class="pfc-deps" style="color:#4338ca">⚖ ${esc(s.decision_ref)}${s.inputs?.length?' · '+s.inputs.length+' Inputs':''}</div>`:'';
+    const uiRef=isUser&&s.user_interface_ref?`<div class="pfc-deps" style="color:#7c3aed">⬚ ${esc(s.user_interface_ref)}</div>`:'';
+    const capRef=s.capability_ref?`<div class="pfc-deps" style="color:#0369a1">◈ ${esc(s.capability_ref)}</div>`:'';
     const decision=!s.decision_ref&&s.decision?.rules?.length?`<div class="pfc-deps">▦ DMN: ${s.decision.rules.map(r=>esc((r.label||((r.input||'input')+' '+(r.operator||'<=')+' '+(r.value||'')))+' ⇒ '+(r.output||'output')+'='+(r.output_value||'true'))).join(' · ')}</div>`:'';
     const gateway=s.gateway?`<div class="pfc-deps">◇ Gateway${s.gateway.conditions?.length?': '+s.gateway.conditions.map(c=>esc(c.label||((c.output||'output')+' '+(c.operator||'==')+' '+(c.value||'')))).join(' · '):' wertet Outputs aus'}</div>`:'';
-    return `<div class="pflow-card${isRule?' business-rule-card':''}" data-step-id="${esc(s.id)}"><div class="pfc-head"><span class="pfc-num">${n}</span><span class="pfc-name" title="${esc(s.name)}">${esc(s.name)}</span><button class="pfc-edit step-edit-btn" data-step-id="${esc(s.id)}" title="Schritt bearbeiten">✎</button><button class="pfc-del step-del-btn" data-step-id="${esc(s.id)}" title="Schritt entfernen">×</button></div>${svcShort?`<div class="pfc-svc" title="${esc(s.service_ref)}">${esc(svcShort)}<span style="color:#a78bfa;margin:0 2px">/</span><span style="opacity:.6;font-size:.68rem">${esc(s.service_ref.split('/').slice(0,-1).join('/'))}</span></div>`:''}<div class="pfc-chips">${taskBadge}${s.method?`<span class="pfc-method">${esc(s.method)}()</span>`:''}<span class="pfc-role${s.role==='primary'?' pfc-role-primary':''}">${esc(s.role||'supporting')}</span>${s.required?'<span class="pfc-req">req</span>':''}</div>${deps}${decRef}${io}${decision}${gateway}</div>`;
+    const methodChip=s.method?`<span class="pfc-method">${esc(s.method)}()</span>`:'';
+    return `<div class="pflow-card pfc-type-${esc(tt)}" data-step-id="${esc(s.id)}"><div class="pfc-head"><span class="pfc-num">${n}</span><span class="pfc-name" title="${esc(s.name)}">${esc(s.name)}</span><button class="pfc-edit step-edit-btn" data-step-id="${esc(s.id)}" title="Schritt bearbeiten">✎</button><button class="pfc-del step-del-btn" data-step-id="${esc(s.id)}" title="Schritt entfernen">×</button></div>${svcShort?`<div class="pfc-svc" title="${esc(s.service_ref)}">${esc(svcShort)}<span style="color:#a78bfa;margin:0 2px">/</span><span style="opacity:.6;font-size:.68rem">${esc(s.service_ref.split('/').slice(0,-1).join('/'))}</span></div>`:''}<div class="pfc-chips">${taskBadge}${methodChip}<span class="pfc-role${s.role==='primary'?' pfc-role-primary':''}">${esc(s.role||'supporting')}</span>${s.required?'<span class="pfc-req">req</span>':''}</div>${capRef}${deps}${decRef}${uiRef}${io}${decision}${gateway}</div>`;
   }
   const parts=[];
   levels.forEach((row,li)=>{
@@ -908,9 +921,10 @@ function stepAddRow(procId,services,existingSteps){
   const depSection=depChecks?`<div style="margin-top:.3rem;padding:.3rem .5rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px"><div style="font-size:.72rem;font-weight:600;color:#475569;margin-bottom:.2rem">Abhängig von</div><div id="step-dep-list" style="display:flex;flex-wrap:wrap;gap:.35rem">${depChecks}</div></div>`:'<div id="step-dep-list"></div>';
   const ioEditor=`<details class="step-io-editor"><summary>Datenfluss – Inputs &amp; Outputs</summary><div style="margin-top:.5rem;display:flex;flex-direction:column;gap:.6rem"><div><div style="font-size:.72rem;font-weight:600;color:#0369a1;margin-bottom:.2rem">↓ Inputs</div><div id="step-new-inputs" style="display:flex;flex-wrap:wrap;gap:.25rem;min-height:1rem;margin-bottom:.2rem"></div><div style="display:flex;gap:.25rem;flex-wrap:wrap"><input id="io-in-name" placeholder="name…" style="width:90px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><input id="io-in-src" placeholder="instance.x  oder  step.id.y" style="flex:1;min-width:130px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem" list="io-source-list"><datalist id="io-source-list"></datalist><label style="font-size:.75rem;display:flex;align-items:center;gap:.2rem"><input type="checkbox" id="io-in-req"> Pflicht</label><button class="btn btn-secondary btn-sm" id="io-in-add">+ Input</button></div></div><div><div style="font-size:.72rem;font-weight:600;color:#059669;margin-bottom:.2rem">↑ Outputs</div><div id="step-new-outputs" style="display:flex;flex-wrap:wrap;gap:.25rem;min-height:1rem;margin-bottom:.2rem"></div><div style="display:flex;gap:.25rem;flex-wrap:wrap"><input id="io-out-name" placeholder="name…" style="width:90px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><select id="io-out-type" style="width:80px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><option>string</option><option>number</option><option>boolean</option><option>json</option></select><input id="io-out-desc" placeholder="Beschreibung…" style="flex:1;min-width:90px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><button class="btn btn-secondary btn-sm" id="io-out-add">+ Output</button></div></div></div></details>`;
   const decisionEditor=`<details class="step-io-editor" id="decision-editor"><summary>DMN Decision Table / Graph</summary><div style="margin-top:.5rem;display:flex;flex-direction:column;gap:.45rem"><div class="muted">Für Business Rules: z.B. <code>MitarbeiterAustrittsdatum &lt;= today</code> ⇒ <code>canDeactivateUser = true</code>.</div><div style="display:flex;gap:.25rem;flex-wrap:wrap"><input id="dmn-input" placeholder="Input (z.B. employmentEndDate)" style="min-width:180px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><select id="dmn-operator" style="width:80px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><option>&lt;=</option><option>&lt;</option><option>==</option><option>&gt;=</option><option>&gt;</option><option>!=</option></select><input id="dmn-value" value="today" placeholder="Wert" style="width:90px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><input id="dmn-output" value="canDeactivateUser" placeholder="Output" style="width:145px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><input id="dmn-output-value" value="true" placeholder="Output-Wert" style="width:90px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"></div><input id="dmn-label" value="Austrittsdatum ist heute oder vergangen" placeholder="Regel-Label" style="border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"></div></details>`;
-  return `<div class="step-add-row"><input id="step-new-name" placeholder="Schrittname…" style="flex:1;min-width:120px"><select id="step-new-type" style="width:150px"><option value="serviceTask">Service Task</option><option value="businessRuleTask">Business Rule</option></select><select id="step-new-svc"><option value="">— Service —</option>${opts}</select><input id="step-new-method" placeholder="Methode…" style="width:110px" list="step-method-list" autocomplete="off"><datalist id="step-method-list"></datalist><select id="step-new-role" style="width:100px"><option>supporting</option><option>primary</option><option>optional</option></select><label style="font-size:.78rem;display:flex;align-items:center;gap:.2rem"><input type="checkbox" id="step-new-req"> Pflicht</label><button class="btn btn-primary btn-sm" id="step-add-btn">+ Schritt</button></div>${depSection}${ioEditor}${decisionEditor}`;
+  return `<div class="step-add-row"><input id="step-new-name" placeholder="Schrittname…" style="flex:1;min-width:120px"><select id="step-new-type" style="width:150px"><option value="serviceTask">Service Task</option><option value="userTask">Benutzer Task</option><option value="manualTask">Manuell</option><option value="businessRuleTask">Business Rule</option></select><select id="step-new-svc"><option value="">— Service —</option>${opts}</select><input id="step-new-cap" id="step-new-cap" placeholder="Capability…" style="width:110px" list="step-cap-list" autocomplete="off"><datalist id="step-cap-list"></datalist><input id="step-new-method" placeholder="Methode…" style="width:110px" list="step-method-list" autocomplete="off"><datalist id="step-method-list"></datalist><input id="step-new-ui" placeholder="User Interface…" style="width:130px" list="step-ui-list" autocomplete="off"><datalist id="step-ui-list"></datalist><select id="step-new-role" style="width:100px"><option>supporting</option><option>primary</option><option>optional</option></select><label style="font-size:.78rem;display:flex;align-items:center;gap:.2rem"><input type="checkbox" id="step-new-req"> Pflicht</label><button class="btn btn-primary btn-sm" id="step-add-btn">+ Schritt</button></div>${depSection}${ioEditor}${decisionEditor}`;
 }
-function processStepTasks(p){return (p.steps||[]).map((s,i)=>({id:s.id||('Step_'+i),name:s.name||s.id,element_type:'bpmn:'+(s.task_type==='businessRuleTask'?'businessRuleTask':'serviceTask'),mapping_status:s.service_ref?'mapped':'unmapped',service_ref:s.service_ref,role:s.role,required:s.required,method:s.method,decision_ref:s.decision_ref||'',inputs:s.inputs||[],outputs:s.outputs||[],depends_on:s.depends_on||[],decision:s.decision,gateway:s.gateway,task_type:s.task_type,from_step:true}));}
+function bpmnTaskTypeForStep(tt){const t=tt||'serviceTask';if(['serviceTask','businessRuleTask','userTask','manualTask','scriptTask'].includes(t))return t;return'serviceTask';}
+function processStepTasks(p){return (p.steps||[]).map((s,i)=>({id:s.id||('Step_'+i),name:s.name||s.id,element_type:'bpmn:'+bpmnTaskTypeForStep(s.task_type),mapping_status:(s.service_ref||s.user_interface_ref)?'mapped':'unmapped',service_ref:s.service_ref,capability_ref:s.capability_ref,user_interface_ref:s.user_interface_ref,role:s.role,required:s.required,method:s.method,decision_ref:s.decision_ref||'',inputs:s.inputs||[],outputs:s.outputs||[],depends_on:s.depends_on||[],decision:s.decision,gateway:s.gateway,task_type:s.task_type,from_step:true}));}
 function processViewTasks(p){const stepTasks=processStepTasks(p);return stepTasks.length?stepTasks:(p.tasks||[]);}
 function renderProcBody(p,services){
   const steps=p.steps||[];
@@ -2322,8 +2336,24 @@ function wireSteps(container,d,proc){
   function wireStepButtons(){/* click actions are delegated from the current process body */}
   wireStepButtons();
   const svcSel=container.querySelector('#step-new-svc');
+  const typeSel=container.querySelector('#step-new-type');
   const methodDl=container.querySelector('#step-method-list');
   const methodInp=container.querySelector('#step-new-method');
+  const capInp=container.querySelector('#step-new-cap');
+  const capDl=container.querySelector('#step-cap-list');
+  const uiInp=container.querySelector('#step-new-ui');
+  const uiDl=container.querySelector('#step-ui-list');
+  // Show/hide method, capability, and UI fields based on task type
+  function applyTaskTypeVisibility(tt){
+    const isUser=tt==='userTask';
+    const isManual=tt==='manualTask';
+    const isSvc=!isUser&&!isManual;
+    if(methodInp)methodInp.style.display=isSvc?'':'none';
+    if(capInp)capInp.style.display=isSvc?'':'none';
+    if(uiInp)uiInp.style.display=isUser?'':'none';
+  }
+  typeSel?.addEventListener('change',()=>{applyTaskTypeVisibility(typeSel.value);loadServiceData(svcSel?.value||'');});
+  applyTaskTypeVisibility(typeSel?.value||'serviceTask');
   // Merge in all known service refs so the dropdown is usable even before any fulfillment service is attached.
   if(svcSel){(async()=>{try{
     const r=await fetch('/api/v1/services/refs');
@@ -2332,22 +2362,36 @@ function wireSteps(container,d,proc){
     const have=new Set([...svcSel.options].map(o=>o.value).filter(Boolean));
     (data.services||[]).forEach(s=>{if(!have.has(s.service_ref)){const o=document.createElement('option');o.value=s.service_ref;o.textContent=s.service_ref;svcSel.appendChild(o);have.add(s.service_ref);}});
   }catch(_){}})();}
-  async function loadMethodSuggestions(serviceRef){
-    if(!methodDl)return;
-    methodDl.innerHTML='';
-    if(methodInp)methodInp.placeholder='Methode…';
+  async function loadServiceData(serviceRef){
+    const tt=typeSel?.value||'serviceTask';
+    const isUser=tt==='userTask';
+    // Always clear datalists
+    if(methodDl)methodDl.innerHTML='';
+    if(capDl)capDl.innerHTML='';
+    if(uiDl)uiDl.innerHTML='';
     if(!serviceRef)return;
     const parts=serviceRef.split('/');
     if(parts.length<2)return;
     const domain=parts.slice(0,-1).join('/'),svc=parts[parts.length-1];
-    try{const r=await fetch('/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svc)+'/methods');
-      if(r.ok){const dd=await r.json();const methods=dd.methods||[];
-        methods.forEach(m=>{const name=typeof m==='string'?m:m.name;const o=document.createElement('option');o.value=name;methodDl.appendChild(o);});
-        if(methodInp)methodInp.placeholder=methods.length?'Methode wählen oder eingeben…':'Methode… (noch keine registriert)';}}
-    catch(_){}
+    const base='/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svc);
+    try{
+      const r=await fetch(base+'/methods');
+      if(r.ok){const dd=await r.json();(dd.methods||[]).forEach(m=>{const name=typeof m==='string'?m:m.name;const o=document.createElement('option');o.value=name;if(methodDl)methodDl.appendChild(o);});}
+    }catch(_){}
+    if(!isUser){
+      try{
+        const r=await fetch(base);
+        if(r.ok){const dd=await r.json();(dd.capabilities||[]).forEach(cap=>{const o=document.createElement('option');o.value=cap.name||cap;if(capDl)capDl.appendChild(o);});}
+      }catch(_){}
+    }else{
+      try{
+        const r=await fetch(base);
+        if(r.ok){const dd=await r.json();(dd.user_interfaces||[]).forEach(ui=>{const o=document.createElement('option');o.value=ui.name||ui;if(uiDl)uiDl.appendChild(o);});}
+      }catch(_){}
+    }
   }
-  svcSel?.addEventListener('change',()=>loadMethodSuggestions(svcSel.value));
-  if(svcSel?.value)loadMethodSuggestions(svcSel.value);
+  svcSel?.addEventListener('change',()=>loadServiceData(svcSel.value));
+  if(svcSel?.value)loadServiceData(svcSel.value);
   const addBtn=container.querySelector('#step-add-btn');
   const cancelEditBtn=container.querySelector('#step-edit-cancel');
   let editingStepId='';
@@ -2372,7 +2416,9 @@ function wireSteps(container,d,proc){
     if(!step)return;
     setEditorMode(step);
     const setVal=(sel,val)=>{const el=container.querySelector(sel);if(el)el.value=val??'';};
-    setVal('#step-new-name',step.name||'');setVal('#step-new-type',step.task_type||'serviceTask');setVal('#step-new-svc',step.service_ref||'');setVal('#step-new-method',step.method||'');setVal('#step-new-role',step.role||'supporting');
+    setVal('#step-new-name',step.name||'');setVal('#step-new-type',step.task_type||'serviceTask');setVal('#step-new-svc',step.service_ref||'');setVal('#step-new-cap',step.capability_ref||'');setVal('#step-new-method',step.method||'');setVal('#step-new-ui',step.user_interface_ref||'');setVal('#step-new-role',step.role||'supporting');
+    applyTaskTypeVisibility(step.task_type||'serviceTask');
+    loadServiceData(step.service_ref||'');
     const req=container.querySelector('#step-new-req');if(req)req.checked=!!step.required;
     container.querySelectorAll('.step-dep-cb').forEach(cb=>{cb.checked=(step.depends_on||[]).includes(cb.value);});
     newInputs=(step.inputs||[]).map(x=>({...x}));newOutputs=(step.outputs||[]).map(x=>({...x}));renderIOChips();
@@ -2381,7 +2427,7 @@ function wireSteps(container,d,proc){
   }
   function clearStepEditor(){
     setEditorMode(null);
-    ['#step-new-name','#step-new-method','#io-in-name','#io-in-src','#io-out-name','#io-out-desc'].forEach(sel=>{const el=container.querySelector(sel);if(el)el.value='';});
+    ['#step-new-name','#step-new-cap','#step-new-method','#step-new-ui','#io-in-name','#io-in-src','#io-out-name','#io-out-desc'].forEach(sel=>{const el=container.querySelector(sel);if(el)el.value='';});
     const req=container.querySelector('#step-new-req');if(req)req.checked=false;
     container.querySelectorAll('.step-dep-cb').forEach(cb=>cb.checked=false);
     newInputs=[];newOutputs=[];renderIOChips();
@@ -2440,11 +2486,13 @@ function wireSteps(container,d,proc){
     if(!name)return;
     const task_type=container.querySelector('#step-new-type')?.value||'serviceTask';
     const service_ref=container.querySelector('#step-new-svc')?.value||'';
+    const capability_ref=container.querySelector('#step-new-cap')?.value.trim()||'';
     const method=container.querySelector('#step-new-method')?.value.trim()||'';
+    const user_interface_ref=container.querySelector('#step-new-ui')?.value.trim()||'';
     const role=container.querySelector('#step-new-role')?.value||'supporting';
     const required=container.querySelector('#step-new-req')?.checked||false;
     const depends_on=[...container.querySelectorAll('.step-dep-cb:checked')].map(cb=>cb.value);
-    const payload={name,task_type,service_ref,method,role,required,depends_on,inputs:newInputs,outputs:newOutputs,decision:buildBusinessRuleDecision(task_type),gateway:buildBusinessRuleGateway(task_type)};
+    const payload={name,task_type,service_ref,capability_ref,method,user_interface_ref,role,required,depends_on,inputs:newInputs,outputs:newOutputs,decision:buildBusinessRuleDecision(task_type),gateway:buildBusinessRuleGateway(task_type)};
     if(addBtn)addBtn.disabled=true;
     const url='/api/v1/processes/'+encodeURIComponent(proc.id)+'/steps'+(editingStepId?'/'+encodeURIComponent(editingStepId):'');
     const r=await fetch(url,{method:editingStepId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
