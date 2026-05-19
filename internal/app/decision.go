@@ -11,6 +11,7 @@ import (
 	"github.com/nomos/nomos/internal/cosmosfs"
 	"github.com/nomos/nomos/internal/dmn"
 	"github.com/nomos/nomos/internal/fsx"
+	"github.com/nomos/nomos/internal/idgen"
 	"github.com/nomos/nomos/internal/model"
 )
 
@@ -322,7 +323,14 @@ func EvaluateDecision(path, domainCanonical, id string, req EvaluateDecisionRequ
 	return nil, Error(CodeInvalidInput, "Decision not found: "+id, http.StatusNotFound, nil)
 }
 
+// nextDecisionID erzeugt eine neue ID gemäß ADR-0020.
+// Bei einem Generator-Fehler (extrem unwahrscheinlich) fällt auf
+// das alte Schema zurück, damit Create-Aufrufe nie hart fehlschlagen.
 func nextDecisionID(domainPath string) string {
+	id, err := idgen.NewForType("decision")
+	if err == nil {
+		return id
+	}
 	nodes, _ := cosmosfs.ScanDecisions(domainPath)
 	return fmt.Sprintf("DEC-%03d", len(nodes)+1)
 }

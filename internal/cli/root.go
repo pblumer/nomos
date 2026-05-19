@@ -16,6 +16,7 @@ import (
 
 	"github.com/nomos/nomos/internal/app"
 	"github.com/nomos/nomos/internal/fsx"
+	"github.com/nomos/nomos/internal/idgen"
 	"github.com/nomos/nomos/internal/model"
 	"github.com/nomos/nomos/internal/selfmodel"
 	"github.com/nomos/nomos/internal/server"
@@ -387,8 +388,15 @@ func blueprintCmd() *cobra.Command {
 		serviceRef, _ := cmd.Flags().GetString("service-ref")
 		serviceBlueprintRef, _ := cmd.Flags().GetString("service-blueprint-ref")
 
-		if id == "" || name == "" {
-			return fmt.Errorf("--id and --name are required")
+		if name == "" {
+			return fmt.Errorf("--name is required")
+		}
+		if id == "" {
+			generated, err := idgen.NewForType(bpType)
+			if err != nil {
+				return fmt.Errorf("id generation: %w", err)
+			}
+			id = generated
 		}
 
 		bp := model.Blueprint{
@@ -414,7 +422,7 @@ func blueprintCmd() *cobra.Command {
 		return nil
 	}}
 	create.Flags().String("path", ".", "Path to the Cosmos repository")
-	create.Flags().String("id", "", "Blueprint ID (required)")
+	create.Flags().String("id", "", "Blueprint ID (optional; auto-generated per ADR-0020 if omitted)")
 	create.Flags().String("type", "product_blueprint", "Blueprint type: product_blueprint or service_blueprint")
 	create.Flags().String("name", "", "Blueprint name (required)")
 	create.Flags().String("version", "0.1.0", "Version")
@@ -576,8 +584,15 @@ func instanceCmd() *cobra.Command {
 		if err := validateFormat(outFmt); err != nil {
 			return writeCLIError(cmd, outFmt, err)
 		}
-		if id == "" || blueprintRef == "" {
-			return fmt.Errorf("--id and --blueprint-ref are required")
+		if blueprintRef == "" {
+			return fmt.Errorf("--blueprint-ref is required")
+		}
+		if id == "" {
+			generated, err := idgen.NewForType(instType)
+			if err != nil {
+				return writeCLIError(cmd, outFmt, fmt.Errorf("id generation: %w", err))
+			}
+			id = generated
 		}
 		if name == "" {
 			name = id
@@ -602,7 +617,7 @@ func instanceCmd() *cobra.Command {
 		return nil
 	}}
 	create.Flags().String("path", ".", "Path to the Cosmos repository")
-	create.Flags().String("id", "", "Instance ID (required)")
+	create.Flags().String("id", "", "Instance ID (optional; auto-generated per ADR-0020 if omitted)")
 	create.Flags().String("blueprint-ref", "", "Blueprint ID to instantiate (required)")
 	create.Flags().String("blueprint-version", "0.1.0", "Blueprint version")
 	create.Flags().String("type", "product_instance", "Instance type: product_instance or service_instance")

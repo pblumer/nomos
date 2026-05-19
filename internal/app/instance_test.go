@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomos/nomos/internal/idgen"
 	"github.com/nomos/nomos/internal/model"
 	"github.com/nomos/nomos/internal/storage"
 )
@@ -173,11 +174,26 @@ func TestCreateInstance_DuplicateID(t *testing.T) {
 	}
 }
 
-func TestCreateInstance_EmptyID(t *testing.T) {
+func TestCreateInstance_EmptyID_AutoGenerates(t *testing.T) {
+	// ADR-0020: leere ID erzeugt eine system-generierte ID (Präfix PRI_ für product_instance).
 	p := createTestCosmosWithInstances(t)
 	inst := model.Instance{ID: "", Type: "product_instance", BlueprintRef: "PB-INST-001", Status: "draft", Owner: "Team"}
-	if err := CreateInstance(p, inst); err == nil {
-		t.Fatal("expected error for empty ID")
+	if err := CreateInstance(p, inst); err != nil {
+		t.Fatalf("CreateInstance with empty ID should auto-generate, got error: %v", err)
+	}
+	list, err := ListInstances(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, i := range list.Instances {
+		if i.BlueprintRef == "PB-INST-001" && idgen.IsValidForType(i.ID, "product_instance") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected an instance with auto-generated PRI_ ID")
 	}
 }
 
