@@ -764,6 +764,69 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/services/")
 	parts := strings.Split(rest, "/")
 
+	// POST /api/v1/services/{domain}/{service}/capabilities
+	if len(parts) == 3 && parts[2] == "capabilities" {
+		domain, service := parts[0], parts[1]
+		if r.Method == http.MethodPost {
+			var cap model.ServiceCapability
+			if err := json.NewDecoder(r.Body).Decode(&cap); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			dto, err := app.AddServiceCapability(h.cosmosPath, domain, service, cap)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusCreated, dto)
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	// POST /api/v1/services/{domain}/{service}/data-objects
+	if len(parts) == 3 && parts[2] == "data-objects" {
+		domain, service := parts[0], parts[1]
+		if r.Method == http.MethodPost {
+			var obj model.ServiceDataObject
+			if err := json.NewDecoder(r.Body).Decode(&obj); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			dto, err := app.AddServiceDataObject(h.cosmosPath, domain, service, obj)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusCreated, dto)
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	// POST /api/v1/services/{domain}/{service}/user-interfaces
+	if len(parts) == 3 && parts[2] == "user-interfaces" {
+		domain, service := parts[0], parts[1]
+		if r.Method == http.MethodPost {
+			var ui model.ServiceUserInterface
+			if err := json.NewDecoder(r.Body).Decode(&ui); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			dto, err := app.AddServiceUserInterface(h.cosmosPath, domain, service, ui)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusCreated, dto)
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
 	// GET/POST /api/v1/services/{domain}/{service}/methods
 	if len(parts) == 3 && parts[2] == "methods" {
 		domain, service := parts[0], parts[1]
