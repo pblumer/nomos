@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nomos/nomos/internal/dmn"
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/idgen"
 	"github.com/nomos/nomos/internal/idmigrate"
@@ -808,6 +809,8 @@ func workspaceFromPath(p string) string {
 }
 
 // findDecisionByID scans all domain directories for a decision with the given ID.
+// When the decision YAML references a DMN file, the DMN output columns replace the
+// YAML outputs so that gatewayBranches always uses the authoritative DMN variable names.
 func findDecisionByID(cosmosPath, id string) *model.Decision {
 	if cosmosPath == "" || id == "" {
 		return nil
@@ -824,6 +827,11 @@ func findDecisionByID(cosmosPath, id string) *model.Decision {
 		for _, name := range []string{id + ".yaml", "decision.yaml"} {
 			var dec model.Decision
 			if fsx.ReadYAML(filepath.Join(p, name), &dec) == nil && dec.ID == id {
+				if dec.DMNFile != "" {
+					if dmnOuts := dmnOutputsFromFile(filepath.Join(p, dec.DMNFile), id); len(dmnOuts) > 0 {
+						dec.Outputs = dmnOuts
+					}
+				}
 				found = &dec
 				return filepath.SkipAll
 			}
@@ -831,6 +839,57 @@ func findDecisionByID(cosmosPath, id string) *model.Decision {
 		return nil
 	})
 	return found
+}
+
+// dmnOutputsFromFile parses a DMN file and returns the output columns of the decision
+// matching decisionID (by suffix match). Falls back to the first decision with a decisionTable.
+func dmnOutputsFromFile(dmnPath, decisionID string) []model.DecisionIO {
+	data, err := os.ReadFile(dmnPath)
+	if err != nil {
+		return nil
+	}
+	defs, err := dmn.ParseDefinitions(data)
+	if err != nil {
+		return nil
+	}
+	// Try to find the matching decision first, then fall back to the first with a decisionTable.
+	for pass := 0; pass < 2; pass++ {
+		for _, d := range defs.Decisions {
+			if pass == 0 && !strings.Contains(d.ID, decisionID) {
+				continue
+			}
+			if d.Logic == nil || d.Logic.DecisionTable == nil {
+				continue
+			}
+			var out []model.DecisionIO
+			for _, o := range d.Logic.DecisionTable.Outputs {
+				name := firstNonEmpty(o.Name, o.Label)
+				if name == "" {
+					continue
+				}
+				out = append(out, model.DecisionIO{Name: name, Type: normalizeDMNTypeRef(o.TypeRef)})
+			}
+			if len(out) > 0 {
+				return out
+			}
+		}
+	}
+	return nil
+}
+
+func normalizeDMNTypeRef(t string) string {
+	switch strings.ToLower(strings.TrimSpace(t)) {
+	case "boolean":
+		return "boolean"
+	case "integer", "long", "double", "decimal", "number":
+		return "number"
+	case "string":
+		return "string"
+	case "date", "date and time", "datetime":
+		return "date"
+	default:
+		return strings.ToLower(strings.TrimSpace(t))
+	}
 }
 
 // gatewayBranches returns the outgoing branches for an exclusive gateway step.
