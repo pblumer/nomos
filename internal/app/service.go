@@ -185,7 +185,19 @@ func serviceDTO(domain string, s cosmosfs.ServiceNode) ServiceDTO {
 			capDefs = append(capDefs, ServiceCapabilityDTO{ID: c.ID, Name: c.Name, Summary: c.Summary, Stability: c.Stability, SideEffect: c.SideEffect, Connectors: connDTOs, RelatedUCI: c.RelatedUCI, ConnectorTypes: connectorTypeLabel(c.Connectors)})
 		}
 	}
-	return ServiceDTO{Name: s.Name, Domain: domain, Owner: fallback(s.Metadata.Owner, "unknown"), OwnedBy: ownedBy, OperatedBy: s.Metadata.OperatedBy, Capabilities: capNames, CapabilityDefs: capDefs, SupportedProducts: s.Metadata.SupportedProducts, Methods: methods, Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path}
+	doNames := make([]string, 0, len(s.Metadata.DataObjects))
+	var doDefs []ServiceDataObjectDTO
+	for _, d := range s.Metadata.DataObjects {
+		doNames = append(doNames, d.Name)
+		doDefs = append(doDefs, ServiceDataObjectDTO{ID: d.ID, Name: d.Name, Summary: d.Summary, Schema: d.Schema, Format: d.Format, Stability: d.Stability})
+	}
+	uiNames := make([]string, 0, len(s.Metadata.UserInterfaces))
+	var uiDefs []ServiceUserInterfaceDTO
+	for _, u := range s.Metadata.UserInterfaces {
+		uiNames = append(uiNames, u.Name)
+		uiDefs = append(uiDefs, ServiceUserInterfaceDTO{ID: u.ID, Name: u.Name, Summary: u.Summary, Channel: u.Channel, URL: u.URL, Stability: u.Stability})
+	}
+	return ServiceDTO{Name: s.Name, Domain: domain, Owner: fallback(s.Metadata.Owner, "unknown"), OwnedBy: ownedBy, OperatedBy: s.Metadata.OperatedBy, Capabilities: capNames, CapabilityDefs: capDefs, DataObjects: doNames, DataObjectDefs: doDefs, UserInterfaces: uiNames, UserInterfaceDefs: uiDefs, SupportedProducts: s.Metadata.SupportedProducts, Methods: methods, Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path}
 }
 
 func AddServiceMethod(path, domainName, serviceName, method string) (ServiceDTO, error) {
@@ -231,6 +243,121 @@ func RemoveServiceMethod(path, domainName, serviceName, method string) (ServiceD
 		}
 	}
 	raw.Methods = filtered
+	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetService(path, domainName, serviceName)
+}
+
+func slugify(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	var b strings.Builder
+	prevDash := false
+	for _, r := range s {
+		switch {
+		case (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'):
+			b.WriteRune(r)
+			prevDash = false
+		case r == '-' || r == '_' || r == ' ':
+			if !prevDash && b.Len() > 0 {
+				b.WriteByte('-')
+				prevDash = true
+			}
+		}
+	}
+	out := strings.Trim(b.String(), "-")
+	return out
+}
+
+// AddServiceCapability appends a new capability to the service's service.yaml.
+// The ID is taken from the request or derived from the name. Returns the
+// updated ServiceDTO.
+func AddServiceCapability(path, domainName, serviceName string, cap model.ServiceCapability) (ServiceDTO, error) {
+	cap.Name = strings.TrimSpace(cap.Name)
+	cap.ID = strings.TrimSpace(cap.ID)
+	if cap.Name == "" {
+		return ServiceDTO{}, Error(CodeInvalidInput, "capability name is required", http.StatusBadRequest, nil)
+	}
+	if cap.ID == "" {
+		cap.ID = "cap-" + slugify(cap.Name)
+	}
+	svc, err := GetService(path, domainName, serviceName)
+	if err != nil {
+		return ServiceDTO{}, err
+	}
+	yamlPath := filepath.Join(svc.Path, "service.yaml")
+	var raw model.Service
+	if err := fsx.ReadYAML(yamlPath, &raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	for _, c := range raw.Capabilities {
+		if c.ID == cap.ID || (c.Name != "" && c.Name == cap.Name) {
+			return ServiceDTO{}, Error(CodeInvalidInput, "capability already exists: "+cap.ID, http.StatusConflict, nil)
+		}
+	}
+	raw.Capabilities = append(raw.Capabilities, cap)
+	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetService(path, domainName, serviceName)
+}
+
+// AddServiceDataObject appends a new data object to service.yaml.
+func AddServiceDataObject(path, domainName, serviceName string, obj model.ServiceDataObject) (ServiceDTO, error) {
+	obj.Name = strings.TrimSpace(obj.Name)
+	obj.ID = strings.TrimSpace(obj.ID)
+	if obj.Name == "" {
+		return ServiceDTO{}, Error(CodeInvalidInput, "data object name is required", http.StatusBadRequest, nil)
+	}
+	if obj.ID == "" {
+		obj.ID = "do-" + slugify(obj.Name)
+	}
+	svc, err := GetService(path, domainName, serviceName)
+	if err != nil {
+		return ServiceDTO{}, err
+	}
+	yamlPath := filepath.Join(svc.Path, "service.yaml")
+	var raw model.Service
+	if err := fsx.ReadYAML(yamlPath, &raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	for _, d := range raw.DataObjects {
+		if d.ID == obj.ID || (d.Name != "" && d.Name == obj.Name) {
+			return ServiceDTO{}, Error(CodeInvalidInput, "data object already exists: "+obj.ID, http.StatusConflict, nil)
+		}
+	}
+	raw.DataObjects = append(raw.DataObjects, obj)
+	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetService(path, domainName, serviceName)
+}
+
+// AddServiceUserInterface appends a new user interface to service.yaml.
+func AddServiceUserInterface(path, domainName, serviceName string, ui model.ServiceUserInterface) (ServiceDTO, error) {
+	ui.Name = strings.TrimSpace(ui.Name)
+	ui.ID = strings.TrimSpace(ui.ID)
+	if ui.Name == "" {
+		return ServiceDTO{}, Error(CodeInvalidInput, "user interface name is required", http.StatusBadRequest, nil)
+	}
+	if ui.ID == "" {
+		ui.ID = "ui-" + slugify(ui.Name)
+	}
+	svc, err := GetService(path, domainName, serviceName)
+	if err != nil {
+		return ServiceDTO{}, err
+	}
+	yamlPath := filepath.Join(svc.Path, "service.yaml")
+	var raw model.Service
+	if err := fsx.ReadYAML(yamlPath, &raw); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	for _, u := range raw.UserInterfaces {
+		if u.ID == ui.ID || (u.Name != "" && u.Name == ui.Name) {
+			return ServiceDTO{}, Error(CodeInvalidInput, "user interface already exists: "+ui.ID, http.StatusConflict, nil)
+		}
+	}
+	raw.UserInterfaces = append(raw.UserInterfaces, ui)
 	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
@@ -523,14 +650,25 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 		for _, svc := range d.Services {
 			s := svc
 			svcNode := NamespaceTreeNodeDTO{Label: svc.Name, Kind: "service", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, Persisted: true, CanOpenDetails: true}
-			if len(svc.CapabilityDefs) > 0 {
-				capParent := NamespaceTreeNodeDTO{Label: "Capabilities", Kind: "capability-parent", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, FulfillmentCount: len(svc.CapabilityDefs)}
-				for _, cap := range svc.CapabilityDefs {
-					c := cap
-					capParent.Children = append(capParent.Children, NamespaceTreeNodeDTO{Label: c.Name, Kind: "capability", Canonical: d.Canonical + "/" + svc.Name + "/" + c.ID, CanonicalName: d.Canonical, Service: &s, Capability: &c, Persisted: true, CanOpenDetails: false})
-				}
-				svcNode.Children = append(svcNode.Children, capParent)
-			} else {
+			capParent := NamespaceTreeNodeDTO{Label: "Capabilities", Kind: "capability-parent", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, FulfillmentCount: len(svc.CapabilityDefs), CanOpenDetails: true}
+			for _, cap := range svc.CapabilityDefs {
+				c := cap
+				capParent.Children = append(capParent.Children, NamespaceTreeNodeDTO{Label: c.Name, Kind: "capability", Canonical: d.Canonical + "/" + svc.Name + "/" + c.ID, CanonicalName: d.Canonical, Service: &s, Capability: &c, Persisted: true, CanOpenDetails: false})
+			}
+			svcNode.Children = append(svcNode.Children, capParent)
+			doParent := NamespaceTreeNodeDTO{Label: "Data Objects", Kind: "data-object-parent", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, FulfillmentCount: len(svc.DataObjectDefs), CanOpenDetails: true}
+			for _, dobj := range svc.DataObjectDefs {
+				o := dobj
+				doParent.Children = append(doParent.Children, NamespaceTreeNodeDTO{Label: o.Name, Kind: "data-object", Canonical: d.Canonical + "/" + svc.Name + "/" + o.ID, CanonicalName: d.Canonical, Service: &s, DataObject: &o, Persisted: true, CanOpenDetails: false})
+			}
+			svcNode.Children = append(svcNode.Children, doParent)
+			uiParent := NamespaceTreeNodeDTO{Label: "User Interfaces", Kind: "user-interface-parent", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, FulfillmentCount: len(svc.UserInterfaceDefs), CanOpenDetails: true}
+			for _, ui := range svc.UserInterfaceDefs {
+				u := ui
+				uiParent.Children = append(uiParent.Children, NamespaceTreeNodeDTO{Label: u.Name, Kind: "user-interface", Canonical: d.Canonical + "/" + svc.Name + "/" + u.ID, CanonicalName: d.Canonical, Service: &s, UserInterface: &u, Persisted: true, CanOpenDetails: false})
+			}
+			svcNode.Children = append(svcNode.Children, uiParent)
+			if len(svc.CapabilityDefs) == 0 && len(svc.DataObjectDefs) == 0 && len(svc.UserInterfaceDefs) == 0 {
 				for _, method := range svc.Methods {
 					m := method
 					svcNode.Children = append(svcNode.Children, NamespaceTreeNodeDTO{Label: m.Name, Kind: "service-method", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, MethodName: m.Name, Service: &s, Persisted: true, CanOpenDetails: true})
