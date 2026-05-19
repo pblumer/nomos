@@ -73,12 +73,16 @@
     cmd: "{{ nomos_home }}/nomos cosmos init {{ nomos_cosmos_path }}"
     creates: "{{ nomos_cosmos_path }}/.nomos/cosmos.yaml"
 
-# Restore container-user ownership on cosmos files after any host-level bootstrap.
-# The Docker container runs as UID 10001 (nomos) and must be able to write the cosmos.
-# We do NOT recurse-chown from the host because that overwrites container-created files
-# (host nomos UID 998 ≠ container nomos UID 10001).
-- name: Fix cosmos ownership inside Docker container
-  command: docker exec nomos chown -R nomos:nomos /workspace
+# The Docker container runs as UID/GID 10001. Cosmos files must be owned by 10001
+# so the server can write them (BPMN sync, self-upgrade, etc.).
+# Host nomos user UID 998 ≠ container UID 10001 — chown from host as root.
+- name: Fix cosmos ownership for Docker container (UID 10001)
+  file:
+    path: "{{ nomos_cosmos_path }}"
+    state: directory
+    owner: "10001"
+    group: "10001"
+    recurse: true
 
 - name: Enable and start nomos service
   systemd:
