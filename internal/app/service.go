@@ -688,12 +688,12 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 				uiParent.Children = append(uiParent.Children, NamespaceTreeNodeDTO{Label: u.Name, Kind: "user-interface", Canonical: d.Canonical + "/" + svc.Name + "/" + u.ID, CanonicalName: d.Canonical, Service: &s, UserInterface: &u, Persisted: true, CanOpenDetails: false})
 			}
 			svcNode.Children = append(svcNode.Children, uiParent)
-			if len(svc.CapabilityDefs) == 0 && len(svc.DataObjectDefs) == 0 && len(svc.UserInterfaceDefs) == 0 {
-				for _, method := range svc.Methods {
-					m := method
-					svcNode.Children = append(svcNode.Children, NamespaceTreeNodeDTO{Label: m.Name, Kind: "service-method", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, MethodName: m.Name, Service: &s, Persisted: true, CanOpenDetails: true})
-				}
+			methodParent := NamespaceTreeNodeDTO{Label: "Methods", Kind: "service-method-parent", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, FulfillmentCount: len(svc.Methods), CanOpenDetails: false}
+			for _, method := range svc.Methods {
+				m := method
+				methodParent.Children = append(methodParent.Children, NamespaceTreeNodeDTO{Label: m.Name, Kind: "service-method", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, MethodName: m.Name, Service: &s, Persisted: true, CanOpenDetails: true})
 			}
+			svcNode.Children = append(svcNode.Children, methodParent)
 			serviceParent.Children = append(serviceParent.Children, svcNode)
 		}
 	}
