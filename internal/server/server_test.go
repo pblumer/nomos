@@ -1190,7 +1190,9 @@ func TestCosmosTemplateContainsProductMoveWorkflowHooks(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	rr := get(h, "/cosmos?selected=product:PB-ACC-MBX-001")
 	body := rr.Body.String()
-	for _, want := range []string{"Produkt verschieben", "Fulfillment Services", "product-fulfillment-parent", "product-fulfillment-service", "identity.blumer.cloud/user-account", "collaboration.blumer.cloud/mailbox", "2 svc", "local", "cross-domain", "OLA", "SLA", "data-tree-target", "service:identity.blumer.cloud/user-account", "data-node-type=\"product\"", "data-node-type=\"domain\"", "data-product-id=\"PB-ACC-MBX-001\"", "--cosmos-tree-width", "minmax(200px,24vw)", "move-product-form", "dragstart", "dragover", "drop", "/api/v1/products/", "/move"} {
+	// CSS-Layout-Token aktualisiert nach main@d924adc (Drag-Resize-Handle):
+	// Grid-basiertes --cosmos-tree-width wurde durch Flexbox + ex-tree-resize-handle ersetzt.
+	for _, want := range []string{"Produkt verschieben", "Fulfillment Services", "product-fulfillment-parent", "product-fulfillment-service", "identity.blumer.cloud/user-account", "collaboration.blumer.cloud/mailbox", "2 svc", "local", "cross-domain", "OLA", "SLA", "data-tree-target", "service:identity.blumer.cloud/user-account", "data-node-type=\"product\"", "data-node-type=\"domain\"", "data-product-id=\"PB-ACC-MBX-001\"", "ex-tree-resize-handle", "nomos-tree-width", "move-product-form", "dragstart", "dragover", "drop", "/api/v1/products/", "/move"} {
 		if rr.Code != http.StatusOK || !strings.Contains(body, want) {
 			t.Fatalf("cosmos move workflow missing %q status=%d", want, rr.Code)
 		}
