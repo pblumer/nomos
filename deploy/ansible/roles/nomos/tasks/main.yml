@@ -2,16 +2,9 @@
 - name: Build nomos binary (linux/amd64)
   delegate_to: localhost
   become: false
-  command:
-    cmd: >
-      go build
-      -ldflags "-X github.com/nomos/nomos/internal/version.Version={{ nomos_version }}
-                -X github.com/nomos/nomos/internal/version.Commit={{ nomos_version }}
-                -X github.com/nomos/nomos/internal/version.Date={{ ansible_date_time.iso8601 }}
-                -X github.com/nomos/nomos/internal/version.Dirty=false
-                -X github.com/nomos/nomos/internal/version.BuiltBy=ansible"
-      -o /tmp/nomos-linux-amd64
-      ./cmd/nomos
+  shell: |
+    LDFLAGS="-X github.com/nomos/nomos/internal/version.Version={{ nomos_version }} -X github.com/nomos/nomos/internal/version.Commit={{ nomos_version }} -X github.com/nomos/nomos/internal/version.Date={{ ansible_date_time.iso8601 }} -X github.com/nomos/nomos/internal/version.Dirty=false -X github.com/nomos/nomos/internal/version.BuiltBy=ansible"
+    go build -ldflags "$LDFLAGS" -o /tmp/nomos-linux-amd64 ./cmd/nomos
   environment:
     GOOS: linux
     GOARCH: amd64
