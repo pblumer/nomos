@@ -11,6 +11,8 @@ import (
 	"github.com/nomos/nomos/internal/cosmosfs"
 	"github.com/nomos/nomos/internal/dmn"
 	"github.com/nomos/nomos/internal/fsx"
+	"github.com/nomos/nomos/internal/idgen"
+	"github.com/nomos/nomos/internal/idmigrate"
 	"github.com/nomos/nomos/internal/model"
 )
 
@@ -60,8 +62,10 @@ func GetDecision(path, domainCanonical, id string) (DecisionDTO, error) {
 	if err != nil {
 		return DecisionDTO{}, err
 	}
+	// ADR-0020: Legacy-IDs werden transparent via id-history aufgelöst.
+	resolved, _ := idmigrate.Resolve(path, id)
 	for _, n := range nodes {
-		if n.Metadata.ID == id {
+		if n.Metadata.ID == id || n.Metadata.ID == resolved {
 			return decisionDTO(n), nil
 		}
 	}
@@ -322,7 +326,14 @@ func EvaluateDecision(path, domainCanonical, id string, req EvaluateDecisionRequ
 	return nil, Error(CodeInvalidInput, "Decision not found: "+id, http.StatusNotFound, nil)
 }
 
+// nextDecisionID erzeugt eine neue ID gemäß ADR-0020.
+// Bei einem Generator-Fehler (extrem unwahrscheinlich) fällt auf
+// das alte Schema zurück, damit Create-Aufrufe nie hart fehlschlagen.
 func nextDecisionID(domainPath string) string {
+	id, err := idgen.NewForType("decision")
+	if err == nil {
+		return id
+	}
 	nodes, _ := cosmosfs.ScanDecisions(domainPath)
 	return fmt.Sprintf("DEC-%03d", len(nodes)+1)
 }

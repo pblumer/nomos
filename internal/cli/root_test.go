@@ -938,10 +938,13 @@ func TestInstanceCreateCLI(t *testing.T) {
 		t.Fatal("expected duplicate ID error")
 	}
 
-	// Missing --id should fail
-	_, _, err = executeCommand(t, "instance", "create", "--path", p, "--blueprint-ref", "PB-IC-001")
-	if err == nil {
-		t.Fatal("expected error for missing --id")
+	// ADR-0020: missing --id should auto-generate a system-assigned ID.
+	out, _, err = executeCommand(t, "instance", "create", "--path", p, "--blueprint-ref", "PB-IC-001")
+	if err != nil {
+		t.Fatalf("instance create without --id should auto-generate, got error: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "PRI_") {
+		t.Fatalf("expected auto-generated PRI_ ID in output: %s", out)
 	}
 }
 

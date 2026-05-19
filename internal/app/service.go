@@ -15,6 +15,8 @@ import (
 	"github.com/nomos/nomos/internal/cosmosfs"
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/graph"
+	"github.com/nomos/nomos/internal/idgen"
+	"github.com/nomos/nomos/internal/idmigrate"
 	"github.com/nomos/nomos/internal/model"
 	"github.com/nomos/nomos/internal/namespace"
 	"github.com/nomos/nomos/internal/storage"
@@ -816,8 +818,10 @@ func GetBlueprint(path, id string) (BlueprintDTO, error) {
 	if err != nil {
 		return BlueprintDTO{}, err
 	}
+	// ADR-0020: Legacy-IDs werden transparent via id-history aufgelöst.
+	resolved, _ := idmigrate.Resolve(path, id)
 	for _, b := range items.Blueprints {
-		if b.ID == id {
+		if b.ID == id || b.ID == resolved {
 			return b, nil
 		}
 	}
@@ -842,8 +846,9 @@ func GetInstance(path, id string) (InstanceDTO, error) {
 	if err != nil {
 		return InstanceDTO{}, err
 	}
+	resolved, _ := idmigrate.Resolve(path, id)
 	for _, i := range items.Instances {
-		if i.ID == id {
+		if i.ID == id || i.ID == resolved {
 			return i, nil
 		}
 	}
@@ -1318,11 +1323,15 @@ func CreateBlueprint(path string, bp model.Blueprint) error {
 	if _, err := os.Stat(storage.CosmosFile(path)); err != nil {
 		return Error(CodeCosmosMissing, ".nomos/cosmos.yaml not found", http.StatusNotFound, err)
 	}
-	if strings.TrimSpace(bp.ID) == "" {
-		return Error(CodeInvalidInput, "Blueprint ID is required", http.StatusBadRequest, nil)
-	}
 	if bp.Type != "product_blueprint" && bp.Type != "service_blueprint" {
 		return Error(CodeInvalidInput, "Blueprint type must be product_blueprint or service_blueprint", http.StatusBadRequest, nil)
+	}
+	if strings.TrimSpace(bp.ID) == "" {
+		generated, err := idgen.NewForType(bp.Type)
+		if err != nil {
+			return Error(CodeInternalError, "Failed to generate blueprint ID: "+err.Error(), http.StatusInternalServerError, err)
+		}
+		bp.ID = generated
 	}
 
 	existing, err := ListBlueprints(path)
@@ -1364,7 +1373,11 @@ func CreateProductOffering(path, domainCanonical string, req CreateProductOfferi
 	}
 	id := strings.TrimSpace(req.ID)
 	if id == "" {
-		return BlueprintDTO{}, Error(CodeInvalidInput, "Product ID is required", http.StatusBadRequest, nil)
+		generated, err := idgen.NewForType("product_blueprint")
+		if err != nil {
+			return BlueprintDTO{}, Error(CodeInternalError, "Failed to generate product ID: "+err.Error(), http.StatusInternalServerError, err)
+		}
+		id = generated
 	}
 	version := firstNonEmpty(strings.TrimSpace(req.Version), "0.1.0")
 	status := firstNonEmpty(strings.TrimSpace(req.Status), "draft")
@@ -1785,14 +1798,18 @@ func CreateInstance(path string, inst model.Instance) error {
 	if _, err := os.Stat(storage.CosmosFile(path)); err != nil {
 		return Error(CodeCosmosMissing, ".nomos/cosmos.yaml not found", http.StatusNotFound, err)
 	}
-	if strings.TrimSpace(inst.ID) == "" {
-		return Error(CodeInvalidInput, "Instance ID is required", http.StatusBadRequest, nil)
-	}
 	if inst.Type != "product_instance" && inst.Type != "service_instance" {
 		return Error(CodeInvalidInput, "Instance type must be product_instance or service_instance", http.StatusBadRequest, nil)
 	}
 	if strings.TrimSpace(inst.BlueprintRef) == "" {
 		return Error(CodeInvalidInput, "blueprint_ref is required", http.StatusBadRequest, nil)
+	}
+	if strings.TrimSpace(inst.ID) == "" {
+		generated, err := idgen.NewForType(inst.Type)
+		if err != nil {
+			return Error(CodeInternalError, "Failed to generate instance ID: "+err.Error(), http.StatusInternalServerError, err)
+		}
+		inst.ID = generated
 	}
 
 	existing, err := ListInstances(path)
