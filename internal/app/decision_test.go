@@ -239,6 +239,70 @@ func TestGetDecision_ReDerivesInputTypeFromDMNColumn(t *testing.T) {
 	}
 }
 
+// When the modeller renamed the decision-table column reference to the
+// FEEL-callable identifier ("loan_value") but the <inputData>'s variable.name
+// still carries the descriptive pill label ("Loan Value"), the column's
+// typeRef must still resolve so the test dialog renders the right control.
+// The reverse mismatch (variable.name snake_case, column label descriptive)
+// must work too — both display variants canonicalise to the same key.
+func TestGetDecision_InputTypeResolvesAcrossLabelAndIdentifier(t *testing.T) {
+	cases := []struct {
+		name        string
+		variableXML string
+		columnXML   string
+	}{
+		{
+			name:        "variable name is descriptive label, column expression is identifier",
+			variableXML: `<inputData id="ID_LV" name="Loan Value"><variable id="V_LV" name="Loan Value"/></inputData>`,
+			columnXML:   `<input id="In_LV" label="Loan Value"><inputExpression id="IE_LV" typeRef="number"><text>loan_value</text></inputExpression></input>`,
+		},
+		{
+			name:        "variable name is identifier, column label is descriptive",
+			variableXML: `<inputData id="ID_LV" name="Loan Value"><variable id="V_LV" name="loan_value"/></inputData>`,
+			columnXML:   `<input id="In_LV" label="Loan Value"><inputExpression id="IE_LV" typeRef="number"><text>loan_value</text></inputExpression></input>`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := t.TempDir()
+			must := func(err error) {
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			must(os.MkdirAll(filepath.Dir(storage.CosmosFile(p)), 0o755))
+			must(os.WriteFile(storage.CosmosFile(p), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: Test Team\n"), 0o644))
+			domainDir := filepath.Join(storage.DomainsDir(p), "blumer.com")
+			must(os.MkdirAll(filepath.Join(domainDir, "decisions", "DEC-003"), 0o755))
+			must(os.WriteFile(filepath.Join(domainDir, "domain.yaml"), []byte("name: blumer.com\nowner: Test\nstatus: draft\n"), 0o644))
+			must(os.WriteFile(filepath.Join(domainDir, "decisions", "DEC-003", "decision.yaml"), []byte(
+				"id: DEC-003\ntype: decision\nname: Kreditpruefung\nversion: 0.1.0\nstatus: draft\nowner: Test\ndmn_file: decision.dmn\n"), 0o644))
+			dmnXML := `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20240513/MODEL/" id="Definitions_3" name="Kreditpruefung">
+  ` + tc.variableXML + `
+  <decision id="Decision_1" name="Kreditpruefung">
+    <variable id="Var_1" name="kredit_stufe" typeRef="string"/>
+    <informationRequirement id="IR_1"><requiredInput href="#ID_LV"/></informationRequirement>
+    <decisionTable id="DT_1" hitPolicy="FIRST">
+      ` + tc.columnXML + `
+      <output id="Out_1" name="kredit_stufe" typeRef="string"/>
+      <rule id="R_1"><inputEntry id="IE_R1"><text>-</text></inputEntry><outputEntry id="OE_R1"><text>"x"</text></outputEntry></rule>
+    </decisionTable>
+  </decision>
+</definitions>`
+			must(os.WriteFile(filepath.Join(domainDir, "decisions", "DEC-003", "decision.dmn"), []byte(dmnXML), 0o644))
+
+			dto, err := GetDecision(p, "blumer.com", "DEC-003")
+			if err != nil {
+				t.Fatalf("GetDecision: %v", err)
+			}
+			if len(dto.Inputs) != 1 || dto.Inputs[0].Type != "number" {
+				t.Errorf("expected inputs[0].Type=number, got %+v", dto.Inputs)
+			}
+		})
+	}
+}
+
 func TestGetDecisionDMN_ReturnsRawXML(t *testing.T) {
 	p := createDecisionTestCosmos(t)
 	raw, err := GetDecisionDMN(p, "governance.blumer.com", "DEC-001")

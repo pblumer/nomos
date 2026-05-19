@@ -326,6 +326,17 @@ func inputsFromDMN(defs *model.DMNDefinitions) []model.DecisionIO {
 		if typ == "" {
 			typ = colTypes[name]
 		}
+		if typ == "" {
+			// The variable.name and the decision-table column's expression
+			// can diverge when the modeller normalised one but not the
+			// other (e.g. the pill still reads "Loan Value" while the
+			// column already references "loan_value"). Retry under the
+			// canonical snake_case key so both display variants resolve
+			// to the same column type.
+			if canon := dmn.SnakeCase(name); canon != "" && canon != name {
+				typ = colTypes[canon]
+			}
+		}
 		out = append(out, model.DecisionIO{
 			Name:        name,
 			Type:        typ,
@@ -358,8 +369,18 @@ func decisionTableInputTypes(defs *model.DMNDefinitions) map[string]string {
 				if key == "" {
 					continue
 				}
-				if _, seen := types[key]; !seen {
-					types[key] = typ
+				// Index by the raw key and its snake_case canonical so the
+				// lookup in inputsFromDMN succeeds whether the matching
+				// <inputData> variable.name is the descriptive pill label
+				// ("Loan Value") or the normalised FEEL identifier
+				// ("loan_value").
+				for _, k := range []string{key, dmn.SnakeCase(key)} {
+					if k == "" {
+						continue
+					}
+					if _, seen := types[k]; !seen {
+						types[k] = typ
+					}
 				}
 			}
 		}
