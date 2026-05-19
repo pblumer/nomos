@@ -458,18 +458,19 @@ func productSummaryDTO(tree cosmosfs.Tree, bp model.Blueprint, sourcePath string
 			group := ProcessGroupDTO{ProcessID: process.Meta.ID, ProcessName: firstNonEmpty(process.Meta.Name, process.Meta.ID)}
 			for i, step := range process.Meta.Steps {
 				group.Steps = append(group.Steps, ProcessStepSummaryDTO{
-					StepNum:    i + 1,
-					ID:         step.ID,
-					Name:       step.Name,
-					TaskType:   normalizedStepTaskType(step.TaskType),
-					ServiceRef: step.ServiceRef,
-					Method:     step.Method,
-					Role:       step.Role,
-					Required:   step.Required,
-					DependsOn:  step.DependsOn,
-					Inputs:     stepsInputsToDTO(step.Inputs),
-					Outputs:    stepsOutputsToDTO(step.Outputs),
-					Gateway:    gatewayToDTO(step.Gateway),
+					StepNum:     i + 1,
+					ID:          step.ID,
+					Name:        step.Name,
+					TaskType:    normalizedStepTaskType(step.TaskType),
+					ServiceRef:  step.ServiceRef,
+					DecisionRef: step.DecisionRef,
+					Method:      step.Method,
+					Role:        step.Role,
+					Required:    step.Required,
+					DependsOn:   step.DependsOn,
+					Inputs:      stepsInputsToDTO(step.Inputs),
+					Outputs:     stepsOutputsToDTO(step.Outputs),
+					Gateway:     gatewayToDTO(step.Gateway),
 				})
 			}
 			processGroups = append(processGroups, group)
@@ -617,16 +618,35 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 		for _, product := range d.Products {
 			p := product
 			productNode := NamespaceTreeNodeDTO{Label: product.Name, Kind: "product", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true}
-			for _, group := range product.Processes {
-				g := group
-				label := fmt.Sprintf("%s (%d)", g.ProcessName, len(g.Steps))
-				stepsParent := NamespaceTreeNodeDTO{Label: label, Kind: "process-steps-parent", Canonical: product.ID + "/" + g.ProcessID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true, FulfillmentCount: len(g.Steps), TreeTarget: g.ProcessID}
-				for _, step := range g.Steps {
-					s := step
-					stepLabel := fmt.Sprintf("%d · %s", step.StepNum, step.Name)
-					stepsParent.Children = append(stepsParent.Children, NamespaceTreeNodeDTO{Label: stepLabel, Kind: "process-step", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, ProcessStep: &s, Persisted: true, CanOpenDetails: true, TreeTarget: "service:" + step.ServiceRef})
+			referencedDecisions := map[string]bool{}
+			if len(product.Processes) > 0 {
+				processesParent := NamespaceTreeNodeDTO{Label: "Processes", Kind: "product-process-parent", Canonical: product.ID + "/processes", CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: false, FulfillmentCount: len(product.Processes)}
+				for _, group := range product.Processes {
+					g := group
+					label := fmt.Sprintf("%s (%d)", g.ProcessName, len(g.Steps))
+					stepsParent := NamespaceTreeNodeDTO{Label: label, Kind: "process-steps-parent", Canonical: product.ID + "/" + g.ProcessID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true, FulfillmentCount: len(g.Steps), TreeTarget: g.ProcessID}
+					for _, step := range g.Steps {
+						s := step
+						stepLabel := fmt.Sprintf("%d · %s", step.StepNum, step.Name)
+						stepsParent.Children = append(stepsParent.Children, NamespaceTreeNodeDTO{Label: stepLabel, Kind: "process-step", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, ProcessStep: &s, Persisted: true, CanOpenDetails: true, TreeTarget: "service:" + step.ServiceRef})
+						if step.DecisionRef != "" {
+							referencedDecisions[step.DecisionRef] = true
+						}
+					}
+					processesParent.Children = append(processesParent.Children, stepsParent)
 				}
-				productNode.Children = append(productNode.Children, stepsParent)
+				productNode.Children = append(productNode.Children, processesParent)
+			}
+			if len(referencedDecisions) > 0 {
+				businessRulesParent := NamespaceTreeNodeDTO{Label: "Business Rules", Kind: "product-decision-parent", Canonical: product.ID + "/decisions", CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: false, FulfillmentCount: len(referencedDecisions)}
+				for _, dec := range d.Decisions {
+					if !referencedDecisions[dec.ID] {
+						continue
+					}
+					dd := dec
+					businessRulesParent.Children = append(businessRulesParent.Children, NamespaceTreeNodeDTO{Label: dec.Name, Kind: "decision", Canonical: d.Canonical + "/decisions/" + dec.ID, CanonicalName: d.Canonical, Decision: &dd, Persisted: true, CanOpenDetails: true})
+				}
+				productNode.Children = append(productNode.Children, businessRulesParent)
 			}
 			if len(product.Processes) == 0 && len(product.Fulfillment.RequiredServices) > 0 {
 				fulfillmentParent := NamespaceTreeNodeDTO{Label: "Fulfillment Services", Kind: "product-fulfillment-parent", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true, FulfillmentCount: len(product.Fulfillment.RequiredServices)}
