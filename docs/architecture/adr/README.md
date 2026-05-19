@@ -26,7 +26,9 @@ ADRs record significant architectural and technology decisions. Each ADR capture
 | [ADR-0016](ADR-0016-DRAFT-graph-storage-and-query-model.md) | Graph-Speicherung und Abfragemodell des Cosmos (Git-projizierter openCypher-Graph) | Draft |
 | [ADR-0017](ADR-0017-DRAFT-decision-traceability.md) | Decision Traceability via inhaltsadressierte, hash-verkettete Trace-Artefakte | Draft |
 | [ADR-0018](ADR-0018-DRAFT-process-trigger-events.md) | Process Trigger Events: Modell-Layer für Timer- und Message-Starts | Draft |
+| [ADR-0019](ADR-0019-dmn-feel-engine-scope.md) | DMN 1.5 / FEEL Evaluation Engine: Scope und Build-vs-Buy | Accepted |
 | [ADR-0020](ADR-0020-DRAFT-artefact-id-generation.md) | System-generierte IDs für Nomos-Artefakte | Proposed |
+| [ADR-0021](ADR-0021-DRAFT-process-workflow-engine.md) | Process/Workflow Engine: Scope und Build-vs-Buy | Draft |
 
 ## Superseded / legacy stubs
 
