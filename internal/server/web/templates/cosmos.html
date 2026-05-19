@@ -1415,14 +1415,21 @@ function setBPMNDetail(target,proc,elementId,viewer){
   const lookup=bpmnDetailLookup(proc);
   let item=lookup[elementId];
   let bpmnEl=null;try{if(viewer)bpmnEl=viewer.get('elementRegistry').get(elementId);}catch(_){}
-  // If no step item exists for this BPMN element but it is a BusinessRuleTask,
-  // synthesize a transient item so the Properties panel exposes the Decision
-  // selection and the decision's input/output variables. On save, this will
-  // POST a new step (see save handler below).
+  // If no step item exists for this BPMN element but it is a task type that
+  // the Properties panel can edit (BusinessRuleTask, ServiceTask, UserTask,
+  // ManualTask), synthesize a transient item so the Properties panel exposes
+  // the correct editor (Decision picker for rule tasks, Service/Method
+  // dropdowns for the others — pre-scoped to the parent Lane's service when
+  // the lane is bound). On save, this will POST a new step (see save handler
+  // below).
   if(!item&&bpmnEl){
     const bpmnType=bpmnEl.businessObject?.$type||bpmnEl.type||'';
     if(bpmnType==='bpmn:BusinessRuleTask'){
       item={id:elementId,name:bpmnEl.businessObject?.name||elementId,task_type:'businessRuleTask',element_type:bpmnType,role:'supporting',required:false,mapping_status:'unmapped',from_step:false,decision_ref:'',inputs:[],outputs:[]};
+    }else if(bpmnType==='bpmn:ServiceTask'||bpmnType==='bpmn:UserTask'||bpmnType==='bpmn:ManualTask'){
+      const tt=bpmnType==='bpmn:UserTask'?'userTask':bpmnType==='bpmn:ManualTask'?'manualTask':'serviceTask';
+      const laneScope=findParentLaneServiceRef(viewer,elementId);
+      item={id:elementId,name:bpmnEl.businessObject?.name||elementId,task_type:tt,element_type:bpmnType,role:'supporting',required:false,mapping_status:'unmapped',from_step:false,service_ref:laneScope.serviceRef||'',method:'',inputs:[],outputs:[]};
     }
   }
   if(!item){
