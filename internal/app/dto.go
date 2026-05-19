@@ -774,16 +774,38 @@ type CreateDecisionRequest struct {
 	Outputs []DecisionIODTO `json:"outputs,omitempty"`
 }
 
+// UpdateDecisionRequest is the partial update payload for a decision.
+// Version is intentionally absent: it is auto-managed (patch-bumped) on every
+// material change so that each persisted trace points at exactly one immutable
+// snapshot. Clients should not try to control it.
 type UpdateDecisionRequest struct {
 	Name    string          `json:"name,omitempty"`
 	Number  string          `json:"number,omitempty"`
-	Version string          `json:"version,omitempty"`
 	Status  string          `json:"status,omitempty"`
 	Owner   string          `json:"owner,omitempty"`
 	Summary string          `json:"summary,omitempty"`
 	Context string          `json:"context,omitempty"`
 	Inputs  []DecisionIODTO `json:"inputs,omitempty"`
 	Outputs []DecisionIODTO `json:"outputs,omitempty"`
+}
+
+// DecisionVersionDTO is one entry in the version snapshot list of a decision.
+// RuleHash is the sha256 of the snapshot's DMN file (matching trace.rule_hash);
+// it's omitted when the snapshot has no DMN attached.
+type DecisionVersionDTO struct {
+	Version  string `json:"version"`
+	Status   string `json:"status,omitempty"`
+	HasDMN   bool   `json:"has_dmn"`
+	RuleHash string `json:"rule_hash,omitempty"`
+}
+
+// DecisionVersionsDTO is the response for listing a decision's version snapshots.
+type DecisionVersionsDTO struct {
+	Domain     string               `json:"domain"`
+	DecisionID string               `json:"decision_id"`
+	Current    string               `json:"current"`
+	Items      []DecisionVersionDTO `json:"items"`
+	Count      int                  `json:"count"`
 }
 
 // DecisionScenariosDTO is the response for listing decision scenarios.

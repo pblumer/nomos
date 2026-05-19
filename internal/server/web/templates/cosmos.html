@@ -297,6 +297,8 @@
 .trace-rule-chip{background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:6px;padding:.05rem .4rem;font-size:.7rem;font-weight:700;font-family:ui-monospace,monospace}
 .trace-hash{font-family:ui-monospace,monospace;font-size:.7rem;color:#475569;background:#f1f5f9;border-radius:5px;padding:.05rem .4rem}
 .trace-evaluator{font-size:.7rem;color:#64748b}
+.trace-version-banner{font-size:.72rem;padding:.25rem .45rem;border-radius:6px;background:#fef3c7;color:#854d0e;border:1px solid #fde68a;font-weight:600}
+.trace-version-banner.stale{background:#fef3c7;color:#854d0e;border-color:#fde68a}
 .trace-body{padding:.55rem .75rem .7rem;border-top:1px solid #e2e8f0;display:none;flex-direction:column;gap:.65rem}
 .trace-card.open .trace-body{display:flex}
 .trace-section-label{font-size:.7rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.04em;margin:0 0 .25rem}
@@ -2444,13 +2446,27 @@ function renderTraceTable(defs,trace){
   }).join('');
   return `<div class="trace-dt-wrap"><table class="trace-dt"><thead><tr><th style="width:2rem">#</th>${inputCols}${outputCols}</tr></thead><tbody>${rows||`<tr><td colspan="${1+inputs.length+outputs.length}" style="color:#94a3b8;font-style:italic">Keine Regeln</td></tr>`}</tbody></table></div>`;
 }
-function renderTraceCard(trace,defs,idx){
+// renderTraceCard renders one trace. ctx carries the version-resolved DMN defs
+// for this specific trace plus a flag for "we couldn't find the historical
+// snapshot" — that flag drives a warning banner so we never silently render
+// against the wrong rules.
+function renderTraceCard(trace,ctx,idx){
+  const defs=ctx&&ctx.defs;
+  const versionMissing=!!(ctx&&ctx.versionMissing);
+  const versionStale=!!(ctx&&ctx.versionStale);
+  const currentVersion=(ctx&&ctx.currentVersion)||'';
   const ruleChips=(trace.matched_rules||[]).map(r=>`<span class="trace-rule-chip">${esc(r)}</span>`).join('');
   const noMatch=!(trace.matched_rules||[]).length;
   const evalLabel=trace.evaluator?(trace.evaluator.id||trace.evaluator.ip||''):'';
   const inputPills=Object.entries(trace.inputs||{}).map(([k,v])=>`<span class="pill"><strong>${esc(k)}</strong>=${fmtTraceVal(v)}</span>`).join('');
   const outputPills=Object.entries(trace.outputs||{}).map(([k,v])=>`<span class="pill"><strong>${esc(k)}</strong>=${fmtTraceVal(v)}</span>`).join('');
-  const tableHTML=renderTraceTable(defs,trace);
+  const tableHTML=defs?renderTraceTable(defs,trace):'<div style="font-size:.74rem;color:#991b1b;font-style:italic">Decision-Version nicht mehr verfügbar — Tabelle kann nicht rekonstruiert werden.</div>';
+  let versionBanner='';
+  if(versionMissing){
+    versionBanner=`<div class="trace-version-banner stale">⚠ Diese Evaluation lief gegen v${esc(trace.decision_version||'?')}; der Snapshot ist nicht mehr verfügbar.</div>`;
+  }else if(versionStale){
+    versionBanner=`<div class="trace-version-banner stale">Diese Evaluation lief gegen v${esc(trace.decision_version||'?')} (aktuell: v${esc(currentVersion)}). Tabelle zeigt die damalige Regelversion.</div>`;
+  }
   return `<div class="trace-card" data-trace-idx="${idx}" data-trace-id="${esc(trace.trace_id||'')}">
     <div class="trace-summary" data-toggle="1">
       <span class="trace-toggle">chevron_right</span>
@@ -2460,6 +2476,7 @@ function renderTraceCard(trace,defs,idx){
     </div>
     <div class="trace-body">
       <div class="trace-card-actions"><button type="button" class="trace-save-btn" data-save-scenario="${esc(trace.trace_id||'')}" title="Diesen Trace als wiederverwendbares Szenario speichern"><span class="mi">bookmark_add</span>Als Szenario speichern</button></div>
+      ${versionBanner}
       <div><div class="trace-section-label">Eingaben</div><div class="trace-input-banner">${inputPills||'<span style="color:#94a3b8;font-style:italic">keine</span>'}</div></div>
       <div><div class="trace-section-label">Decision-Tabelle (Treffer hervorgehoben)</div>${tableHTML}</div>
       <div><div class="trace-section-label">Ergebnis</div><div class="trace-output-banner">${outputPills||(noMatch?'<span style="color:#991b1b">keine Regel zutreffend</span>':'<span style="color:#94a3b8;font-style:italic">leer</span>')}</div></div>
@@ -2473,6 +2490,26 @@ function renderTraceCard(trace,defs,idx){
       </dl>
     </div>
   </div>`;
+}
+
+// resolveTraceDefs fetches the parsed DMN definitions for every distinct
+// decision_version observed in the trace list. Traces are rendered against
+// the rules that produced them, not the current HEAD — otherwise an old
+// trace's "matched rule" highlight could land on a row that didn't exist
+// when it ran.
+async function resolveTraceDefs(domainCanonical,decID,traces,currentDefs,currentVersion){
+  const cache=new Map();
+  if(currentVersion){cache.set(currentVersion,currentDefs);}
+  const wanted=new Set();
+  traces.forEach(t=>{const v=t.decision_version;if(v&&!cache.has(v))wanted.add(v);});
+  await Promise.all([...wanted].map(async v=>{
+    try{
+      const r=await fetch('/api/v1/domains/'+encodeURIComponent(domainCanonical)+'/decisions/'+encodeURIComponent(decID)+'/versions/'+encodeURIComponent(v)+'/definitions');
+      if(!r.ok){cache.set(v,null);return;}
+      cache.set(v,await r.json());
+    }catch(_){cache.set(v,null);}
+  }));
+  return cache;
 }
 async function loadDecisionHistory(container,dec,defs,domainCanonical){
   const panel=container.querySelector('#dec-history');
@@ -2500,7 +2537,19 @@ async function loadDecisionHistory(container,dec,defs,domainCanonical){
       }
     }else{verifyEl.className='dec-history-verify pending';verifyEl.innerHTML=miIcon('help')+'nicht pr&uuml;fbar';}
     if(!items.length){body.innerHTML='<div class="dec-history-empty">Noch keine Evaluationen aufgezeichnet. Sobald die Decision &uuml;ber den <code>/evaluate</code>-Endpoint aufgerufen wird, erscheinen die Traces hier.</div>';return;}
-    body.innerHTML='<div class="dec-history-list">'+items.map((t,i)=>renderTraceCard(t,defs,i)).join('')+'</div>';
+    const currentVersion=dec.version||'';
+    const defsCache=await resolveTraceDefs(domainCanonical,dec.id,items,defs,currentVersion);
+    body.innerHTML='<div class="dec-history-list">'+items.map((t,i)=>{
+      const v=t.decision_version||'';
+      const resolved=v?defsCache.get(v):defs;
+      const ctx={
+        defs:resolved||defs,
+        currentVersion:currentVersion,
+        versionMissing:!!(v&&defsCache.has(v)&&!defsCache.get(v)),
+        versionStale:!!(v&&currentVersion&&v!==currentVersion),
+      };
+      return renderTraceCard(t,ctx,i);
+    }).join('')+'</div>';
     body.querySelectorAll('.trace-summary').forEach(el=>{
       el.addEventListener('click',()=>{el.closest('.trace-card')?.classList.toggle('open');});
     });

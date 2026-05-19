@@ -102,6 +102,12 @@ func CreateDecision(path, domainCanonical string, req CreateDecisionRequest) (De
 	if err := fsx.WriteYAML(yamlPath, dec); err != nil {
 		return DecisionDTO{}, err
 	}
+	// Initial version snapshot. A fresh decision has no DMN yet, so the
+	// snapshot directory only carries decision.yaml — it gets the DMN as
+	// soon as UpdateDecisionDMN is called for the same version.
+	if err := writeVersionSnapshot(dir, dec, nil); err != nil {
+		return DecisionDTO{}, err
+	}
 	return decisionDTO(cosmosfs.DecisionNode{Path: dir, Metadata: dec}), nil
 }
 
@@ -125,9 +131,6 @@ func UpdateDecision(path, domainCanonical, id string, req UpdateDecisionRequest)
 		if req.Number != "" {
 			dec.Number = req.Number
 		}
-		if req.Version != "" {
-			dec.Version = req.Version
-		}
 		if req.Status != "" {
 			dec.Status = req.Status
 		}
@@ -146,7 +149,26 @@ func UpdateDecision(path, domainCanonical, id string, req UpdateDecisionRequest)
 		if req.Outputs != nil {
 			dec.Outputs = decisionIOsFromDTO(req.Outputs)
 		}
+		// Version is auto-managed: every material change bumps patch and
+		// creates a new snapshot. The Version field in the request is
+		// ignored — clients can't accidentally tear the trace audit.
+		if !metadataChanged(n.Metadata, dec) {
+			return decisionDTO(n), nil
+		}
+		dec.Version = bumpPatch(n.Metadata.Version)
 		if err := fsx.WriteYAML(filepath.Join(n.Path, "decision.yaml"), dec); err != nil {
+			return DecisionDTO{}, err
+		}
+		// Snapshot the new state. We copy the existing DMN bytes (if any)
+		// into the version directory so each snapshot is self-contained,
+		// even though only metadata changed.
+		var dmnBytes []byte
+		if n.DMNPath != "" {
+			if data, err := os.ReadFile(n.DMNPath); err == nil {
+				dmnBytes = data
+			}
+		}
+		if err := writeVersionSnapshot(n.Path, dec, dmnBytes); err != nil {
 			return DecisionDTO{}, err
 		}
 		n.Metadata = dec
@@ -206,38 +228,51 @@ func UpdateDecisionDMN(path, domainCanonical, id, dmnXML string) (DecisionDTO, e
 			continue
 		}
 		dmnPath := filepath.Join(n.Path, "decision.dmn")
-		if err := os.WriteFile(dmnPath, []byte(dmnXML), 0o644); err != nil {
-			return DecisionDTO{}, err
+		newBytes := []byte(dmnXML)
+		// Detect whether anything that the audit chain cares about actually
+		// changed: the DMN bytes themselves (rule_hash) or the I/O contract
+		// re-derived from the DMN.
+		newDec := n.Metadata
+		if newDec.DMNFile == "" {
+			newDec.DMNFile = "decision.dmn"
 		}
-		yamlDirty := false
-		if n.Metadata.DMNFile == "" {
-			n.Metadata.DMNFile = "decision.dmn"
-			yamlDirty = true
-		}
-		// Sync the artifact's inputs/outputs from the DMN diagram so it stays
-		// the source of truth. Best-effort: invalid XML doesn't fail the save.
-		// Conservative: only overwrite when the DMN actually declares the
-		// corresponding elements — empty seeds shouldn't wipe manually-entered
-		// metadata before the user drags <inputData> pills into the DRD.
-		if defs, perr := dmn.ParseDefinitions([]byte(dmnXML)); perr == nil {
+		if defs, perr := dmn.ParseDefinitions(newBytes); perr == nil {
+			// Conservative: only overwrite when the DMN actually declares
+			// the corresponding elements — empty seeds shouldn't wipe
+			// manually-entered metadata before the user drags <inputData>
+			// pills into the DRD.
 			if len(defs.InputData) > 0 {
-				ins := inputsFromDMN(defs)
-				if !decisionIOsEqual(ins, n.Metadata.Inputs) {
-					n.Metadata.Inputs = ins
-					yamlDirty = true
-				}
+				newDec.Inputs = inputsFromDMN(defs)
 			}
 			if len(defs.Decisions) > 0 {
-				outs := outputsFromDMN(defs)
-				if !decisionIOsEqual(outs, n.Metadata.Outputs) {
-					n.Metadata.Outputs = outs
-					yamlDirty = true
-				}
+				newDec.Outputs = outputsFromDMN(defs)
 			}
 		}
-		if yamlDirty {
-			_ = fsx.WriteYAML(filepath.Join(n.Path, "decision.yaml"), n.Metadata)
+		var existingBytes []byte
+		if n.DMNPath != "" {
+			existingBytes, _ = os.ReadFile(n.DMNPath)
 		}
+		bytesUnchanged := existingBytes != nil && string(existingBytes) == dmnXML
+		metaUnchanged := !metadataChanged(n.Metadata, newDec)
+		if bytesUnchanged && metaUnchanged {
+			// Nothing to do — same DMN, same derived I/O. No new version.
+			n.DMNPath = dmnPath
+			return decisionDTO(n), nil
+		}
+		// Auto-bump patch. The new state is written to HEAD and to its own
+		// version snapshot directory so traces created against this version
+		// can resolve back to exactly these bytes via rule_hash.
+		newDec.Version = bumpPatch(n.Metadata.Version)
+		if err := os.WriteFile(dmnPath, newBytes, 0o644); err != nil {
+			return DecisionDTO{}, err
+		}
+		if err := fsx.WriteYAML(filepath.Join(n.Path, "decision.yaml"), newDec); err != nil {
+			return DecisionDTO{}, err
+		}
+		if err := writeVersionSnapshot(n.Path, newDec, newBytes); err != nil {
+			return DecisionDTO{}, err
+		}
+		n.Metadata = newDec
 		n.DMNPath = dmnPath
 		return decisionDTO(n), nil
 	}

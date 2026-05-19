@@ -371,6 +371,10 @@ func (h *handler) apiDomainDecisionByID(w http.ResponseWriter, r *http.Request, 
 		h.apiDomainDecisionTraces(w, r, domain, id, tail[1:])
 		return
 	}
+	if len(tail) >= 1 && tail[0] == "versions" {
+		h.apiDomainDecisionVersions(w, r, domain, id, tail[1:])
+		return
+	}
 	if len(tail) >= 1 && tail[0] == "scenarios" {
 		h.apiDomainDecisionScenarios(w, r, domain, id, tail[1:])
 		return
@@ -1944,6 +1948,57 @@ func (h *handler) apiDomainDecisionTraces(w http.ResponseWriter, r *http.Request
 			return
 		}
 		writeJSON(w, http.StatusOK, tr)
+	default:
+		htmlNotFound(w, r)
+	}
+}
+
+// apiDomainDecisionVersions serves the immutable version snapshots a decision
+// accumulates as it evolves:
+//
+//	GET .../versions                         → list all snapshots
+//	GET .../versions/{version}               → metadata at that version
+//	GET .../versions/{version}/dmn           → raw DMN XML at that version
+//	GET .../versions/{version}/definitions   → parsed DRG at that version
+//
+// The Cosmos Explorer uses the per-version DMN/definitions to render a trace's
+// decision table against the rules that produced its outputs — not the current
+// HEAD, which may have drifted.
+func (h *handler) apiDomainDecisionVersions(w http.ResponseWriter, r *http.Request, domain, id string, tail []string) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	switch {
+	case len(tail) == 0:
+		dto, err := app.ListDecisionVersions(h.cosmosPath, domain, id)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, dto)
+	case len(tail) == 1:
+		dto, err := app.GetDecisionVersion(h.cosmosPath, domain, id, tail[0])
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, dto)
+	case len(tail) == 2 && tail[1] == "dmn":
+		xml, err := app.GetDecisionVersionDMN(h.cosmosPath, domain, id, tail[0])
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+		_, _ = w.Write([]byte(xml))
+	case len(tail) == 2 && tail[1] == "definitions":
+		defs, err := app.GetDecisionVersionDefinitions(h.cosmosPath, domain, id, tail[0])
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, defs)
 	default:
 		htmlNotFound(w, r)
 	}
