@@ -2335,20 +2335,22 @@ function fmtTraceVal(v){
 }
 // Locate the decision in the parsed definitions whose decision_table we should
 // render for this trace. Prefer ID match, then name; otherwise first decision
-// that has a decision_table.
+// that has a decision_table. The DMN logic body is a discriminated union
+// (logic.kind), so the table lives at d.logic.decision_table.
 function pickDecisionForTrace(defs,trace){
   const decisions=defs?.decisions||[];
   if(!decisions.length)return null;
   const decName=trace.decision_name||'';
   const decID=trace.decision_id||'';
+  const hasTable=d=>!!d?.logic?.decision_table;
   const byID=decisions.find(d=>d.id===decID||d.id===('Decision_'+decID.replace(/[^A-Za-z0-9_-]/g,'_')));
-  if(byID&&byID.decision_table)return byID;
-  if(decName){const byName=decisions.find(d=>d.name===decName);if(byName&&byName.decision_table)return byName;}
-  return decisions.find(d=>d.decision_table)||null;
+  if(byID&&hasTable(byID))return byID;
+  if(decName){const byName=decisions.find(d=>d.name===decName);if(byName&&hasTable(byName))return byName;}
+  return decisions.find(hasTable)||null;
 }
 function renderTraceTable(defs,trace){
   const dec=pickDecisionForTrace(defs,trace);
-  const table=dec?.decision_table;
+  const table=dec?.logic?.decision_table;
   if(!table)return '<div style="font-size:.74rem;color:#64748b;font-style:italic">Keine Decision-Tabelle f&uuml;r Visualisierung verf&uuml;gbar (Literal Expression oder BKM).</div>';
   const inputs=table.inputs||[];
   const outputs=table.outputs||[];
