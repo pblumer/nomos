@@ -132,6 +132,18 @@ func TestBuiltinsString(t *testing.T) {
 	eq(t, mustEval(t, `substring("abcdef", 2, 3)`, nil), "bcd")
 }
 
+func TestBuiltinsMatches(t *testing.T) {
+	eq(t, mustEval(t, `matches("www.blumer.net", "^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,63}$")`, nil), true)
+	eq(t, mustEval(t, `matches("not a domain", "^[a-z]+$")`, nil), false)
+	eq(t, mustEval(t, `matches("ABC", "^abc$", "i")`, nil), true)
+	if _, err := EvalString(`matches("x", "(", "")`, nil); err == nil {
+		t.Error("expected error for invalid regex pattern")
+	}
+	if _, err := EvalString(`matches("x", ".", "z")`, nil); err == nil {
+		t.Error("expected error for unsupported flag")
+	}
+}
+
 func TestBuiltinsNumber(t *testing.T) {
 	eq(t, mustEval(t, "abs(-7)", nil), 7.0)
 	eq(t, mustEval(t, "ceiling(1.2)", nil), 2.0)

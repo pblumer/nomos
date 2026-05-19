@@ -360,6 +360,8 @@ func (p *feelParser) parseStringLiteral() (Value, error) {
 			case 't':
 				sb.WriteByte('\t')
 			default:
+				// Preserve unknown escapes verbatim — see lexer.go.
+				sb.WriteByte('\\')
 				sb.WriteByte(p.input[p.pos])
 			}
 		} else if ch == '"' {
