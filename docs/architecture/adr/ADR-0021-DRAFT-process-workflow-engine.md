@@ -300,6 +300,415 @@ ADR-0003 respektiert *und* Recovery erlaubt — keine Datenbank, kein
 Schema-Migrationszwang, lesbar mit `cat`, diff-bar in Reviews bei
 Bedarf.
 
+## Implementierungsskizze Stufe 1
+
+Dieser Abschnitt konkretisiert die gewählte Option C für die erste
+Konformitätsstufe. Detaillierter Build-Plan in PR-Granularität liegt
+parallel unter
+`docs/implementation-prompts/0002-implement-process-workflow-engine-stage-1.md`.
+
+### Paketstruktur
+
+```
+internal/process/engine/
+├── definition/   — Parsed BPMN-Graph (immutable)
+├── runtime/      — Token-Game-Interpreter + Instance-Lifecycle
+├── journal/      — Append-Only-NDJSON-Reader/-Writer
+├── scheduler/    — Timer-Heap + Cron, hinter Scheduler-Interface
+├── eventbus/     — In-Process Pub/Sub, hinter Bus-Interface
+├── handlers/     — Service-Task-Handler-Registry
+└── manager/      — Top-Level: lädt Definitions, startet/recovered Instanzen
+```
+
+### Datenmodell
+
+Drei klar getrennte Schichten:
+
+1. **Definition** — aus BPMN-XML geparst, immutable, identisch über alle
+   Instanzen derselben Prozessversion.
+2. **Instance** — laufender Zustand, lebt in Memory, Snapshot im Journal.
+3. **Event** — atomarer Zustandsübergang, append-only ins Journal.
+
+Skizze der Kernstrukturen (`internal/process/engine/definition`):
+
+```go
+type Definition struct {
+    ProcessID   string         // BPMN process id
+    NomosID     string         // nomos process artefact id (PRC-...)
+    Elements    map[string]Element
+    Flows       map[string]SequenceFlow
+    StartEvents []string       // element ids
+}
+
+type Element struct {
+    ID            string
+    Name          string
+    Type          ElementType  // task, userTask, serviceTask, businessRuleTask,
+                               // exclusiveGateway, parallelGateway,
+                               // startEvent, endEvent, scriptTask
+    Incoming      []string     // sequence flow ids
+    Outgoing      []string
+    TimerDef      *TimerDef    // nil unless startEvent+timer (Stufe 1)
+    ScriptBody    string       // for scriptTask: FEEL expression
+    DecisionRef   string       // for businessRuleTask: dmn decision id
+    ServiceTaskBinding string  // for serviceTask: handler key from task_mapping
+}
+
+type SequenceFlow struct {
+    ID            string
+    Source, Target string
+    Condition     string       // FEEL expression, empty = unconditional
+}
+```
+
+Skizze (`internal/process/engine/runtime`):
+
+```go
+type Instance struct {
+    UUID        string
+    ProcessRef  string                  // nomos process id + version
+    State       InstanceState           // running | waiting | completed | failed
+    Tokens      map[string]Token        // active tokens by token-id
+    Variables   map[string]any          // global instance scope (Stufe 1)
+    StartedAt   time.Time
+    LastEvent   uint64                  // monotonic seq from journal
+    LastHash    []byte                  // ADR-0017 hash chain head
+}
+
+type Token struct {
+    ID       string
+    At       string                     // current element id
+    Wait     *WaitState                 // nil = ready to step
+    ScopeID  string                     // "root" in Stufe 1
+}
+
+type WaitState struct {
+    Kind        WaitKind                // waitUserTask | waitTimer | waitSignal
+    UserTask    *UserTaskWait
+    Timer       *TimerWait              // FireAt time.Time, ScheduleID string
+    Signal      *SignalWait             // Stufe 2
+    AttemptID   string                  // idempotency key
+}
+```
+
+### Token-Game-Semantik (Stufe 1)
+
+Die Engine implementiert eine eingeschränkte, aber spec-konforme
+Untermenge der BPMN-Token-Semantik (BPMN 2.0 §13). Was Stufe 1 leistet
+und was bewusst weggelassen wird:
+
+| Konstrukt                                                | Stufe 1 |
+|----------------------------------------------------------|---------|
+| Token erzeugen bei `startEvent` (plain + Timer)          | ✅ |
+| Token verbrauchen bei `endEvent` (terminating implizit)  | ✅ |
+| Sequence Flow ohne Condition: Token wandert              | ✅ |
+| Sequence Flow mit FEEL-Condition (ADR-0019 Stufe 2)      | ✅ |
+| `exclusiveGateway` Split: erste true-Condition gewinnt + `default` | ✅ |
+| `exclusiveGateway` Merge: pass-through (jeder Token unabhängig) | ✅ |
+| `parallelGateway` AND-Split: ein Token in → N Token out  | ✅ |
+| `parallelGateway` AND-Join: wartet auf N Token in        | ✅ |
+| `task` / `scriptTask` / `businessRuleTask` (synchron)    | ✅ |
+| `userTask` (Wait-State + REST-Completion)                | ✅ |
+| `serviceTask` (synchron, Handler-Registry)               | ✅ |
+| `inclusiveGateway` (OR)                                  | ❌ Stufe 3 |
+| `eventBasedGateway`                                      | ❌ Stufe 2 |
+| `subProcess` / `callActivity`                            | ❌ Stufe 2 |
+| `boundaryEvent` (Timer/Error/Message)                    | ❌ Stufe 2 |
+| Intermediate `catchEvent` / `throwEvent`                 | ❌ Stufe 2 |
+| Multi-Instance (sequential/parallel)                     | ❌ Stufe 3 |
+| Compensation, Transaction                                | ❌ Stufe 3 |
+
+**Step-Funktion** (Pseudo-Code, einzelner Mikro-Schritt):
+
+```
+func step(inst *Instance) StepResult:
+    token := pickReadyToken(inst)
+    if token == nil:
+        return Idle   // alle Token warten, Instanz pausiert
+
+    elem := def.Elements[token.At]
+    switch elem.Type:
+      case task, scriptTask, businessRuleTask:
+          executeSync(elem, token)        // schreibt task_started + task_completed
+          advanceToken(token, elem.Outgoing)
+      case serviceTask:
+          attemptID := newAttemptID()
+          journal.Append(taskStarted{token, elem, attemptID})
+          out, err := handlers.Invoke(elem.ServiceTaskBinding, ctx)
+          journal.Append(taskCompleted{token, elem, attemptID, out, err})
+          advanceToken(token, elem.Outgoing)
+      case userTask:
+          token.Wait = &WaitState{Kind: waitUserTask, ...}
+          journal.Append(taskWaiting{token, elem})
+          return Waiting
+      case exclusiveGateway:
+          flow := pickFirstTrueOrDefault(elem.Outgoing, inst.Variables)
+          advanceTokenOver(token, flow)
+      case parallelGateway:
+          if isJoin(elem):
+              if joinReady(inst, elem):
+                  consumeIncomingTokens(inst, elem)
+                  emitTokenOnAllOutgoing(inst, elem)
+              else:
+                  parkToken(token)
+          else:                            // split
+              consumeToken(token)
+              for out in elem.Outgoing:
+                  emitToken(inst, out)
+      case startEvent:
+          advanceToken(token, elem.Outgoing)
+      case endEvent:
+          consumeToken(token)
+          if noTokensLeft(inst):
+              journal.Append(instanceCompleted{...})
+              inst.State = completed
+    return Stepped
+```
+
+Wichtig: **jeder Mikro-Schritt schreibt sein Ergebnis ins Journal,
+bevor er fortfährt.** Das heißt: Stepfunktion und Journal-Append sind
+*innerhalb* der Instanz-Goroutine seriell, kein Pipeline-Buffering.
+
+### Concurrency-Modell
+
+- **Eine Goroutine pro aktiver Instanz**, mit einer Channel-Mailbox für
+  externe Events (UserTask-Completion, Timer-Fire, externes Signal in
+  Stufe 2).
+- Die Goroutine ist ein Event-Loop:
+  1. `step(inst)` bis `Idle` oder `Waiting`.
+  2. Bei `Waiting`: blockierend auf Mailbox; bei eingehender Nachricht
+     Wait-State auflösen und zurück zu 1.
+- **Manager** (`internal/process/engine/manager`) verwaltet eine Map
+  `instanceUUID → mailbox chan`, routet eingehende Events, startet/stoppt
+  Instanzen, hält ein `RWMutex` für Definitions-Reload.
+- Maximal-Concurrency wird via `engine.max_active_instances` in
+  `nomos.yaml` begrenzt (Default 1000), bei Überschreiten landen neue
+  Trigger in einer Backpressure-Queue mit Audit-Eintrag.
+
+### Wait-States + Idempotenz
+
+Drei Wait-Kinds in Stufe 1:
+
+| Kind         | Eintritt                          | Austritt                           | Persistenz                      |
+|--------------|-----------------------------------|------------------------------------|---------------------------------|
+| `waitUserTask` | Token landet auf `userTask`     | `POST /api/v1/instances/{uuid}/signals` mit `task_id` + Variablen | `taskWaiting` im Journal |
+| `waitTimer`  | Token landet auf `startEvent` mit Timer *oder* expliziter Timer-Service-Task (Stufe 1 nur Start) | Scheduler feuert zur `FireAt` | `timerScheduled` im Journal mit `fire_at` |
+| `waitSignal` | (Stufe 2)                         | (Stufe 2)                          | (Stufe 2) |
+
+**Idempotenz-Protokoll für Service-Tasks:**
+
+- Vor dem Handler-Aufruf wird `taskStarted{attempt_id: <uuid>}`
+  geschrieben.
+- Beim Replay nach Crash gilt die Regel: Wenn ein `taskStarted` ohne
+  zugehöriges `taskCompleted` im Journal liegt, wird der Handler mit
+  **demselben** `attempt_id` erneut aufgerufen. Der Handler-Vertrag
+  (Stufe-1-Bedingung) lautet: **Handler müssen idempotent gegenüber
+  `attempt_id` sein.** Nicht-idempotente Handler werden über die
+  Registry mit `Idempotency: HandlerOnly` markiert und im Recovery
+  nicht automatisch wiederholt — stattdessen geht die Instanz in
+  `failed`-State und braucht einen manuellen `POST .../resume`.
+- Für UserTasks ist `attempt_id` der Schlüssel, mit dem der externe
+  Completion-Call dedupliziert wird: identischer `attempt_id` +
+  identischer Body = idempotent; abweichender Body = Konflikt 409.
+
+**Crash-Recovery-Semantik** (Stufe 1, Single-Node):
+
+1. Beim Start scannt `manager.Recover()` `$NOMOS_STATE_DIR/instances/`.
+2. Pro Journal: Replay aller Events → Instanz-Speicher-Zustand
+   rekonstruieren. Replay ist deterministisch, weil jedes Event den
+   Outcome (Variablen-Diff, Token-Bewegung) bereits enthält — nicht
+   nur den Auslöser.
+3. Aus den letzten Events werden Wait-States re-armed: Timer landen
+   wieder im Scheduler-Heap, UserTask-Mailboxen werden geöffnet,
+   unvollendete ServiceTasks lösen Idempotent-Retry oder
+   `failed`-State aus.
+4. Erst nach abgeschlossenem Recovery werden externe Trigger-Quellen
+   (Cron, HTTP-Trigger-Endpoint) angeschaltet — verhindert
+   Doppel-Feuer in der Recovery-Phase.
+
+### Service-Task-Handler-Modell
+
+Service-Tasks rufen registrierte Go-Handler in-process auf. Die
+Auflösung läuft über das **TaskMapping** aus der Prozess-YAML (heute
+schon existent in `internal/app/process.go`):
+
+```yaml
+task_mappings:
+  - bpmn_element_id: ServiceTask_CreateLDAPAccount
+    binding: nomos.identity.ldap.create_account
+    inputs:
+      uid: "@employee_id"
+      ou: "people"
+    outputs:
+      ldap_dn: "result.dn"
+```
+
+`binding` ist ein **stabiler Handler-Key**, kein Funktionspfad. Die
+Registry (`internal/process/engine/handlers`) registriert Handler unter
+diesem Key:
+
+```go
+package handlers
+
+type Handler interface {
+    Invoke(ctx context.Context, in HandlerInput) (HandlerOutput, error)
+    Metadata() Metadata     // Idempotency, Stage, Description
+}
+
+type Metadata struct {
+    Idempotency Idempotency  // Idempotent | HandlerOnly | NonIdempotent
+    Stage       int          // earliest engine stage supported
+    Description string
+}
+
+type Registry interface {
+    Register(key string, h Handler) error
+    Resolve(key string) (Handler, bool)
+    List() []RegisteredHandler
+}
+```
+
+Drei Quellen für Handler in Stufe 1:
+
+1. **Built-in Go-Handler** (`internal/process/engine/handlers/builtin/`):
+   `noop`, `log`, `http.call`, `git.commit`, `cosmos.create_artefact`
+   — bewusst klein, deckt Self-Model-Use-Cases ab.
+2. **MCP-Tools** (`internal/mcpserver/` als Brücke): Jedes registrierte
+   MCP-Tool ist automatisch unter `mcp.<tool_name>` als Service-Handler
+   verfügbar. Stage `1`, `Idempotency: HandlerOnly` (konservativ).
+3. **DMN-Decisions** (`internal/dmn/evaluator.go`): Für
+   `businessRuleTask` separater, nicht über die Service-Handler-Registry
+   laufender Pfad — direkter In-Process-Call.
+
+**Fehlerverhalten Stufe 1:** Jeder Handler-Fehler setzt die Instanz
+auf `failed`. Kein automatisches Retry, kein Compensation. Operator
+muss `POST /instances/{uuid}/resume` oder `/abort` aufrufen. Retry-Policies,
+Error-Boundary-Events und Compensation sind Stufe-2-/Stufe-3-Themen.
+
+### Variable Scoping + FEEL-Context
+
+Stufe 1 hat **einen einzigen, globalen Scope pro Instanz** —
+`inst.Variables` ist eine flache `map[string]any`. Die Begründung:
+Sub-Prozesse, die eigenen Scope brauchen, sind ohnehin Stufe 2.
+
+**Variablen-Schreibpfade:**
+
+1. **Bei Instanz-Start:** initiale Variablen aus dem Trigger-Payload
+   (Message-Event-Body, Manual-Start-Request-Body) übernommen,
+   gefiltert durch `start_variables`-Whitelist im Prozess-YAML.
+2. **Nach jedem Task:** Output-Mapping aus `task_mappings.outputs`
+   schreibt zurück in `inst.Variables`. Mapping-Quelle ist ein
+   FEEL-Pfad (`result.dn` → Wert aus Handler-Output).
+3. **Per Script-Task:** `scriptTask` mit FEEL-Body, dessen
+   Rückgabewert via `task_mappings.outputs` zugeordnet wird.
+
+**FEEL-Kontext** (Wiederverwendung der ADR-0019-Engine):
+
+- Condition auf Sequence Flow: Expression bekommt
+  `{...inst.Variables, _meta: {...}}` als Kontext.
+- Input-Mapping (`@employee_id` → wird als FEEL `employee_id`
+  ausgewertet — das `@`-Präfix bleibt als ergonomische
+  Variablen-Referenz erhalten, intern ist es ein einfacher
+  FEEL-Pfad-Eval).
+- Output-Mapping: FEEL-Pfad gegen den Handler-Output-Struct,
+  Ergebnis landet unter dem Mapping-Key in den Instance-Variablen.
+
+**Variable-Sichtbarkeit im Journal:** Jeder Schreibvorgang ist ein
+explizites `variablesPatch`-Event mit Diff statt vollem Snapshot —
+kompakt und auditierbar. Replay rekonstruiert den Volltext.
+
+### Journal-Schema (`format: nomos.journal.v1`)
+
+NDJSON, eine Zeile pro Event. Jede Zeile ist self-contained und
+trägt die Hash-Kette für ADR-0017.
+
+```json
+{"seq":1,"ts":"2026-05-19T08:00:00Z","kind":"instance_created","instance":"i-abc","process_ref":"PRC-ACC-MBX-001@v3","trigger":"timer:StartEvent_NeuerEintritt","engine":{"version":"nomos-1.4.0","commit":"f4a5f42","stage":1},"prev_hash":null,"hash":"sha256:..."}
+{"seq":2,"ts":"2026-05-19T08:00:00Z","kind":"token_emitted","instance":"i-abc","token":"t-1","at":"StartEvent_NeuerEintritt","prev_hash":"sha256:...","hash":"sha256:..."}
+{"seq":3,"ts":"2026-05-19T08:00:00Z","kind":"variables_patch","instance":"i-abc","set":{"employee_id":"E-42"},"prev_hash":"sha256:...","hash":"sha256:..."}
+{"seq":4,"ts":"2026-05-19T08:00:01Z","kind":"task_started","instance":"i-abc","token":"t-1","element":"ServiceTask_CreateLDAPAccount","attempt_id":"a-1","binding":"nomos.identity.ldap.create_account","prev_hash":"sha256:...","hash":"sha256:..."}
+{"seq":5,"ts":"2026-05-19T08:00:02Z","kind":"task_completed","instance":"i-abc","token":"t-1","attempt_id":"a-1","output":{"dn":"cn=E-42,ou=people,dc=ex,dc=com"},"prev_hash":"sha256:...","hash":"sha256:..."}
+{"seq":6,"ts":"2026-05-19T08:00:02Z","kind":"variables_patch","instance":"i-abc","set":{"ldap_dn":"cn=E-42,ou=people,dc=ex,dc=com"},"prev_hash":"sha256:...","hash":"sha256:..."}
+{"seq":7,"ts":"2026-05-19T08:00:02Z","kind":"token_moved","instance":"i-abc","token":"t-1","from":"ServiceTask_CreateLDAPAccount","to":"EndEvent_Done","prev_hash":"sha256:...","hash":"sha256:..."}
+{"seq":8,"ts":"2026-05-19T08:00:02Z","kind":"instance_completed","instance":"i-abc","prev_hash":"sha256:...","hash":"sha256:..."}
+```
+
+Event-Kinds Stufe 1 (geschlossene Liste):
+
+`instance_created`, `instance_completed`, `instance_failed`,
+`token_emitted`, `token_moved`, `token_consumed`,
+`task_started`, `task_completed`, `task_failed`,
+`task_waiting`, `task_resumed`,
+`timer_scheduled`, `timer_fired`,
+`gateway_decided`, `variables_patch`.
+
+`hash` ist `sha256(prev_hash || canonical_json(event_without_hash))`.
+Damit ist das Journal **gleichzeitig** der Trace-Strom aus ADR-0017 —
+kein paralleler Trace-Schreiber.
+
+### Scheduler
+
+`internal/process/engine/scheduler` hinter einem Interface, in Stufe 1
+nur In-Process-Implementierung:
+
+```go
+type Scheduler interface {
+    ScheduleAt(t time.Time, payload TimerPayload) (ScheduleID, error)
+    ScheduleCron(spec string, payload CronPayload) (ScheduleID, error)
+    Cancel(id ScheduleID) error
+    Start(ctx context.Context) error    // startet Wake-Loop
+}
+```
+
+Implementierung:
+
+- **Min-Heap** indiziert auf `FireAt`, ein `sync.Cond` wacht auf,
+  wenn `time.Until(head) <= 0`.
+- Bei `Start()` wird zuerst das Journal nach offenen
+  `timer_scheduled` ohne `timer_fired` durchsucht und der Heap
+  vorbefüllt — verhindert Verlust von Timern über Restart.
+- Cron-Triggers (aus ADR-0018) werden als rekursive `ScheduleAt`
+  modelliert: nach jedem Feuern wird die nächste Iteration eingeplant.
+  Die Cron-Validierung aus ADR-0018 wird zur tatsächlichen
+  Cron-Evaluation aufgewertet — hier wird `robfig/cron/v3` als
+  *interne* Dependency akzeptiert (nicht öffentliche API).
+
+Stufe 2 ersetzt die In-Process-Impl durch einen K8s-CronJob- oder
+externen-Scheduler-Adapter hinter demselben Interface.
+
+### Trace-Integration mit ADR-0017
+
+Da das Journal selbst hash-verkettet ist, fällt der Trace mit dem
+Journal zusammen. Zusätzlich:
+
+- Bei `instance_completed` wird **optional** ein verdichtetes
+  Trace-Artefakt nach Git geschrieben
+  (`.nomos/traces/processes/<process-id>/<yyyy>/<mm>/<instance-uuid>.json`),
+  das nur die Element-Sequenz + finale Variablen + Final-Hash
+  enthält. Konfiguration: `engine.persist_traces_to_git: false` per
+  Default (operativer Lärm), opt-in für Audit-strenge Deployments.
+- Das vollständige NDJSON-Journal bleibt **immer** außerhalb von Git
+  unter `$NOMOS_STATE_DIR` — operativ, rotierend, nicht
+  Quelle-der-Wahrheit.
+
+### Was Stufe 1 explizit NICHT kann
+
+Damit niemand falsche Erwartungen hat:
+
+- Keine Retries auf Service-Task-Fehlern.
+- Keine Boundary-Events, keine Error-Handler-Flows.
+- Keine Cancellation eines wartenden Tokens durch ein konkurrierendes
+  Event (Stufe 2: `eventBasedGateway`).
+- Keine Sub-Prozesse, keine Call-Activity.
+- Kein Multi-Node-Setup; pro `$NOMOS_STATE_DIR` ein aktiver Writer.
+  Mehrere Nomos-Instanzen auf demselben `state_dir` führen zu
+  Datenkorruption. Lock-File (`state.lock`) verhindert versehentlichen
+  Parallel-Start.
+- Keine Migration eines laufenden Prozess-Workflows zwischen
+  BPMN-Versionen ("Process Migration"). Eine neue BPMN-Version startet
+  neue Instanzen; laufende Instanzen fahren auf ihrer Pin-Version
+  weiter.
+
 ## Konsequenzen
 
 - Neuer ADR-Pfad `docs/architecture/adr/ADR-0021-...md` ersetzt die
