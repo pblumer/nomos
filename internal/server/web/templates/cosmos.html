@@ -2469,46 +2469,190 @@ function serviceDetail(d){
   const methodsHtml=renderMethodChips(d.methods,d.domain,d.name);
   return `<div class="detail-head"><div class="detail-head-left">${iconDiv('service')}<div><div class="detail-title">${esc(d.name)}</div><div class="detail-subtitle">Service &middot; ${esc(d.domain)}</div></div></div><div class="detail-actions-head"><button class="btn btn-secondary btn-sm" id="det-edit" title="Bearbeiten"><span class="mi" style="font-family:'Material Symbols Outlined'">edit</span></button><button class="btn btn-danger btn-sm" id="det-delete" title="L&ouml;schen"><span class="mi" style="font-family:'Material Symbols Outlined'">delete</span></button></div></div><div class="detail-body"><dl class="detail-props"><dt>Name</dt><dd>${esc(d.name)}</dd><dt>Domain</dt><dd><code>${esc(d.domain)}</code></dd><dt>Owner</dt><dd>${esc(d.owner||'&ndash;')}</dd><dt>Status</dt><dd><span class="badge badge-${d.status}">${esc(d.status)}</span></dd><dt>Pfad</dt><dd><code>${esc(d.path)}</code></dd></dl><div style="margin-top:.75rem"><div style="font-size:.78rem;font-weight:700;color:#475569;margin-bottom:.35rem">Methoden / Operationen</div><div id="svc-method-chips" style="display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.4rem">${methodsHtml}</div><div style="display:flex;gap:.35rem;align-items:center"><input id="svc-method-input" placeholder="z.B. createUser" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;background:#fff;flex:1"><button class="btn btn-primary btn-sm" id="svc-method-add">+ Methode</button></div></div></div><div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/domains/${encodeURIComponent(d.domain)}/services/${encodeURIComponent(d.name)}">API JSON</a></div>`;
 }
+function methodHttpBadge(verb){const colors={GET:'#0369a1',POST:'#15803d',PUT:'#b45309',PATCH:'#7c3aed',DELETE:'#b91c1c'};const c=colors[verb]||'#475569';return verb?`<span style="font-size:.68rem;font-weight:700;color:#fff;background:${c};border-radius:4px;padding:1px 6px;font-family:ui-monospace,monospace">${esc(verb)}</span>`:'';
+}
+function renderParamsTable(params,withIn){
+  if(!params||!params.length)return'<p style="font-size:.8rem;color:#94a3b8;margin:.3rem 0">Keine Parameter.</p>';
+  return`<table class="data-table" style="margin-top:.3rem"><thead><tr><th>Name</th><th>Typ</th>${withIn?'<th>In</th>':''}<th>Pflicht</th><th></th></tr></thead><tbody>${params.map(p=>`<tr><td><code>${esc(p.name)}</code></td><td>${esc(p.type||'string')}</td>${withIn?`<td><code style="font-size:.7rem">${esc(p.in||'query')}</code></td>`:''}<td>${p.required?'<span class="badge badge-active">ja</span>':'nein'}</td><td><button class="btn btn-danger btn-xs param-del-btn" data-param-name="${esc(p.name)}">&#x2715;</button></td></tr>`).join('')}</tbody></table>`;
+}
+function renderHeadersTable(headers){
+  if(!headers||!headers.length)return'<p style="font-size:.8rem;color:#94a3b8;margin:.3rem 0">Keine Header.</p>';
+  return`<table class="data-table" style="margin-top:.3rem"><thead><tr><th>Name</th><th>Wert / Variable</th><th>Pflicht</th><th></th></tr></thead><tbody>${headers.map(h=>`<tr><td><code>${esc(h.name)}</code></td><td><code style="font-size:.7rem">${esc(h.value||'')}</code></td><td>${h.required?'<span class="badge badge-active">ja</span>':'nein'}</td><td><button class="btn btn-danger btn-xs header-del-btn" data-header-name="${esc(h.name)}">&#x2715;</button></td></tr>`).join('')}</tbody></table>`;
+}
+function renderPayloadFields(fields){
+  if(!fields||!fields.length)return'<p style="font-size:.8rem;color:#94a3b8;margin:.3rem 0">Keine Felder.</p>';
+  return`<table class="data-table" style="margin-top:.3rem"><thead><tr><th>Name</th><th>Typ</th><th>Pflicht</th><th>Beispiel</th><th></th></tr></thead><tbody>${fields.map(f=>`<tr><td><code>${esc(f.name)}</code></td><td>${esc(f.type||'string')}</td><td>${f.required?'<span class="badge badge-active">ja</span>':'nein'}</td><td><code style="font-size:.7rem">${esc(f.example||'')}</code></td><td><button class="btn btn-danger btn-xs field-del-btn" data-field-name="${esc(f.name)}">&#x2715;</button></td></tr>`).join('')}</tbody></table>`;
+}
 function renderMethodDetail(m,domain,svc){
   const params=m.parameters||[];
-  const typeOpts=['string','number','boolean','date','object'].map(t=>`<option value="${t}">${t}</option>`).join('');
-  const paramsHtml=params.length?`<table class="data-table" style="margin-top:.4rem"><thead><tr><th>Name</th><th>Typ</th><th>Pflicht</th><th>Beschreibung</th><th></th></tr></thead><tbody>${params.map(p=>`<tr><td><code>${esc(p.name)}</code></td><td>${esc(p.type||'string')}</td><td>${p.required?'<span class="badge badge-active">ja</span>':'nein'}</td><td>${esc(p.description||'')}</td><td><button class="btn btn-danger btn-xs param-del-btn" data-param-name="${esc(p.name)}">&#x2715;</button></td></tr>`).join('')}</tbody></table>`:'<p style="font-size:.8rem;color:#94a3b8;margin:.3rem 0">Noch keine Parameter definiert.</p>';
-  return `<div class="detail-head"><div class="detail-head-left"><div class="detail-kind-icon" style="background:#ede9fe;color:#6d28d9;font-family:\'Material Symbols Outlined\';font-size:18px;width:36px;height:36px;border-radius:8px;display:grid;place-items:center">function</div><div><div class="detail-title">${esc(m.name)}()</div><div class="detail-subtitle">Methode &middot; ${esc(domain)}/${esc(svc)}</div></div></div></div><div class="detail-body"><div style="font-size:.78rem;font-weight:700;color:#475569;margin-bottom:.4rem">Parameter <span style="background:#eef2ff;color:#4338ca;border-radius:5px;padding:0 5px;font-size:.7rem">${params.length}</span></div><div id="method-params-container">${paramsHtml}</div><div style="margin-top:.75rem;display:grid;grid-template-columns:1fr max-content auto auto;gap:.35rem;align-items:center"><input id="param-name" placeholder="Name (z.B. userId)" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem"><select id="param-type" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">${typeOpts}</select><label style="font-size:.78rem;display:flex;align-items:center;gap:.25rem;white-space:nowrap"><input type="checkbox" id="param-required"> Pflicht</label><button class="btn btn-primary btn-sm" id="param-add-btn">+ Parameter</button></div><div id="param-status" style="font-size:.75rem;margin-top:.3rem;min-height:1.1em"></div></div><div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/services/${encodeURIComponent(domain)}/${encodeURIComponent(svc)}/methods/${encodeURIComponent(m.name)}">API JSON</a></div>`;
+  const headers=m.headers||[];
+  const payloadFields=(m.payload&&m.payload.fields)||[];
+  const sec=m.security||{};
+  const typeOpts=['string','number','boolean','date','object','array'].map(t=>`<option value="${t}">${t}</option>`).join('');
+  const inOpts=['path','query','header'].map(v=>`<option value="${v}">${v}</option>`).join('');
+  const httpMethods=['GET','POST','PUT','PATCH','DELETE'];
+  const httpOpts=['','GET','POST','PUT','PATCH','DELETE'].map(v=>`<option value="${v}"${m.http_method===v?' selected':''}>${v||'— nicht gesetzt —'}</option>`).join('');
+  const secSchemes=['','none','bearer','api-key','basic','oauth2'].map(v=>`<option value="${v}"${sec.scheme===v?' selected':''}>${v||'— keine —'}</option>`).join('');
+  const ctOpts=['application/json','multipart/form-data','application/x-www-form-urlencoded','text/plain'].map(v=>`<option value="${v}"${(m.payload&&m.payload.content_type)===v?' selected':''}>${v}</option>`).join('');
+  return `<div class="detail-head"><div class="detail-head-left"><div class="detail-kind-icon" style="background:#ede9fe;color:#6d28d9;font-family:'Material Symbols Outlined';font-size:18px;width:36px;height:36px;border-radius:8px;display:grid;place-items:center">function</div><div><div class="detail-title">${methodHttpBadge(m.http_method)} ${esc(m.name)}</div><div class="detail-subtitle">Methode &middot; ${esc(domain)}/${esc(svc)}${m.path?` &middot; <code style="font-size:.75rem">${esc(m.path)}</code>`:''}</div></div></div></div>
+<div class="detail-body">
+<div class="detail-section-label">Endpoint</div>
+<div style="display:grid;grid-template-columns:max-content 1fr;gap:.4rem .5rem;align-items:center;margin-bottom:.6rem">
+  <label style="font-size:.78rem;color:#64748b">HTTP-Methode</label><select id="me-http-method" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">${httpOpts}</select>
+  <label style="font-size:.78rem;color:#64748b">Pfad (URI)</label><input id="me-path" value="${esc(m.path||'')}" placeholder="/resource/{id}" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;font-family:ui-monospace,monospace">
+  <label style="font-size:.78rem;color:#64748b">Zusammenfassung</label><input id="me-summary" value="${esc(m.summary||'')}" placeholder="Kurzbeschreibung" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">
+</div>
+<div class="detail-section-label">Security</div>
+<div style="display:grid;grid-template-columns:max-content 1fr max-content 1fr;gap:.4rem .5rem;align-items:center;margin-bottom:.6rem">
+  <label style="font-size:.78rem;color:#64748b">Schema</label><select id="me-sec-scheme" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">${secSchemes}</select>
+  <label style="font-size:.78rem;color:#64748b">In</label><input id="me-sec-in" value="${esc(sec.in||'header')}" placeholder="header | query" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">
+  <label style="font-size:.78rem;color:#64748b">Key-Name</label><input id="me-sec-name" value="${esc(sec.name||'')}" placeholder="Authorization" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;grid-column:2/-1">
+</div>
+<div style="display:flex;gap:.4rem;margin-bottom:1rem"><button class="btn btn-primary btn-sm" id="me-endpoint-save">Endpoint speichern</button><span id="me-endpoint-status" style="font-size:.75rem;line-height:2;min-height:1.2em"></span></div>
+
+<div class="detail-section-label">Parameter (Path / Query) <span style="background:#eef2ff;color:#4338ca;border-radius:5px;padding:0 5px;font-size:.7rem">${params.length}</span></div>
+<div id="method-params-container">${renderParamsTable(params,true)}</div>
+<div style="margin-top:.5rem;display:flex;gap:.3rem;flex-wrap:wrap;align-items:center">
+  <input id="param-name" placeholder="Name" style="flex:1;min-width:90px;border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">
+  <select id="param-type" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">${typeOpts}</select>
+  <select id="param-in" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">${inOpts}</select>
+  <label style="font-size:.78rem;display:flex;align-items:center;gap:.2rem;white-space:nowrap"><input type="checkbox" id="param-required"> Pflicht</label>
+  <button class="btn btn-primary btn-sm" id="param-add-btn">+ Param</button>
+</div>
+<div id="param-status" style="font-size:.75rem;margin-top:.2rem;min-height:1.1em"></div>
+
+<div class="detail-section-label" style="margin-top:.8rem">Request Headers <span style="background:#eef2ff;color:#4338ca;border-radius:5px;padding:0 5px;font-size:.7rem">${headers.length}</span></div>
+<div id="method-headers-container">${renderHeadersTable(headers)}</div>
+<div style="margin-top:.5rem;display:flex;gap:.3rem;flex-wrap:wrap;align-items:center">
+  <input id="header-name" placeholder="Name (z.B. X-Tenant-ID)" style="flex:1;min-width:110px;border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;font-family:ui-monospace,monospace">
+  <input id="header-value" placeholder="Wert oder {{"{{variable}}"}}" style="flex:1;min-width:130px;border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;font-family:ui-monospace,monospace">
+  <label style="font-size:.78rem;display:flex;align-items:center;gap:.2rem;white-space:nowrap"><input type="checkbox" id="header-required"> Pflicht</label>
+  <button class="btn btn-primary btn-sm" id="header-add-btn">+ Header</button>
+</div>
+<div id="header-status" style="font-size:.75rem;margin-top:.2rem;min-height:1.1em"></div>
+
+<div class="detail-section-label" style="margin-top:.8rem">Payload (Request Body) <span style="background:#eef2ff;color:#4338ca;border-radius:5px;padding:0 5px;font-size:.7rem">${payloadFields.length}</span></div>
+<div style="display:flex;gap:.4rem;align-items:center;margin-bottom:.4rem">
+  <label style="font-size:.78rem;color:#64748b;white-space:nowrap">Content-Type</label>
+  <select id="payload-ct" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">${ctOpts}</select>
+</div>
+<div id="method-payload-container">${renderPayloadFields(payloadFields)}</div>
+<div style="margin-top:.5rem;display:flex;gap:.3rem;flex-wrap:wrap;align-items:center">
+  <input id="field-name" placeholder="Name (z.B. domainName)" style="flex:1;min-width:100px;border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;font-family:ui-monospace,monospace">
+  <select id="field-type" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">${typeOpts}</select>
+  <input id="field-example" placeholder="Beispiel" style="width:90px;border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">
+  <label style="font-size:.78rem;display:flex;align-items:center;gap:.2rem;white-space:nowrap"><input type="checkbox" id="field-required"> Pflicht</label>
+  <button class="btn btn-primary btn-sm" id="field-add-btn">+ Feld</button>
+</div>
+<div id="field-status" style="font-size:.75rem;margin-top:.2rem;min-height:1.1em"></div>
+</div>
+<div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/services/${encodeURIComponent(domain)}/${encodeURIComponent(svc)}/methods/${encodeURIComponent(m.name)}">API JSON</a></div>`;
 }
 function wireMethodDetail(container,m,domain,svc){
   const methodsUrl='/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svc)+'/methods/'+encodeURIComponent(m.name);
-  const statusEl=container.querySelector('#param-status');
-  const setStatus=(msg,ok=false)=>{if(statusEl){statusEl.textContent=msg;statusEl.style.color=ok?'#16a34a':'#dc2626';}};
+  function setStatus(elId,msg,ok=false){const el=container.querySelector('#'+elId);if(el){el.textContent=msg;el.style.color=ok?'#16a34a':'#dc2626';if(ok)setTimeout(()=>{if(el)el.textContent='';},2000);}}
+  async function save(patch){
+    const r=await fetch(methodsUrl,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});
+    if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error?.message||'Speichern fehlgeschlagen');}
+    return r.json();
+  }
+
+  // --- endpoint fields ---
+  container.querySelector('#me-endpoint-save')?.addEventListener('click',async()=>{
+    const scheme=container.querySelector('#me-sec-scheme')?.value||'';
+    const secIn=container.querySelector('#me-sec-in')?.value.trim()||'';
+    const secName=container.querySelector('#me-sec-name')?.value.trim()||'';
+    const patch={
+      http_method:container.querySelector('#me-http-method')?.value||'',
+      path:container.querySelector('#me-path')?.value.trim()||'',
+      summary:container.querySelector('#me-summary')?.value.trim()||'',
+      security:scheme?{scheme,in:secIn,name:secName}:null,
+    };
+    try{await save(patch);setStatus('me-endpoint-status','Gespeichert ✓',true);}
+    catch(e){setStatus('me-endpoint-status',e.message);}
+  });
+
+  // --- parameters ---
   let params=[...(m.parameters||[])];
   function refreshParams(){
     const box=container.querySelector('#method-params-container');
-    if(!box)return;
-    if(!params.length){box.innerHTML='<p style="font-size:.8rem;color:#94a3b8;margin:.3rem 0">Noch keine Parameter definiert.</p>';return;}
-    box.innerHTML=`<table class="data-table" style="margin-top:.4rem"><thead><tr><th>Name</th><th>Typ</th><th>Pflicht</th><th></th></tr></thead><tbody>${params.map(p=>`<tr><td><code>${esc(p.name)}</code></td><td>${esc(p.type||'string')}</td><td>${p.required?'<span class="badge badge-active">ja</span>':'nein'}</td><td><button class="btn btn-danger btn-xs param-del-btn" data-param-name="${esc(p.name)}">&#x2715;</button></td></tr>`).join('')}</tbody></table>`;
-    wireDelBtns();
+    if(box)box.innerHTML=renderParamsTable(params,true);
+    wireParamDel();
   }
   async function saveParams(){
-    const r=await fetch(methodsUrl,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({parameters:params})});
-    if(r.ok){setStatus('Gespeichert ✓',true);setTimeout(()=>setStatus(''),2000);}
-    else{const d=await r.json().catch(()=>({}));setStatus(d.error?.message||'Speichern fehlgeschlagen');}
+    try{await save({parameters:params});setStatus('param-status','Gespeichert ✓',true);}
+    catch(e){setStatus('param-status',e.message);}
   }
-  function wireDelBtns(){
+  function wireParamDel(){
     container.querySelectorAll('.param-del-btn').forEach(btn=>{
       btn.addEventListener('click',async()=>{params=params.filter(p=>p.name!==btn.dataset.paramName);refreshParams();await saveParams();});
     });
   }
-  wireDelBtns();
+  wireParamDel();
   container.querySelector('#param-add-btn')?.addEventListener('click',async()=>{
     const nameEl=container.querySelector('#param-name');
     const name=nameEl?.value.trim()||'';
-    if(!name){setStatus('Name erforderlich');return;}
-    if(params.find(p=>p.name===name)){setStatus('Parameter existiert bereits');return;}
-    const type=container.querySelector('#param-type')?.value||'string';
-    const required=container.querySelector('#param-required')?.checked||false;
-    params.push({name,type,required,description:''});
+    if(!name){setStatus('param-status','Name erforderlich');return;}
+    if(params.find(p=>p.name===name)){setStatus('param-status','Existiert bereits');return;}
+    params.push({name,type:container.querySelector('#param-type')?.value||'string',in:container.querySelector('#param-in')?.value||'query',required:container.querySelector('#param-required')?.checked||false,description:''});
     if(nameEl)nameEl.value='';
-    refreshParams();
-    await saveParams();
+    refreshParams();await saveParams();
+  });
+
+  // --- headers ---
+  let headers=[...(m.headers||[])];
+  function refreshHeaders(){
+    const box=container.querySelector('#method-headers-container');
+    if(box)box.innerHTML=renderHeadersTable(headers);
+    wireHeaderDel();
+  }
+  async function saveHeaders(){
+    try{await save({headers});setStatus('header-status','Gespeichert ✓',true);}
+    catch(e){setStatus('header-status',e.message);}
+  }
+  function wireHeaderDel(){
+    container.querySelectorAll('.header-del-btn').forEach(btn=>{
+      btn.addEventListener('click',async()=>{headers=headers.filter(h=>h.name!==btn.dataset.headerName);refreshHeaders();await saveHeaders();});
+    });
+  }
+  wireHeaderDel();
+  container.querySelector('#header-add-btn')?.addEventListener('click',async()=>{
+    const nameEl=container.querySelector('#header-name');
+    const valEl=container.querySelector('#header-value');
+    const name=nameEl?.value.trim()||'';
+    if(!name){setStatus('header-status','Name erforderlich');return;}
+    if(headers.find(h=>h.name===name)){setStatus('header-status','Existiert bereits');return;}
+    headers.push({name,value:valEl?.value.trim()||'',required:container.querySelector('#header-required')?.checked||false,description:''});
+    if(nameEl)nameEl.value='';if(valEl)valEl.value='';
+    refreshHeaders();await saveHeaders();
+  });
+
+  // --- payload ---
+  let payloadFields=[...((m.payload&&m.payload.fields)||[])];
+  function refreshPayload(){
+    const box=container.querySelector('#method-payload-container');
+    if(box)box.innerHTML=renderPayloadFields(payloadFields);
+    wireFieldDel();
+  }
+  async function savePayload(){
+    const ct=container.querySelector('#payload-ct')?.value||'application/json';
+    try{await save({payload:{content_type:ct,fields:payloadFields}});setStatus('field-status','Gespeichert ✓',true);}
+    catch(e){setStatus('field-status',e.message);}
+  }
+  function wireFieldDel(){
+    container.querySelectorAll('.field-del-btn').forEach(btn=>{
+      btn.addEventListener('click',async()=>{payloadFields=payloadFields.filter(f=>f.name!==btn.dataset.fieldName);refreshPayload();await savePayload();});
+    });
+  }
+  wireFieldDel();
+  container.querySelector('#field-add-btn')?.addEventListener('click',async()=>{
+    const nameEl=container.querySelector('#field-name');
+    const name=nameEl?.value.trim()||'';
+    if(!name){setStatus('field-status','Name erforderlich');return;}
+    if(payloadFields.find(f=>f.name===name)){setStatus('field-status','Existiert bereits');return;}
+    payloadFields.push({name,type:container.querySelector('#field-type')?.value||'string',example:container.querySelector('#field-example')?.value.trim()||'',required:container.querySelector('#field-required')?.checked||false,description:''});
+    if(nameEl)nameEl.value='';
+    refreshPayload();await savePayload();
   });
 }
 function wireServiceDetail(container,d){

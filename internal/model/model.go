@@ -41,22 +41,57 @@ type ServiceLevelInfo struct {
 	Description   string `yaml:"description,omitempty" json:"description,omitempty"`
 }
 
-// MethodParameter describes one typed input parameter of a service method.
+// MethodParameter describes one typed input parameter of a service method (path, query, or header).
 type MethodParameter struct {
 	Name        string `yaml:"name" json:"name"`
 	Type        string `yaml:"type" json:"type"`
-	In          string `yaml:"in,omitempty" json:"in,omitempty"` // path | query | body | header
+	In          string `yaml:"in,omitempty" json:"in,omitempty"` // path | query | header
 	Required    bool   `yaml:"required,omitempty" json:"required,omitempty"`
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 }
 
-// MethodDefinition describes a named operation exposed by a service, with
-// optional typed parameters. It unmarshals from both the legacy plain-string
-// format ("methodName") and the new object format ({name:…, parameters:[…]}).
+// MethodHeader describes a static or variable-templated HTTP request header.
+type MethodHeader struct {
+	Name        string `yaml:"name" json:"name"`
+	Value       string `yaml:"value,omitempty" json:"value,omitempty"` // static value or {{variable}}
+	Required    bool   `yaml:"required,omitempty" json:"required,omitempty"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+}
+
+// MethodSecurity describes the authentication scheme for a method endpoint.
+type MethodSecurity struct {
+	Scheme string `yaml:"scheme" json:"scheme"` // bearer | api-key | basic | none | oauth2
+	In     string `yaml:"in,omitempty" json:"in,omitempty"`   // header | query (for api-key)
+	Name   string `yaml:"name,omitempty" json:"name,omitempty"` // header or query-param name
+}
+
+// MethodPayloadField describes one field in a request body payload.
+type MethodPayloadField struct {
+	Name        string `yaml:"name" json:"name"`
+	Type        string `yaml:"type" json:"type"` // string | number | boolean | object | array
+	Required    bool   `yaml:"required,omitempty" json:"required,omitempty"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+	Example     string `yaml:"example,omitempty" json:"example,omitempty"`
+}
+
+// MethodPayload describes the request body of a method endpoint.
+type MethodPayload struct {
+	ContentType string               `yaml:"content_type,omitempty" json:"content_type,omitempty"` // application/json | multipart/form-data | …
+	Fields      []MethodPayloadField `yaml:"fields,omitempty" json:"fields,omitempty"`
+}
+
+// MethodDefinition describes a named operation exposed by a service as a REST endpoint.
+// It unmarshals from both the legacy plain-string format ("methodName") and the
+// full object format so existing service.yaml files remain valid without migration.
 type MethodDefinition struct {
 	Name       string            `yaml:"name" json:"name"`
 	Summary    string            `yaml:"summary,omitempty" json:"summary,omitempty"`
-	Parameters []MethodParameter `yaml:"parameters,omitempty" json:"parameters,omitempty"`
+	HTTPMethod string            `yaml:"http_method,omitempty" json:"http_method,omitempty"` // GET | POST | PUT | DELETE | PATCH
+	Path       string            `yaml:"path,omitempty" json:"path,omitempty"`               // /domains/{id}
+	Parameters []MethodParameter `yaml:"parameters,omitempty" json:"parameters,omitempty"`   // path / query params
+	Headers    []MethodHeader    `yaml:"headers,omitempty" json:"headers,omitempty"`
+	Security   *MethodSecurity   `yaml:"security,omitempty" json:"security,omitempty"`
+	Payload    *MethodPayload    `yaml:"payload,omitempty" json:"payload,omitempty"`
 }
 
 // UnmarshalYAML lets MethodDefinition parse both "methodName" strings and full

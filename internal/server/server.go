@@ -872,13 +872,28 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, 200, dto)
 		case http.MethodPut:
 			var req struct {
+				Summary    string                  `json:"summary"`
+				HTTPMethod string                  `json:"http_method"`
+				Path       string                  `json:"path"`
 				Parameters []model.MethodParameter `json:"parameters"`
+				Headers    []model.MethodHeader    `json:"headers"`
+				Security   *model.MethodSecurity   `json:"security"`
+				Payload    *model.MethodPayload    `json:"payload"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 				return
 			}
-			dto, err := app.UpdateMethodParameters(h.cosmosPath, domain, service, method, req.Parameters)
+			patch := model.MethodDefinition{
+				Summary:    req.Summary,
+				HTTPMethod: req.HTTPMethod,
+				Path:       req.Path,
+				Parameters: req.Parameters,
+				Headers:    req.Headers,
+				Security:   req.Security,
+				Payload:    req.Payload,
+			}
+			dto, err := app.UpdateMethod(h.cosmosPath, domain, service, method, patch)
 			if err != nil {
 				h.apiErr(w, err)
 				return

@@ -58,15 +58,46 @@ type DomainDTO struct {
 type MethodParameterDTO struct {
 	Name        string `json:"name"`
 	Type        string `json:"type"`
-	In          string `json:"in,omitempty"` // path | query | body | header
+	In          string `json:"in,omitempty"` // path | query | header
 	Required    bool   `json:"required,omitempty"`
 	Description string `json:"description,omitempty"`
+}
+
+type MethodHeaderDTO struct {
+	Name        string `json:"name"`
+	Value       string `json:"value,omitempty"`
+	Required    bool   `json:"required,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+type MethodSecurityDTO struct {
+	Scheme string `json:"scheme"`
+	In     string `json:"in,omitempty"`
+	Name   string `json:"name,omitempty"`
+}
+
+type MethodPayloadFieldDTO struct {
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Required    bool   `json:"required,omitempty"`
+	Description string `json:"description,omitempty"`
+	Example     string `json:"example,omitempty"`
+}
+
+type MethodPayloadDTO struct {
+	ContentType string                 `json:"content_type,omitempty"`
+	Fields      []MethodPayloadFieldDTO `json:"fields,omitempty"`
 }
 
 type MethodDefinitionDTO struct {
 	Name       string               `json:"name"`
 	Summary    string               `json:"summary,omitempty"`
+	HTTPMethod string               `json:"http_method,omitempty"`
+	Path       string               `json:"path,omitempty"`
 	Parameters []MethodParameterDTO `json:"parameters,omitempty"`
+	Headers    []MethodHeaderDTO    `json:"headers,omitempty"`
+	Security   *MethodSecurityDTO   `json:"security,omitempty"`
+	Payload    *MethodPayloadDTO    `json:"payload,omitempty"`
 }
 
 type ConnectorDTO struct {
