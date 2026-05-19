@@ -199,11 +199,7 @@ func serviceDTO(domain string, s cosmosfs.ServiceNode) ServiceDTO {
 	ownedBy := firstNonEmpty(s.Metadata.OwnedBy, domain, s.Metadata.Owner)
 	methods := make([]MethodDefinitionDTO, 0, len(s.Metadata.Methods))
 	for _, m := range s.Metadata.Methods {
-		params := make([]MethodParameterDTO, 0, len(m.Parameters))
-		for _, p := range m.Parameters {
-			params = append(params, MethodParameterDTO{Name: p.Name, Type: p.Type, In: p.In, Required: p.Required, Description: p.Description})
-		}
-		methods = append(methods, MethodDefinitionDTO{Name: m.Name, Summary: m.Summary, Parameters: params})
+		methods = append(methods, methodDTO(m))
 	}
 	capNames := make([]string, 0, len(s.Metadata.Capabilities))
 	var capDefs []ServiceCapabilityDTO
@@ -397,7 +393,13 @@ func AddServiceUserInterface(path, domainName, serviceName string, ui model.Serv
 }
 
 // UpdateMethodParameters replaces the parameter list of a named method on a service.
+// Deprecated: prefer UpdateMethod which updates all endpoint fields.
 func UpdateMethodParameters(path, domainName, serviceName, methodName string, params []model.MethodParameter) (MethodDefinitionDTO, error) {
+	return UpdateMethod(path, domainName, serviceName, methodName, model.MethodDefinition{Parameters: params})
+}
+
+// UpdateMethod performs a partial update of a named method: only non-zero fields in patch are written.
+func UpdateMethod(path, domainName, serviceName, methodName string, patch model.MethodDefinition) (MethodDefinitionDTO, error) {
 	svc, err := GetService(path, domainName, serviceName)
 	if err != nil {
 		return MethodDefinitionDTO{}, err
@@ -410,7 +412,27 @@ func UpdateMethodParameters(path, domainName, serviceName, methodName string, pa
 	found := false
 	for i, m := range raw.Methods {
 		if m.Name == methodName {
-			raw.Methods[i].Parameters = params
+			if patch.Summary != "" {
+				raw.Methods[i].Summary = patch.Summary
+			}
+			if patch.HTTPMethod != "" {
+				raw.Methods[i].HTTPMethod = patch.HTTPMethod
+			}
+			if patch.Path != "" {
+				raw.Methods[i].Path = patch.Path
+			}
+			if patch.Parameters != nil {
+				raw.Methods[i].Parameters = patch.Parameters
+			}
+			if patch.Headers != nil {
+				raw.Methods[i].Headers = patch.Headers
+			}
+			if patch.Security != nil {
+				raw.Methods[i].Security = patch.Security
+			}
+			if patch.Payload != nil {
+				raw.Methods[i].Payload = patch.Payload
+			}
 			found = true
 			break
 		}
@@ -431,6 +453,40 @@ func UpdateMethodParameters(path, domainName, serviceName, methodName string, pa
 		}
 	}
 	return MethodDefinitionDTO{Name: methodName}, nil
+}
+
+// methodDTO converts a model.MethodDefinition to MethodDefinitionDTO.
+func methodDTO(m model.MethodDefinition) MethodDefinitionDTO {
+	params := make([]MethodParameterDTO, 0, len(m.Parameters))
+	for _, p := range m.Parameters {
+		params = append(params, MethodParameterDTO{Name: p.Name, Type: p.Type, In: p.In, Required: p.Required, Description: p.Description})
+	}
+	headers := make([]MethodHeaderDTO, 0, len(m.Headers))
+	for _, h := range m.Headers {
+		headers = append(headers, MethodHeaderDTO{Name: h.Name, Value: h.Value, Required: h.Required, Description: h.Description})
+	}
+	var sec *MethodSecurityDTO
+	if m.Security != nil {
+		sec = &MethodSecurityDTO{Scheme: m.Security.Scheme, In: m.Security.In, Name: m.Security.Name}
+	}
+	var payload *MethodPayloadDTO
+	if m.Payload != nil {
+		fields := make([]MethodPayloadFieldDTO, 0, len(m.Payload.Fields))
+		for _, f := range m.Payload.Fields {
+			fields = append(fields, MethodPayloadFieldDTO{Name: f.Name, Type: f.Type, Required: f.Required, Description: f.Description, Example: f.Example})
+		}
+		payload = &MethodPayloadDTO{ContentType: m.Payload.ContentType, Fields: fields}
+	}
+	return MethodDefinitionDTO{
+		Name:       m.Name,
+		Summary:    m.Summary,
+		HTTPMethod: m.HTTPMethod,
+		Path:       m.Path,
+		Parameters: params,
+		Headers:    headers,
+		Security:   sec,
+		Payload:    payload,
+	}
 }
 
 // GetServiceMethod returns the definition of a single named method on a service.

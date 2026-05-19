@@ -60,10 +60,10 @@ func TestAddProcessStep_ExplicitID(t *testing.T) {
 	p, _, procID := createProcessForStepTests(t)
 
 	got, err := AddProcessStep(p, procID, UpsertProcessStepRequest{
-		ID:           "DNSValidieren",
-		Name:         "DNS-Format validieren",
-		TaskType:     "businessRuleTask",
-		DecisionRef:  "blumer.cloud/decisions/DNSFormat",
+		ID:          "DNSValidieren",
+		Name:        "DNS-Format validieren",
+		TaskType:    "businessRuleTask",
+		DecisionRef: "blumer.cloud/decisions/DNSFormat",
 	})
 	if err != nil {
 		t.Fatal(err)

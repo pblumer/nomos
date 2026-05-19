@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nomos/nomos/internal/dmn"
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/idgen"
 	"github.com/nomos/nomos/internal/idmigrate"
@@ -266,7 +267,7 @@ func processDTO(path string, n processNode, includeValidation bool) ProcessDTO {
 		dto.Participant = &ProcessParticipantDTO{Name: p.Name, Ref: p.Ref}
 	}
 	for _, s := range n.Meta.Steps {
-		dto.Steps = append(dto.Steps, ProcessStepDTO{ID: s.ID, Name: s.Name, TaskType: normalizedStepTaskType(s.TaskType), ServiceRef: s.ServiceRef, CapabilityRef: s.CapabilityRef, Method: s.Method, DecisionRef: s.DecisionRef, Role: s.Role, Required: s.Required, Notes: s.Notes, DependsOn: s.DependsOn, Inputs: stepsInputsToDTO(s.Inputs), Outputs: stepsOutputsToDTO(s.Outputs), Decision: decisionToDTO(s.Decision), Gateway: gatewayToDTO(s.Gateway)})
+		dto.Steps = append(dto.Steps, ProcessStepDTO{ID: s.ID, Name: s.Name, TaskType: normalizedStepTaskType(s.TaskType), ServiceRef: s.ServiceRef, CapabilityRef: s.CapabilityRef, Method: s.Method, UserInterfaceRef: s.UserInterfaceRef, DecisionRef: s.DecisionRef, Role: s.Role, Required: s.Required, Notes: s.Notes, DependsOn: s.DependsOn, Inputs: stepsInputsToDTO(s.Inputs), Outputs: stepsOutputsToDTO(s.Outputs), Decision: decisionToDTO(s.Decision), Gateway: gatewayToDTO(s.Gateway)})
 	}
 	for _, m := range n.Meta.TaskMappings {
 		dto.TaskMappings = append(dto.TaskMappings, ProcessTaskMappingDTO{BPMNElementID: m.BPMNElementID, TaskName: m.TaskName, BPMNElementType: m.BPMNElementType, ServiceRef: m.ServiceRef, CapabilityRef: m.CapabilityRef, Method: m.Method, Role: m.Role, Required: m.Required, Notes: m.Notes})
@@ -322,21 +323,22 @@ func AddProcessStep(path, id string, req UpsertProcessStepRequest) (ProcessDTO, 
 		stepID = newStepID()
 	}
 	step := model.ProcessStep{
-		ID:            stepID,
-		Name:          strings.TrimSpace(req.Name),
-		TaskType:      normalizedStepTaskType(req.TaskType),
-		ServiceRef:    strings.TrimSpace(req.ServiceRef),
-		CapabilityRef: strings.TrimSpace(req.CapabilityRef),
-		Method:        strings.TrimSpace(req.Method),
-		DecisionRef:   strings.TrimSpace(req.DecisionRef),
-		Role:          firstNonEmpty(strings.TrimSpace(req.Role), "supporting"),
-		Required:      req.Required,
-		Notes:         req.Notes,
-		DependsOn:     req.DependsOn,
-		Inputs:        dtoInputsToModel(req.Inputs),
-		Outputs:       dtoOutputsToModel(req.Outputs),
-		Decision:      decisionToModel(req.Decision, normalizedStepTaskType(req.TaskType)),
-		Gateway:       gatewayToModel(req.Gateway, normalizedStepTaskType(req.TaskType)),
+		ID:               stepID,
+		Name:             strings.TrimSpace(req.Name),
+		TaskType:         normalizedStepTaskType(req.TaskType),
+		ServiceRef:       strings.TrimSpace(req.ServiceRef),
+		CapabilityRef:    strings.TrimSpace(req.CapabilityRef),
+		Method:           strings.TrimSpace(req.Method),
+		UserInterfaceRef: strings.TrimSpace(req.UserInterfaceRef),
+		DecisionRef:      strings.TrimSpace(req.DecisionRef),
+		Role:             firstNonEmpty(strings.TrimSpace(req.Role), "supporting"),
+		Required:         req.Required,
+		Notes:            req.Notes,
+		DependsOn:        req.DependsOn,
+		Inputs:           dtoInputsToModel(req.Inputs),
+		Outputs:          dtoOutputsToModel(req.Outputs),
+		Decision:         decisionToModel(req.Decision, normalizedStepTaskType(req.TaskType)),
+		Gateway:          gatewayToModel(req.Gateway, normalizedStepTaskType(req.TaskType)),
 	}
 	node.Meta.Steps = append(node.Meta.Steps, step)
 	if err := fsx.WriteYAML(node.Path, node.Meta); err != nil {
@@ -364,6 +366,7 @@ func UpdateProcessStep(path, id, stepID string, req UpsertProcessStepRequest) (P
 			node.Meta.Steps[i].ServiceRef = strings.TrimSpace(req.ServiceRef)
 			node.Meta.Steps[i].CapabilityRef = strings.TrimSpace(req.CapabilityRef)
 			node.Meta.Steps[i].Method = strings.TrimSpace(req.Method)
+			node.Meta.Steps[i].UserInterfaceRef = strings.TrimSpace(req.UserInterfaceRef)
 			node.Meta.Steps[i].DecisionRef = strings.TrimSpace(req.DecisionRef)
 			node.Meta.Steps[i].Role = firstNonEmpty(strings.TrimSpace(req.Role), "supporting")
 			node.Meta.Steps[i].Required = req.Required
@@ -818,6 +821,8 @@ func workspaceFromPath(p string) string {
 }
 
 // findDecisionByID scans all domain directories for a decision with the given ID.
+// When the decision YAML references a DMN file, the DMN output columns replace the
+// YAML outputs so that gatewayBranches always uses the authoritative DMN variable names.
 func findDecisionByID(cosmosPath, id string) *model.Decision {
 	if cosmosPath == "" || id == "" {
 		return nil
@@ -834,6 +839,11 @@ func findDecisionByID(cosmosPath, id string) *model.Decision {
 		for _, name := range []string{id + ".yaml", "decision.yaml"} {
 			var dec model.Decision
 			if fsx.ReadYAML(filepath.Join(p, name), &dec) == nil && dec.ID == id {
+				if dec.DMNFile != "" {
+					if dmnOuts := dmnOutputsFromFile(filepath.Join(p, dec.DMNFile), id); len(dmnOuts) > 0 {
+						dec.Outputs = dmnOuts
+					}
+				}
 				found = &dec
 				return filepath.SkipAll
 			}
@@ -841,6 +851,57 @@ func findDecisionByID(cosmosPath, id string) *model.Decision {
 		return nil
 	})
 	return found
+}
+
+// dmnOutputsFromFile parses a DMN file and returns the output columns of the decision
+// matching decisionID (by suffix match). Falls back to the first decision with a decisionTable.
+func dmnOutputsFromFile(dmnPath, decisionID string) []model.DecisionIO {
+	data, err := os.ReadFile(dmnPath)
+	if err != nil {
+		return nil
+	}
+	defs, err := dmn.ParseDefinitions(data)
+	if err != nil {
+		return nil
+	}
+	// Try to find the matching decision first, then fall back to the first with a decisionTable.
+	for pass := 0; pass < 2; pass++ {
+		for _, d := range defs.Decisions {
+			if pass == 0 && !strings.Contains(d.ID, decisionID) {
+				continue
+			}
+			if d.Logic == nil || d.Logic.DecisionTable == nil {
+				continue
+			}
+			var out []model.DecisionIO
+			for _, o := range d.Logic.DecisionTable.Outputs {
+				name := firstNonEmpty(o.Name, o.Label)
+				if name == "" {
+					continue
+				}
+				out = append(out, model.DecisionIO{Name: name, Type: normalizeDMNTypeRef(o.TypeRef)})
+			}
+			if len(out) > 0 {
+				return out
+			}
+		}
+	}
+	return nil
+}
+
+func normalizeDMNTypeRef(t string) string {
+	switch strings.ToLower(strings.TrimSpace(t)) {
+	case "boolean":
+		return "boolean"
+	case "integer", "long", "double", "decimal", "number":
+		return "number"
+	case "string":
+		return "string"
+	case "date", "date and time", "datetime":
+		return "date"
+	default:
+		return strings.ToLower(strings.TrimSpace(t))
+	}
 }
 
 // gatewayBranches returns the outgoing branches for an exclusive gateway step.
@@ -1187,6 +1248,12 @@ func bpmnElementForStep(taskType string) string {
 		return "businessRuleTask"
 	case "exclusiveGateway":
 		return "exclusiveGateway"
+	case "userTask":
+		return "userTask"
+	case "manualTask":
+		return "manualTask"
+	case "scriptTask":
+		return "scriptTask"
 	default:
 		return "serviceTask"
 	}
@@ -1249,6 +1316,12 @@ func normalizedStepTaskType(taskType string) string {
 		return "businessRuleTask"
 	case "exclusiveGateway", "exclusive_gateway", "bpmn:exclusiveGateway":
 		return "exclusiveGateway"
+	case "userTask", "bpmn:userTask", "user_task":
+		return "userTask"
+	case "manualTask", "bpmn:manualTask", "manual_task":
+		return "manualTask"
+	case "scriptTask", "bpmn:scriptTask", "script_task":
+		return "scriptTask"
 	default:
 		return "serviceTask"
 	}

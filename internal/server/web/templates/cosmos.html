@@ -308,6 +308,12 @@
 .pfc-io{display:flex;flex-wrap:wrap;gap:.2rem;margin-top:.3rem}
 .pfc-io-in{font-size:.68rem;color:#0369a1;background:#e0f2fe;padding:1px 6px;border-radius:5px;cursor:help}
 .pfc-io-out{font-size:.68rem;color:#059669;background:#d1fae5;padding:1px 6px;border-radius:5px;cursor:help}
+.pfc-typebadge{font-size:.67rem;font-weight:700;padding:1px 7px;border-radius:5px}
+.pfc-typebadge-svc{color:#0369a1;background:#e0f2fe}
+.pfc-typebadge-rule{color:#4338ca;background:#eef2ff}
+.pfc-typebadge-user{color:#7c3aed;background:#f3e8ff}
+.pfc-typebadge-manual{color:#b45309;background:#fef3c7}
+.pfc-typebadge-gw{color:#065f46;background:#d1fae5}
 .pflow-connector{display:flex;flex-direction:column;align-items:center;height:22px;position:relative}
 .pflow-line{width:2px;background:#e0e7ff;flex:1}
 .pflow-arrowhead{color:#a5b4fc;font-size:.65rem;line-height:1}
@@ -879,17 +885,24 @@ function renderDagSteps(steps){
   let n=0;
   function makeCard(s){
     n++;
-    const isRule=(s.task_type==='businessRuleTask');
+    const tt=s.task_type||'serviceTask';
+    const isRule=tt==='businessRuleTask';
+    const isUser=tt==='userTask';
+    const isManual=tt==='manualTask';
+    const isGW=tt==='exclusiveGateway';
     const svcShort=s.service_ref?(s.service_ref.includes('/')?s.service_ref.split('/').pop():s.service_ref):'';
     const ioIn=(s.inputs||[]).map(b=>`<span class="pfc-io-in" title="${esc(b.source)}">↓ ${esc(b.name)}${b.required?'*':''}</span>`).join('');
     const ioOut=(s.outputs||[]).map(o=>`<span class="pfc-io-out" title="${esc(o.type||'string')}">↑ ${esc(o.name)}</span>`).join('');
     const io=ioIn||ioOut?`<div class="pfc-io">${ioIn}${ioOut}</div>`:'';
     const deps=s.depends_on?.length?`<div class="pfc-deps">nach: ${s.depends_on.map(d=>esc(byId[d]?.name||d)).join(', ')}</div>`:'';
-    const taskBadge=isRule?'<span class="pfc-req" style="background:#fef3c7;color:#92400e">Business Rule</span>':'<span class="pfc-req" style="background:#e0f2fe;color:#0369a1">Service Task</span>';
+    const taskBadge=isRule?'<span class="pfc-typebadge pfc-typebadge-rule">Business Rule</span>':isUser?'<span class="pfc-typebadge pfc-typebadge-user">Benutzer Task</span>':isManual?'<span class="pfc-typebadge pfc-typebadge-manual">Manuell</span>':isGW?'<span class="pfc-typebadge pfc-typebadge-gw">Gateway</span>':'<span class="pfc-typebadge pfc-typebadge-svc">Service Task</span>';
     const decRef=isRule&&s.decision_ref?`<div class="pfc-deps" style="color:#4338ca">⚖ ${esc(s.decision_ref)}${s.inputs?.length?' · '+s.inputs.length+' Inputs':''}</div>`:'';
+    const uiRef=isUser&&s.user_interface_ref?`<div class="pfc-deps" style="color:#7c3aed">⬚ ${esc(s.user_interface_ref)}</div>`:'';
+    const capRef=s.capability_ref?`<div class="pfc-deps" style="color:#0369a1">◈ ${esc(s.capability_ref)}</div>`:'';
     const decision=!s.decision_ref&&s.decision?.rules?.length?`<div class="pfc-deps">▦ DMN: ${s.decision.rules.map(r=>esc((r.label||((r.input||'input')+' '+(r.operator||'<=')+' '+(r.value||'')))+' ⇒ '+(r.output||'output')+'='+(r.output_value||'true'))).join(' · ')}</div>`:'';
     const gateway=s.gateway?`<div class="pfc-deps">◇ Gateway${s.gateway.conditions?.length?': '+s.gateway.conditions.map(c=>esc(c.label||((c.output||'output')+' '+(c.operator||'==')+' '+(c.value||'')))).join(' · '):' wertet Outputs aus'}</div>`:'';
-    return `<div class="pflow-card${isRule?' business-rule-card':''}" data-step-id="${esc(s.id)}"><div class="pfc-head"><span class="pfc-num">${n}</span><span class="pfc-name" title="${esc(s.name)}">${esc(s.name)}</span><button class="pfc-edit step-edit-btn" data-step-id="${esc(s.id)}" title="Schritt bearbeiten">✎</button><button class="pfc-del step-del-btn" data-step-id="${esc(s.id)}" title="Schritt entfernen">×</button></div>${svcShort?`<div class="pfc-svc" title="${esc(s.service_ref)}">${esc(svcShort)}<span style="color:#a78bfa;margin:0 2px">/</span><span style="opacity:.6;font-size:.68rem">${esc(s.service_ref.split('/').slice(0,-1).join('/'))}</span></div>`:''}<div class="pfc-chips">${taskBadge}${s.method?`<span class="pfc-method">${esc(s.method)}()</span>`:''}<span class="pfc-role${s.role==='primary'?' pfc-role-primary':''}">${esc(s.role||'supporting')}</span>${s.required?'<span class="pfc-req">req</span>':''}</div>${deps}${decRef}${io}${decision}${gateway}</div>`;
+    const methodChip=s.method?`<span class="pfc-method">${esc(s.method)}()</span>`:'';
+    return `<div class="pflow-card pfc-type-${esc(tt)}" data-step-id="${esc(s.id)}"><div class="pfc-head"><span class="pfc-num">${n}</span><span class="pfc-name" title="${esc(s.name)}">${esc(s.name)}</span><button class="pfc-edit step-edit-btn" data-step-id="${esc(s.id)}" title="Schritt bearbeiten">✎</button><button class="pfc-del step-del-btn" data-step-id="${esc(s.id)}" title="Schritt entfernen">×</button></div>${svcShort?`<div class="pfc-svc" title="${esc(s.service_ref)}">${esc(svcShort)}<span style="color:#a78bfa;margin:0 2px">/</span><span style="opacity:.6;font-size:.68rem">${esc(s.service_ref.split('/').slice(0,-1).join('/'))}</span></div>`:''}<div class="pfc-chips">${taskBadge}${methodChip}<span class="pfc-role${s.role==='primary'?' pfc-role-primary':''}">${esc(s.role||'supporting')}</span>${s.required?'<span class="pfc-req">req</span>':''}</div>${capRef}${deps}${decRef}${uiRef}${io}${decision}${gateway}</div>`;
   }
   const parts=[];
   levels.forEach((row,li)=>{
@@ -908,9 +921,10 @@ function stepAddRow(procId,services,existingSteps){
   const depSection=depChecks?`<div style="margin-top:.3rem;padding:.3rem .5rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px"><div style="font-size:.72rem;font-weight:600;color:#475569;margin-bottom:.2rem">Abhängig von</div><div id="step-dep-list" style="display:flex;flex-wrap:wrap;gap:.35rem">${depChecks}</div></div>`:'<div id="step-dep-list"></div>';
   const ioEditor=`<details class="step-io-editor"><summary>Datenfluss – Inputs &amp; Outputs</summary><div style="margin-top:.5rem;display:flex;flex-direction:column;gap:.6rem"><div><div style="font-size:.72rem;font-weight:600;color:#0369a1;margin-bottom:.2rem">↓ Inputs</div><div id="step-new-inputs" style="display:flex;flex-wrap:wrap;gap:.25rem;min-height:1rem;margin-bottom:.2rem"></div><div style="display:flex;gap:.25rem;flex-wrap:wrap"><input id="io-in-name" placeholder="name…" style="width:90px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><input id="io-in-src" placeholder="instance.x  oder  step.id.y" style="flex:1;min-width:130px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem" list="io-source-list"><datalist id="io-source-list"></datalist><label style="font-size:.75rem;display:flex;align-items:center;gap:.2rem"><input type="checkbox" id="io-in-req"> Pflicht</label><button class="btn btn-secondary btn-sm" id="io-in-add">+ Input</button></div></div><div><div style="font-size:.72rem;font-weight:600;color:#059669;margin-bottom:.2rem">↑ Outputs</div><div id="step-new-outputs" style="display:flex;flex-wrap:wrap;gap:.25rem;min-height:1rem;margin-bottom:.2rem"></div><div style="display:flex;gap:.25rem;flex-wrap:wrap"><input id="io-out-name" placeholder="name…" style="width:90px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><select id="io-out-type" style="width:80px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><option>string</option><option>number</option><option>boolean</option><option>json</option></select><input id="io-out-desc" placeholder="Beschreibung…" style="flex:1;min-width:90px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><button class="btn btn-secondary btn-sm" id="io-out-add">+ Output</button></div></div></div></details>`;
   const decisionEditor=`<details class="step-io-editor" id="decision-editor"><summary>DMN Decision Table / Graph</summary><div style="margin-top:.5rem;display:flex;flex-direction:column;gap:.45rem"><div class="muted">Für Business Rules: z.B. <code>MitarbeiterAustrittsdatum &lt;= today</code> ⇒ <code>canDeactivateUser = true</code>.</div><div style="display:flex;gap:.25rem;flex-wrap:wrap"><input id="dmn-input" placeholder="Input (z.B. employmentEndDate)" style="min-width:180px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><select id="dmn-operator" style="width:80px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><option>&lt;=</option><option>&lt;</option><option>==</option><option>&gt;=</option><option>&gt;</option><option>!=</option></select><input id="dmn-value" value="today" placeholder="Wert" style="width:90px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><input id="dmn-output" value="canDeactivateUser" placeholder="Output" style="width:145px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"><input id="dmn-output-value" value="true" placeholder="Output-Wert" style="width:90px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"></div><input id="dmn-label" value="Austrittsdatum ist heute oder vergangen" placeholder="Regel-Label" style="border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.78rem"></div></details>`;
-  return `<div class="step-add-row"><input id="step-new-name" placeholder="Schrittname…" style="flex:1;min-width:120px"><select id="step-new-type" style="width:150px"><option value="serviceTask">Service Task</option><option value="businessRuleTask">Business Rule</option></select><select id="step-new-svc"><option value="">— Service —</option>${opts}</select><input id="step-new-method" placeholder="Methode…" style="width:110px" list="step-method-list" autocomplete="off"><datalist id="step-method-list"></datalist><select id="step-new-role" style="width:100px"><option>supporting</option><option>primary</option><option>optional</option></select><label style="font-size:.78rem;display:flex;align-items:center;gap:.2rem"><input type="checkbox" id="step-new-req"> Pflicht</label><button class="btn btn-primary btn-sm" id="step-add-btn">+ Schritt</button></div>${depSection}${ioEditor}${decisionEditor}`;
+  return `<div class="step-add-row"><input id="step-new-name" placeholder="Schrittname…" style="flex:1;min-width:120px"><select id="step-new-type" style="width:150px"><option value="serviceTask">Service Task</option><option value="userTask">Benutzer Task</option><option value="manualTask">Manuell</option><option value="businessRuleTask">Business Rule</option></select><select id="step-new-svc"><option value="">— Service —</option>${opts}</select><input id="step-new-cap" id="step-new-cap" placeholder="Capability…" style="width:110px" list="step-cap-list" autocomplete="off"><datalist id="step-cap-list"></datalist><input id="step-new-method" placeholder="Methode…" style="width:110px" list="step-method-list" autocomplete="off"><datalist id="step-method-list"></datalist><input id="step-new-ui" placeholder="User Interface…" style="width:130px" list="step-ui-list" autocomplete="off"><datalist id="step-ui-list"></datalist><select id="step-new-role" style="width:100px"><option>supporting</option><option>primary</option><option>optional</option></select><label style="font-size:.78rem;display:flex;align-items:center;gap:.2rem"><input type="checkbox" id="step-new-req"> Pflicht</label><button class="btn btn-primary btn-sm" id="step-add-btn">+ Schritt</button></div>${depSection}${ioEditor}${decisionEditor}`;
 }
-function processStepTasks(p){return (p.steps||[]).map((s,i)=>({id:s.id||('Step_'+i),name:s.name||s.id,element_type:'bpmn:'+(s.task_type==='businessRuleTask'?'businessRuleTask':'serviceTask'),mapping_status:s.service_ref?'mapped':'unmapped',service_ref:s.service_ref,role:s.role,required:s.required,method:s.method,decision_ref:s.decision_ref||'',inputs:s.inputs||[],outputs:s.outputs||[],depends_on:s.depends_on||[],decision:s.decision,gateway:s.gateway,task_type:s.task_type,from_step:true}));}
+function bpmnTaskTypeForStep(tt){const t=tt||'serviceTask';if(['serviceTask','businessRuleTask','userTask','manualTask','scriptTask'].includes(t))return t;return'serviceTask';}
+function processStepTasks(p){return (p.steps||[]).map((s,i)=>({id:s.id||('Step_'+i),name:s.name||s.id,element_type:'bpmn:'+bpmnTaskTypeForStep(s.task_type),mapping_status:(s.service_ref||s.user_interface_ref)?'mapped':'unmapped',service_ref:s.service_ref,capability_ref:s.capability_ref,user_interface_ref:s.user_interface_ref,role:s.role,required:s.required,method:s.method,decision_ref:s.decision_ref||'',inputs:s.inputs||[],outputs:s.outputs||[],depends_on:s.depends_on||[],decision:s.decision,gateway:s.gateway,task_type:s.task_type,from_step:true}));}
 function processViewTasks(p){const stepTasks=processStepTasks(p);return stepTasks.length?stepTasks:(p.tasks||[]);}
 function renderProcBody(p,services){
   const steps=p.steps||[];
@@ -2343,8 +2357,24 @@ function wireSteps(container,d,proc){
   function wireStepButtons(){/* click actions are delegated from the current process body */}
   wireStepButtons();
   const svcSel=container.querySelector('#step-new-svc');
+  const typeSel=container.querySelector('#step-new-type');
   const methodDl=container.querySelector('#step-method-list');
   const methodInp=container.querySelector('#step-new-method');
+  const capInp=container.querySelector('#step-new-cap');
+  const capDl=container.querySelector('#step-cap-list');
+  const uiInp=container.querySelector('#step-new-ui');
+  const uiDl=container.querySelector('#step-ui-list');
+  // Show/hide method, capability, and UI fields based on task type
+  function applyTaskTypeVisibility(tt){
+    const isUser=tt==='userTask';
+    const isManual=tt==='manualTask';
+    const isSvc=!isUser&&!isManual;
+    if(methodInp)methodInp.style.display=isSvc?'':'none';
+    if(capInp)capInp.style.display=isSvc?'':'none';
+    if(uiInp)uiInp.style.display=isUser?'':'none';
+  }
+  typeSel?.addEventListener('change',()=>{applyTaskTypeVisibility(typeSel.value);loadServiceData(svcSel?.value||'');});
+  applyTaskTypeVisibility(typeSel?.value||'serviceTask');
   // Merge in all known service refs so the dropdown is usable even before any fulfillment service is attached.
   if(svcSel){(async()=>{try{
     const r=await fetch('/api/v1/services/refs');
@@ -2353,22 +2383,36 @@ function wireSteps(container,d,proc){
     const have=new Set([...svcSel.options].map(o=>o.value).filter(Boolean));
     (data.services||[]).forEach(s=>{if(!have.has(s.service_ref)){const o=document.createElement('option');o.value=s.service_ref;o.textContent=s.service_ref;svcSel.appendChild(o);have.add(s.service_ref);}});
   }catch(_){}})();}
-  async function loadMethodSuggestions(serviceRef){
-    if(!methodDl)return;
-    methodDl.innerHTML='';
-    if(methodInp)methodInp.placeholder='Methode…';
+  async function loadServiceData(serviceRef){
+    const tt=typeSel?.value||'serviceTask';
+    const isUser=tt==='userTask';
+    // Always clear datalists
+    if(methodDl)methodDl.innerHTML='';
+    if(capDl)capDl.innerHTML='';
+    if(uiDl)uiDl.innerHTML='';
     if(!serviceRef)return;
     const parts=serviceRef.split('/');
     if(parts.length<2)return;
     const domain=parts.slice(0,-1).join('/'),svc=parts[parts.length-1];
-    try{const r=await fetch('/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svc)+'/methods');
-      if(r.ok){const dd=await r.json();const methods=dd.methods||[];
-        methods.forEach(m=>{const name=typeof m==='string'?m:m.name;const o=document.createElement('option');o.value=name;methodDl.appendChild(o);});
-        if(methodInp)methodInp.placeholder=methods.length?'Methode wählen oder eingeben…':'Methode… (noch keine registriert)';}}
-    catch(_){}
+    const base='/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svc);
+    try{
+      const r=await fetch(base+'/methods');
+      if(r.ok){const dd=await r.json();(dd.methods||[]).forEach(m=>{const name=typeof m==='string'?m:m.name;const o=document.createElement('option');o.value=name;if(methodDl)methodDl.appendChild(o);});}
+    }catch(_){}
+    if(!isUser){
+      try{
+        const r=await fetch(base);
+        if(r.ok){const dd=await r.json();(dd.capabilities||[]).forEach(cap=>{const o=document.createElement('option');o.value=cap.name||cap;if(capDl)capDl.appendChild(o);});}
+      }catch(_){}
+    }else{
+      try{
+        const r=await fetch(base);
+        if(r.ok){const dd=await r.json();(dd.user_interfaces||[]).forEach(ui=>{const o=document.createElement('option');o.value=ui.name||ui;if(uiDl)uiDl.appendChild(o);});}
+      }catch(_){}
+    }
   }
-  svcSel?.addEventListener('change',()=>loadMethodSuggestions(svcSel.value));
-  if(svcSel?.value)loadMethodSuggestions(svcSel.value);
+  svcSel?.addEventListener('change',()=>loadServiceData(svcSel.value));
+  if(svcSel?.value)loadServiceData(svcSel.value);
   const addBtn=container.querySelector('#step-add-btn');
   const cancelEditBtn=container.querySelector('#step-edit-cancel');
   let editingStepId='';
@@ -2393,7 +2437,9 @@ function wireSteps(container,d,proc){
     if(!step)return;
     setEditorMode(step);
     const setVal=(sel,val)=>{const el=container.querySelector(sel);if(el)el.value=val??'';};
-    setVal('#step-new-name',step.name||'');setVal('#step-new-type',step.task_type||'serviceTask');setVal('#step-new-svc',step.service_ref||'');setVal('#step-new-method',step.method||'');setVal('#step-new-role',step.role||'supporting');
+    setVal('#step-new-name',step.name||'');setVal('#step-new-type',step.task_type||'serviceTask');setVal('#step-new-svc',step.service_ref||'');setVal('#step-new-cap',step.capability_ref||'');setVal('#step-new-method',step.method||'');setVal('#step-new-ui',step.user_interface_ref||'');setVal('#step-new-role',step.role||'supporting');
+    applyTaskTypeVisibility(step.task_type||'serviceTask');
+    loadServiceData(step.service_ref||'');
     const req=container.querySelector('#step-new-req');if(req)req.checked=!!step.required;
     container.querySelectorAll('.step-dep-cb').forEach(cb=>{cb.checked=(step.depends_on||[]).includes(cb.value);});
     newInputs=(step.inputs||[]).map(x=>({...x}));newOutputs=(step.outputs||[]).map(x=>({...x}));renderIOChips();
@@ -2402,7 +2448,7 @@ function wireSteps(container,d,proc){
   }
   function clearStepEditor(){
     setEditorMode(null);
-    ['#step-new-name','#step-new-method','#io-in-name','#io-in-src','#io-out-name','#io-out-desc'].forEach(sel=>{const el=container.querySelector(sel);if(el)el.value='';});
+    ['#step-new-name','#step-new-cap','#step-new-method','#step-new-ui','#io-in-name','#io-in-src','#io-out-name','#io-out-desc'].forEach(sel=>{const el=container.querySelector(sel);if(el)el.value='';});
     const req=container.querySelector('#step-new-req');if(req)req.checked=false;
     container.querySelectorAll('.step-dep-cb').forEach(cb=>cb.checked=false);
     newInputs=[];newOutputs=[];renderIOChips();
@@ -2461,11 +2507,13 @@ function wireSteps(container,d,proc){
     if(!name)return;
     const task_type=container.querySelector('#step-new-type')?.value||'serviceTask';
     const service_ref=container.querySelector('#step-new-svc')?.value||'';
+    const capability_ref=container.querySelector('#step-new-cap')?.value.trim()||'';
     const method=container.querySelector('#step-new-method')?.value.trim()||'';
+    const user_interface_ref=container.querySelector('#step-new-ui')?.value.trim()||'';
     const role=container.querySelector('#step-new-role')?.value||'supporting';
     const required=container.querySelector('#step-new-req')?.checked||false;
     const depends_on=[...container.querySelectorAll('.step-dep-cb:checked')].map(cb=>cb.value);
-    const payload={name,task_type,service_ref,method,role,required,depends_on,inputs:newInputs,outputs:newOutputs,decision:buildBusinessRuleDecision(task_type),gateway:buildBusinessRuleGateway(task_type)};
+    const payload={name,task_type,service_ref,capability_ref,method,user_interface_ref,role,required,depends_on,inputs:newInputs,outputs:newOutputs,decision:buildBusinessRuleDecision(task_type),gateway:buildBusinessRuleGateway(task_type)};
     if(addBtn)addBtn.disabled=true;
     const url='/api/v1/processes/'+encodeURIComponent(proc.id)+'/steps'+(editingStepId?'/'+encodeURIComponent(editingStepId):'');
     const r=await fetch(url,{method:editingStepId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
@@ -2490,46 +2538,190 @@ function serviceDetail(d){
   const methodsHtml=renderMethodChips(d.methods,d.domain,d.name);
   return `<div class="detail-head"><div class="detail-head-left">${iconDiv('service')}<div><div class="detail-title">${esc(d.name)}</div><div class="detail-subtitle">Service &middot; ${esc(d.domain)}</div></div></div><div class="detail-actions-head"><button class="btn btn-secondary btn-sm" id="det-edit" title="Bearbeiten"><span class="mi" style="font-family:'Material Symbols Outlined'">edit</span></button><button class="btn btn-danger btn-sm" id="det-delete" title="L&ouml;schen"><span class="mi" style="font-family:'Material Symbols Outlined'">delete</span></button></div></div><div class="detail-body"><dl class="detail-props"><dt>Name</dt><dd>${esc(d.name)}</dd><dt>Domain</dt><dd><code>${esc(d.domain)}</code></dd><dt>Owner</dt><dd>${esc(d.owner||'&ndash;')}</dd><dt>Status</dt><dd><span class="badge badge-${d.status}">${esc(d.status)}</span></dd><dt>Pfad</dt><dd><code>${esc(d.path)}</code></dd></dl><div style="margin-top:.75rem"><div style="font-size:.78rem;font-weight:700;color:#475569;margin-bottom:.35rem">Methoden / Operationen</div><div id="svc-method-chips" style="display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.4rem">${methodsHtml}</div><div style="display:flex;gap:.35rem;align-items:center"><input id="svc-method-input" placeholder="z.B. createUser" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;background:#fff;flex:1"><button class="btn btn-primary btn-sm" id="svc-method-add">+ Methode</button></div></div></div><div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/domains/${encodeURIComponent(d.domain)}/services/${encodeURIComponent(d.name)}">API JSON</a></div>`;
 }
+function methodHttpBadge(verb){const colors={GET:'#0369a1',POST:'#15803d',PUT:'#b45309',PATCH:'#7c3aed',DELETE:'#b91c1c'};const c=colors[verb]||'#475569';return verb?`<span style="font-size:.68rem;font-weight:700;color:#fff;background:${c};border-radius:4px;padding:1px 6px;font-family:ui-monospace,monospace">${esc(verb)}</span>`:'';
+}
+function renderParamsTable(params,withIn){
+  if(!params||!params.length)return'<p style="font-size:.8rem;color:#94a3b8;margin:.3rem 0">Keine Parameter.</p>';
+  return`<table class="data-table" style="margin-top:.3rem"><thead><tr><th>Name</th><th>Typ</th>${withIn?'<th>In</th>':''}<th>Pflicht</th><th></th></tr></thead><tbody>${params.map(p=>`<tr><td><code>${esc(p.name)}</code></td><td>${esc(p.type||'string')}</td>${withIn?`<td><code style="font-size:.7rem">${esc(p.in||'query')}</code></td>`:''}<td>${p.required?'<span class="badge badge-active">ja</span>':'nein'}</td><td><button class="btn btn-danger btn-xs param-del-btn" data-param-name="${esc(p.name)}">&#x2715;</button></td></tr>`).join('')}</tbody></table>`;
+}
+function renderHeadersTable(headers){
+  if(!headers||!headers.length)return'<p style="font-size:.8rem;color:#94a3b8;margin:.3rem 0">Keine Header.</p>';
+  return`<table class="data-table" style="margin-top:.3rem"><thead><tr><th>Name</th><th>Wert / Variable</th><th>Pflicht</th><th></th></tr></thead><tbody>${headers.map(h=>`<tr><td><code>${esc(h.name)}</code></td><td><code style="font-size:.7rem">${esc(h.value||'')}</code></td><td>${h.required?'<span class="badge badge-active">ja</span>':'nein'}</td><td><button class="btn btn-danger btn-xs header-del-btn" data-header-name="${esc(h.name)}">&#x2715;</button></td></tr>`).join('')}</tbody></table>`;
+}
+function renderPayloadFields(fields){
+  if(!fields||!fields.length)return'<p style="font-size:.8rem;color:#94a3b8;margin:.3rem 0">Keine Felder.</p>';
+  return`<table class="data-table" style="margin-top:.3rem"><thead><tr><th>Name</th><th>Typ</th><th>Pflicht</th><th>Beispiel</th><th></th></tr></thead><tbody>${fields.map(f=>`<tr><td><code>${esc(f.name)}</code></td><td>${esc(f.type||'string')}</td><td>${f.required?'<span class="badge badge-active">ja</span>':'nein'}</td><td><code style="font-size:.7rem">${esc(f.example||'')}</code></td><td><button class="btn btn-danger btn-xs field-del-btn" data-field-name="${esc(f.name)}">&#x2715;</button></td></tr>`).join('')}</tbody></table>`;
+}
 function renderMethodDetail(m,domain,svc){
   const params=m.parameters||[];
-  const typeOpts=['string','number','boolean','date','object'].map(t=>`<option value="${t}">${t}</option>`).join('');
-  const paramsHtml=params.length?`<table class="data-table" style="margin-top:.4rem"><thead><tr><th>Name</th><th>Typ</th><th>Pflicht</th><th>Beschreibung</th><th></th></tr></thead><tbody>${params.map(p=>`<tr><td><code>${esc(p.name)}</code></td><td>${esc(p.type||'string')}</td><td>${p.required?'<span class="badge badge-active">ja</span>':'nein'}</td><td>${esc(p.description||'')}</td><td><button class="btn btn-danger btn-xs param-del-btn" data-param-name="${esc(p.name)}">&#x2715;</button></td></tr>`).join('')}</tbody></table>`:'<p style="font-size:.8rem;color:#94a3b8;margin:.3rem 0">Noch keine Parameter definiert.</p>';
-  return `<div class="detail-head"><div class="detail-head-left"><div class="detail-kind-icon" style="background:#ede9fe;color:#6d28d9;font-family:\'Material Symbols Outlined\';font-size:18px;width:36px;height:36px;border-radius:8px;display:grid;place-items:center">function</div><div><div class="detail-title">${esc(m.name)}()</div><div class="detail-subtitle">Methode &middot; ${esc(domain)}/${esc(svc)}</div></div></div></div><div class="detail-body"><div style="font-size:.78rem;font-weight:700;color:#475569;margin-bottom:.4rem">Parameter <span style="background:#eef2ff;color:#4338ca;border-radius:5px;padding:0 5px;font-size:.7rem">${params.length}</span></div><div id="method-params-container">${paramsHtml}</div><div style="margin-top:.75rem;display:grid;grid-template-columns:1fr max-content auto auto;gap:.35rem;align-items:center"><input id="param-name" placeholder="Name (z.B. userId)" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem"><select id="param-type" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">${typeOpts}</select><label style="font-size:.78rem;display:flex;align-items:center;gap:.25rem;white-space:nowrap"><input type="checkbox" id="param-required"> Pflicht</label><button class="btn btn-primary btn-sm" id="param-add-btn">+ Parameter</button></div><div id="param-status" style="font-size:.75rem;margin-top:.3rem;min-height:1.1em"></div></div><div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/services/${encodeURIComponent(domain)}/${encodeURIComponent(svc)}/methods/${encodeURIComponent(m.name)}">API JSON</a></div>`;
+  const headers=m.headers||[];
+  const payloadFields=(m.payload&&m.payload.fields)||[];
+  const sec=m.security||{};
+  const typeOpts=['string','number','boolean','date','object','array'].map(t=>`<option value="${t}">${t}</option>`).join('');
+  const inOpts=['path','query','header'].map(v=>`<option value="${v}">${v}</option>`).join('');
+  const httpMethods=['GET','POST','PUT','PATCH','DELETE'];
+  const httpOpts=['','GET','POST','PUT','PATCH','DELETE'].map(v=>`<option value="${v}"${m.http_method===v?' selected':''}>${v||'— nicht gesetzt —'}</option>`).join('');
+  const secSchemes=['','none','bearer','api-key','basic','oauth2'].map(v=>`<option value="${v}"${sec.scheme===v?' selected':''}>${v||'— keine —'}</option>`).join('');
+  const ctOpts=['application/json','multipart/form-data','application/x-www-form-urlencoded','text/plain'].map(v=>`<option value="${v}"${(m.payload&&m.payload.content_type)===v?' selected':''}>${v}</option>`).join('');
+  return `<div class="detail-head"><div class="detail-head-left"><div class="detail-kind-icon" style="background:#ede9fe;color:#6d28d9;font-family:'Material Symbols Outlined';font-size:18px;width:36px;height:36px;border-radius:8px;display:grid;place-items:center">function</div><div><div class="detail-title">${methodHttpBadge(m.http_method)} ${esc(m.name)}</div><div class="detail-subtitle">Methode &middot; ${esc(domain)}/${esc(svc)}${m.path?` &middot; <code style="font-size:.75rem">${esc(m.path)}</code>`:''}</div></div></div></div>
+<div class="detail-body">
+<div class="detail-section-label">Endpoint</div>
+<div style="display:grid;grid-template-columns:max-content 1fr;gap:.4rem .5rem;align-items:center;margin-bottom:.6rem">
+  <label style="font-size:.78rem;color:#64748b">HTTP-Methode</label><select id="me-http-method" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">${httpOpts}</select>
+  <label style="font-size:.78rem;color:#64748b">Pfad (URI)</label><input id="me-path" value="${esc(m.path||'')}" placeholder="/resource/{id}" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;font-family:ui-monospace,monospace">
+  <label style="font-size:.78rem;color:#64748b">Zusammenfassung</label><input id="me-summary" value="${esc(m.summary||'')}" placeholder="Kurzbeschreibung" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">
+</div>
+<div class="detail-section-label">Security</div>
+<div style="display:grid;grid-template-columns:max-content 1fr max-content 1fr;gap:.4rem .5rem;align-items:center;margin-bottom:.6rem">
+  <label style="font-size:.78rem;color:#64748b">Schema</label><select id="me-sec-scheme" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">${secSchemes}</select>
+  <label style="font-size:.78rem;color:#64748b">In</label><input id="me-sec-in" value="${esc(sec.in||'header')}" placeholder="header | query" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">
+  <label style="font-size:.78rem;color:#64748b">Key-Name</label><input id="me-sec-name" value="${esc(sec.name||'')}" placeholder="Authorization" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;grid-column:2/-1">
+</div>
+<div style="display:flex;gap:.4rem;margin-bottom:1rem"><button class="btn btn-primary btn-sm" id="me-endpoint-save">Endpoint speichern</button><span id="me-endpoint-status" style="font-size:.75rem;line-height:2;min-height:1.2em"></span></div>
+
+<div class="detail-section-label">Parameter (Path / Query) <span style="background:#eef2ff;color:#4338ca;border-radius:5px;padding:0 5px;font-size:.7rem">${params.length}</span></div>
+<div id="method-params-container">${renderParamsTable(params,true)}</div>
+<div style="margin-top:.5rem;display:flex;gap:.3rem;flex-wrap:wrap;align-items:center">
+  <input id="param-name" placeholder="Name" style="flex:1;min-width:90px;border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">
+  <select id="param-type" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">${typeOpts}</select>
+  <select id="param-in" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">${inOpts}</select>
+  <label style="font-size:.78rem;display:flex;align-items:center;gap:.2rem;white-space:nowrap"><input type="checkbox" id="param-required"> Pflicht</label>
+  <button class="btn btn-primary btn-sm" id="param-add-btn">+ Param</button>
+</div>
+<div id="param-status" style="font-size:.75rem;margin-top:.2rem;min-height:1.1em"></div>
+
+<div class="detail-section-label" style="margin-top:.8rem">Request Headers <span style="background:#eef2ff;color:#4338ca;border-radius:5px;padding:0 5px;font-size:.7rem">${headers.length}</span></div>
+<div id="method-headers-container">${renderHeadersTable(headers)}</div>
+<div style="margin-top:.5rem;display:flex;gap:.3rem;flex-wrap:wrap;align-items:center">
+  <input id="header-name" placeholder="Name (z.B. X-Tenant-ID)" style="flex:1;min-width:110px;border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;font-family:ui-monospace,monospace">
+  <input id="header-value" placeholder="Wert oder {{"{{variable}}"}}" style="flex:1;min-width:130px;border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;font-family:ui-monospace,monospace">
+  <label style="font-size:.78rem;display:flex;align-items:center;gap:.2rem;white-space:nowrap"><input type="checkbox" id="header-required"> Pflicht</label>
+  <button class="btn btn-primary btn-sm" id="header-add-btn">+ Header</button>
+</div>
+<div id="header-status" style="font-size:.75rem;margin-top:.2rem;min-height:1.1em"></div>
+
+<div class="detail-section-label" style="margin-top:.8rem">Payload (Request Body) <span style="background:#eef2ff;color:#4338ca;border-radius:5px;padding:0 5px;font-size:.7rem">${payloadFields.length}</span></div>
+<div style="display:flex;gap:.4rem;align-items:center;margin-bottom:.4rem">
+  <label style="font-size:.78rem;color:#64748b;white-space:nowrap">Content-Type</label>
+  <select id="payload-ct" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">${ctOpts}</select>
+</div>
+<div id="method-payload-container">${renderPayloadFields(payloadFields)}</div>
+<div style="margin-top:.5rem;display:flex;gap:.3rem;flex-wrap:wrap;align-items:center">
+  <input id="field-name" placeholder="Name (z.B. domainName)" style="flex:1;min-width:100px;border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;font-family:ui-monospace,monospace">
+  <select id="field-type" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">${typeOpts}</select>
+  <input id="field-example" placeholder="Beispiel" style="width:90px;border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">
+  <label style="font-size:.78rem;display:flex;align-items:center;gap:.2rem;white-space:nowrap"><input type="checkbox" id="field-required"> Pflicht</label>
+  <button class="btn btn-primary btn-sm" id="field-add-btn">+ Feld</button>
+</div>
+<div id="field-status" style="font-size:.75rem;margin-top:.2rem;min-height:1.1em"></div>
+</div>
+<div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/services/${encodeURIComponent(domain)}/${encodeURIComponent(svc)}/methods/${encodeURIComponent(m.name)}">API JSON</a></div>`;
 }
 function wireMethodDetail(container,m,domain,svc){
   const methodsUrl='/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svc)+'/methods/'+encodeURIComponent(m.name);
-  const statusEl=container.querySelector('#param-status');
-  const setStatus=(msg,ok=false)=>{if(statusEl){statusEl.textContent=msg;statusEl.style.color=ok?'#16a34a':'#dc2626';}};
+  function setStatus(elId,msg,ok=false){const el=container.querySelector('#'+elId);if(el){el.textContent=msg;el.style.color=ok?'#16a34a':'#dc2626';if(ok)setTimeout(()=>{if(el)el.textContent='';},2000);}}
+  async function save(patch){
+    const r=await fetch(methodsUrl,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});
+    if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error?.message||'Speichern fehlgeschlagen');}
+    return r.json();
+  }
+
+  // --- endpoint fields ---
+  container.querySelector('#me-endpoint-save')?.addEventListener('click',async()=>{
+    const scheme=container.querySelector('#me-sec-scheme')?.value||'';
+    const secIn=container.querySelector('#me-sec-in')?.value.trim()||'';
+    const secName=container.querySelector('#me-sec-name')?.value.trim()||'';
+    const patch={
+      http_method:container.querySelector('#me-http-method')?.value||'',
+      path:container.querySelector('#me-path')?.value.trim()||'',
+      summary:container.querySelector('#me-summary')?.value.trim()||'',
+      security:scheme?{scheme,in:secIn,name:secName}:null,
+    };
+    try{await save(patch);setStatus('me-endpoint-status','Gespeichert ✓',true);}
+    catch(e){setStatus('me-endpoint-status',e.message);}
+  });
+
+  // --- parameters ---
   let params=[...(m.parameters||[])];
   function refreshParams(){
     const box=container.querySelector('#method-params-container');
-    if(!box)return;
-    if(!params.length){box.innerHTML='<p style="font-size:.8rem;color:#94a3b8;margin:.3rem 0">Noch keine Parameter definiert.</p>';return;}
-    box.innerHTML=`<table class="data-table" style="margin-top:.4rem"><thead><tr><th>Name</th><th>Typ</th><th>Pflicht</th><th></th></tr></thead><tbody>${params.map(p=>`<tr><td><code>${esc(p.name)}</code></td><td>${esc(p.type||'string')}</td><td>${p.required?'<span class="badge badge-active">ja</span>':'nein'}</td><td><button class="btn btn-danger btn-xs param-del-btn" data-param-name="${esc(p.name)}">&#x2715;</button></td></tr>`).join('')}</tbody></table>`;
-    wireDelBtns();
+    if(box)box.innerHTML=renderParamsTable(params,true);
+    wireParamDel();
   }
   async function saveParams(){
-    const r=await fetch(methodsUrl,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({parameters:params})});
-    if(r.ok){setStatus('Gespeichert ✓',true);setTimeout(()=>setStatus(''),2000);}
-    else{const d=await r.json().catch(()=>({}));setStatus(d.error?.message||'Speichern fehlgeschlagen');}
+    try{await save({parameters:params});setStatus('param-status','Gespeichert ✓',true);}
+    catch(e){setStatus('param-status',e.message);}
   }
-  function wireDelBtns(){
+  function wireParamDel(){
     container.querySelectorAll('.param-del-btn').forEach(btn=>{
       btn.addEventListener('click',async()=>{params=params.filter(p=>p.name!==btn.dataset.paramName);refreshParams();await saveParams();});
     });
   }
-  wireDelBtns();
+  wireParamDel();
   container.querySelector('#param-add-btn')?.addEventListener('click',async()=>{
     const nameEl=container.querySelector('#param-name');
     const name=nameEl?.value.trim()||'';
-    if(!name){setStatus('Name erforderlich');return;}
-    if(params.find(p=>p.name===name)){setStatus('Parameter existiert bereits');return;}
-    const type=container.querySelector('#param-type')?.value||'string';
-    const required=container.querySelector('#param-required')?.checked||false;
-    params.push({name,type,required,description:''});
+    if(!name){setStatus('param-status','Name erforderlich');return;}
+    if(params.find(p=>p.name===name)){setStatus('param-status','Existiert bereits');return;}
+    params.push({name,type:container.querySelector('#param-type')?.value||'string',in:container.querySelector('#param-in')?.value||'query',required:container.querySelector('#param-required')?.checked||false,description:''});
     if(nameEl)nameEl.value='';
-    refreshParams();
-    await saveParams();
+    refreshParams();await saveParams();
+  });
+
+  // --- headers ---
+  let headers=[...(m.headers||[])];
+  function refreshHeaders(){
+    const box=container.querySelector('#method-headers-container');
+    if(box)box.innerHTML=renderHeadersTable(headers);
+    wireHeaderDel();
+  }
+  async function saveHeaders(){
+    try{await save({headers});setStatus('header-status','Gespeichert ✓',true);}
+    catch(e){setStatus('header-status',e.message);}
+  }
+  function wireHeaderDel(){
+    container.querySelectorAll('.header-del-btn').forEach(btn=>{
+      btn.addEventListener('click',async()=>{headers=headers.filter(h=>h.name!==btn.dataset.headerName);refreshHeaders();await saveHeaders();});
+    });
+  }
+  wireHeaderDel();
+  container.querySelector('#header-add-btn')?.addEventListener('click',async()=>{
+    const nameEl=container.querySelector('#header-name');
+    const valEl=container.querySelector('#header-value');
+    const name=nameEl?.value.trim()||'';
+    if(!name){setStatus('header-status','Name erforderlich');return;}
+    if(headers.find(h=>h.name===name)){setStatus('header-status','Existiert bereits');return;}
+    headers.push({name,value:valEl?.value.trim()||'',required:container.querySelector('#header-required')?.checked||false,description:''});
+    if(nameEl)nameEl.value='';if(valEl)valEl.value='';
+    refreshHeaders();await saveHeaders();
+  });
+
+  // --- payload ---
+  let payloadFields=[...((m.payload&&m.payload.fields)||[])];
+  function refreshPayload(){
+    const box=container.querySelector('#method-payload-container');
+    if(box)box.innerHTML=renderPayloadFields(payloadFields);
+    wireFieldDel();
+  }
+  async function savePayload(){
+    const ct=container.querySelector('#payload-ct')?.value||'application/json';
+    try{await save({payload:{content_type:ct,fields:payloadFields}});setStatus('field-status','Gespeichert ✓',true);}
+    catch(e){setStatus('field-status',e.message);}
+  }
+  function wireFieldDel(){
+    container.querySelectorAll('.field-del-btn').forEach(btn=>{
+      btn.addEventListener('click',async()=>{payloadFields=payloadFields.filter(f=>f.name!==btn.dataset.fieldName);refreshPayload();await savePayload();});
+    });
+  }
+  wireFieldDel();
+  container.querySelector('#field-add-btn')?.addEventListener('click',async()=>{
+    const nameEl=container.querySelector('#field-name');
+    const name=nameEl?.value.trim()||'';
+    if(!name){setStatus('field-status','Name erforderlich');return;}
+    if(payloadFields.find(f=>f.name===name)){setStatus('field-status','Existiert bereits');return;}
+    payloadFields.push({name,type:container.querySelector('#field-type')?.value||'string',example:container.querySelector('#field-example')?.value.trim()||'',required:container.querySelector('#field-required')?.checked||false,description:''});
+    if(nameEl)nameEl.value='';
+    refreshPayload();await savePayload();
   });
 }
 function wireServiceDetail(container,d){

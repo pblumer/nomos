@@ -58,15 +58,46 @@ type DomainDTO struct {
 type MethodParameterDTO struct {
 	Name        string `json:"name"`
 	Type        string `json:"type"`
-	In          string `json:"in,omitempty"` // path | query | body | header
+	In          string `json:"in,omitempty"` // path | query | header
 	Required    bool   `json:"required,omitempty"`
 	Description string `json:"description,omitempty"`
+}
+
+type MethodHeaderDTO struct {
+	Name        string `json:"name"`
+	Value       string `json:"value,omitempty"`
+	Required    bool   `json:"required,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+type MethodSecurityDTO struct {
+	Scheme string `json:"scheme"`
+	In     string `json:"in,omitempty"`
+	Name   string `json:"name,omitempty"`
+}
+
+type MethodPayloadFieldDTO struct {
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Required    bool   `json:"required,omitempty"`
+	Description string `json:"description,omitempty"`
+	Example     string `json:"example,omitempty"`
+}
+
+type MethodPayloadDTO struct {
+	ContentType string                  `json:"content_type,omitempty"`
+	Fields      []MethodPayloadFieldDTO `json:"fields,omitempty"`
 }
 
 type MethodDefinitionDTO struct {
 	Name       string               `json:"name"`
 	Summary    string               `json:"summary,omitempty"`
+	HTTPMethod string               `json:"http_method,omitempty"`
+	Path       string               `json:"path,omitempty"`
 	Parameters []MethodParameterDTO `json:"parameters,omitempty"`
+	Headers    []MethodHeaderDTO    `json:"headers,omitempty"`
+	Security   *MethodSecurityDTO   `json:"security,omitempty"`
+	Payload    *MethodPayloadDTO    `json:"payload,omitempty"`
 }
 
 type ConnectorDTO struct {
@@ -610,39 +641,41 @@ type UpdateProcessTriggersRequest struct {
 }
 
 type ProcessStepDTO struct {
-	ID            string                `json:"id"`
-	Name          string                `json:"name"`
-	TaskType      string                `json:"task_type,omitempty"`
-	ServiceRef    string                `json:"service_ref"`
-	CapabilityRef string                `json:"capability_ref,omitempty"`
-	Method        string                `json:"method,omitempty"`
-	DecisionRef   string                `json:"decision_ref,omitempty"`
-	Role          string                `json:"role,omitempty"`
-	Required      bool                  `json:"required"`
-	Notes         string                `json:"notes,omitempty"`
-	DependsOn     []string              `json:"depends_on,omitempty"`
-	Inputs        []StepInputBindingDTO `json:"inputs,omitempty"`
-	Outputs       []StepOutputSchemaDTO `json:"outputs,omitempty"`
-	Decision      *DecisionTableDTO     `json:"decision,omitempty"`
-	Gateway       *DecisionGatewayDTO   `json:"gateway,omitempty"`
+	ID               string                `json:"id"`
+	Name             string                `json:"name"`
+	TaskType         string                `json:"task_type,omitempty"`
+	ServiceRef       string                `json:"service_ref"`
+	CapabilityRef    string                `json:"capability_ref,omitempty"`
+	Method           string                `json:"method,omitempty"`
+	UserInterfaceRef string                `json:"user_interface_ref,omitempty"`
+	DecisionRef      string                `json:"decision_ref,omitempty"`
+	Role             string                `json:"role,omitempty"`
+	Required         bool                  `json:"required"`
+	Notes            string                `json:"notes,omitempty"`
+	DependsOn        []string              `json:"depends_on,omitempty"`
+	Inputs           []StepInputBindingDTO `json:"inputs,omitempty"`
+	Outputs          []StepOutputSchemaDTO `json:"outputs,omitempty"`
+	Decision         *DecisionTableDTO     `json:"decision,omitempty"`
+	Gateway          *DecisionGatewayDTO   `json:"gateway,omitempty"`
 }
 
 type UpsertProcessStepRequest struct {
-	ID            string                `json:"id,omitempty"`
-	Name          string                `json:"name"`
-	TaskType      string                `json:"task_type"`
-	ServiceRef    string                `json:"service_ref"`
-	CapabilityRef string                `json:"capability_ref"`
-	Method        string                `json:"method"`
-	DecisionRef   string                `json:"decision_ref"`
-	Role          string                `json:"role"`
-	Required      bool                  `json:"required"`
-	Notes         string                `json:"notes"`
-	DependsOn     []string              `json:"depends_on,omitempty"`
-	Inputs        []StepInputBindingDTO `json:"inputs,omitempty"`
-	Outputs       []StepOutputSchemaDTO `json:"outputs,omitempty"`
-	Decision      *DecisionTableDTO     `json:"decision,omitempty"`
-	Gateway       *DecisionGatewayDTO   `json:"gateway,omitempty"`
+	ID               string                `json:"id,omitempty"`
+	Name             string                `json:"name"`
+	TaskType         string                `json:"task_type"`
+	ServiceRef       string                `json:"service_ref"`
+	CapabilityRef    string                `json:"capability_ref"`
+	Method           string                `json:"method"`
+	UserInterfaceRef string                `json:"user_interface_ref"`
+	DecisionRef      string                `json:"decision_ref"`
+	Role             string                `json:"role"`
+	Required         bool                  `json:"required"`
+	Notes            string                `json:"notes"`
+	DependsOn        []string              `json:"depends_on,omitempty"`
+	Inputs           []StepInputBindingDTO `json:"inputs,omitempty"`
+	Outputs          []StepOutputSchemaDTO `json:"outputs,omitempty"`
+	Decision         *DecisionTableDTO     `json:"decision,omitempty"`
+	Gateway          *DecisionGatewayDTO   `json:"gateway,omitempty"`
 }
 
 type BPMNReferenceDTO struct {
