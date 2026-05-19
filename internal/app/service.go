@@ -205,7 +205,7 @@ func serviceDTO(domain string, s cosmosfs.ServiceNode) ServiceDTO {
 	var capDefs []ServiceCapabilityDTO
 	for _, c := range s.Metadata.Capabilities {
 		capNames = append(capNames, c.Name)
-		if len(c.Connectors) > 0 || c.Summary != "" || c.Stability != "" {
+		if len(c.Connectors) > 0 || c.Summary != "" || c.Stability != "" || len(c.MethodRefs) > 0 || len(c.DataObjectRefs) > 0 {
 			connDTOs := make([]ConnectorDTO, 0, len(c.Connectors))
 			for _, cn := range c.Connectors {
 				connDTOs = append(connDTOs, ConnectorDTO{Type: cn.Type, Description: cn.Description, Invocation: cn.Invocation, Method: cn.Method, Path: cn.Path, Auth: cn.Auth, Tool: cn.Tool, Kind: cn.Kind, ArtifactRef: cn.ArtifactRef, ConsumerPool: cn.ConsumerPool, ProviderPool: cn.ProviderPool})
