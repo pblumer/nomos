@@ -196,6 +196,49 @@ func TestUpdateDecisionDMN_NormalizesDescriptiveInputNames(t *testing.T) {
 	}
 }
 
+// GetDecision re-derives inputs from the DMN file at runtime, so a decision
+// whose decision.yaml predates the inputsFromDMN fix still reflects the
+// column-level typeRef without forcing the user to re-save the DMN.
+func TestGetDecision_ReDerivesInputTypeFromDMNColumn(t *testing.T) {
+	p := t.TempDir()
+	must := func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(os.MkdirAll(filepath.Dir(storage.CosmosFile(p)), 0o755))
+	must(os.WriteFile(storage.CosmosFile(p), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: Test Team\n"), 0o644))
+	domainDir := filepath.Join(storage.DomainsDir(p), "blumer.com")
+	must(os.MkdirAll(filepath.Join(domainDir, "decisions", "DEC-002"), 0o755))
+	must(os.WriteFile(filepath.Join(domainDir, "domain.yaml"), []byte("name: blumer.com\nowner: Test\nstatus: draft\n"), 0o644))
+	// Stale cache: decision.yaml records no input type at all.
+	must(os.WriteFile(filepath.Join(domainDir, "decisions", "DEC-002", "decision.yaml"), []byte(
+		"id: DEC-002\ntype: decision\nname: Kreditpruefung\nversion: 0.1.0\nstatus: draft\nowner: Test\ndmn_file: decision.dmn\ninputs:\n  - name: value\noutputs:\n  - name: kredit_stufe\n    type: string\n"), 0o644))
+	// DMN: <inputData> variable has no typeRef (bpmn.io default); the
+	// decision-table column carries the authoritative typeRef="number".
+	must(os.WriteFile(filepath.Join(domainDir, "decisions", "DEC-002", "decision.dmn"), []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20240513/MODEL/" id="Definitions_2" name="Kreditpruefung">
+  <inputData id="InputData_Value" name="value"><variable id="Var_Value" name="value"/></inputData>
+  <decision id="Decision_1" name="Kreditpruefung">
+    <variable id="Var_1" name="kredit_stufe" typeRef="string"/>
+    <informationRequirement id="IR_1"><requiredInput href="#InputData_Value"/></informationRequirement>
+    <decisionTable id="DT_1" hitPolicy="FIRST">
+      <input id="In_1" label="value"><inputExpression id="IE_1" typeRef="number"><text>value</text></inputExpression></input>
+      <output id="Out_1" name="kredit_stufe" typeRef="string"/>
+      <rule id="R_1"><inputEntry id="IE_R1"><text>-</text></inputEntry><outputEntry id="OE_R1"><text>"x"</text></outputEntry></rule>
+    </decisionTable>
+  </decision>
+</definitions>`), 0o644))
+
+	dto, err := GetDecision(p, "blumer.com", "DEC-002")
+	if err != nil {
+		t.Fatalf("GetDecision: %v", err)
+	}
+	if len(dto.Inputs) != 1 || dto.Inputs[0].Type != "number" {
+		t.Errorf("expected inputs[0].Type=number from DMN column, got %+v", dto.Inputs)
+	}
+}
+
 func TestGetDecisionDMN_ReturnsRawXML(t *testing.T) {
 	p := createDecisionTestCosmos(t)
 	raw, err := GetDecisionDMN(p, "governance.blumer.com", "DEC-001")
