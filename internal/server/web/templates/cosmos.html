@@ -30,11 +30,14 @@
 <link rel="stylesheet" href="/static/vendor/dmn-js/assets/dmn-js-boxed-expression-controls.css">
 <link rel="stylesheet" href="/static/vendor/dmn-js/assets/dmn-font/css/dmn-embedded.css">
 <style>
-:root{--cosmos-tree-width:minmax(200px,24vw)}
 /* Cosmos needs the full desktop canvas; the global app shell caps normal pages at 1200px. */
 .app-main{max-width:none;width:auto}
-.ex-layout{display:grid;grid-template-columns:var(--cosmos-tree-width) minmax(0,1fr);gap:1rem;margin-top:1rem;align-items:start;width:100%}
-.ex-tree-card{background:#fff;border:1px solid #e8edf4;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.06);position:sticky;top:80px;align-self:start}
+.ex-layout{display:flex;gap:0;margin-top:1rem;align-items:start;width:100%;overflow:hidden}
+.ex-tree-card{width:260px;min-width:160px;flex-shrink:0;background:#fff;border:1px solid #e8edf4;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.06);position:sticky;top:80px;align-self:start}
+.ex-detail-card{flex:1;min-width:0}
+.ex-tree-resize-handle{width:6px;background:#e8eef6;cursor:col-resize;flex-shrink:0;align-self:stretch;border-radius:3px;margin:0 3px;transition:background .12s;position:relative;min-height:200px}
+.ex-tree-resize-handle:hover,.ex-tree-resize-handle.dragging{background:#c7d2fe}
+.ex-tree-resize-handle::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:2px;height:24px;background:#b0bde8;border-radius:1px}
 .ex-tree-head{display:flex;justify-content:space-between;align-items:center;padding:.75rem 1rem;border-bottom:1px solid #f0f4f8;background:#f8fafc}
 .ex-tree-head h3{margin:0;font-size:.9rem;font-weight:700;color:#1e293b}
 .ex-tree-meta{font-size:.78rem;color:#64748b}
@@ -73,9 +76,9 @@
 .cn-row[data-kind="service"] .cn-icon{color:#7c3aed}
 .cn-row[data-kind="product-parent"] .cn-icon,.cn-row[data-kind="product"] .cn-icon{color:#4338ca}
 .cn-row[data-kind="product-process-parent"] .cn-icon{color:#0369a1}
-.cn-row[data-kind="product-process-parent"] .cn-label{color:#475569;font-weight:600;font-size:.85rem;text-transform:uppercase;letter-spacing:.04em}
+.cn-row[data-kind="product-process-parent"] .cn-label{color:#64748b;font-style:italic;font-size:.8rem}
 .cn-row[data-kind="product-decision-parent"] .cn-icon{color:#a16207}
-.cn-row[data-kind="product-decision-parent"] .cn-label{color:#475569;font-weight:600;font-size:.85rem;text-transform:uppercase;letter-spacing:.04em}
+.cn-row[data-kind="product-decision-parent"] .cn-label{color:#64748b;font-style:italic;font-size:.8rem}
 .cn-row[data-kind="process-steps-parent"] .cn-icon{color:#0369a1}
 .cn-row[data-kind="process-step"] .cn-icon{color:#0284c7}
 .cn-row[data-kind="process-step"] .cn-label{font-size:.82rem}
@@ -141,7 +144,7 @@
 .cn-row[data-kind="blueprint-attr"] .cn-icon{color:#6366f1}
 .cn-row[data-kind="blueprint-attr"] .cn-label{color:#3730a3;font-size:.8rem}
 .attr-ref-link{font-size:.68rem;color:#7c3aed;margin-left:3px;white-space:normal;overflow-wrap:anywhere;max-width:140px}
-@media (max-width: 980px){.ex-layout{grid-template-columns:1fr}.ex-tree-card{min-width:0}.cn-badge{max-width:52%;padding:1px 6px;opacity:1}}
+@media (max-width: 980px){.ex-layout{flex-direction:column}.ex-tree-card{width:100%!important;position:static}.ex-tree-resize-handle{display:none}.cn-badge{max-width:52%;padding:1px 6px;opacity:1}}
 .ex-detail-card{background:#fff;border:1px solid #e8edf4;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.06);position:sticky;top:80px}
 .detail-head{padding:1rem 1.2rem .75rem;border-bottom:1px solid #f0f4f8;display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem}
 .detail-head-left{display:flex;align-items:center;gap:.6rem}
@@ -217,9 +220,19 @@
 .attr-add-row{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem}
 .attr-add-row input,.attr-add-row select{border:1px solid #d1d5db;border-radius:6px;padding:.32rem .55rem;font-size:.82rem}
 .tree-controls{display:flex;gap:.3rem}
-.ex-layout.tree-hidden{grid-template-columns:minmax(0,1fr)}
-.ex-layout.tree-hidden .ex-tree-card{display:none}
+.ex-layout.tree-hidden .ex-tree-card,.ex-layout.tree-hidden .ex-tree-resize-handle{display:none}
 .tree-toggle-btn{background:#fff;border:1px solid #e2e8f0;border-radius:7px;padding:2px 8px;cursor:pointer;color:#64748b;font-size:.76rem;font-weight:600;display:inline-flex;align-items:center;gap:.25rem;line-height:1.6;transition:background .1s,border-color .1s}.tree-toggle-btn:hover{background:#f1f5f9;border-color:#c7d2fe;color:#4338ca}
+.ex-tree-search{display:flex;align-items:center;gap:.3rem;padding:.4rem .6rem;border-bottom:1px solid #f0f4f8;background:#fafbfd;position:relative}
+.ex-tree-search .mi{font-family:'Material Symbols Outlined';font-size:15px;color:#94a3b8}
+.ex-tree-search input{flex:1;min-width:0;border:1px solid #e2e8f0;border-radius:7px;padding:.32rem .5rem;font-size:.82rem;outline:none;background:#fff;color:#1e293b}
+.ex-tree-search input:focus{border-color:#a5b4fc;box-shadow:0 0 0 2px rgba(99,102,241,.15)}
+.ex-tree-search input::-webkit-search-cancel-button{display:none}
+.ex-tree-search button{border:0;background:transparent;color:#94a3b8;cursor:pointer;font-size:.95rem;line-height:1;padding:.15rem .35rem;border-radius:5px;display:none}
+.ex-tree-search.active button{display:inline-flex;align-items:center}
+.ex-tree-search button:hover{background:#eef2f7;color:#1e293b}
+.ex-tree-search-info{font-size:.72rem;color:#64748b;white-space:nowrap}
+.cn.cn-search-hidden{display:none}
+.cn-label mark.cn-search-hit{background:#fde68a;color:#78350f;padding:0 1px;border-radius:2px}
 #tree-show-strip{display:none;padding:.45rem .75rem .1rem;border-bottom:1px solid #f0f4f8}
 .ex-layout.tree-hidden #tree-show-strip{display:block}
 
@@ -330,6 +343,12 @@
           <button class="tree-toggle-btn" id="tree-hide-btn" title="Baum ausblenden"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:13px">chevron_left</span></button>
         </div>
       </div>
+    </div>
+    <div class="ex-tree-search" id="tree-search-bar">
+      <span class="mi" aria-hidden="true">search</span>
+      <input type="search" id="tree-search" placeholder="Knoten suchen…" autocomplete="off" spellcheck="false">
+      <span class="ex-tree-search-info" id="tree-search-info"></span>
+      <button id="tree-search-clear" title="Suche löschen" aria-label="Suche löschen">&#x2715;</button>
     </div>
     <div class="ex-tree-body">
       <ul class="cn-tree" id="cosmos-tree">
@@ -452,6 +471,7 @@
       </ul>
     </div>
   </div>
+  <div class="ex-tree-resize-handle" id="ex-tree-resize" title="Baumbreite anpassen"></div>
 
   <div class="ex-detail-card">
     <div id="tree-show-strip"><button class="tree-toggle-btn" id="tree-show-btn"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:13px">chevron_right</span> Baum anzeigen</button></div>
@@ -533,6 +553,35 @@ tree.addEventListener('contextmenu',e=>{
 });
 document.addEventListener('click',hideCtx);
 
+const searchInput=$('tree-search'),searchBar=$('tree-search-bar'),searchClear=$('tree-search-clear'),searchInfo=$('tree-search-info');
+let searchExpandSnapshot=null,searchDebounce=null;
+function snapshotExpandState(){const m=new Map();tree.querySelectorAll('.cn-children').forEach(ul=>m.set(ul,ul.classList.contains('collapsed')));return m;}
+function restoreExpandState(state){if(!state)return;state.forEach((collapsed,ul)=>{if(!ul.isConnected)return;ul.classList.toggle('collapsed',collapsed);const btn=ul.parentElement?.querySelector(':scope > .cn-row .cn-toggle');if(btn)btn.classList.toggle('open',!collapsed);});}
+function clearSearchHighlights(){tree.querySelectorAll('.cn-label mark.cn-search-hit').forEach(m=>{const lbl=m.parentNode;lbl.replaceChild(document.createTextNode(m.textContent),m);lbl.normalize();});}
+function highlightLabel(lbl,q){const text=lbl.textContent;const idx=text.toLowerCase().indexOf(q);if(idx<0)return;lbl.textContent='';lbl.appendChild(document.createTextNode(text.slice(0,idx)));const mk=document.createElement('mark');mk.className='cn-search-hit';mk.textContent=text.slice(idx,idx+q.length);lbl.appendChild(mk);lbl.appendChild(document.createTextNode(text.slice(idx+q.length)));}
+function applyTreeSearch(raw){
+  const q=(raw||'').trim().toLowerCase();
+  searchBar.classList.toggle('active',q.length>0);
+  clearSearchHighlights();
+  if(!q){
+    tree.querySelectorAll('.cn.cn-search-hidden').forEach(li=>li.classList.remove('cn-search-hidden'));
+    if(searchExpandSnapshot){restoreExpandState(searchExpandSnapshot);searchExpandSnapshot=null;}
+    searchInfo.textContent='';
+    return;
+  }
+  if(!searchExpandSnapshot)searchExpandSnapshot=snapshotExpandState();
+  const all=tree.querySelectorAll('.cn');
+  let hits=0;
+  all.forEach(li=>{li._sm=false;li._dm=false;li.classList.remove('cn-search-hidden');const lbl=li.querySelector(':scope > .cn-row .cn-label');if(lbl && lbl.textContent.toLowerCase().includes(q)){li._sm=true;hits++;highlightLabel(lbl,q);}});
+  for(let i=all.length-1;i>=0;i--){const li=all[i];if(li._sm||li._dm){const p=li.parentElement?.closest('.cn');if(p)p._dm=true;}}
+  all.forEach(li=>{const visible=li._sm||li._dm;li.classList.toggle('cn-search-hidden',!visible);if(li._dm){const ul=li.querySelector(':scope > .cn-children');if(ul){ul.classList.remove('collapsed');const btn=li.querySelector(':scope > .cn-row .cn-toggle');if(btn)btn.classList.add('open');}}});
+  searchInfo.textContent=hits?(hits+' Treffer'):'keine Treffer';
+}
+searchInput?.addEventListener('input',()=>{clearTimeout(searchDebounce);searchDebounce=setTimeout(()=>applyTreeSearch(searchInput.value),60);});
+searchInput?.addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();searchInput.value='';applyTreeSearch('');}});
+searchClear?.addEventListener('click',()=>{searchInput.value='';applyTreeSearch('');searchInput.focus();});
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='/'&&searchInput){e.preventDefault();searchInput.focus();searchInput.select();}});
+
 $('tree-expand-all').addEventListener('click',()=>{
   tree.querySelectorAll('.cn-children').forEach(ul=>ul.classList.remove('collapsed'));
   tree.querySelectorAll('.cn-toggle').forEach(btn=>btn.classList.add('open'));
@@ -546,12 +595,29 @@ $('tree-collapse-all').addEventListener('click',()=>{
 });
 
 const exLayout=document.querySelector('.ex-layout');
+const exTreeCard=document.querySelector('.ex-tree-card');
 const TREE_HIDDEN_KEY='nomos-tree-hidden';
+const TREE_WIDTH_KEY='nomos-tree-width';
 function setTreeHidden(hidden){exLayout.classList.toggle('tree-hidden',hidden);try{hidden?localStorage.setItem(TREE_HIDDEN_KEY,'1'):localStorage.removeItem(TREE_HIDDEN_KEY);}catch(_){}}
 try{if(localStorage.getItem(TREE_HIDDEN_KEY)==='1')exLayout.classList.add('tree-hidden');}catch(_){}
+try{const w=parseInt(localStorage.getItem(TREE_WIDTH_KEY));if(w>=160&&w<=700&&exTreeCard)exTreeCard.style.width=w+'px';}catch(_){}
 $('tree-hide-btn').addEventListener('click',()=>setTreeHidden(true));
 $('tree-show-btn').addEventListener('click',()=>setTreeHidden(false));
 document.addEventListener('click',e=>{if(e.target.closest('#proc-tree-toggle'))setTreeHidden(!exLayout.classList.contains('tree-hidden'));});
+(function(){
+  const handle=$('ex-tree-resize');
+  if(!handle||!exTreeCard)return;
+  let startX=0,startW=0;
+  handle.addEventListener('mousedown',e=>{
+    startX=e.clientX;startW=exTreeCard.offsetWidth;
+    handle.classList.add('dragging');
+    const onMove=mv=>{const w=Math.max(160,Math.min(700,startW+(mv.clientX-startX)));exTreeCard.style.width=w+'px';};
+    const onUp=()=>{handle.classList.remove('dragging');try{localStorage.setItem(TREE_WIDTH_KEY,exTreeCard.offsetWidth);}catch(_){}document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);};
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp,{once:true});
+    e.preventDefault();
+  });
+}());
 
 const params=new URLSearchParams(location.search);
 const sel=params.get('selected');
