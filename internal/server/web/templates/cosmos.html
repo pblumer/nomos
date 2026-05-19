@@ -274,6 +274,58 @@
 .dmn-drg-chip.ks{background:#f3e8ff;color:#6b21a8;border-color:#e9d5ff}
 .dmn-drg-chip.ds{background:#dcfce7;color:#166534;border-color:#bbf7d0}
 .dec-meta.collapsed{display:none}
+/* ── Decision-History (Traces) ── */
+.dec-history{margin-top:.7rem;border:1px solid #e2e8f0;border-radius:14px;background:#fff;padding:.7rem .85rem}
+.dec-history-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem}
+.dec-history-title{font-size:.85rem;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:.5rem}
+.dec-history-count{background:#f1f5f9;color:#475569;border-radius:999px;padding:.08rem .5rem;font-size:.7rem;font-weight:700}
+.dec-history-verify{font-size:.72rem;font-weight:700;display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .55rem;border-radius:999px}
+.dec-history-verify.ok{background:#dcfce7;color:#166534}
+.dec-history-verify.bad{background:#fee2e2;color:#991b1b}
+.dec-history-verify.pending{background:#f1f5f9;color:#64748b}
+.dec-history-empty{color:#64748b;font-size:.82rem;font-style:italic;padding:.4rem 0}
+.dec-history-error{color:#991b1b;font-size:.82rem;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:.4rem .6rem}
+.dec-history-list{display:flex;flex-direction:column;gap:.4rem}
+.trace-card{border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;overflow:hidden;transition:border-color .12s}
+.trace-card.open{border-color:#c7d2fe;background:#fff;box-shadow:0 4px 14px rgba(99,102,241,.06)}
+.trace-summary{display:grid;grid-template-columns:auto 1fr auto auto;gap:.6rem;align-items:center;padding:.45rem .65rem;cursor:pointer;user-select:none}
+.trace-summary:hover{background:#eef2ff}
+.trace-toggle{font-family:'Material Symbols Outlined';font-size:1rem;color:#64748b;transition:transform .15s;display:inline-block;line-height:1}
+.trace-card.open .trace-toggle{transform:rotate(90deg)}
+.trace-time{font-size:.78rem;font-weight:700;color:#0f172a;font-variant-numeric:tabular-nums}
+.trace-summary-meta{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;font-size:.74rem;color:#64748b}
+.trace-rule-chip{background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:6px;padding:.05rem .4rem;font-size:.7rem;font-weight:700;font-family:ui-monospace,monospace}
+.trace-hash{font-family:ui-monospace,monospace;font-size:.7rem;color:#475569;background:#f1f5f9;border-radius:5px;padding:.05rem .4rem}
+.trace-evaluator{font-size:.7rem;color:#64748b}
+.trace-body{padding:.55rem .75rem .7rem;border-top:1px solid #e2e8f0;display:none;flex-direction:column;gap:.65rem}
+.trace-card.open .trace-body{display:flex}
+.trace-section-label{font-size:.7rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.04em;margin:0 0 .25rem}
+.trace-kv{display:flex;flex-wrap:wrap;gap:.3rem}
+.trace-kv-item{font-size:.74rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:.18rem .5rem;font-family:ui-monospace,monospace;color:#0f172a}
+.trace-kv-item .k{color:#64748b;font-weight:700;margin-right:.3rem}
+.trace-kv-item.in{background:#ecfeff;border-color:#a5f3fc}
+.trace-kv-item.in .k{color:#0c4a6e}
+.trace-kv-item.out{background:#dcfce7;border-color:#bbf7d0}
+.trace-kv-item.out .k{color:#166534}
+.trace-dt-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:8px;background:#fff}
+.trace-dt{width:100%;border-collapse:collapse;font-size:.76rem}
+.trace-dt th,.trace-dt td{border:1px solid #e2e8f0;padding:.32rem .5rem;text-align:left;vertical-align:top}
+.trace-dt thead th{background:#f8fafc;color:#475569;font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+.trace-dt th.col-in{background:#f0fbff}
+.trace-dt th.col-out{background:#f0fdf4}
+.trace-dt td.cell-num{width:2rem;color:#94a3b8;text-align:center;font-family:ui-monospace,monospace;font-size:.7rem}
+.trace-dt td.cell-in{font-family:ui-monospace,monospace;color:#0f172a}
+.trace-dt td.cell-out{font-family:ui-monospace,monospace;color:#0f172a;background:#fafffb}
+.trace-dt tr.rule-matched td{background:#fef9c3!important;border-color:#fde68a}
+.trace-dt tr.rule-matched td.cell-num{background:#fde68a!important;color:#92400e;font-weight:800}
+.trace-dt tr.rule-matched td.cell-out{background:#dcfce7!important;color:#166534;font-weight:700}
+.trace-input-banner,.trace-output-banner{font-size:.7rem;color:#475569}
+.trace-input-banner .pill,.trace-output-banner .pill{display:inline-block;margin:.05rem .25rem .05rem 0;padding:.05rem .35rem;border-radius:5px;font-family:ui-monospace,monospace;font-size:.7rem}
+.trace-input-banner .pill{background:#ecfeff;color:#0c4a6e;border:1px solid #a5f3fc}
+.trace-output-banner .pill{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+.trace-footer{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:.2rem .6rem;font-size:.7rem;color:#475569;border-top:1px dashed #e2e8f0;padding-top:.5rem;margin-top:.1rem}
+.trace-footer dt{color:#94a3b8;font-weight:700}
+.trace-footer dd{margin:0;font-family:ui-monospace,monospace;color:#334155;word-break:break-all}
 .bpmn-map-dot{display:inline-block;width:14px;height:14px;border-radius:999px;border:2px solid #fff;box-shadow:0 1px 4px rgba(15,23,42,.25)}.bpmn-map-dot.mapped{background:#10b981}.bpmn-map-dot.unmapped{background:#f59e0b}
 .bpmn-detail-panel{border:1px solid #dbeafe;border-radius:12px;background:#f8fbff;padding:.75rem;margin:.6rem 0 .8rem}.bpmn-detail-panel.is-empty{color:#64748b;font-size:.82rem;background:#f8fafc;border-style:dashed}.bpmn-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;margin-bottom:.55rem}.bpmn-detail-title{font-weight:800;color:#0f172a;font-size:.92rem}.bpmn-detail-subtitle{font-size:.74rem;color:#64748b;margin-top:.1rem}.bpmn-detail-grid{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:.3rem .75rem;font-size:.78rem}.bpmn-detail-grid dt{color:#64748b;font-weight:700}.bpmn-detail-grid dd{margin:0;min-width:0;word-break:break-word}.bpmn-detail-section{margin-top:.6rem}.bpmn-detail-section h5{margin:0 0 .3rem;font-size:.75rem;color:#475569}.bpmn-detail-chips{display:flex;flex-wrap:wrap;gap:.25rem}.bpmn-detail-code{font-family:ui-monospace,monospace;background:#eef2ff;color:#3730a3;border-radius:5px;padding:1px 5px}.bpmn-canvas .djs-shape.bpmn-selected .djs-visual>:not(text){stroke:#4f46e5!important;stroke-width:2px!important;filter:drop-shadow(0 0 2px rgba(79,70,229,.22))}.bpmn-canvas .djs-shape.bpmn-selected text,.bpmn-canvas .djs-shape.bpmn-selected .djs-label{stroke:none!important;fill:#0f172a!important}.bpmn-canvas .djs-shape{cursor:pointer}.task-fallback-row.is-selected{border-color:#6366f1;background:#eef2ff;box-shadow:inset 3px 0 0 #6366f1}
 .tp-panel{display:flex;flex-direction:column;gap:0}.tp-tabs{display:flex;border-bottom:2px solid #e2e8f0;margin-bottom:.65rem}.tp-tab{flex:1;padding:.4rem .5rem;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;font-size:.78rem;font-weight:700;color:#64748b;transition:color .1s}.tp-tab.active{color:#4338ca;border-bottom-color:#4338ca}.tp-tab-panel.hidden{display:none}.tp-header{display:flex;align-items:center;gap:.6rem;padding:.3rem 0 .65rem;border-bottom:1px solid #e2e8f0;margin-bottom:.6rem}.tp-type-icon{width:38px;height:38px;border-radius:10px;background:#eef2ff;color:#4338ca;display:grid;place-items:center;flex-shrink:0}.tp-type-label{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:.1rem}.tp-name-display{font-size:.9rem;font-weight:700;color:#0f172a;word-break:break-word;line-height:1.2}.tp-section{border:1px solid #e2e8f0;border-radius:9px;overflow:hidden;margin-bottom:.4rem}.tp-section-head{display:flex;align-items:center;justify-content:space-between;padding:.38rem .6rem;background:#f8fafc;cursor:pointer;user-select:none;font-size:.73rem;font-weight:800;color:#334155}.tp-section-head:hover{background:#f1f5f9}.tp-section-arrow{font-style:normal;font-size:.7rem;color:#94a3b8}.tp-section-body{padding:.5rem .6rem;display:flex;flex-direction:column;gap:.4rem;border-top:1px solid #f1f5f9}.tp-field{display:flex;flex-direction:column;gap:.18rem}.tp-label{font-size:.71rem;font-weight:700;color:#64748b}.tp-input{border:1px solid #cbd5e1;border-radius:6px;padding:.3rem .45rem;font-size:.79rem;width:100%;box-sizing:border-box;font-family:inherit;resize:vertical;background:#fff;color:#0f172a;line-height:1.4}.tp-input:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.15)}.tp-input[readonly]{background:#f8fafc;color:#64748b;cursor:default}.tp-input-code{font-family:ui-monospace,monospace;font-size:.74rem;background:#f1f5f9;border-color:#e2e8f0;color:#475569}.tp-select{border:1px solid #cbd5e1;border-radius:6px;padding:.3rem .4rem;font-size:.78rem;background:#fff;cursor:pointer;width:100%;color:#0f172a}.tp-select:focus{outline:none;border-color:#6366f1}.tp-check-row{display:flex;align-items:center;gap:.35rem;font-size:.78rem;color:#475569;cursor:pointer}.tp-actions{padding:.6rem 0 .1rem;display:flex;gap:.5rem;align-items:center}.tp-save-btn{background:#4f46e5;color:#fff;border:none;border-radius:7px;padding:.38rem .9rem;font-size:.8rem;font-weight:800;cursor:pointer;flex-shrink:0}.tp-save-btn:hover{background:#4338ca}.tp-save-btn:disabled{opacity:.55;cursor:not-allowed}.tp-status{font-size:.72rem;color:#64748b;flex:1}.tp-status.ok{color:#059669}.tp-status.err{color:#dc2626}
@@ -1964,6 +2016,7 @@ function renderDecisionDetail(dec,defs,domainCanonical){
     </div>
   </div>
   <div id="dmn-canvas" class="dmn-canvas" data-decision-id="${esc(dec.id)}" data-decision-domain="${esc(domainCanonical)}"><div class="detail-empty">Lade DMN&hellip;</div></div>
+  ${dec.has_dmn?`<div id="dec-history" class="dec-history" data-decision-id="${esc(dec.id)}" data-decision-domain="${esc(domainCanonical)}"><div class="dec-history-head"><div class="dec-history-title"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:1.05rem">history</span>Evaluationen<span class="dec-history-count" id="dec-history-count">&hellip;</span></div><span class="dec-history-verify pending" id="dec-history-verify"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:.9rem">hourglass_empty</span>Pr&uuml;fe&hellip;</span></div><div class="dec-history-body" id="dec-history-body"><div class="dec-history-empty">Lade Trace-Historie&hellip;</div></div></div>`:''}
 </div>`;
 }
 
@@ -2067,6 +2120,7 @@ async function loadDecisionExplorerDetail(row){
   });
   if(dec.has_dmn){
     setTimeout(()=>initDmnEditor(detail,dec,domainCanonical,xml),50);
+    setTimeout(()=>loadDecisionHistory(detail,dec,defs,domainCanonical),60);
   }else{
     setTimeout(()=>renderDmnTypePicker(detail,dec,domainCanonical),50);
   }
@@ -2148,6 +2202,125 @@ async function initDmnEditor(container,dec,domainCanonical,xml){
       setTimeout(()=>setStatus(''),3000);
     }catch(e){console.error('dmn save error:',e);setStatus(e.message||'Fehler',true);}finally{saveBtn.disabled=false;}
   });
+}
+
+// -----------------------------------------------------------------------
+// Decision-Trace history panel (immutable, append-only evaluations)
+// -----------------------------------------------------------------------
+function fmtTraceTime(iso){
+  if(!iso)return '&ndash;';
+  const d=new Date(iso);
+  if(isNaN(d.getTime()))return esc(iso);
+  const pad=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function shortHash(h){
+  if(!h)return '';
+  const s=String(h);
+  const body=s.startsWith('sha256:')?s.slice(7):s;
+  return body.slice(0,10);
+}
+function fmtTraceVal(v){
+  if(v===null||v===undefined)return '<span style="color:#94a3b8">null</span>';
+  if(typeof v==='string')return esc(JSON.stringify(v));
+  if(typeof v==='boolean'||typeof v==='number')return esc(String(v));
+  try{return esc(JSON.stringify(v));}catch(_){return esc(String(v));}
+}
+// Locate the decision in the parsed definitions whose decision_table we should
+// render for this trace. Prefer ID match, then name; otherwise first decision
+// that has a decision_table.
+function pickDecisionForTrace(defs,trace){
+  const decisions=defs?.decisions||[];
+  if(!decisions.length)return null;
+  const decName=trace.decision_name||'';
+  const decID=trace.decision_id||'';
+  const byID=decisions.find(d=>d.id===decID||d.id===('Decision_'+decID.replace(/[^A-Za-z0-9_-]/g,'_')));
+  if(byID&&byID.decision_table)return byID;
+  if(decName){const byName=decisions.find(d=>d.name===decName);if(byName&&byName.decision_table)return byName;}
+  return decisions.find(d=>d.decision_table)||null;
+}
+function renderTraceTable(defs,trace){
+  const dec=pickDecisionForTrace(defs,trace);
+  const table=dec?.decision_table;
+  if(!table)return '<div style="font-size:.74rem;color:#64748b;font-style:italic">Keine Decision-Tabelle f&uuml;r Visualisierung verf&uuml;gbar (Literal Expression oder BKM).</div>';
+  const inputs=table.inputs||[];
+  const outputs=table.outputs||[];
+  const rules=table.rules||[];
+  const matchedSet=new Set(trace.matched_rules||[]);
+  const inputCols=inputs.map(i=>`<th class="col-in" title="${esc(i.expression||'')}">${esc(i.label||i.expression||'input')}${i.type_ref?` <span style="color:#94a3b8;font-weight:400">: ${esc(i.type_ref)}</span>`:''}</th>`).join('');
+  const outputCols=outputs.map(o=>`<th class="col-out" title="${esc(o.name||'')}">${esc(o.label||o.name||'output')}${o.type_ref?` <span style="color:#94a3b8;font-weight:400">: ${esc(o.type_ref)}</span>`:''}</th>`).join('');
+  const rows=rules.map((r,idx)=>{
+    const matched=matchedSet.has(r.id);
+    const inCells=(r.input_entries||[]).map(e=>`<td class="cell-in">${esc(e||'-')}</td>`).join('');
+    const outCells=(r.output_entries||[]).map(e=>`<td class="cell-out">${esc(e||'-')}</td>`).join('');
+    return `<tr class="${matched?'rule-matched':''}" title="${esc(r.id||('Rule '+(idx+1)))}${matched?' — TRIFFT ZU':''}"><td class="cell-num">${matched?'✓ ':''}${idx+1}</td>${inCells}${outCells}</tr>`;
+  }).join('');
+  return `<div class="trace-dt-wrap"><table class="trace-dt"><thead><tr><th style="width:2rem">#</th>${inputCols}${outputCols}</tr></thead><tbody>${rows||`<tr><td colspan="${1+inputs.length+outputs.length}" style="color:#94a3b8;font-style:italic">Keine Regeln</td></tr>`}</tbody></table></div>`;
+}
+function renderTraceCard(trace,defs,idx){
+  const ruleChips=(trace.matched_rules||[]).map(r=>`<span class="trace-rule-chip">${esc(r)}</span>`).join('');
+  const noMatch=!(trace.matched_rules||[]).length;
+  const evalLabel=trace.evaluator?(trace.evaluator.id||trace.evaluator.ip||''):'';
+  const inputPills=Object.entries(trace.inputs||{}).map(([k,v])=>`<span class="pill"><strong>${esc(k)}</strong>=${fmtTraceVal(v)}</span>`).join('');
+  const outputPills=Object.entries(trace.outputs||{}).map(([k,v])=>`<span class="pill"><strong>${esc(k)}</strong>=${fmtTraceVal(v)}</span>`).join('');
+  const tableHTML=renderTraceTable(defs,trace);
+  return `<div class="trace-card" data-trace-idx="${idx}">
+    <div class="trace-summary" data-toggle="1">
+      <span class="trace-toggle">chevron_right</span>
+      <span class="trace-time">${fmtTraceTime(trace.timestamp)}</span>
+      <span class="trace-summary-meta">${ruleChips||'<span class="trace-rule-chip" style="background:#fee2e2;color:#991b1b;border-color:#fecaca">kein Match</span>'}${evalLabel?`<span class="trace-evaluator">&middot; ${esc(evalLabel)}</span>`:''}</span>
+      <span class="trace-hash" title="${esc(trace.trace_id||'')}">${esc(shortHash(trace.trace_id))}</span>
+    </div>
+    <div class="trace-body">
+      <div><div class="trace-section-label">Eingaben</div><div class="trace-input-banner">${inputPills||'<span style="color:#94a3b8;font-style:italic">keine</span>'}</div></div>
+      <div><div class="trace-section-label">Decision-Tabelle (Treffer hervorgehoben)</div>${tableHTML}</div>
+      <div><div class="trace-section-label">Ergebnis</div><div class="trace-output-banner">${outputPills||(noMatch?'<span style="color:#991b1b">keine Regel zutreffend</span>':'<span style="color:#94a3b8;font-style:italic">leer</span>')}</div></div>
+      <dl class="trace-footer">
+        <dt>Trace-ID</dt><dd>${esc(trace.trace_id||'')}</dd>
+        ${trace.parent_trace_id?`<dt>Parent</dt><dd>${esc(trace.parent_trace_id)}</dd>`:''}
+        <dt>Regel-Hash</dt><dd>${esc(trace.rule_hash||'')}</dd>
+        <dt>Hit-Policy</dt><dd>${esc(trace.hit_policy||'-')}</dd>
+        <dt>Decision</dt><dd>${esc(trace.decision_name||trace.decision_id||'')} &middot; v${esc(trace.decision_version||'')}</dd>
+        ${trace.engine?`<dt>Engine</dt><dd>${esc(trace.engine.name||'')} ${esc(trace.engine.version||'')}${trace.engine.commit?` (${esc(trace.engine.commit.slice(0,8))})`:''}</dd>`:''}
+      </dl>
+    </div>
+  </div>`;
+}
+async function loadDecisionHistory(container,dec,defs,domainCanonical){
+  const panel=container.querySelector('#dec-history');
+  if(!panel)return;
+  const body=panel.querySelector('#dec-history-body');
+  const countEl=panel.querySelector('#dec-history-count');
+  const verifyEl=panel.querySelector('#dec-history-verify');
+  const baseURL='/api/v1/domains/'+encodeURIComponent(domainCanonical)+'/decisions/'+encodeURIComponent(dec.id)+'/traces';
+  try{
+    const [listResp,verifyResp]=await Promise.all([
+      fetch(baseURL),
+      fetch(baseURL+'/verify').catch(()=>null),
+    ]);
+    if(!listResp.ok){throw new Error(await listResp.text().catch(()=>'')||'Traces konnten nicht geladen werden');}
+    const listDTO=await listResp.json();
+    const items=(listDTO.items||[]).slice().reverse(); // newest first
+    if(countEl)countEl.textContent=String(listDTO.count||items.length||0);
+    const miIcon=(name)=>`<span class="mi" style="font-family:&quot;Material Symbols Outlined&quot;;font-size:.9rem">${name}</span>`;
+    if(verifyResp&&verifyResp.ok){
+      const v=await verifyResp.json().catch(()=>null);
+      if(v){
+        if(v.count===0){verifyEl.className='dec-history-verify pending';verifyEl.innerHTML=miIcon('remove')+'noch keine';}
+        else if(v.ok){verifyEl.className='dec-history-verify ok';verifyEl.innerHTML=miIcon('verified')+'Kette ok';}
+        else{const bad=(v.items||[]).filter(it=>!it.ok).length;verifyEl.className='dec-history-verify bad';verifyEl.innerHTML=miIcon('gpp_bad')+bad+' Tamper';}
+      }
+    }else{verifyEl.className='dec-history-verify pending';verifyEl.innerHTML=miIcon('help')+'nicht pr&uuml;fbar';}
+    if(!items.length){body.innerHTML='<div class="dec-history-empty">Noch keine Evaluationen aufgezeichnet. Sobald die Decision &uuml;ber den <code>/evaluate</code>-Endpoint aufgerufen wird, erscheinen die Traces hier.</div>';return;}
+    body.innerHTML='<div class="dec-history-list">'+items.map((t,i)=>renderTraceCard(t,defs,i)).join('')+'</div>';
+    body.querySelectorAll('.trace-summary').forEach(el=>{
+      el.addEventListener('click',()=>{el.closest('.trace-card')?.classList.toggle('open');});
+    });
+  }catch(err){
+    body.innerHTML=`<div class="dec-history-error">${esc(err.message||'Fehler beim Laden der Trace-Historie')}</div>`;
+    if(countEl)countEl.textContent='!';
+    verifyEl.className='dec-history-verify bad';verifyEl.innerHTML='<span class="mi" style="font-family:&quot;Material Symbols Outlined&quot;;font-size:.9rem">error</span>Fehler';
+  }
 }
 
 function wireBPMNMethodDrop(canvasEl,modeler,proc){
