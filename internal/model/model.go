@@ -305,6 +305,18 @@ type ProcessParticipant struct {
 	Ref  string `yaml:"ref,omitempty" json:"ref,omitempty"` // domain or service canonical ref
 }
 
+// ProcessLane mirrors one bpmn:lane and binds it to the service whose
+// methods (Service Tasks) and user interfaces (User Tasks) are valid
+// inside that lane. The source of truth lives in the BPMN file as a
+// nomos-service-ref documentation element; this mirror exists so the
+// catalog API and validation can reason about lane bindings without
+// re-parsing BPMN.
+type ProcessLane struct {
+	BPMNLaneID string `yaml:"bpmn_lane_id" json:"bpmn_lane_id"`
+	Name       string `yaml:"name,omitempty" json:"name,omitempty"`
+	ServiceRef string `yaml:"service_ref,omitempty" json:"service_ref,omitempty"`
+}
+
 // Process describes a product-level process artifact. Steps are the primary
 // definition; BPMN XML (stored in a separate .bpmn file) is kept for future
 // visual modelling and remains fully compatible.
@@ -320,6 +332,7 @@ type Process struct {
 	RelatedProduct string               `yaml:"related_product" json:"related_product"`
 	Participant    *ProcessParticipant  `yaml:"participant,omitempty" json:"participant,omitempty"`
 	Steps          []ProcessStep        `yaml:"steps,omitempty" json:"steps,omitempty"`
+	Lanes          []ProcessLane        `yaml:"lanes,omitempty" json:"lanes,omitempty"`
 	BPMN           BPMNReference        `yaml:"bpmn" json:"bpmn"`
 	TaskMappings   []ProcessTaskMapping `yaml:"task_mappings,omitempty" json:"task_mappings,omitempty"`
 	Triggers       []ProcessTrigger     `yaml:"triggers,omitempty" json:"triggers,omitempty"`

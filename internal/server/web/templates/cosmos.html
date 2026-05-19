@@ -1268,6 +1268,40 @@ function hideBPMNStandalonePanel(proc){
   workbench.classList.remove('has-selection');
   panel.style.display='none';
 }
+// Tag stored inside a bpmn:lane's documentation element to bind the lane
+// to a Nomos service. The backend parser (ExtractBPMNLanes) reads this
+// prefix to mirror lane→service bindings into the process YAML.
+const BPMN_LANE_SERVICE_PREFIX='nomos-service-ref:';
+function bpmnLaneServiceRef(element){
+  const docs=element?.businessObject?.documentation||[];
+  for(const d of docs){
+    const text=(d?.text||'').trim();
+    if(text.startsWith(BPMN_LANE_SERVICE_PREFIX))return text.slice(BPMN_LANE_SERVICE_PREFIX.length).trim();
+  }
+  return '';
+}
+function bpmnLaneSetServiceRef(element,modeler,serviceRef){
+  if(!modeler||!element)return;
+  let bpmnFactory=null,modeling=null;
+  try{bpmnFactory=modeler.get('bpmnFactory');modeling=modeler.get('modeling');}catch(_){return;}
+  const existing=(element.businessObject?.documentation||[]).filter(d=>!((d?.text||'').trim().startsWith(BPMN_LANE_SERVICE_PREFIX)));
+  if(serviceRef&&serviceRef.trim()){
+    existing.push(bpmnFactory.create('bpmn:Documentation',{text:BPMN_LANE_SERVICE_PREFIX+serviceRef.trim()}));
+  }
+  try{modeling.updateProperties(element,{documentation:existing});}catch(e){console.warn('lane service-ref update failed:',e);}
+}
+// In-memory cache of service refs, lazily filled from /api/v1/services/refs
+// the first time a Lane is selected. Kept on window so multiple BPMN
+// editors (inline, standalone, dialog) share the same fetch.
+async function loadServiceRefs(){
+  if(window._nomosServiceRefs)return window._nomosServiceRefs;
+  try{
+    const r=await fetch('/api/v1/services/refs');
+    const d=await r.json();
+    window._nomosServiceRefs=(d.services||[]).map(s=>s.service_ref).filter(Boolean).sort();
+  }catch(e){console.warn('service refs fetch failed:',e);window._nomosServiceRefs=[];}
+  return window._nomosServiceRefs;
+}
 function bpmnLaneParticipantHTML(element,proc){
   const bo=element.businessObject||{};
   const isPool=element.type==='bpmn:Participant';
@@ -1277,15 +1311,16 @@ function bpmnLaneParticipantHTML(element,proc){
   const elementId=element.id||'';
   const name=bo.name||'';
   const currentRef=isPool?(proc.participant?.ref||''):'';
+  const laneServiceRef=isPool?'':bpmnLaneServiceRef(element);
   const icon=isPool
     ?`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="4" width="16" height="12" rx="1"/><line x1="2" y1="8" x2="18" y2="8"/></svg>`
     :`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="5" width="16" height="10" rx="1"/><line x1="5" y1="5" x2="5" y2="15"/></svg>`;
   const refSection=isPool
     ?`<div class="tp-section"><div class="tp-section-head">Referenz <span class="tp-section-arrow">▾</span></div><div class="tp-section-body"><div class="tp-field"><span class="tp-label">Domain / Service Ref</span><input class="tp-input tp-input-code" id="lp-ref" value="${esc(currentRef)}" placeholder="z.B. identity.blumer.cloud"></div><div class="tp-field" style="font-size:.7rem;color:#64748b">Wird beim Speichern in das YAML-Feld <code>participant.ref</code> übernommen.</div></div></div>`
-    :'';
+    :`<div class="tp-section"><div class="tp-section-head">Service-Bindung <span class="tp-section-arrow">▾</span></div><div class="tp-section-body"><div class="tp-field"><span class="tp-label">Service</span><select class="tp-select" id="lp-service"><option value="">— kein Service —</option>${laneServiceRef?`<option value="${esc(laneServiceRef)}" selected>${esc(laneServiceRef)}</option>`:''}</select></div><div class="tp-field" style="font-size:.7rem;color:#64748b">Service Tasks und User Tasks in dieser Lane stammen aus diesem Service. Beim Drop einer Service-Methode wird die Lane automatisch gebunden.</div></div></div>`;
   const hint=isPool
     ?'Name und Referenz werden beim Speichern des BPMN auch nach YAML <code>participant</code> synchronisiert.'
-    :'Lane-Name wird mit dem BPMN gespeichert.';
+    :'Lane-Name und Service-Bindung werden mit dem BPMN gespeichert (Service-Ref als nomos-service-ref:… Documentation).';
   return `<div class="tp-panel" data-tp-element-id="${esc(elementId)}" data-lp-type="${esc(element.type||'')}">
 <div class="tp-header"><div class="tp-type-icon" style="background:${typeBg};color:${typeCl}">${icon}</div><div><div class="tp-type-label">${esc(typeLabel)}</div><div class="tp-name-display" id="lp-name-display">${esc(name||elementId)}</div></div></div>
 <div class="tp-section"><div class="tp-section-head">Allgemein <span class="tp-section-arrow">▾</span></div><div class="tp-section-body"><div class="tp-field"><span class="tp-label">Name</span><input class="tp-input" id="lp-name" value="${esc(name)}"></div><div class="tp-field"><span class="tp-label">ID</span><input class="tp-input tp-input-code" id="lp-id" readonly value="${esc(elementId)}"></div></div></div>
@@ -1297,6 +1332,7 @@ function wireBPMNLanePanel(panel,element,modeler,proc){
   const nameInput=panel.querySelector('#lp-name');
   const nameDisplay=panel.querySelector('#lp-name-display');
   const refInput=panel.querySelector('#lp-ref');
+  const svcSelect=panel.querySelector('#lp-service');
   let modeling=null;try{modeling=modeler?.get('modeling');}catch(_){}
   if(nameInput){
     nameInput.addEventListener('input',()=>{
@@ -1308,6 +1344,19 @@ function wireBPMNLanePanel(panel,element,modeler,proc){
   if(refInput&&element.type==='bpmn:Participant'){
     if(!proc._participantOverride)proc._participantOverride={};
     refInput.addEventListener('input',()=>{proc._participantOverride.ref=refInput.value;});
+  }
+  if(svcSelect&&element.type==='bpmn:Lane'){
+    // Populate service refs lazily so we don't block panel render.
+    loadServiceRefs().then(refs=>{
+      const current=svcSelect.value;
+      const seen=new Set([current,'']);
+      refs.forEach(ref=>{
+        if(seen.has(ref))return;
+        seen.add(ref);
+        const o=document.createElement('option');o.value=ref;o.textContent=ref;svcSelect.appendChild(o);
+      });
+    });
+    svcSelect.addEventListener('change',()=>{bpmnLaneSetServiceRef(element,modeler,svcSelect.value);});
   }
   panel.querySelectorAll('.tp-section-head').forEach(head=>{
     head.addEventListener('click',()=>{
@@ -1859,6 +1908,17 @@ function wireBPMNMethodDrop(canvasEl,modeler,proc){
       newShape=ef.createShape({type:'bpmn:Task',width:100,height:80,name:methodLabel});
       modeling.createShape(newShape,{x,y},root);
     }catch(err){console.error('bpmn create shape error:',err);return;}
+    // Auto-bind: if the task landed inside an unbound Lane, write the
+    // dropped service into that Lane so subsequent task drops stay scoped
+    // to the same service. Tasks dropped on the pool/process directly are
+    // left unbound.
+    try{
+      let parent=newShape?.parent;
+      while(parent&&parent.type!=='bpmn:Lane'&&parent.type!=='bpmn:Participant'&&parent.type!=='bpmn:Process')parent=parent.parent;
+      if(parent&&parent.type==='bpmn:Lane'&&!bpmnLaneServiceRef(parent)){
+        bpmnLaneSetServiceRef(parent,modeler,drag.serviceRef);
+      }
+    }catch(err){console.warn('lane auto-bind failed:',err);}
     // Pre-fill the properties panel
     const elementId=newShape?.id;
     if(!elementId)return;
