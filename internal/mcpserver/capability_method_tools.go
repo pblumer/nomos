@@ -181,9 +181,9 @@ func toolCapabilityDelete(path string) func(context.Context, *mcp.CallToolReques
 			return nil, nil, fmt.Errorf("capability_delete %s in %s/%s: %w", in.CapabilityID, in.Domain, in.Service, err)
 		}
 		return textResult(map[string]any{
-			"deleted":       in.CapabilityID,
-			"domain":        in.Domain,
-			"service":       in.Service,
+			"deleted": in.CapabilityID,
+			"domain":  in.Domain,
+			"service": in.Service,
 		})
 	}
 }
