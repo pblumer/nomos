@@ -214,6 +214,150 @@ methods:
       - name: owner
         type: string
         in: body
+  - name: nomos_capability_add
+    summary: "MCP-Tool (write): Capability zu einem Service hinzufügen"
+    parameters:
+      - name: domain
+        type: string
+        required: true
+        in: body
+      - name: service
+        type: string
+        required: true
+        in: body
+      - name: name
+        type: string
+        required: true
+        in: body
+      - name: id
+        type: string
+        in: body
+      - name: summary
+        type: string
+        in: body
+      - name: stability
+        type: enum[draft,experimental,stable,deprecated]
+        in: body
+      - name: side_effect
+        type: enum[none,read_only,mutates_workspace,network_egress]
+        in: body
+      - name: method_refs
+        type: array
+        in: body
+      - name: data_object_refs
+        type: array
+        in: body
+  - name: nomos_capability_update
+    summary: "MCP-Tool (write): Capability-Felder aktualisieren (Partial-Update, method_refs/data_object_refs nur bei Bedarf)"
+    parameters:
+      - name: domain
+        type: string
+        required: true
+        in: body
+      - name: service
+        type: string
+        required: true
+        in: body
+      - name: capability_id
+        type: string
+        required: true
+        in: body
+      - name: name
+        type: string
+        in: body
+      - name: summary
+        type: string
+        in: body
+      - name: stability
+        type: enum[draft,experimental,stable,deprecated]
+        in: body
+      - name: side_effect
+        type: enum[none,read_only,mutates_workspace,network_egress]
+        in: body
+      - name: method_refs
+        type: array
+        in: body
+      - name: data_object_refs
+        type: array
+        in: body
+  - name: nomos_capability_delete
+    summary: "MCP-Tool (write): Capability eines Services löschen"
+    parameters:
+      - name: domain
+        type: string
+        required: true
+        in: body
+      - name: service
+        type: string
+        required: true
+        in: body
+      - name: capability_id
+        type: string
+        required: true
+        in: body
+  - name: nomos_method_add
+    summary: "MCP-Tool (write): Methode zu einem Service hinzufügen"
+    parameters:
+      - name: domain
+        type: string
+        required: true
+        in: body
+      - name: service
+        type: string
+        required: true
+        in: body
+      - name: name
+        type: string
+        required: true
+        in: body
+      - name: summary
+        type: string
+        in: body
+      - name: http_method
+        type: enum[GET,POST,PUT,PATCH,DELETE]
+        in: body
+      - name: path
+        type: string
+        in: body
+  - name: nomos_method_update
+    summary: "MCP-Tool (write): Method-Felder aktualisieren (Partial-Update)"
+    parameters:
+      - name: domain
+        type: string
+        required: true
+        in: body
+      - name: service
+        type: string
+        required: true
+        in: body
+      - name: method
+        type: string
+        required: true
+        in: body
+      - name: summary
+        type: string
+        in: body
+      - name: http_method
+        type: enum[GET,POST,PUT,PATCH,DELETE]
+        in: body
+      - name: path
+        type: string
+        in: body
+  - name: nomos_method_delete
+    summary: "MCP-Tool (write): Methode eines Services löschen (cleanup auch capability.method_refs)"
+    parameters:
+      - name: domain
+        type: string
+        required: true
+        in: body
+      - name: service
+        type: string
+        required: true
+        in: body
+      - name: method
+        type: string
+        required: true
+        in: body
 capabilities:
   - id: cap-mcp-stdio
     name: MCP Server stdio
@@ -440,5 +584,77 @@ capabilities:
     connectors:
       - type: mcp
         tool: nomos_instance_create
+        kind: tool
+        idempotent: false
+  - id: cap-tool-capability-add
+    name: MCP Tool nomos_capability_add
+    summary: Fügt einem Service eine neue Capability hinzu, optional inkl. method_refs/data_object_refs.
+    stability: stable
+    side_effect: mutates_workspace
+    method_refs:
+      - nomos_capability_add
+    connectors:
+      - type: mcp
+        tool: nomos_capability_add
+        kind: tool
+        idempotent: false
+  - id: cap-tool-capability-update
+    name: MCP Tool nomos_capability_update
+    summary: Aktualisiert Felder einer bestehenden Capability (Partial-Update). method_refs/data_object_refs werden nur bei explizit gesetztem Wert geändert.
+    stability: stable
+    side_effect: mutates_workspace
+    method_refs:
+      - nomos_capability_update
+    connectors:
+      - type: mcp
+        tool: nomos_capability_update
+        kind: tool
+        idempotent: false
+  - id: cap-tool-capability-delete
+    name: MCP Tool nomos_capability_delete
+    summary: Löscht eine Capability eines Services per ID.
+    stability: stable
+    side_effect: mutates_workspace
+    method_refs:
+      - nomos_capability_delete
+    connectors:
+      - type: mcp
+        tool: nomos_capability_delete
+        kind: tool
+        idempotent: false
+  - id: cap-tool-method-add
+    name: MCP Tool nomos_method_add
+    summary: Fügt einem Service eine neue Methode hinzu (optional inkl. summary, http_method, path).
+    stability: stable
+    side_effect: mutates_workspace
+    method_refs:
+      - nomos_method_add
+    connectors:
+      - type: mcp
+        tool: nomos_method_add
+        kind: tool
+        idempotent: false
+  - id: cap-tool-method-update
+    name: MCP Tool nomos_method_update
+    summary: Aktualisiert Felder einer Methode (Partial-Update über summary/http_method/path).
+    stability: stable
+    side_effect: mutates_workspace
+    method_refs:
+      - nomos_method_update
+    connectors:
+      - type: mcp
+        tool: nomos_method_update
+        kind: tool
+        idempotent: false
+  - id: cap-tool-method-delete
+    name: MCP Tool nomos_method_delete
+    summary: Löscht eine Methode eines Services; entfernt automatisch alle method_refs in Capabilities.
+    stability: stable
+    side_effect: mutates_workspace
+    method_refs:
+      - nomos_method_delete
+    connectors:
+      - type: mcp
+        tool: nomos_method_delete
         kind: tool
         idempotent: false

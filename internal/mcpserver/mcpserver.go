@@ -68,6 +68,7 @@ func New(cosmosPath string) *mcp.Server {
 	}, toolListBlueprints(cosmosPath))
 
 	registerWriteTools(srv, cosmosPath)
+	registerCapabilityMethodTools(srv, cosmosPath)
 
 	return srv
 }
