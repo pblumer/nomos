@@ -316,6 +316,55 @@
 .dec-eval-result .pill{font-family:ui-monospace,monospace;font-size:.72rem;background:#fff;border:1px solid #a7f3d0;color:#065f46;padding:.05rem .4rem;border-radius:5px}
 .dec-eval-result.err .pill{border-color:#fecaca;color:#991b1b}
 .dec-eval-empty{font-size:.78rem;color:#64748b;font-style:italic}
+/* ── Scenarios sub-panel ── */
+.dec-scenarios{border:1px solid #e9d5ff;border-radius:10px;background:linear-gradient(180deg,#faf5ff 0%,#fdfaff 100%);padding:.6rem .75rem;margin-bottom:.6rem}
+.dec-scenarios-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;margin-bottom:.45rem}
+.dec-scenarios-title{font-size:.75rem;font-weight:800;color:#6b21a8;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:.3rem}
+.dec-scenarios-summary{font-size:.7rem;color:#64748b;font-weight:600}
+.dec-scenarios-actions{display:flex;gap:.4rem;flex-wrap:wrap}
+.btn-scenario{background:#fff;color:#6b21a8;border:1px solid #d8b4fe;border-radius:7px;padding:.3rem .7rem;cursor:pointer;font-weight:700;font-size:.75rem;display:inline-flex;align-items:center;gap:.3rem}
+.btn-scenario:hover{background:#f3e8ff}
+.btn-scenario.primary{background:#7c3aed;color:#fff;border-color:#6d28d9}
+.btn-scenario.primary:hover{background:#6d28d9}
+.btn-scenario[disabled]{opacity:.55;cursor:not-allowed}
+.dec-scenarios-list{display:flex;flex-direction:column;gap:.35rem}
+.dec-scenarios-empty{font-size:.78rem;color:#64748b;font-style:italic;padding:.4rem 0}
+.scenario-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:.6rem;align-items:center;padding:.4rem .55rem;border:1px solid #e9d5ff;border-radius:8px;background:#fff}
+.scenario-row.disabled{opacity:.6;background:#f8fafc;border-style:dashed}
+.scenario-status{width:1.1rem;height:1.1rem;border-radius:50%;display:inline-grid;place-items:center;font-family:'Material Symbols Outlined';font-size:.9rem;flex-shrink:0}
+.scenario-status.idle{background:#f1f5f9;color:#64748b}
+.scenario-status.run{background:#dbeafe;color:#1d4ed8;animation:scenarioSpin 1s linear infinite}
+.scenario-status.pass{background:#dcfce7;color:#166534}
+.scenario-status.fail{background:#fee2e2;color:#991b1b}
+.scenario-status.skip{background:#f1f5f9;color:#94a3b8}
+@keyframes scenarioSpin{to{transform:rotate(360deg)}}
+.scenario-meta{min-width:0}
+.scenario-name{font-size:.82rem;font-weight:700;color:#0f172a;word-break:break-word}
+.scenario-sub{font-size:.7rem;color:#64748b;display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.1rem}
+.scenario-tag{background:#ede9fe;color:#5b21b6;border:1px solid #d8b4fe;border-radius:4px;padding:0 .35rem;font-size:.65rem;font-weight:700}
+.scenario-row-actions{display:flex;gap:.25rem}
+.scenario-mini-btn{background:none;border:1px solid #e2e8f0;color:#475569;border-radius:6px;padding:.18rem .4rem;cursor:pointer;font-size:.7rem;display:inline-flex;align-items:center;gap:.2rem}
+.scenario-mini-btn:hover{background:#f1f5f9;color:#0f172a}
+.scenario-mini-btn.danger:hover{background:#fef2f2;color:#991b1b;border-color:#fecaca}
+.scenario-result{grid-column:1/-1;margin-top:.4rem;border-top:1px dashed #e9d5ff;padding-top:.4rem;font-size:.72rem;display:none;flex-direction:column;gap:.25rem}
+.scenario-row.has-result .scenario-result{display:flex}
+.scenario-result .diff-list{display:flex;flex-direction:column;gap:.1rem;margin:.1rem 0}
+.scenario-result .diff-list li{font-family:ui-monospace,monospace;font-size:.68rem;padding:.1rem .35rem;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;border-radius:4px;list-style:none}
+.scenario-result.ok .diff-list li{background:#ecfdf5;color:#065f46;border-color:#a7f3d0}
+/* Modal for scenario editor */
+.nmodal.nmodal-wide{width:min(760px,94vw)}
+.scen-modal{display:grid;grid-template-columns:1fr 1fr;gap:.55rem .8rem}
+@media(max-width:560px){.scen-modal{grid-template-columns:1fr}}
+.scen-modal-full{grid-column:1/-1}
+.scen-modal label{display:block;font-size:.72rem;font-weight:700;color:#475569;margin-bottom:.18rem}
+.scen-modal input[type=text],.scen-modal textarea,.scen-modal select{width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:.32rem .45rem;font-size:.82rem;background:#fff;box-sizing:border-box;font-family:inherit}
+.scen-modal textarea{font-family:ui-monospace,monospace;font-size:.76rem;min-height:5rem;resize:vertical}
+.scen-modal .check-row{display:flex;align-items:center;gap:.3rem;font-size:.82rem;color:#0f172a;margin-top:1.05rem}
+.scen-modal .hint{font-size:.68rem;color:#64748b;margin-top:.18rem}
+.scen-modal .kv-grid{display:grid;grid-template-columns:1fr 1.4fr;gap:.3rem .4rem}
+.scen-modal .kv-grid input{font-family:ui-monospace,monospace;font-size:.76rem}
+.scen-modal .rules-grid{display:flex;flex-wrap:wrap;gap:.25rem}
+.scen-modal .rules-grid input{flex:0 1 8rem;font-family:ui-monospace,monospace}
 .trace-card{border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;overflow:hidden;transition:border-color .12s}
 .trace-card.open{border-color:#c7d2fe;background:#fff;box-shadow:0 4px 14px rgba(99,102,241,.06)}
 .trace-summary{display:grid;grid-template-columns:auto 1fr auto auto;gap:.6rem;align-items:center;padding:.45rem .65rem;cursor:pointer;user-select:none}
@@ -734,7 +783,7 @@ $('nmodal-close').onclick=$('nmodal-cancel').onclick=closeModal;
 modal.addEventListener('click',e=>{if(e.target===modal)closeModal();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 function openModal(title,html,onConfirm,confirmLabel='Speichern'){modalTitle.textContent=title;modalFields.innerHTML=html;modalError.textContent='';modalError.classList.remove('show');modalConfirm.textContent=confirmLabel;modalConfirm.disabled=false;modalSubmit=onConfirm;modal.classList.add('open');requestAnimationFrame(()=>{const f=modalFields.querySelector('input,select,textarea');if(f)f.focus();});}
-function closeModal(){modal.classList.remove('open');}
+function closeModal(){modal.classList.remove('open');const box=modal.querySelector('.nmodal');if(box)box.classList.remove('nmodal-wide');}
 function showModalError(msg){modalError.textContent=msg;modalError.classList.add('show');}
 modalConfirm.addEventListener('click',async()=>{if(!modalSubmit)return;modalConfirm.disabled=true;const prev=modalConfirm.textContent;modalConfirm.textContent='Wird gespeichert…';try{await modalSubmit();}catch(err){showModalError(err.message);}finally{modalConfirm.disabled=false;modalConfirm.textContent=prev;}});
 
@@ -2046,7 +2095,7 @@ function renderDecisionDetail(dec,defs,domainCanonical){
     </div>
   </div>
   <div id="dmn-canvas" class="dmn-canvas" data-decision-id="${esc(dec.id)}" data-decision-domain="${esc(domainCanonical)}"><div class="detail-empty">Lade DMN&hellip;</div></div>
-  ${dec.has_dmn?`<div id="dec-history" class="dec-history" data-decision-id="${esc(dec.id)}" data-decision-domain="${esc(domainCanonical)}"><div class="dec-history-head"><div class="dec-history-title"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:1.05rem">play_circle</span>Testlauf &amp; Evaluationen<span class="dec-history-count" id="dec-history-count">&hellip;</span></div><span class="dec-history-verify pending" id="dec-history-verify"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:.9rem">hourglass_empty</span>Pr&uuml;fe&hellip;</span></div><div id="dec-eval-form" class="dec-eval-form"></div><div class="dec-history-body" id="dec-history-body"><div class="dec-history-empty">Lade Trace-Historie&hellip;</div></div></div>`:''}
+  ${dec.has_dmn?`<div id="dec-history" class="dec-history" data-decision-id="${esc(dec.id)}" data-decision-domain="${esc(domainCanonical)}"><div class="dec-history-head"><div class="dec-history-title"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:1.05rem">play_circle</span>Testlauf &amp; Evaluationen<span class="dec-history-count" id="dec-history-count">&hellip;</span></div><span class="dec-history-verify pending" id="dec-history-verify"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:.9rem">hourglass_empty</span>Pr&uuml;fe&hellip;</span></div><div id="dec-scenarios" class="dec-scenarios"></div><div id="dec-eval-form" class="dec-eval-form"></div><div class="dec-history-body" id="dec-history-body"><div class="dec-history-empty">Lade Trace-Historie&hellip;</div></div></div>`:''}
 </div>`;
 }
 
@@ -2150,6 +2199,7 @@ async function loadDecisionExplorerDetail(row){
   });
   if(dec.has_dmn){
     setTimeout(()=>initDmnEditor(detail,dec,domainCanonical,xml),50);
+    setTimeout(()=>loadDecisionScenarios(detail,dec,defs,domainCanonical),55);
     setTimeout(()=>loadDecisionHistory(detail,dec,defs,domainCanonical),60);
   }else{
     setTimeout(()=>renderDmnTypePicker(detail,dec,domainCanonical),50);
@@ -2409,6 +2459,220 @@ function wireEvalForm(container,dec,defs,domainCanonical){
       resultEl.innerHTML='<div><strong>Fehler:</strong> '+esc(err.message||'unbekannt')+'</div>';
       setStatus('✗ Fehler','err');
     }finally{runBtn.disabled=false;}
+  });
+}
+
+// -----------------------------------------------------------------------
+// Decision Scenarios (persistent test-cases with assertions)
+// -----------------------------------------------------------------------
+const scenariosCache=new WeakMap(); // Map<HTMLElement, {scenarios:[], results:{}}>
+function scenariosBaseURL(dec,domain){return '/api/v1/domains/'+encodeURIComponent(domain)+'/decisions/'+encodeURIComponent(dec.id)+'/scenarios';}
+// Coerce a string value to the JSON value for the declared input type so that
+// authoring scenarios in the modal feels like authoring inputs in the form.
+function scenarioCoerceValue(raw,type){
+  const t=String(type||'string').toLowerCase();
+  if(raw===''||raw===null||raw===undefined)return undefined;
+  if(t==='boolean'){return raw==='true'||raw===true;}
+  if(t==='number'||t==='integer'||t==='int'||t==='float'||t==='double'||t==='decimal'){
+    const n=Number(raw);if(Number.isNaN(n))throw new Error('Ungültige Zahl: '+raw);return n;
+  }
+  return raw;
+}
+function scenarioValueAsString(v){
+  if(v===null||v===undefined)return '';
+  if(typeof v==='string')return v;
+  try{return JSON.stringify(v);}catch(_){return String(v);}
+}
+function renderScenarioPanel(container,dec,scenarios,summary){
+  const panel=container.querySelector('#dec-scenarios');
+  if(!panel)return;
+  const totalLabel=`${summary.total} insg., ${summary.passed} ✓, ${summary.failed} ✗${summary.skipped?', '+summary.skipped+' übersprungen':''}`;
+  const head=`<div class="dec-scenarios-head"><div><span class="dec-scenarios-title"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:.95rem">checklist</span>Szenarien</span> <span class="dec-scenarios-summary" id="dec-scenarios-summary">${scenarios.length?esc(totalLabel):'noch keine'}</span></div><div class="dec-scenarios-actions"><button type="button" class="btn-scenario" id="scen-add"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:.95rem">add</span>Neu</button><button type="button" class="btn-scenario primary" id="scen-run-all" ${scenarios.length?'':'disabled'}><span class="mi" style="font-family:'Material Symbols Outlined';font-size:.95rem">play_arrow</span>Alle ausführen</button></div></div>`;
+  if(!scenarios.length){panel.innerHTML=head+'<div class="dec-scenarios-empty">Noch keine Szenarien. Lege ein Szenario an, um Inputs + erwartete Outputs zu persistieren und wiederholbar zu prüfen.</div>';return;}
+  const rows=scenarios.map(s=>renderScenarioRow(s)).join('');
+  panel.innerHTML=head+'<div class="dec-scenarios-list">'+rows+'</div>';
+}
+function renderScenarioRow(s){
+  const tags=(s.tags||[]).map(t=>`<span class="scenario-tag">${esc(t)}</span>`).join('');
+  const inputCount=Object.keys(s.inputs||{}).length;
+  const expectedCount=Object.keys(s.expected_outputs||{}).length;
+  const ruleCount=(s.expected_matched_rules||[]).length;
+  const sub=`<span><code>${esc(s.id)}</code></span><span>${inputCount} in / ${expectedCount} exp${ruleCount?' / '+ruleCount+' rule':''}</span>${tags}${s.enabled?'':'<span class="scenario-tag" style="background:#fef3c7;color:#92400e;border-color:#fde68a">deaktiviert</span>'}`;
+  return `<div class="scenario-row${s.enabled?'':' disabled'}" data-scenario-id="${esc(s.id)}">
+    <span class="scenario-status idle" data-status>radio_button_unchecked</span>
+    <div class="scenario-meta"><div class="scenario-name">${esc(s.name||s.id)}</div><div class="scenario-sub">${sub}</div></div>
+    <span class="scenario-duration" style="font-size:.66rem;color:#94a3b8;font-variant-numeric:tabular-nums"></span>
+    <div class="scenario-row-actions">
+      <button type="button" class="scenario-mini-btn" data-act="run" title="Ausführen"${s.enabled?'':' disabled'}><span class="mi" style="font-family:'Material Symbols Outlined';font-size:.85rem">play_arrow</span></button>
+      <button type="button" class="scenario-mini-btn" data-act="edit" title="Bearbeiten"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:.85rem">edit</span></button>
+      <button type="button" class="scenario-mini-btn danger" data-act="delete" title="Löschen"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:.85rem">delete</span></button>
+    </div>
+    <div class="scenario-result"></div>
+  </div>`;
+}
+function applyScenarioResult(rowEl,result){
+  if(!rowEl)return;
+  const statusEl=rowEl.querySelector('[data-status]');
+  const resultEl=rowEl.querySelector('.scenario-result');
+  const durEl=rowEl.querySelector('.scenario-duration');
+  if(durEl)durEl.textContent=result.duration_ms!=null?result.duration_ms+'ms':'';
+  rowEl.classList.add('has-result');
+  if(result.error==='disabled'){
+    statusEl.className='scenario-status skip';statusEl.textContent='block';
+    resultEl.classList.remove('ok');resultEl.innerHTML='<div>Übersprungen (deaktiviert).</div>';return;
+  }
+  if(result.ok){
+    statusEl.className='scenario-status pass';statusEl.textContent='check';
+    resultEl.classList.add('ok');
+    const actual=Object.entries(result.actual_outputs||{}).map(([k,v])=>`<li><strong>${esc(k)}</strong>=${esc(scenarioValueAsString(v))}</li>`).join('');
+    const rules=result.actual_rules&&result.actual_rules.length?`<div>Regeln: <code>${result.actual_rules.map(esc).join(', ')}</code></div>`:'';
+    resultEl.innerHTML=`<div><strong>✓ erwartet getroffen</strong></div>${rules}${actual?`<ul class="diff-list">${actual}</ul>`:''}`;
+  }else{
+    statusEl.className='scenario-status fail';statusEl.textContent='close';
+    resultEl.classList.remove('ok');
+    const diffs=(result.output_diff||[]).concat(result.rule_diff||[]).map(d=>`<li>${esc(d)}</li>`).join('');
+    const errLine=result.error?`<div><strong>Fehler:</strong> ${esc(result.error)}</div>`:'';
+    resultEl.innerHTML=`<div><strong>✗ Abweichung</strong></div>${errLine}${diffs?`<ul class="diff-list">${diffs}</ul>`:''}`;
+  }
+}
+function openScenarioModal(dec,existing,onSave){
+  const isEdit=!!existing;
+  const inputs=Array.isArray(dec.inputs)?dec.inputs:[];
+  const outputs=Array.isArray(dec.outputs)?dec.outputs:[];
+  const cur=existing||{name:'',description:'',tags:[],enabled:true,inputs:{},expected_outputs:{},expected_matched_rules:[]};
+  const inField=(io)=>{
+    const t=String(io.type||'string').toLowerCase();
+    const v=cur.inputs?cur.inputs[io.name]:undefined;
+    const val=esc(scenarioValueAsString(v));
+    const placeholder=esc(t);
+    if(t==='boolean')return `<div><label>${esc(io.name)} <span style="color:#94a3b8;font-weight:500">:bool</span></label><select data-scen-in="${esc(io.name)}" data-scen-type="boolean"><option value="">— leer —</option><option value="true"${v===true?' selected':''}>true</option><option value="false"${v===false?' selected':''}>false</option></select></div>`;
+    return `<div><label>${esc(io.name)} <span style="color:#94a3b8;font-weight:500">:${placeholder}</span></label><input type="text" data-scen-in="${esc(io.name)}" data-scen-type="${esc(t)}" value="${val}" placeholder="${placeholder}"></div>`;
+  };
+  const outField=(io)=>{
+    const t=String(io.type||'string').toLowerCase();
+    const v=cur.expected_outputs?cur.expected_outputs[io.name]:undefined;
+    const val=esc(scenarioValueAsString(v));
+    if(t==='boolean')return `<div><label>${esc(io.name)} <span style="color:#94a3b8;font-weight:500">:bool</span></label><select data-scen-out="${esc(io.name)}" data-scen-type="boolean"><option value="">— nicht prüfen —</option><option value="true"${v===true?' selected':''}>true</option><option value="false"${v===false?' selected':''}>false</option></select></div>`;
+    return `<div><label>${esc(io.name)} <span style="color:#94a3b8;font-weight:500">:${esc(t)}</span></label><input type="text" data-scen-out="${esc(io.name)}" data-scen-type="${esc(t)}" value="${val}" placeholder="leer = nicht prüfen"></div>`;
+  };
+  const inputsHTML=inputs.length?`<div class="kv-grid">${inputs.map(inField).join('')}</div>`:'<div class="hint">Diese Decision hat keine deklarierten Inputs.</div>';
+  const outputsHTML=outputs.length?`<div class="kv-grid">${outputs.map(outField).join('')}</div>`:'<div class="hint">Diese Decision hat keine deklarierten Outputs.</div>';
+  const rulesVal=esc((cur.expected_matched_rules||[]).join(', '));
+  const tagsVal=esc((cur.tags||[]).join(', '));
+  const body=`<div class="scen-modal">
+    <div><label>Name</label><input type="text" id="scen-name" value="${esc(cur.name||'')}" placeholder="z.B. Premium happy path"></div>
+    <div><label>ID ${isEdit?'<span style="color:#94a3b8;font-weight:500">(fix)</span>':'<span style="color:#94a3b8;font-weight:500">(autom., aus Name)</span>'}</label><input type="text" id="scen-id" value="${esc(cur.id||'')}" placeholder="leer = aus Name ableiten" ${isEdit?'readonly':''}></div>
+    <div class="scen-modal-full"><label>Beschreibung</label><input type="text" id="scen-desc" value="${esc(cur.description||'')}"></div>
+    <div><label>Tags <span style="color:#94a3b8;font-weight:500">(komma-getrennt)</span></label><input type="text" id="scen-tags" value="${tagsVal}" placeholder="happy-path, edge-case"></div>
+    <div><div class="check-row"><input type="checkbox" id="scen-enabled" ${cur.enabled!==false?'checked':''}><label for="scen-enabled" style="margin:0">Aktiv (in „Alle ausführen" berücksichtigen)</label></div></div>
+    <div class="scen-modal-full"><label>Inputs</label>${inputsHTML}<div class="hint">Leeres Feld = der Input wird beim Run weggelassen (Decision sieht null/undefined).</div></div>
+    <div class="scen-modal-full"><label>Erwartete Outputs</label>${outputsHTML}<div class="hint">Leeres Feld = wird nicht geprüft. Wert muss exakt matchen (Zahlen tolerieren int/float).</div></div>
+    <div class="scen-modal-full"><label>Erwartete Regel-Treffer <span style="color:#94a3b8;font-weight:500">(Rule-IDs, komma-getrennt)</span></label><input type="text" id="scen-rules" value="${rulesVal}" placeholder="r1, r3"><div class="hint">Leer = wird nicht geprüft. Bei mehreren Treffern reichenfolge-unabhängig.</div></div>
+  </div>`;
+  const modalBox=document.querySelector('#nmodal .nmodal');
+  if(modalBox)modalBox.classList.add('nmodal-wide');
+  openModal(isEdit?'Szenario bearbeiten: '+(cur.name||cur.id):'Neues Szenario',body,async()=>{
+    const name=document.getElementById('scen-name').value.trim();
+    if(!name)throw new Error('Name erforderlich');
+    const collected={
+      name,
+      id:isEdit?cur.id:document.getElementById('scen-id').value.trim(),
+      description:document.getElementById('scen-desc').value.trim()||'',
+      tags:document.getElementById('scen-tags').value.split(',').map(s=>s.trim()).filter(Boolean),
+      enabled:document.getElementById('scen-enabled').checked,
+      inputs:{},
+      expected_outputs:{},
+      expected_matched_rules:document.getElementById('scen-rules').value.split(',').map(s=>s.trim()).filter(Boolean),
+    };
+    document.querySelectorAll('[data-scen-in]').forEach(el=>{
+      const name=el.dataset.scenIn;const type=el.dataset.scenType;
+      try{const v=scenarioCoerceValue(el.value,type);if(v!==undefined)collected.inputs[name]=v;}
+      catch(e){throw new Error(name+': '+e.message);}
+    });
+    document.querySelectorAll('[data-scen-out]').forEach(el=>{
+      const name=el.dataset.scenOut;const type=el.dataset.scenType;
+      try{const v=scenarioCoerceValue(el.value,type);if(v!==undefined)collected.expected_outputs[name]=v;}
+      catch(e){throw new Error('expected '+name+': '+e.message);}
+    });
+    await onSave(collected);
+    closeModal();
+  },isEdit?'Aktualisieren':'Anlegen');
+}
+async function loadDecisionScenarios(container,dec,defs,domainCanonical){
+  const panel=container.querySelector('#dec-scenarios');
+  if(!panel)return;
+  panel.innerHTML='<div class="dec-scenarios-head"><span class="dec-scenarios-title">Szenarien</span><span class="dec-scenarios-summary">lade…</span></div>';
+  try{
+    const r=await fetch(scenariosBaseURL(dec,domainCanonical));
+    if(!r.ok)throw new Error(await r.text().catch(()=>'')||'Szenarien konnten nicht geladen werden');
+    const dto=await r.json();
+    const scenarios=dto.items||[];
+    renderScenarioPanel(container,dec,scenarios,{total:scenarios.length,passed:0,failed:0,skipped:0});
+    wireScenarioPanel(container,dec,defs,domainCanonical,scenarios);
+  }catch(err){
+    panel.innerHTML=`<div class="dec-scenarios-head"><span class="dec-scenarios-title">Szenarien</span></div><div class="dec-history-error">${esc(err.message||'Fehler')}</div>`;
+  }
+}
+function wireScenarioPanel(container,dec,defs,domainCanonical,scenarios){
+  const panel=container.querySelector('#dec-scenarios');
+  panel.querySelector('#scen-add')?.addEventListener('click',()=>{
+    openScenarioModal(dec,null,async(body)=>{
+      const r=await fetch(scenariosBaseURL(dec,domainCanonical),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(d.error?.message||d.error||'Anlegen fehlgeschlagen');
+      loadDecisionScenarios(container,dec,defs,domainCanonical);
+    });
+  });
+  panel.querySelector('#scen-run-all')?.addEventListener('click',async()=>{
+    const btn=panel.querySelector('#scen-run-all');btn.disabled=true;
+    panel.querySelectorAll('.scenario-row').forEach(row=>{
+      const st=row.querySelector('[data-status]');st.className='scenario-status run';st.textContent='progress_activity';
+    });
+    try{
+      const r=await fetch(scenariosBaseURL(dec,domainCanonical)+'/run-all',{method:'POST'});
+      const dto=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(dto.error?.message||dto.error||'Run failed');
+      (dto.items||[]).forEach(res=>{
+        const row=panel.querySelector('.scenario-row[data-scenario-id="'+CSS.escape(res.scenario_id)+'"]');
+        applyScenarioResult(row,res);
+      });
+      const sum=panel.querySelector('#dec-scenarios-summary');
+      if(sum)sum.textContent=`${dto.total} insg., ${dto.passed} ✓, ${dto.failed} ✗${dto.skipped?', '+dto.skipped+' übersprungen':''}`;
+      loadDecisionHistory(container,dec,defs,domainCanonical);
+    }catch(err){alert(err.message||'Fehler beim Ausführen');}
+    finally{btn.disabled=false;}
+  });
+  panel.querySelectorAll('.scenario-row').forEach(row=>{
+    const sid=row.dataset.scenarioId;
+    row.querySelector('[data-act="run"]')?.addEventListener('click',async()=>{
+      const st=row.querySelector('[data-status]');st.className='scenario-status run';st.textContent='progress_activity';
+      try{
+        const r=await fetch(scenariosBaseURL(dec,domainCanonical)+'/'+encodeURIComponent(sid)+'/run',{method:'POST'});
+        const res=await r.json().catch(()=>({}));
+        if(!r.ok)throw new Error(res.error?.message||res.error||'Run failed');
+        applyScenarioResult(row,res);
+        loadDecisionHistory(container,dec,defs,domainCanonical);
+      }catch(err){st.className='scenario-status fail';st.textContent='close';row.classList.add('has-result');row.querySelector('.scenario-result').innerHTML='<div><strong>Fehler:</strong> '+esc(err.message)+'</div>';}
+    });
+    row.querySelector('[data-act="edit"]')?.addEventListener('click',async()=>{
+      try{
+        const r=await fetch(scenariosBaseURL(dec,domainCanonical)+'/'+encodeURIComponent(sid));
+        if(!r.ok)throw new Error('Laden fehlgeschlagen');
+        const s=await r.json();
+        openScenarioModal(dec,s,async(body)=>{
+          const pr=await fetch(scenariosBaseURL(dec,domainCanonical)+'/'+encodeURIComponent(sid),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+          const d=await pr.json().catch(()=>({}));
+          if(!pr.ok)throw new Error(d.error?.message||d.error||'Speichern fehlgeschlagen');
+          loadDecisionScenarios(container,dec,defs,domainCanonical);
+        });
+      }catch(err){alert(err.message);}
+    });
+    row.querySelector('[data-act="delete"]')?.addEventListener('click',async()=>{
+      if(!confirm('Szenario "'+sid+'" wirklich löschen?'))return;
+      const r=await fetch(scenariosBaseURL(dec,domainCanonical)+'/'+encodeURIComponent(sid),{method:'DELETE'});
+      if(r.ok||r.status===204)loadDecisionScenarios(container,dec,defs,domainCanonical);
+      else alert('Löschen fehlgeschlagen');
+    });
   });
 }
 

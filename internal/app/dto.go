@@ -810,3 +810,38 @@ type DecisionTraceVerifyDTO struct {
 	OK         bool                  `json:"ok"`
 	Items      []TraceVerifyEntryDTO `json:"items"`
 }
+
+// DecisionScenariosDTO is the response for listing scenarios.
+type DecisionScenariosDTO struct {
+	Domain     string                   `json:"domain"`
+	DecisionID string                   `json:"decision_id"`
+	Count      int                      `json:"count"`
+	Items      []model.DecisionScenario `json:"items"`
+}
+
+// ScenarioRunResultDTO is the outcome of running a single scenario.
+type ScenarioRunResultDTO struct {
+	ScenarioID    string         `json:"scenario_id"`
+	ScenarioName  string         `json:"scenario_name,omitempty"`
+	OK            bool           `json:"ok"`
+	OutputsMatch  bool           `json:"outputs_match"`
+	RulesMatch    bool           `json:"rules_match"`
+	ActualOutputs map[string]any `json:"actual_outputs,omitempty"`
+	ActualRules   []string       `json:"actual_rules,omitempty"`
+	OutputDiff    []string       `json:"output_diff,omitempty"`
+	RuleDiff      []string       `json:"rule_diff,omitempty"`
+	TraceID       string         `json:"trace_id,omitempty"`
+	Error         string         `json:"error,omitempty"`
+	DurationMs    int64          `json:"duration_ms,omitempty"`
+}
+
+// ScenarioRunBatchDTO is the aggregate response of running all scenarios.
+type ScenarioRunBatchDTO struct {
+	Domain     string                 `json:"domain"`
+	DecisionID string                 `json:"decision_id"`
+	Total      int                    `json:"total"`
+	Passed     int                    `json:"passed"`
+	Failed     int                    `json:"failed"`
+	Skipped    int                    `json:"skipped"`
+	Items      []ScenarioRunResultDTO `json:"items"`
+}

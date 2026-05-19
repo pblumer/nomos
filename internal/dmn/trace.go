@@ -111,6 +111,7 @@ type TraceBuildInput struct {
 	Engine          model.EngineInfo
 	Timestamp       string // RFC3339Nano, supplied by caller for determinism in tests
 	ParentTraceID   string
+	ScenarioID      string // optional, links the trace to a scenario test-case
 }
 
 // BuildTrace assembles a DecisionTrace from an evaluation and computes its TraceID.
@@ -133,6 +134,7 @@ func BuildTrace(in TraceBuildInput) (model.DecisionTrace, error) {
 		HitPolicy:       in.Result.HitPolicy,
 		Evaluator:       in.Evaluator,
 		Engine:          in.Engine,
+		ScenarioID:      in.ScenarioID,
 	}
 	id, err := ComputeTraceID(t)
 	if err != nil {

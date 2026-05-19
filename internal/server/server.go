@@ -371,6 +371,10 @@ func (h *handler) apiDomainDecisionByID(w http.ResponseWriter, r *http.Request, 
 		h.apiDomainDecisionTraces(w, r, domain, id, tail[1:])
 		return
 	}
+	if len(tail) >= 1 && tail[0] == "scenarios" {
+		h.apiDomainDecisionScenarios(w, r, domain, id, tail[1:])
+		return
+	}
 	if len(tail) == 1 && tail[0] == "definitions" {
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -1940,6 +1944,92 @@ func (h *handler) apiDomainDecisionTraces(w http.ResponseWriter, r *http.Request
 			return
 		}
 		writeJSON(w, http.StatusOK, tr)
+	default:
+		htmlNotFound(w, r)
+	}
+}
+
+// apiDomainDecisionScenarios handles /api/v1/domains/{domain}/decisions/{id}/scenarios[/{scenarioID}[/run]]
+// and /scenarios/run-all.
+func (h *handler) apiDomainDecisionScenarios(w http.ResponseWriter, r *http.Request, domain, id string, tail []string) {
+	switch {
+	case len(tail) == 0:
+		switch r.Method {
+		case http.MethodGet:
+			dto, err := app.ListDecisionScenarios(h.cosmosPath, domain, id)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, dto)
+		case http.MethodPost:
+			var body model.DecisionScenario
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			s, err := app.CreateDecisionScenario(h.cosmosPath, domain, id, body)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusCreated, s)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	case len(tail) == 1 && tail[0] == "run-all":
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		dto, err := app.RunAllDecisionScenarios(h.cosmosPath, domain, id, evaluatorFromRequest(r))
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, dto)
+	case len(tail) == 1:
+		scenarioID := tail[0]
+		switch r.Method {
+		case http.MethodGet:
+			s, err := app.GetDecisionScenario(h.cosmosPath, domain, id, scenarioID)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, s)
+		case http.MethodPut:
+			var body model.DecisionScenario
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			s, err := app.UpdateDecisionScenario(h.cosmosPath, domain, id, scenarioID, body)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, s)
+		case http.MethodDelete:
+			if err := app.DeleteDecisionScenario(h.cosmosPath, domain, id, scenarioID); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	case len(tail) == 2 && tail[1] == "run":
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		dto, err := app.RunDecisionScenario(h.cosmosPath, domain, id, tail[0], evaluatorFromRequest(r))
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, dto)
 	default:
 		htmlNotFound(w, r)
 	}
