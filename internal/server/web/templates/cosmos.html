@@ -964,12 +964,109 @@ ${implSection}${inputsSection}<div class="tp-actions"><button class="tp-save-btn
 function findBPMNDetailPanel(target,proc){
   return target.closest('.process-editor-workbench')?.querySelector('.bpmn-detail-panel')||target.parentElement?.querySelector(`[data-bpmn-detail-for="${CSS.escape(proc.id||'')}"]`)||target.parentElement?.querySelector('.bpmn-detail-panel')||document.querySelector(`[data-bpmn-detail-for="${CSS.escape(proc.id||'')}"]`);
 }
+function bpmnGenericTypeLabel(type){
+  const t=String(type||'').replace(/^bpmn:/,'');
+  const map={Process:'Prozess',Collaboration:'Kollaboration',Participant:'Pool / Teilnehmer',Lane:'Lane',SequenceFlow:'Sequenzfluss',MessageFlow:'Message Flow',Association:'Assoziation',DataObject:'Datenobjekt',DataObjectReference:'Datenobjekt-Referenz',DataStoreReference:'Datenspeicher',ExclusiveGateway:'Exclusive Gateway (XOR)',InclusiveGateway:'Inclusive Gateway (OR)',ParallelGateway:'Parallel Gateway (AND)',EventBasedGateway:'Event-based Gateway',ComplexGateway:'Complex Gateway',StartEvent:'Start-Event',EndEvent:'End-Event',IntermediateThrowEvent:'Intermediate Throw',IntermediateCatchEvent:'Intermediate Catch',BoundaryEvent:'Boundary Event',Task:'Task',ServiceTask:'Service Task',UserTask:'User Task',ManualTask:'Manual Task',ScriptTask:'Script Task',SendTask:'Send Task',ReceiveTask:'Receive Task',BusinessRuleTask:'Business Rule Task',CallActivity:'Call Activity',SubProcess:'Subprozess',TextAnnotation:'Anmerkung'};
+  return map[t]||t||'BPMN-Element';
+}
+function bpmnDocText(bo){const docs=bo?.documentation||[];return docs.length?docs.map(d=>d.text||'').filter(Boolean).join('\n'):'';}
+function renderBPMNGenericDetail(panel,bpmnEl,viewer,proc){
+  const bo=bpmnEl.businessObject||{};
+  const type=bo.$type||bpmnEl.type||'';
+  const local=type.replace(/^bpmn:/,'');
+  const typeLabel=bpmnGenericTypeLabel(type);
+  const name=bo.name||'';
+  const id=bo.id||bpmnEl.id||'';
+  const isSeqFlow=local==='SequenceFlow';
+  const isCondGateway=local==='ExclusiveGateway'||local==='InclusiveGateway'||local==='ComplexGateway';
+  const isParticipant=local==='Participant';
+  const docText=bpmnDocText(bo);
+  let defaultFlowSection='';
+  if(isCondGateway){
+    const outs=bpmnEl.outgoing||[];
+    const currentDefault=bo.default?.id||'';
+    const opts=['<option value="">— kein Default —</option>'].concat(outs.map(o=>{const oid=o.businessObject?.id||o.id;const onm=o.businessObject?.name||oid;return `<option value="${esc(oid)}"${oid===currentDefault?' selected':''}>${esc(onm||oid)}</option>`;})).join('');
+    defaultFlowSection=`<div class="tp-section"><div class="tp-section-head">Gateway <span class="tp-section-arrow">▾</span></div><div class="tp-section-body"><div class="tp-field"><span class="tp-label">Default-Pfad</span><select class="tp-select" id="bp-default-flow">${opts}</select></div><div style="font-size:.7rem;color:#94a3b8;margin-top:.2rem">Wird genommen, wenn an keinem anderen ausgehenden Sequenzfluss die Bedingung erfüllt ist.</div></div></div>`;
+  }
+  let conditionSection='';
+  if(isSeqFlow){
+    const src=bpmnEl.source;
+    const srcType=src?.businessObject?.$type||'';
+    const srcIsCond=/ExclusiveGateway|InclusiveGateway|ComplexGateway/.test(srcType)||/Task|Activity|SubProcess/.test(srcType);
+    const isDefault=src?.businessObject?.default?.id===id;
+    const cond=bo.conditionExpression?.body||'';
+    conditionSection=`<div class="tp-section"><div class="tp-section-head">Bedingung <span class="tp-section-arrow">▾</span></div><div class="tp-section-body">${srcIsCond?'':'<div style="font-size:.7rem;color:#94a3b8;margin-bottom:.3rem">Bedingungen wirken nur auf Sequenzflüssen aus Gateways oder Aktivitäten.</div>'}${isDefault?'<div style="font-size:.7rem;color:#d97706;margin-bottom:.3rem">⚠️ Default-Pfad des Quell-Gateways – Bedingung wird ignoriert.</div>':''}<div class="tp-field"><span class="tp-label">Condition Expression</span><textarea class="tp-input tp-input-code" id="bp-condition" rows="3" placeholder="z.B. \${approved == true}">${esc(cond)}</textarea></div></div></div>`;
+  }
+  let participantInfo='';
+  if(isParticipant){
+    const procRef=bo.processRef;const procId=procRef?.id||'';const procName=procRef?.name||'';
+    participantInfo=`<div class="tp-field"><span class="tp-label">Verknüpfter Prozess</span><input class="tp-input tp-input-code" readonly value="${esc(procName?procName+' ('+procId+')':procId)}"></div>`;
+  }
+  const modeling=(()=>{try{return viewer?.get('modeling');}catch(_){return null;}})();
+  const editable=!!modeling;
+  panel.innerHTML=`<div class="tp-panel" data-tp-element-id="${esc(id)}">
+<div class="tp-tabs"><button class="tp-tab active" data-tp-tab="props">Eigenschaften</button></div>
+<div class="tp-tab-panel" data-tp-panel="props">
+<div class="tp-header"><div class="tp-type-icon" style="background:#f1f5f9;color:#475569;display:grid;place-items:center;font-weight:800">⬢</div><div><div class="tp-type-label">${esc(typeLabel)}</div><div class="tp-name-display" id="tp-name-display">${esc(name||id||'(ohne Name)')}</div></div></div>
+<div class="tp-section"><div class="tp-section-head">Allgemein <span class="tp-section-arrow">▾</span></div><div class="tp-section-body"><div class="tp-field"><span class="tp-label">Name</span><textarea class="tp-input" id="bp-name" rows="2"${editable?'':' readonly'}>${esc(name)}</textarea></div><div class="tp-field"><span class="tp-label">ID</span><input class="tp-input tp-input-code" id="bp-id" readonly value="${esc(id)}"></div>${participantInfo}</div></div>
+<div class="tp-section"><div class="tp-section-head">Beschreibung <span class="tp-section-arrow">▾</span></div><div class="tp-section-body"><div class="tp-field"><textarea class="tp-input" id="bp-doc" rows="3" placeholder="Optionale Dokumentation…"${editable?'':' readonly'}>${esc(docText)}</textarea></div></div></div>
+${defaultFlowSection}${conditionSection}
+${editable?`<div class="tp-actions"><button class="tp-save-btn" id="bp-save">Übernehmen</button><span class="tp-status" id="bp-status"></span></div>`:'<div style="font-size:.72rem;color:#94a3b8;padding:.4rem 0">Nur Lesemodus – kein Modeler verfügbar.</div>'}
+</div></div>`;
+  panel.querySelectorAll('.tp-section-head').forEach(head=>{head.addEventListener('click',()=>{const body=head.nextElementSibling;if(body){body.classList.toggle('hidden');const arrow=head.querySelector('.tp-section-arrow');if(arrow)arrow.textContent=body.classList.contains('hidden')?'▸':'▾';}});});
+  if(!editable)return;
+  const statusEl=panel.querySelector('#bp-status');
+  const setStatus=(msg,isErr=false,isOk=false)=>{if(!statusEl)return;statusEl.textContent=msg;statusEl.className='tp-status'+(isErr?' err':isOk?' ok':'');};
+  panel.querySelector('#bp-save')?.addEventListener('click',()=>{
+    try{
+      const moddle=viewer.get('moddle');
+      const newName=panel.querySelector('#bp-name')?.value??name;
+      const newDoc=(panel.querySelector('#bp-doc')?.value??'').trim();
+      if(newName!==name){
+        try{modeling.updateLabel(bpmnEl,newName);}catch(_){modeling.updateProperties(bpmnEl,{name:newName});}
+      }
+      if(newDoc!==docText){
+        const docs=newDoc?[moddle.create('bpmn:Documentation',{text:newDoc})]:[];
+        modeling.updateProperties(bpmnEl,{documentation:docs});
+      }
+      if(isSeqFlow){
+        const v=(panel.querySelector('#bp-condition')?.value||'').trim();
+        const curr=bo.conditionExpression?.body||'';
+        if(v!==curr){
+          const expr=v?moddle.create('bpmn:FormalExpression',{body:v}):undefined;
+          modeling.updateProperties(bpmnEl,{conditionExpression:expr});
+        }
+      }
+      if(isCondGateway){
+        const sel=panel.querySelector('#bp-default-flow');
+        const newDefId=sel?.value||'';
+        const currentDefId=bo.default?.id||'';
+        if(newDefId!==currentDefId){
+          let target=null;
+          if(newDefId){try{const reg=viewer.get('elementRegistry');const t=reg.get(newDefId);target=t?.businessObject||null;}catch(_){}}
+          modeling.updateProperties(bpmnEl,{default:target});
+        }
+      }
+      setStatus('Übernommen ✓ – im Diagramm speichern nicht vergessen',false,true);
+      const nd=panel.querySelector('#tp-name-display');if(nd)nd.textContent=(newName||id||'(ohne Name)');
+      setTimeout(()=>setStatus(''),4000);
+    }catch(e){console.error('BPMN property update failed:',e);setStatus(e.message||'Fehler',true);}
+  });
+}
 function setBPMNDetail(target,proc,elementId,viewer){
   const panel=findBPMNDetailPanel(target,proc);
   if(!panel)return;
   const lookup=bpmnDetailLookup(proc);
   const item=lookup[elementId];
-  if(!item)return;
+  let bpmnEl=null;try{if(viewer)bpmnEl=viewer.get('elementRegistry').get(elementId);}catch(_){}
+  if(!item){
+    if(!bpmnEl){panel.classList.add('is-empty');panel.innerHTML='<div style="padding:.5rem;color:#94a3b8;font-size:.78rem">Element nicht gefunden.</div>';return;}
+    const sw=panel.closest('.proc-standalone-workbench');if(sw){sw.classList.add('has-selection');const a=sw.querySelector('.proc-standalone-side');if(a)a.style.display='';}
+    panel.classList.remove('is-empty');
+    renderBPMNGenericDetail(panel,bpmnEl,viewer,proc);
+    if(viewer){try{const c=viewer.get('canvas');Object.keys(lookup).forEach(id=>{try{c.removeMarker(id,'bpmn-selected');}catch(_){}});c.addMarker(elementId,'bpmn-selected');}catch(_){}}
+    return;
+  }
   const standaloneWorkbench=panel.closest('.proc-standalone-workbench');
   if(standaloneWorkbench){standaloneWorkbench.classList.add('has-selection');const aside=standaloneWorkbench.querySelector('.proc-standalone-side');if(aside)aside.style.display='';}
   panel.classList.remove('is-empty');
@@ -1141,13 +1238,13 @@ function hideBPMNStandalonePanel(proc){
   panel.style.display='none';
 }
 function wireBPMNSelection(viewer,target,proc){
-  const lookup=bpmnDetailLookup(proc);
   try{
-    viewer.get('eventBus').on('element.click',event=>{
-      const id=event?.element?.id;
-      if(id&&lookup[id])setBPMNDetail(target,proc,id,viewer);
-      else hideBPMNStandalonePanel(proc);
-    });
+    const bus=viewer.get('eventBus');
+    const showFor=id=>{if(id)setBPMNDetail(target,proc,id,viewer);};
+    const showRoot=()=>{try{const root=viewer.get('canvas').getRootElement();if(root&&root.id)setBPMNDetail(target,proc,root.id,viewer);}catch(_){}};
+    bus.on('selection.changed',e=>{const sel=e.newSelection||[];if(sel.length===1)showFor(sel[0].id);else if(sel.length===0)showRoot();});
+    bus.on('element.click',event=>{const id=event?.element?.id;if(id)showFor(id);});
+    setTimeout(showRoot,80);
   }catch(_){ }
 }
 async function renderBPMNViewer(target,xml,proc){
