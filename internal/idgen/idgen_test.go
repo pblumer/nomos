@@ -98,16 +98,16 @@ func TestIsValid(t *testing.T) {
 		{"PRD_A7K3M2", true},
 		{"REQ_X9P4N1", true},
 		{"COS_root", true},
-		{"prd_a7k3m2", false},   // lowercase prefix
-		{"PRD-A7K3M2", false},   // hyphen
-		{"PRD_A7K3M", false},    // 5-char suffix
-		{"PRD_A7K3M2Z", false},  // 7-char suffix
-		{"PROD_A7K3M2", false},  // 4-char prefix
-		{"PR_A7K3M2", false},    // 2-char prefix
-		{"PRD_A7I3M2", false},   // contains I (excluded)
-		{"PRD_A7L3M2", false},   // contains L (excluded)
-		{"PRD_A7O3M2", false},   // contains O (excluded)
-		{"PRD_A7U3M2", false},   // contains U (excluded)
+		{"prd_a7k3m2", false},  // lowercase prefix
+		{"PRD-A7K3M2", false},  // hyphen
+		{"PRD_A7K3M", false},   // 5-char suffix
+		{"PRD_A7K3M2Z", false}, // 7-char suffix
+		{"PROD_A7K3M2", false}, // 4-char prefix
+		{"PR_A7K3M2", false},   // 2-char prefix
+		{"PRD_A7I3M2", false},  // contains I (excluded)
+		{"PRD_A7L3M2", false},  // contains L (excluded)
+		{"PRD_A7O3M2", false},  // contains O (excluded)
+		{"PRD_A7U3M2", false},  // contains U (excluded)
 		{"", false},
 		{"req-login-required", false},
 		{"PI-ACC-MBX-EXAMPLE-001", false},

@@ -696,6 +696,7 @@ func sanitizeBPMNID(id string) string {
 	s := safeArtifactName(id)
 	return strings.ReplaceAll(s, "-", "_")
 }
+
 // newStepID erzeugt eine ProcessStep-ID gemäß ADR-0020.
 // Bei einem Generator-Fehler fällt es auf eine Zeitstempel-ID zurück.
 func newStepID() string {
