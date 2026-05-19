@@ -660,6 +660,7 @@ type ProcessStepDTO struct {
 }
 
 type UpsertProcessStepRequest struct {
+	ID               string                `json:"id,omitempty"`
 	Name             string                `json:"name"`
 	TaskType         string                `json:"task_type"`
 	ServiceRef       string                `json:"service_ref"`

@@ -56,6 +56,31 @@ func TestAddProcessStep_Success(t *testing.T) {
 	}
 }
 
+func TestAddProcessStep_ExplicitID(t *testing.T) {
+	p, _, procID := createProcessForStepTests(t)
+
+	got, err := AddProcessStep(p, procID, UpsertProcessStepRequest{
+		ID:          "DNSValidieren",
+		Name:        "DNS-Format validieren",
+		TaskType:    "businessRuleTask",
+		DecisionRef: "blumer.cloud/decisions/DNSFormat",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Steps[0].ID != "DNSValidieren" {
+		t.Fatalf("expected explicit ID, got %q", got.Steps[0].ID)
+	}
+
+	_, err = AddProcessStep(p, procID, UpsertProcessStepRequest{
+		ID:   "DNSValidieren",
+		Name: "Duplicate",
+	})
+	if err == nil {
+		t.Fatal("expected conflict error for duplicate explicit ID")
+	}
+}
+
 func TestAddProcessStep_EmptyName(t *testing.T) {
 	p, _, procID := createProcessForStepTests(t)
 

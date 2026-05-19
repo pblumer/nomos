@@ -312,8 +312,18 @@ func AddProcessStep(path, id string, req UpsertProcessStepRequest) (ProcessDTO, 
 	if err != nil {
 		return ProcessDTO{}, err
 	}
+	stepID := strings.TrimSpace(req.ID)
+	if stepID != "" {
+		for _, s := range node.Meta.Steps {
+			if s.ID == stepID {
+				return ProcessDTO{}, Error(CodeInvalidInput, "Step ID already exists: "+stepID, http.StatusConflict, nil)
+			}
+		}
+	} else {
+		stepID = newStepID()
+	}
 	step := model.ProcessStep{
-		ID:               newStepID(),
+		ID:               stepID,
 		Name:             strings.TrimSpace(req.Name),
 		TaskType:         normalizedStepTaskType(req.TaskType),
 		ServiceRef:       strings.TrimSpace(req.ServiceRef),
