@@ -100,6 +100,17 @@ func writeTrace(decisionDir string, t model.DecisionTrace) (string, error) {
 // Behaviour: if writing the trace fails the evaluation result is still returned alongside the error
 // so callers can decide whether to surface it.
 func EvaluateDecisionWithTrace(path, domainCanonical, id string, req EvaluateDecisionRequest, evaluator model.Evaluator) (*dmn.Result, *model.DecisionTrace, error) {
+	return evaluateAndPersist(path, domainCanonical, id, req.Inputs, evaluator, "")
+}
+
+// EvaluateDecisionAsScenario behaves like EvaluateDecisionWithTrace but stamps the
+// resulting trace with the originating scenario_id so test runs remain linkable
+// in the audit history.
+func EvaluateDecisionAsScenario(path, domainCanonical, id, scenarioID string, inputs map[string]any, evaluator model.Evaluator) (*dmn.Result, *model.DecisionTrace, error) {
+	return evaluateAndPersist(path, domainCanonical, id, inputs, evaluator, scenarioID)
+}
+
+func evaluateAndPersist(path, domainCanonical, id string, inputs map[string]any, evaluator model.Evaluator, scenarioID string) (*dmn.Result, *model.DecisionTrace, error) {
 	n, err := findDecisionNode(path, domainCanonical, id)
 	if err != nil {
 		return nil, nil, err
@@ -115,7 +126,7 @@ func EvaluateDecisionWithTrace(path, domainCanonical, id string, req EvaluateDec
 	if err != nil {
 		return nil, nil, Error(CodeInvalidInput, "DMN parse error: "+err.Error(), http.StatusUnprocessableEntity, err)
 	}
-	result, err := dmn.Evaluate(table, req.Inputs)
+	result, err := dmn.Evaluate(table, inputs)
 	if err != nil {
 		return nil, nil, Error(CodeInvalidInput, "DMN evaluation error: "+err.Error(), http.StatusUnprocessableEntity, err)
 	}
@@ -134,12 +145,13 @@ func EvaluateDecisionWithTrace(path, domainCanonical, id string, req EvaluateDec
 		DecisionName:    n.Metadata.Name,
 		DecisionVersion: n.Metadata.Version,
 		RuleBytes:       ruleBytes,
-		Inputs:          req.Inputs,
+		Inputs:          inputs,
 		Result:          result,
 		Evaluator:       evaluator,
 		Engine:          model.EngineInfo{Name: info.Name, Version: info.Version, Commit: info.Commit},
 		Timestamp:       time.Now().UTC().Format(time.RFC3339Nano),
 		ParentTraceID:   parent,
+		ScenarioID:      scenarioID,
 	})
 	if err != nil {
 		return result, nil, fmt.Errorf("build trace: %w", err)

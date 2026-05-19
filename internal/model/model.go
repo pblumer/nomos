@@ -609,4 +609,26 @@ type DecisionTrace struct {
 	HitPolicy       string         `yaml:"hit_policy,omitempty" json:"hit_policy,omitempty"`
 	Evaluator       Evaluator      `yaml:"evaluator,omitempty" json:"evaluator,omitempty"`
 	Engine          EngineInfo     `yaml:"engine" json:"engine"`
+	// ScenarioID links this trace back to the persisted test-case that triggered
+	// it. Empty for ad-hoc /evaluate calls. Hashed into TraceID like every other
+	// field, so an empty value (omitempty) keeps legacy trace hashes unchanged.
+	ScenarioID string `yaml:"scenario_id,omitempty" json:"scenario_id,omitempty"`
+}
+
+// DecisionScenario is a named, reproducible test case for a Decision. Scenarios
+// live under {decisionDir}/scenarios/<id>.yaml and capture the inputs, the
+// expected outputs and optionally the expected matched-rule IDs so a run can be
+// graded pass/fail. Each execution produces a regular DecisionTrace that carries
+// the scenario_id for cross-reference.
+type DecisionScenario struct {
+	ID                   string         `yaml:"id" json:"id"`
+	Name                 string         `yaml:"name" json:"name"`
+	Description          string         `yaml:"description,omitempty" json:"description,omitempty"`
+	Tags                 []string       `yaml:"tags,omitempty" json:"tags,omitempty"`
+	Enabled              bool           `yaml:"enabled" json:"enabled"`
+	Inputs               map[string]any `yaml:"inputs" json:"inputs"`
+	ExpectedOutputs      map[string]any `yaml:"expected_outputs,omitempty" json:"expected_outputs,omitempty"`
+	ExpectedMatchedRules []string       `yaml:"expected_matched_rules,omitempty" json:"expected_matched_rules,omitempty"`
+	CreatedAt            string         `yaml:"created_at,omitempty" json:"created_at,omitempty"`
+	UpdatedAt            string         `yaml:"updated_at,omitempty" json:"updated_at,omitempty"`
 }
