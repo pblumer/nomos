@@ -1162,8 +1162,18 @@ function setBPMNDetail(target,proc,elementId,viewer){
   const panel=findBPMNDetailPanel(target,proc);
   if(!panel)return;
   const lookup=bpmnDetailLookup(proc);
-  const item=lookup[elementId];
+  let item=lookup[elementId];
   let bpmnEl=null;try{if(viewer)bpmnEl=viewer.get('elementRegistry').get(elementId);}catch(_){}
+  // If no step item exists for this BPMN element but it is a BusinessRuleTask,
+  // synthesize a transient item so the Properties panel exposes the Decision
+  // selection and the decision's input/output variables. On save, this will
+  // POST a new step (see save handler below).
+  if(!item&&bpmnEl){
+    const bpmnType=bpmnEl.businessObject?.$type||bpmnEl.type||'';
+    if(bpmnType==='bpmn:BusinessRuleTask'){
+      item={id:elementId,name:bpmnEl.businessObject?.name||elementId,task_type:'businessRuleTask',element_type:bpmnType,role:'supporting',required:false,mapping_status:'unmapped',from_step:false,decision_ref:'',inputs:[],outputs:[]};
+    }
+  }
   if(!item){
     if(!bpmnEl){panel.classList.add('is-empty');panel.innerHTML='<div style="padding:.5rem;color:#94a3b8;font-size:.78rem">Element nicht gefunden.</div>';return;}
     const sw=panel.closest('.proc-standalone-workbench');if(sw){sw.classList.add('has-selection');const a=sw.querySelector('.proc-standalone-side');if(a)a.style.display='';}
@@ -1321,16 +1331,27 @@ ${inp.description?`<span style="font-size:.65rem;color:#94a3b8;grid-column:2">${
         try{const modeling=viewer.get('modeling');const el=viewer.get('elementRegistry').get(elementId);if(el)modeling.updateLabel(el,newName);}catch(e){console.warn('BPMN label update failed:',e);}
       }
       // Persist changes
+      // Collect service-task input bindings (data-tp-inp)
+      const updatedInputs=(item.inputs||[]).map((inp,idx)=>{const src=panel.querySelector('[data-tp-inp="'+idx+'"]')?.value??inp.source;return{...inp,source:src};});
+      // Collect decision input mappings (data-dec-inp-name → process variable)
+      const decInpEls=panel.querySelectorAll('[data-dec-inp-name]');
+      const decisionInputs=decInpEls.length?Array.from(decInpEls).map(el=>({name:el.dataset.decInpName,source:el.value.trim()})).filter(b=>b.name):(item.task_type==='businessRuleTask'?updatedInputs:[]);
+      const finalInputs=item.task_type==='businessRuleTask'?decisionInputs:updatedInputs;
+      const stepBody={name:newName||item.name,service_ref:newService,method:newMethod,decision_ref:newDecisionRef,role:newRole,required:newRequired,notes:newNotes,task_type:item.task_type||'serviceTask',depends_on:item.depends_on||[],inputs:finalInputs,outputs:item.outputs||[]};
       if(item.from_step&&item.id){
-        // Collect service-task input bindings (data-tp-inp)
-        const updatedInputs=(item.inputs||[]).map((inp,idx)=>{const src=panel.querySelector('[data-tp-inp="'+idx+'"]')?.value??inp.source;return{...inp,source:src};});
-        // Collect decision input mappings (data-dec-inp-name → process variable)
-        const decInpEls=panel.querySelectorAll('[data-dec-inp-name]');
-        const decisionInputs=decInpEls.length?Array.from(decInpEls).map(el=>({name:el.dataset.decInpName,source:el.value.trim()})).filter(b=>b.name):(item.task_type==='businessRuleTask'?updatedInputs:[]);
-        const finalInputs=item.task_type==='businessRuleTask'?decisionInputs:updatedInputs;
-        const r=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id)+'/steps/'+encodeURIComponent(item.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:newName||item.name,service_ref:newService,method:newMethod,decision_ref:newDecisionRef,role:newRole,required:newRequired,notes:newNotes,task_type:item.task_type||'serviceTask',depends_on:item.depends_on||[],inputs:finalInputs,outputs:item.outputs||[]})});
+        const r=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id)+'/steps/'+encodeURIComponent(item.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(stepBody)});
         if(!r.ok)throw new Error(await r.text().catch(()=>'Speichern fehlgeschlagen'));
         const updated=await r.json();Object.assign(proc,updated);
+      }else if(item.task_type==='businessRuleTask'){
+        // Synthesized BusinessRuleTask not yet persisted as a step. POST it so
+        // syncBPMNFromSteps generates a matching BPMN element ID on the next
+        // diagram regeneration. Strip the BPMN "Task_" prefix because
+        // bpmnTaskIDForStep re-adds it server-side.
+        const proposedStepId=String(elementId||'').replace(/^Task_/,'')||elementId;
+        const r=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id)+'/steps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...stepBody,id:proposedStepId})});
+        if(!r.ok)throw new Error(await r.text().catch(()=>'Speichern fehlgeschlagen'));
+        const updated=await r.json();Object.assign(proc,updated);
+        item.from_step=true;item.id=proposedStepId;
       }else{
         const others=(proc.task_mappings||[]).filter(m=>m.bpmn_element_id!==elementId);
         const r=await fetch('/api/v1/processes/'+encodeURIComponent(proc.id)+'/task-mappings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_mappings:[...others,{bpmn_element_id:elementId,task_name:newName||item.name,service_ref:newService,method:newMethod,role:newRole,required:newRequired,notes:newNotes}]})});
