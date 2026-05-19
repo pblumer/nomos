@@ -1495,24 +1495,37 @@ function setBPMNDetail(target,proc,elementId,viewer){
       svcSel.addEventListener('change',()=>loadMethods(svcSel.value,''));
     }
   })();
-  // Populate decision dropdown for businessRuleTask
+  // Populate decision dropdown for businessRuleTask.
+  // Decisions can live in any domain (cross-domain rule references are
+  // valid), so we load decisions from every domain in the cosmos and
+  // group the options by domain. Option values are the fully qualified
+  // decision_ref ("{domain}/decisions/{id}").
   (async()=>{
     const decSel=panel.querySelector('#tp-decision');
     if(!decSel)return;
-    // Derive domain from service_ref (e.g. "commerce.blumer.cloud/checkout" → "commerce.blumer.cloud")
-    // or from proc.owner (which is the domain for businessRuleTasks without a service_ref)
     const srDomain=(item.service_ref||'').split('/').slice(0,-1).join('/');
-    const domain=srDomain||proc?.owner||'';
-    if(!domain)return;
+    const procDomain=srDomain||proc?.owner||'';
+    // Pre-existing decision_ref may be qualified ("{domain}/decisions/{id}")
+    // or a bare id; normalise to the qualified form using procDomain as
+    // fallback so the option can be matched.
+    const currRaw=(item.decision_ref||'').trim();
+    const currQualified=currRaw&&currRaw.includes('/decisions/')?currRaw:(currRaw&&procDomain?procDomain+'/decisions/'+currRaw:'');
     // existing input bindings keyed by decision-input name for pre-fill
     const existingInputMap={};
     (item.inputs||[]).forEach(b=>{existingInputMap[b.name]=b.source||'';});
-    async function loadDecisionDetail(decId){
+    function parseRef(ref){
+      const i=ref.indexOf('/decisions/');
+      if(i<0)return{domain:procDomain,id:ref};
+      return{domain:ref.slice(0,i),id:ref.slice(i+'/decisions/'.length)};
+    }
+    async function loadDecisionDetail(ref){
       const inWrap=panel.querySelector('#tp-dec-inputs-wrap');
       const outWrap=panel.querySelector('#tp-dec-outputs-wrap');
-      if(!decId){if(inWrap)inWrap.style.display='none';if(outWrap)outWrap.style.display='none';return;}
+      if(!ref){if(inWrap)inWrap.style.display='none';if(outWrap)outWrap.style.display='none';return;}
+      const{domain,id}=parseRef(ref);
+      if(!domain||!id)return;
       try{
-        const r=await fetch('/api/v1/domains/'+encodeURIComponent(domain)+'/decisions/'+encodeURIComponent(decId));
+        const r=await fetch('/api/v1/domains/'+encodeURIComponent(domain)+'/decisions/'+encodeURIComponent(id));
         if(!r.ok)return;
         const d=await r.json();
         const inDiv=panel.querySelector('#tp-dec-inputs');
@@ -1543,14 +1556,33 @@ ${inp.description?`<span style="font-size:.65rem;color:#94a3b8;grid-column:2">${
       }catch(_){}
     }
     try{
-      const r=await fetch('/api/v1/domains/'+encodeURIComponent(domain)+'/decisions');
-      if(r.ok){
-        const d=await r.json();
-        const decs=d.items||[];
-        const curr=(item.decision_ref||'').split('/').pop();
-        decs.forEach(dec=>{const o=document.createElement('option');o.value=dec.id;o.textContent=dec.name+' ('+dec.id+')';if(dec.id===curr)o.selected=true;decSel.appendChild(o);});
-        if(decSel.value)await loadDecisionDetail(decSel.value);
+      const dr=await fetch('/api/v1/domains');
+      const domList=dr.ok?((await dr.json()).domains||[]).map(d=>d.canonical||d.canonicalName||d.name).filter(Boolean):[];
+      // Move the process-owning domain to the front so its decisions
+      // appear at the top of the dropdown.
+      domList.sort((a,b)=>(a===procDomain?-1:b===procDomain?1:a.localeCompare(b)));
+      const groups=await Promise.all(domList.map(async dom=>{
+        try{
+          const r=await fetch('/api/v1/domains/'+encodeURIComponent(dom)+'/decisions');
+          if(!r.ok)return{domain:dom,items:[]};
+          const d=await r.json();
+          return{domain:dom,items:d.items||[]};
+        }catch(_){return{domain:dom,items:[]};}
+      }));
+      for(const g of groups){
+        if(!g.items.length)continue;
+        const og=document.createElement('optgroup');
+        og.label=g.domain;
+        for(const dec of g.items){
+          const o=document.createElement('option');
+          o.value=g.domain+'/decisions/'+dec.id;
+          o.textContent=dec.name+' ('+dec.id+')';
+          if(o.value===currQualified)o.selected=true;
+          og.appendChild(o);
+        }
+        decSel.appendChild(og);
       }
+      if(decSel.value)await loadDecisionDetail(decSel.value);
     }catch(_){}
     decSel.addEventListener('change',()=>{
       // clear existingInputMap when user picks a different decision
@@ -2858,7 +2890,7 @@ function wireBPMNMethodDrop(canvasEl,modeler,proc){
       setTimeout(async()=>{
         const panel=canvasEl.closest('.proc-standalone-workbench')?.querySelector('.proc-standalone-side');if(!panel)return;
         const decSel=panel.querySelector('#tp-decision');
-        if(decSel&&drag.decisionId){decSel.value=drag.decisionId;decSel.dispatchEvent(new Event('change'));}
+        if(decSel&&drag.decisionId){decSel.value=drag.decisionDomain+'/decisions/'+drag.decisionId;decSel.dispatchEvent(new Event('change'));}
       },200);
       return;
     }
