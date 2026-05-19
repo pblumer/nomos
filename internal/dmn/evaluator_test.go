@@ -321,6 +321,95 @@ func TestNormaliseHitPolicy_Shorthand(t *testing.T) {
 	}
 }
 
+// --- FEEL expression fallback in input cells ---
+
+const matchesDMN = `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" id="d" name="d">
+  <decision id="DEC-0000001" name="DNS-Format validieren">
+    <decisionTable id="dt1" hitPolicy="FIRST">
+      <input id="i1" label="DNS-Name">
+        <inputExpression typeRef="string"><text>dns_name</text></inputExpression>
+      </input>
+      <output id="o1" name="valid" typeRef="boolean"/>
+      <rule id="Rule_DEC-0000001_1">
+        <inputEntry><text>matches(dns_name, "^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$")</text></inputEntry>
+        <outputEntry><text>true</text></outputEntry>
+      </rule>
+      <rule id="Rule_DEC-0000001_2">
+        <inputEntry><text>-</text></inputEntry>
+        <outputEntry><text>false</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+</definitions>`
+
+func TestEvaluate_MatchesBuiltin_ValidDNS(t *testing.T) {
+	table, err := dmn.ParseDMN([]byte(matchesDMN))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := dmn.Evaluate(table, map[string]any{"dns_name": "www.blumer.net"})
+	if err != nil {
+		t.Fatalf("Evaluate: %v", err)
+	}
+	if res.Outputs["valid"] != true {
+		t.Errorf("valid = %v, want true", res.Outputs["valid"])
+	}
+}
+
+func TestEvaluate_MatchesBuiltin_InvalidDNS(t *testing.T) {
+	table, err := dmn.ParseDMN([]byte(matchesDMN))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := dmn.Evaluate(table, map[string]any{"dns_name": "no spaces allowed"})
+	if err != nil {
+		t.Fatalf("Evaluate: %v", err)
+	}
+	if res.Outputs["valid"] != false {
+		t.Errorf("valid = %v, want false", res.Outputs["valid"])
+	}
+}
+
+func TestEvaluate_QuestionMarkPlaceholder(t *testing.T) {
+	// Same table semantics, but using "?" as the implicit input.
+	const src = `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" id="d" name="d">
+  <decision id="D1" name="qm">
+    <decisionTable id="dt1" hitPolicy="FIRST">
+      <input id="i1"><inputExpression typeRef="string"><text>v</text></inputExpression></input>
+      <output id="o1" name="ok" typeRef="boolean"/>
+      <rule id="r1">
+        <inputEntry><text>matches(?, "^[a-z]+$")</text></inputEntry>
+        <outputEntry><text>true</text></outputEntry>
+      </rule>
+      <rule id="r2">
+        <inputEntry><text>-</text></inputEntry>
+        <outputEntry><text>false</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+</definitions>`
+	table, err := dmn.ParseDMN([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := dmn.Evaluate(table, map[string]any{"v": "hello"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Outputs["ok"] != true {
+		t.Errorf("ok = %v, want true", res.Outputs["ok"])
+	}
+	res, err = dmn.Evaluate(table, map[string]any{"v": "Hello"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Outputs["ok"] != false {
+		t.Errorf("ok = %v, want false", res.Outputs["ok"])
+	}
+}
+
 // --- ToValue type coercion ---
 
 func TestToValue_NumberFromJSON(t *testing.T) {

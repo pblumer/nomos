@@ -2,6 +2,7 @@ package feel
 
 import (
 	"math"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -30,6 +31,7 @@ var builtins = map[string]builtinFn{
 	"starts with":   bStartsWith,
 	"ends with":     bEndsWith,
 	"substring":     bSubstring,
+	"matches":       bMatches,
 	// Number
 	"abs":     bAbs,
 	"ceiling": bCeiling,
@@ -212,6 +214,51 @@ func bSubstring(args []Value) (Value, error) {
 		}
 	}
 	return String(string(runes[start:end])), nil
+}
+
+// matches(input, pattern) or matches(input, pattern, flags).
+// Flags follow the FEEL spec subset: "i" (case-insensitive),
+// "s" (dot matches newline), "m" (multi-line).
+func bMatches(args []Value) (Value, error) {
+	if len(args) != 2 && len(args) != 3 {
+		return nil, evalErr("matches expects 2 or 3 args, got %d", len(args))
+	}
+	s, err := argString(args, 0)
+	if err != nil {
+		return nil, err
+	}
+	pat, err := argString(args, 1)
+	if err != nil {
+		return nil, err
+	}
+	var prefix strings.Builder
+	if len(args) == 3 {
+		flags, err := argString(args, 2)
+		if err != nil {
+			return nil, err
+		}
+		var goFlags strings.Builder
+		for _, c := range flags {
+			switch c {
+			case 'i', 's', 'm':
+				goFlags.WriteRune(c)
+			case 'x':
+				// XPath "ignore whitespace" — RE2 has no equivalent; skip silently.
+			default:
+				return nil, evalErr("matches: unsupported flag %q", string(c))
+			}
+		}
+		if goFlags.Len() > 0 {
+			prefix.WriteString("(?")
+			prefix.WriteString(goFlags.String())
+			prefix.WriteString(")")
+		}
+	}
+	re, rerr := regexp.Compile(prefix.String() + pat)
+	if rerr != nil {
+		return nil, evalErr("matches: invalid pattern %q: %v", pat, rerr)
+	}
+	return Bool(re.MatchString(s)), nil
 }
 
 // Number built-ins

@@ -140,15 +140,11 @@ func ruleMatches(table *Table, rule RuleRow, inputs map[string]Value) (bool, err
 		if i < len(rule.InputEntries) {
 			entryText = rule.InputEntries[i]
 		}
-		test, err := ParseUnaryTest(entryText)
+		ok, err := evaluateInputEntry(entryText, col.Expression, inputs)
 		if err != nil {
 			return false, fmt.Errorf("input %q: %w", col.Expression, err)
 		}
-		inputVal, ok := inputs[col.Expression]
 		if !ok {
-			inputVal = NullVal{}
-		}
-		if !test.Matches(inputVal) {
 			return false, nil
 		}
 	}

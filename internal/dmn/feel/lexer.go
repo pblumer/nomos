@@ -168,6 +168,10 @@ func tokenize(src string) ([]token, error) {
 					case '\\':
 						sb.WriteByte('\\')
 					default:
+						// Preserve unknown escapes verbatim so that regex
+						// patterns ("\d", "\.", "\w") authored without
+						// double-escaping survive the string lexer.
+						sb.WriteByte('\\')
 						sb.WriteByte(src[j+1])
 					}
 					j += 2
