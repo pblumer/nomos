@@ -1307,8 +1307,25 @@ ${editable?`<div class="tp-actions"><button class="tp-save-btn" id="bp-save">Üb
   panel.querySelector('#bp-save')?.addEventListener('click',()=>{
     try{
       const moddle=viewer.get('moddle');
-      const newName=panel.querySelector('#bp-name')?.value??name;
+      let newName=panel.querySelector('#bp-name')?.value??name;
       const newDoc=(panel.querySelector('#bp-doc')?.value??'').trim();
+      let condChanged=false;
+      let condExpr=undefined;
+      if(isSeqFlow){
+        const v=(panel.querySelector('#bp-condition')?.value||'').trim();
+        const curr=bo.conditionExpression?.body||'';
+        if(v!==curr){
+          condChanged=true;
+          condExpr=v?moddle.create('bpmn:FormalExpression',{body:v}):undefined;
+          // Mirror condition into the flow label so it renders on the diagram, unless the user typed a custom label.
+          const trimmedName=(newName||'').trim();
+          if(!trimmedName||trimmedName===curr){
+            newName=v;
+            const nameInput=panel.querySelector('#bp-name');
+            if(nameInput)nameInput.value=v;
+          }
+        }
+      }
       if(newName!==name){
         try{modeling.updateLabel(bpmnEl,newName);}catch(_){modeling.updateProperties(bpmnEl,{name:newName});}
       }
@@ -1316,13 +1333,8 @@ ${editable?`<div class="tp-actions"><button class="tp-save-btn" id="bp-save">Üb
         const docs=newDoc?[moddle.create('bpmn:Documentation',{text:newDoc})]:[];
         modeling.updateProperties(bpmnEl,{documentation:docs});
       }
-      if(isSeqFlow){
-        const v=(panel.querySelector('#bp-condition')?.value||'').trim();
-        const curr=bo.conditionExpression?.body||'';
-        if(v!==curr){
-          const expr=v?moddle.create('bpmn:FormalExpression',{body:v}):undefined;
-          modeling.updateProperties(bpmnEl,{conditionExpression:expr});
-        }
+      if(condChanged){
+        modeling.updateProperties(bpmnEl,{conditionExpression:condExpr});
       }
       if(isCondGateway){
         const sel=panel.querySelector('#bp-default-flow');
