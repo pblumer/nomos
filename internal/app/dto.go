@@ -240,19 +240,20 @@ type DecisionTableDTO struct {
 }
 
 type ProcessStepSummaryDTO struct {
-	StepNum    int                   `json:"step_num"`
-	ID         string                `json:"id"`
-	Name       string                `json:"name"`
-	TaskType   string                `json:"task_type,omitempty"`
-	ServiceRef string                `json:"service_ref"`
-	Method     string                `json:"method,omitempty"`
-	Role       string                `json:"role,omitempty"`
-	Required   bool                  `json:"required"`
-	DependsOn  []string              `json:"depends_on,omitempty"`
-	Inputs     []StepInputBindingDTO `json:"inputs,omitempty"`
-	Outputs    []StepOutputSchemaDTO `json:"outputs,omitempty"`
-	Decision   *DecisionTableDTO     `json:"decision,omitempty"`
-	Gateway    *DecisionGatewayDTO   `json:"gateway,omitempty"`
+	StepNum     int                   `json:"step_num"`
+	ID          string                `json:"id"`
+	Name        string                `json:"name"`
+	TaskType    string                `json:"task_type,omitempty"`
+	ServiceRef  string                `json:"service_ref"`
+	DecisionRef string                `json:"decision_ref,omitempty"`
+	Method      string                `json:"method,omitempty"`
+	Role        string                `json:"role,omitempty"`
+	Required    bool                  `json:"required"`
+	DependsOn   []string              `json:"depends_on,omitempty"`
+	Inputs      []StepInputBindingDTO `json:"inputs,omitempty"`
+	Outputs     []StepOutputSchemaDTO `json:"outputs,omitempty"`
+	Decision    *DecisionTableDTO     `json:"decision,omitempty"`
+	Gateway     *DecisionGatewayDTO   `json:"gateway,omitempty"`
 }
 
 type ProcessGroupDTO struct {
