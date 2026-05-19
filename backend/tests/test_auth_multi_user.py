@@ -35,7 +35,8 @@ def multi_user_client(monkeypatch, tmp_path):
     users_file.write_text(
         "users:\n"
         f"  - username: nomos\n    password_hash: \"{_hash('nomos-pw')}\"\n"
-        f"  - username: sven\n    password_hash: \"{_hash('sven-pw')}\"\n",
+        f"  - username: sven\n    password_hash: \"{_hash('sven-pw')}\"\n"
+        f"  - username: pat\n    password_hash: \"{_hash('pat-pw')}\"\n",
         encoding="utf-8",
     )
     monkeypatch.setenv("NOMOS_AUTH_USERS_FILE", str(users_file))
@@ -52,7 +53,7 @@ def test_status_requires_auth_when_users_file_present(multi_user_client):
 
 
 def test_each_listed_user_can_log_in(multi_user_client):
-    for username, password in [("nomos", "nomos-pw"), ("sven", "sven-pw")]:
+    for username, password in [("nomos", "nomos-pw"), ("sven", "sven-pw"), ("pat", "pat-pw")]:
         response = multi_user_client.post(
             "/api/v1/auth/login",
             json={"username": username, "password": password},

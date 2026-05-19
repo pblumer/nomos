@@ -12,3 +12,5 @@ users:
     password_hash: "pbkdf2_sha256$600000$GHF6Amuqz6V2+GrO5F5How==$ARW5N9XFejv9f3Gbptoef0iklOj917YSkxRsMPbCZYY="
   - username: sven
     password_hash: "pbkdf2_sha256$600000$gyGLDnMLROo3KZdqQD0/qw==$Ez2Y+XGoMGklZMnSQtoGe00ycTNY46QCyGF0loqE1BA="
+  - username: pat
+    password_hash: "pbkdf2_sha256$600000$MakYIt3Rj2khDqiaAo8EuQ==$qwh95DofbVOrCCE8azR4G0WtTIyZ2Qx0ITaVKckkSs0="
