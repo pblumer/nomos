@@ -85,7 +85,7 @@ type MethodPayloadFieldDTO struct {
 }
 
 type MethodPayloadDTO struct {
-	ContentType string                 `json:"content_type,omitempty"`
+	ContentType string                  `json:"content_type,omitempty"`
 	Fields      []MethodPayloadFieldDTO `json:"fields,omitempty"`
 }
 

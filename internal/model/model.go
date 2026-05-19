@@ -60,8 +60,8 @@ type MethodHeader struct {
 
 // MethodSecurity describes the authentication scheme for a method endpoint.
 type MethodSecurity struct {
-	Scheme string `yaml:"scheme" json:"scheme"` // bearer | api-key | basic | none | oauth2
-	In     string `yaml:"in,omitempty" json:"in,omitempty"`   // header | query (for api-key)
+	Scheme string `yaml:"scheme" json:"scheme"`                 // bearer | api-key | basic | none | oauth2
+	In     string `yaml:"in,omitempty" json:"in,omitempty"`     // header | query (for api-key)
 	Name   string `yaml:"name,omitempty" json:"name,omitempty"` // header or query-param name
 }
 
