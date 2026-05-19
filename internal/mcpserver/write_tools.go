@@ -7,6 +7,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/nomos/nomos/internal/app"
+	"github.com/nomos/nomos/internal/idgen"
 	"github.com/nomos/nomos/internal/model"
 )
 
@@ -109,7 +110,7 @@ func toolServiceAdd(path string) func(context.Context, *mcp.CallToolRequest, ser
 
 type productCreateIn struct {
 	Domain  string `json:"domain"            jsonschema:"canonical domain name"`
-	ID      string `json:"id"                jsonschema:"unique product ID (kebab-case)"`
+	ID      string `json:"id,omitempty"      jsonschema:"optional product ID; leave empty to auto-generate per ADR-0020 (e.g. PRD_A7K3M2)"`
 	Name    string `json:"name"              jsonschema:"human-readable product name"`
 	Owner   string `json:"owner,omitempty"   jsonschema:"owning team or person"`
 	Summary string `json:"summary,omitempty" jsonschema:"one-line description of the product"`
@@ -117,8 +118,8 @@ type productCreateIn struct {
 
 func toolProductCreate(path string) func(context.Context, *mcp.CallToolRequest, productCreateIn) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in productCreateIn) (*mcp.CallToolResult, any, error) {
-		if in.Domain == "" || in.ID == "" || in.Name == "" {
-			return nil, nil, fmt.Errorf("domain, id and name are required")
+		if in.Domain == "" || in.Name == "" {
+			return nil, nil, fmt.Errorf("domain and name are required")
 		}
 		dto, err := app.CreateProductOffering(path, in.Domain, app.CreateProductOfferingRequest{
 			ID:           in.ID,
@@ -255,7 +256,7 @@ func isBusinessRuleTaskType(t string) bool {
 
 type decisionCreateIn struct {
 	Domain  string `json:"domain"            jsonschema:"canonical domain name"`
-	ID      string `json:"id"                jsonschema:"unique decision ID (kebab-case)"`
+	ID      string `json:"id,omitempty"      jsonschema:"optional decision ID; leave empty to auto-generate per ADR-0020 (e.g. DEC_T4R7W3)"`
 	Name    string `json:"name"              jsonschema:"human-readable decision name"`
 	Owner   string `json:"owner,omitempty"   jsonschema:"owning team or person"`
 	Summary string `json:"summary,omitempty" jsonschema:"short description of what this decision evaluates"`
@@ -263,8 +264,8 @@ type decisionCreateIn struct {
 
 func toolDecisionCreate(path string) func(context.Context, *mcp.CallToolRequest, decisionCreateIn) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in decisionCreateIn) (*mcp.CallToolResult, any, error) {
-		if in.Domain == "" || in.ID == "" || in.Name == "" {
-			return nil, nil, fmt.Errorf("domain, id and name are required")
+		if in.Domain == "" || in.Name == "" {
+			return nil, nil, fmt.Errorf("domain and name are required")
 		}
 		dto, err := app.CreateDecision(path, in.Domain, app.CreateDecisionRequest{
 			ID:      in.ID,
@@ -290,7 +291,7 @@ func toolDecisionCreate(path string) func(context.Context, *mcp.CallToolRequest,
 // ── instance_create ──────────────────────────────────────────────────────────
 
 type instanceCreateIn struct {
-	ID           string `json:"id"                    jsonschema:"unique instance ID (kebab-case)"`
+	ID           string `json:"id,omitempty"          jsonschema:"optional instance ID; leave empty to auto-generate per ADR-0020 (e.g. PRI_M5Q8N4)"`
 	BlueprintRef string `json:"blueprint_ref"         jsonschema:"blueprint ID this instance is based on"`
 	Type         string `json:"type,omitempty"        jsonschema:"product_instance or service_instance (default: product_instance)"`
 	Name         string `json:"name,omitempty"        jsonschema:"human-readable name for this instance"`
@@ -299,8 +300,8 @@ type instanceCreateIn struct {
 
 func toolInstanceCreate(path string) func(context.Context, *mcp.CallToolRequest, instanceCreateIn) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in instanceCreateIn) (*mcp.CallToolResult, any, error) {
-		if in.ID == "" || in.BlueprintRef == "" {
-			return nil, nil, fmt.Errorf("id and blueprint_ref are required")
+		if in.BlueprintRef == "" {
+			return nil, nil, fmt.Errorf("blueprint_ref is required")
 		}
 		instType := in.Type
 		if instType == "" {
@@ -309,23 +310,30 @@ func toolInstanceCreate(path string) func(context.Context, *mcp.CallToolRequest,
 		if instType != "product_instance" && instType != "service_instance" {
 			return nil, nil, fmt.Errorf("type must be product_instance or service_instance")
 		}
+		id := strings.TrimSpace(in.ID)
+		if id == "" {
+			generated, err := idgen.NewForType(instType)
+			if err != nil {
+				return nil, nil, fmt.Errorf("instance_create: id generation: %w", err)
+			}
+			id = generated
+		}
 		name := in.Name
 		if name == "" {
-			name = in.ID
+			name = id
 		}
-		err := app.CreateInstance(path, model.Instance{
-			ID:           in.ID,
+		if err := app.CreateInstance(path, model.Instance{
+			ID:           id,
 			Type:         instType,
 			Name:         name,
 			Owner:        in.Owner,
 			BlueprintRef: in.BlueprintRef,
 			Status:       "active",
-		})
-		if err != nil {
-			return nil, nil, fmt.Errorf("instance_create %q: %w", in.ID, err)
+		}); err != nil {
+			return nil, nil, fmt.Errorf("instance_create %q: %w", id, err)
 		}
 		return textResult(map[string]any{
-			"id":            in.ID,
+			"id":            id,
 			"type":          instType,
 			"name":          name,
 			"blueprint_ref": in.BlueprintRef,

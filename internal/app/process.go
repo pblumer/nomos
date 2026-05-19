@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/nomos/nomos/internal/fsx"
+	"github.com/nomos/nomos/internal/idgen"
+	"github.com/nomos/nomos/internal/idmigrate"
 	"github.com/nomos/nomos/internal/model"
 	"github.com/nomos/nomos/internal/storage"
 )
@@ -83,8 +85,10 @@ func GetProcess(path, id string) (ProcessDTO, error) {
 	if err != nil {
 		return ProcessDTO{}, err
 	}
+	// ADR-0020: Legacy-IDs werden transparent via id-history aufgelöst.
+	resolved, _ := idmigrate.Resolve(path, id)
 	for _, n := range nodes {
-		if n.Meta.ID == id {
+		if n.Meta.ID == id || n.Meta.ID == resolved {
 			return processDTO(path, n, true), nil
 		}
 	}
@@ -308,7 +312,7 @@ func AddProcessStep(path, id string, req UpsertProcessStepRequest) (ProcessDTO, 
 		return ProcessDTO{}, err
 	}
 	step := model.ProcessStep{
-		ID:            fmt.Sprintf("step-%d", time.Now().UnixNano()),
+		ID:            newStepID(),
 		Name:          strings.TrimSpace(req.Name),
 		TaskType:      normalizedStepTaskType(req.TaskType),
 		ServiceRef:    strings.TrimSpace(req.ServiceRef),
@@ -692,7 +696,24 @@ func sanitizeBPMNID(id string) string {
 	s := safeArtifactName(id)
 	return strings.ReplaceAll(s, "-", "_")
 }
+
+// newStepID erzeugt eine ProcessStep-ID gemäß ADR-0020.
+// Bei einem Generator-Fehler fällt es auf eine Zeitstempel-ID zurück.
+func newStepID() string {
+	id, err := idgen.NewForType("process_step")
+	if err == nil {
+		return id
+	}
+	return fmt.Sprintf("step-%d", time.Now().UnixNano())
+}
+
+// nextProcessID erzeugt eine neue ID gemäß ADR-0020.
+// Bei einem Generator-Fehler fällt auf das alte Schema zurück.
 func nextProcessID(path string) string {
+	id, err := idgen.NewForType("process")
+	if err == nil {
+		return id
+	}
 	nodes, _ := scanProcesses(path)
 	return fmt.Sprintf("PRC-%07d", len(nodes)+1)
 }
