@@ -294,14 +294,53 @@ func processDTO(path string, n processNode, includeValidation bool) ProcessDTO {
 // syncBPMNFromSteps rewrites the process's BPMN file so the diagram reflects
 // the structured step list. Called whenever steps are added, updated, or
 // removed via the structured API so users see their tasks in the diagram.
+//
+// Non-destructive: if the existing BPMN already contains an element for every
+// YAML step (matched by generated ID or by name+type), the file is left alone.
+// That preserves hand-authored diagrams and manual edits made via the modeler;
+// only when steps are added or their type changes do we rewrite the file.
 func syncBPMNFromSteps(node processNode) error {
 	bpmnPath := safeBPMNPath(filepath.Dir(node.Path), node.Meta.BPMN.File)
 	if bpmnPath == "" {
 		return nil
 	}
+	if data, err := os.ReadFile(bpmnPath); err == nil {
+		if existing, err := ExtractBPMNTasks(string(data)); err == nil && bpmnCoversSteps(existing, node.Meta.Steps) {
+			return nil
+		}
+	}
 	cosmosPath := workspaceFromPath(node.Path)
 	xmlText := BuildBPMNFromSteps(cosmosPath, node.Meta.BPMN.ProcessID, node.Meta.Name, node.Meta.Steps)
 	return os.WriteFile(bpmnPath, []byte(xmlText), 0o644)
+}
+
+// bpmnCoversSteps reports whether the existing BPMN tasks already represent
+// every YAML step. A step is "covered" if a BPMN element with the generated
+// task ID exists, or — for hand-authored diagrams that use custom IDs — if a
+// BPMN element of the matching element type carries the same (case-insensitive)
+// name. An empty step list is treated as not covered so the default template
+// can be (re)written for fresh processes.
+func bpmnCoversSteps(tasks []BPMNTaskDTO, steps []model.ProcessStep) bool {
+	if len(steps) == 0 {
+		return false
+	}
+	byID := make(map[string]BPMNTaskDTO, len(tasks))
+	byNameType := make(map[string]BPMNTaskDTO, len(tasks))
+	for _, t := range tasks {
+		byID[t.ID] = t
+		byNameType[strings.ToLower(strings.TrimSpace(t.Name))+"|"+t.ElementType] = t
+	}
+	for i, s := range steps {
+		expectedType := "bpmn:" + bpmnElementForStep(s.TaskType)
+		if t, ok := byID[bpmnTaskIDForStep(s, i)]; ok && t.ElementType == expectedType {
+			continue
+		}
+		if _, ok := byNameType[strings.ToLower(strings.TrimSpace(s.Name))+"|"+expectedType]; ok {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func AddProcessStep(path, id string, req UpsertProcessStepRequest) (ProcessDTO, error) {
