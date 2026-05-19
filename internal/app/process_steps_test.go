@@ -1,6 +1,7 @@
 package app
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -436,6 +437,97 @@ func TestAddProcessStep_ServiceTaskIgnoresGateway(t *testing.T) {
 	}
 	if got.Steps[0].Gateway != nil {
 		t.Fatalf("service task must not persist gateway: %+v", got.Steps[0].Gateway)
+	}
+}
+
+// TestSyncBPMN_PreservesManualDiagramOnStepUpdate locks in the non-destructive
+// guard: editing a step's metadata must not overwrite a hand-authored BPMN
+// diagram. Users routinely add gateways, error ends and custom layouts in the
+// modeler; those edits used to disappear on the next side-panel save because
+// syncBPMNFromSteps regenerated the file unconditionally.
+func TestSyncBPMN_PreservesManualDiagramOnStepUpdate(t *testing.T) {
+	p, _, procID := createProcessForStepTests(t)
+
+	added, err := AddProcessStep(p, procID, UpsertProcessStepRequest{
+		Name: "Validate request", TaskType: "businessRuleTask",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stepID := added.Steps[0].ID
+
+	dto, err := GetProcess(p, procID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Simulate a user who opened the modeler and added a gateway plus an
+	// error end event — none of which BuildBPMNFromSteps would produce for a
+	// single-step process. The manual XML uses a custom task ID to mimic a
+	// hand-authored diagram; the step is matched by name+type instead.
+	manualXML := `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Defs_Manual" targetNamespace="https://nomos.local/bpmn">
+  <bpmn:process id="Process_Manual" isExecutable="false">
+    <bpmn:startEvent id="Start_Manual"><bpmn:outgoing>F1</bpmn:outgoing></bpmn:startEvent>
+    <bpmn:businessRuleTask id="Task_Manual_Validate" name="Validate request"><bpmn:incoming>F1</bpmn:incoming><bpmn:outgoing>F2</bpmn:outgoing></bpmn:businessRuleTask>
+    <bpmn:exclusiveGateway id="Gw_Manual" name="OK?"><bpmn:incoming>F2</bpmn:incoming><bpmn:outgoing>F3</bpmn:outgoing><bpmn:outgoing>F4</bpmn:outgoing></bpmn:exclusiveGateway>
+    <bpmn:endEvent id="End_Ok"><bpmn:incoming>F3</bpmn:incoming></bpmn:endEvent>
+    <bpmn:endEvent id="End_Err"><bpmn:incoming>F4</bpmn:incoming><bpmn:errorEventDefinition/></bpmn:endEvent>
+    <bpmn:sequenceFlow id="F1" sourceRef="Start_Manual" targetRef="Task_Manual_Validate"/>
+    <bpmn:sequenceFlow id="F2" sourceRef="Task_Manual_Validate" targetRef="Gw_Manual"/>
+    <bpmn:sequenceFlow id="F3" sourceRef="Gw_Manual" targetRef="End_Ok"/>
+    <bpmn:sequenceFlow id="F4" sourceRef="Gw_Manual" targetRef="End_Err"/>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="D"><bpmndi:BPMNPlane id="Plane" bpmnElement="Process_Manual"/></bpmndi:BPMNDiagram>
+</bpmn:definitions>`
+	if err := os.WriteFile(dto.BPMNPath, []byte(manualXML), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := UpdateProcessStep(p, procID, stepID, UpsertProcessStepRequest{
+		Name: "Validate request", TaskType: "businessRuleTask", Notes: "added a note in the side panel",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(dto.BPMNPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(data)
+	if !strings.Contains(got, "Gw_Manual") || !strings.Contains(got, "End_Err") {
+		t.Fatalf("manual gateway/error end were wiped by step update; BPMN was regenerated:\n%s", got)
+	}
+}
+
+// TestSyncBPMN_RegeneratesWhenStepMissing verifies that the guard does not
+// turn into a permanent freeze: when a new step is added that the BPMN does
+// not yet contain, the file IS regenerated so the diagram stays in sync with
+// the structured step list.
+func TestSyncBPMN_RegeneratesWhenStepMissing(t *testing.T) {
+	p, _, procID := createProcessForStepTests(t)
+
+	if _, err := AddProcessStep(p, procID, UpsertProcessStepRequest{
+		Name: "First step", TaskType: "serviceTask", ServiceRef: "identity.blumer.cloud/user-account",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AddProcessStep(p, procID, UpsertProcessStepRequest{
+		Name: "Second step", TaskType: "serviceTask", ServiceRef: "identity.blumer.cloud/user-account",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	dto, err := GetProcess(p, procID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(dto.BPMNPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "First step") || !strings.Contains(string(data), "Second step") {
+		t.Fatalf("BPMN missing expected step names after add:\n%s", string(data))
 	}
 }
 
