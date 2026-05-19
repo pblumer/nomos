@@ -1,0 +1,14 @@
+# Nomos user list.
+#
+# Copy this file to deploy/users.yaml and point NOMOS_AUTH_USERS_FILE
+# at it (e.g. /run/secrets/nomos-users.yaml inside the container).
+#
+# Generate password hashes with:
+#   python scripts/hash_password.py
+#
+# The hashes below are examples; replace them before deploying.
+users:
+  - username: nomos
+    password_hash: "pbkdf2_sha256$600000$GHF6Amuqz6V2+GrO5F5How==$ARW5N9XFejv9f3Gbptoef0iklOj917YSkxRsMPbCZYY="
+  - username: sven
+    password_hash: "pbkdf2_sha256$600000$gyGLDnMLROo3KZdqQD0/qw==$Ez2Y+XGoMGklZMnSQtoGe00ycTNY46QCyGF0loqE1BA="
