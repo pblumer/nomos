@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"os"
@@ -229,6 +230,14 @@ func UpdateDecisionDMN(path, domainCanonical, id, dmnXML string) (DecisionDTO, e
 		}
 		dmnPath := filepath.Join(n.Path, "decision.dmn")
 		newBytes := []byte(dmnXML)
+		// Keep the descriptive pill labels and the FEEL-callable variable /
+		// decision-table column names in sync before the file is hashed and
+		// snapshotted. A parse failure here is non-fatal: we persist the
+		// modeller's bytes verbatim and let the parse-then-derive block below
+		// surface the error path.
+		if normalized, nerr := dmn.NormalizeInputIdentifiers(newBytes); nerr == nil {
+			newBytes = normalized
+		}
 		// Detect whether anything that the audit chain cares about actually
 		// changed: the DMN bytes themselves (rule_hash) or the I/O contract
 		// re-derived from the DMN.
@@ -252,7 +261,7 @@ func UpdateDecisionDMN(path, domainCanonical, id, dmnXML string) (DecisionDTO, e
 		if n.DMNPath != "" {
 			existingBytes, _ = os.ReadFile(n.DMNPath)
 		}
-		bytesUnchanged := existingBytes != nil && string(existingBytes) == dmnXML
+		bytesUnchanged := existingBytes != nil && bytes.Equal(existingBytes, newBytes)
 		metaUnchanged := !metadataChanged(n.Metadata, newDec)
 		if bytesUnchanged && metaUnchanged {
 			// Nothing to do — same DMN, same derived I/O. No new version.

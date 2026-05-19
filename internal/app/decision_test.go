@@ -137,6 +137,65 @@ func TestUpdateDecisionDMN_DerivesIOFromDecisionTable(t *testing.T) {
 	}
 }
 
+// When the modeller saves a DMN with descriptive pill labels ("Customer
+// Status"), the server normalizes the FEEL-callable identifiers
+// (variable.name and the decision-table column references) to snake_case
+// so the pill stays human-readable while the table runs on the machine name.
+func TestUpdateDecisionDMN_NormalizesDescriptiveInputNames(t *testing.T) {
+	p := createDecisionTestCosmos(t)
+	dmnXML := `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" id="Defs" name="K">
+  <inputData id="ID_value" name="Value"><variable id="V_value" name="Value"/></inputData>
+  <inputData id="ID_status" name="Customer Status"><variable id="V_status" name="Customer Status"/></inputData>
+  <decision id="Dec_1" name="K">
+    <variable id="Var_Dec1" name="kredit_stufe" typeRef="string"/>
+    <decisionTable id="DT_1" hitPolicy="FIRST">
+      <input id="In_value" label="Value"><inputExpression id="IE_value" typeRef="number"><text>Value</text></inputExpression></input>
+      <input id="In_status" label="Customer Status"><inputExpression id="IE_status" typeRef="string"><text>Customer Status</text></inputExpression></input>
+      <output id="Out_1" name="kredit_stufe" typeRef="string"/>
+      <rule id="R_1">
+        <inputEntry id="IE_R1_1"><text>-</text></inputEntry>
+        <inputEntry id="IE_R1_2"><text>-</text></inputEntry>
+        <outputEntry id="OE_R1"><text>"x"</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+</definitions>`
+	dec, err := UpdateDecisionDMN(p, "governance.blumer.com", "DEC-001", dmnXML)
+	if err != nil {
+		t.Fatalf("UpdateDecisionDMN: %v", err)
+	}
+	wantInputs := map[string]string{"value": "number", "customer_status": "string"}
+	if len(dec.Inputs) != len(wantInputs) {
+		t.Fatalf("inputs: got %+v, want %v", dec.Inputs, wantInputs)
+	}
+	for _, in := range dec.Inputs {
+		if wantInputs[in.Name] != in.Type {
+			t.Errorf("input %q: got type %q, want %q", in.Name, in.Type, wantInputs[in.Name])
+		}
+	}
+	// Persisted DMN bytes carry the normalized variable names and the
+	// pill labels remain untouched.
+	raw, err := GetDecisionDMN(p, "governance.blumer.com", "DEC-001")
+	if err != nil {
+		t.Fatalf("GetDecisionDMN: %v", err)
+	}
+	wantSubstrings := []string{
+		`<inputData id="ID_status" name="Customer Status">`,
+		`name="customer_status"`,
+		`<text>customer_status</text>`,
+		`<text>value</text>`,
+	}
+	for _, want := range wantSubstrings {
+		if !strings.Contains(raw, want) {
+			t.Errorf("persisted DMN missing %q\n--- DMN ---\n%s", want, raw)
+		}
+	}
+	if strings.Contains(raw, `<text>Customer Status</text>`) {
+		t.Errorf("persisted DMN still references descriptive label in column text\n--- DMN ---\n%s", raw)
+	}
+}
+
 func TestGetDecisionDMN_ReturnsRawXML(t *testing.T) {
 	p := createDecisionTestCosmos(t)
 	raw, err := GetDecisionDMN(p, "governance.blumer.com", "DEC-001")
