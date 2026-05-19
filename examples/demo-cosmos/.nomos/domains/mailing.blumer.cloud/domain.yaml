@@ -1,4 +1,4 @@
-id: domain-mailing-blumer-cloud
+id: DOM_KH62N9
 type: domain
 name: mailing.blumer.cloud
 version: 0.1.0
@@ -7,4 +7,4 @@ owner: Mailing Domain Team
 dns_name: mailing.blumer.cloud
 summary: Domain for mailing services.
 services:
-  - exchange
+    - exchange

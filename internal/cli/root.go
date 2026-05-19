@@ -894,7 +894,8 @@ func verifyCmd() *cobra.Command {
 				status = "verified"
 			}
 		}
-		ev := fmt.Sprintf("id: evidence-%s\ntype: evidence\nevidence_type: dns_verification\ndomain: %s\nrecord: %s\nstatus: %s\ntimestamp: \"%s\"\n", time.Now().UTC().Format("20060102-150405"), dns, rec, status, time.Now().UTC().Format(time.RFC3339))
+		evID, _ := idgen.NewForType("evidence")
+		ev := fmt.Sprintf("id: %s\ntype: evidence\nevidence_type: dns_verification\ndomain: %s\nrecord: %s\nstatus: %s\ntimestamp: \"%s\"\n", evID, dns, rec, status, time.Now().UTC().Format(time.RFC3339))
 		_ = os.WriteFile(filepath.Join(storage.EvidenceDir(p), strings.ReplaceAll(dns, ".", "-")+"-dns.yaml"), []byte(ev), 0o644)
 		if err != nil || status != "verified" {
 			return fmt.Errorf("DNS Verifikation fehlgeschlagen")

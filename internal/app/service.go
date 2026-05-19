@@ -1122,7 +1122,13 @@ func addDomain(path, dns, owner string, force bool, materializedFromTree bool) (
 	if err := os.MkdirAll(filepath.Join(ddir, "services"), 0o755); err != nil {
 		return DomainDTO{}, err
 	}
-	d := model.Domain{ID: dns, Type: "domain", Name: dns, Version: "0.1.0", Status: "draft", Owner: owner, DNSName: dns, Namespace: identity.Namespace, Label: identity.Label, Labels: identity.Labels, CanonicalName: dns, TreePath: identity.TreePath, ParentCanonical: identity.ParentCanonical, ParentTreePath: identity.ParentTreePath, MaterializedFromTree: materializedFromTree, Summary: "Nomos Domain " + dns + "."}
+	// ADR-0020: ID ist system-generiert; Namespace-Identität bleibt
+	// über DNSName/CanonicalName/Namespace erhalten.
+	domID, err := idgen.NewForType("domain")
+	if err != nil {
+		return DomainDTO{}, Error(CodeInternalError, "Failed to generate domain ID: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	d := model.Domain{ID: domID, Type: "domain", Name: dns, Version: "0.1.0", Status: "draft", Owner: owner, DNSName: dns, Namespace: identity.Namespace, Label: identity.Label, Labels: identity.Labels, CanonicalName: dns, TreePath: identity.TreePath, ParentCanonical: identity.ParentCanonical, ParentTreePath: identity.ParentTreePath, MaterializedFromTree: materializedFromTree, Summary: "Nomos Domain " + dns + "."}
 	if err := fsx.WriteYAML(domainFile, d); err != nil {
 		return DomainDTO{}, err
 	}
@@ -1248,7 +1254,13 @@ func AddService(path, domainName, name, owner string, force bool) (ServiceDTO, e
 			return ServiceDTO{}, err
 		}
 	}
-	s := model.Service{ID: "service-" + name, Type: "service", Name: name, Version: "0.1.0", Status: "draft", Owner: owner, OwnedBy: d.Canonical, OperatedBy: []string{d.Canonical}, Summary: "Nomos Service " + name + "."}
+	// ADR-0020: ID ist system-generiert; der Service wird über
+	// <domain>/<name> identifiziert, nicht über die ID.
+	srvID, err := idgen.NewForType("service")
+	if err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "Failed to generate service ID: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	s := model.Service{ID: srvID, Type: "service", Name: name, Version: "0.1.0", Status: "draft", Owner: owner, OwnedBy: d.Canonical, OperatedBy: []string{d.Canonical}, Summary: "Nomos Service " + name + "."}
 	if err := fsx.WriteYAML(filepath.Join(sdir, "service.yaml"), s); err != nil {
 		return ServiceDTO{}, err
 	}
@@ -1308,7 +1320,11 @@ func VerifyDomain(ctx context.Context, path, dns string) (VerificationEvidenceDT
 		return VerificationEvidenceDTO{}, err
 	}
 	now := time.Now().UTC()
-	ev := VerificationEvidenceDTO{ID: "evidence-" + now.Format("20060102-150405"), Type: "evidence", Domain: dns, Record: rec, Status: status, Timestamp: now.Format(time.RFC3339), Path: filepath.Join(storage.EvidenceDir(path), strings.ReplaceAll(dns, ".", "-")+"-dns.yaml")}
+	evID, err := idgen.NewForType("evidence")
+	if err != nil {
+		return VerificationEvidenceDTO{}, err
+	}
+	ev := VerificationEvidenceDTO{ID: evID, Type: "evidence", Domain: dns, Record: rec, Status: status, Timestamp: now.Format(time.RFC3339), Path: filepath.Join(storage.EvidenceDir(path), strings.ReplaceAll(dns, ".", "-")+"-dns.yaml")}
 	content := fmt.Sprintf("id: %s\ntype: evidence\nevidence_type: dns_verification\ndomain: %s\nrecord: %s\nstatus: %s\ntimestamp: %q\n", ev.ID, ev.Domain, ev.Record, ev.Status, ev.Timestamp)
 	if err := os.WriteFile(ev.Path, []byte(content), 0o644); err != nil {
 		return ev, err
@@ -1674,7 +1690,10 @@ func AddBlueprintRequirementWithAttributeRefs(path, id, label string, attributeR
 	if err != nil {
 		return BlueprintDTO{}, err
 	}
-	reqID := fmt.Sprintf("req-%d", time.Now().UnixNano())
+	reqID, err := idgen.NewForType("requirement")
+	if err != nil {
+		return BlueprintDTO{}, Error(CodeInternalError, "Failed to generate requirement ID: "+err.Error(), http.StatusInternalServerError, err)
+	}
 	raw.Requirements = append(raw.Requirements, model.BlueprintRequirement{ID: reqID, Label: label, Status: "open", AttributeRefs: cleanRefs})
 	if err := fsx.WriteYAML(bp.Path, raw); err != nil {
 		return BlueprintDTO{}, Error(CodeInternalError, "Failed to write blueprint: "+err.Error(), http.StatusInternalServerError, err)
@@ -1915,8 +1934,12 @@ func VerifyInstance(path, id string) (InstanceDTO, error) {
 		return InstanceDTO{}, Error(CodeInternalError, "Failed to read instance: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	now := time.Now().UTC()
+	evID, err := idgen.NewForType("evidence")
+	if err != nil {
+		return InstanceDTO{}, Error(CodeInternalError, "Failed to generate evidence ID: "+err.Error(), http.StatusInternalServerError, err)
+	}
 	ev := model.Evidence{
-		ID:      "evidence-verify-" + now.Format("20060102-150405"),
+		ID:      evID,
 		Type:    "manual_verification",
 		Summary: "Manual verification completed at " + now.Format(time.RFC3339),
 	}

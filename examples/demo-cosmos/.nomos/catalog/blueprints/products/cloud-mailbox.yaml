@@ -1,4 +1,4 @@
-id: PROD-CLOUD-MAILBOX-001
+id: PRD_2RME8K
 type: product_blueprint
 name: Cloud Mailbox
 version: 0.1.0
@@ -8,22 +8,22 @@ offered_by: blumer.net
 owning_domain: blumer.net
 summary: Cross-domain product offering that uses identity and collaboration services.
 required_inputs:
-  - person_reference
+    - person_reference
 fulfillment:
-  required_services:
-    - service_ref: identity.blumer.cloud/user-account
-      role: primary
-      required: true
-      description: Creates the user account in the identity domain.
-      ola:
-        name: Identity Account OLA
-        target: 4h
-        availability: business-hours
-    - service_ref: mailing.blumer.cloud/exchange
-      role: supporting
-      required: true
-      description: Creates the mailbox in the collaboration domain.
-      sla:
-        name: Mailbox Provisioning SLA
-        target: 8h
-        availability: business-hours
+    required_services:
+        - service_ref: identity.blumer.cloud/user-account
+          role: primary
+          required: true
+          description: Creates the user account in the identity domain.
+          ola:
+            name: Identity Account OLA
+            target: 4h
+            availability: business-hours
+        - service_ref: mailing.blumer.cloud/exchange
+          role: supporting
+          required: true
+          description: Creates the mailbox in the collaboration domain.
+          sla:
+            name: Mailbox Provisioning SLA
+            target: 8h
+            availability: business-hours

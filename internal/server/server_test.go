@@ -388,9 +388,9 @@ func TestBlueprintRequirementsAPI(t *testing.T) {
 	}
 	hasAll(t, rr.Body.String(), "Datenschutzkonzept vorhanden", "requirements")
 
-	// parse out the requirement ID — all requirement IDs are prefixed with "req-"
+	// ADR-0020: requirement IDs are system-generated with REQ_ prefix.
 	body := rr.Body.String()
-	idMarker := `"id":"req-`
+	idMarker := `"id":"REQ_`
 	idStart := strings.Index(body, idMarker)
 	if idStart == -1 {
 		t.Fatalf("could not find requirement id in response: %s", body)
@@ -659,7 +659,8 @@ func TestInstanceAPIRoutes(t *testing.T) {
 	if rr.Code != 200 {
 		t.Fatalf("verify status=%d body=%s", rr.Code, rr.Body.String())
 	}
-	hasAll(t, rr.Body.String(), "compliant", "evidence-verify-")
+	// ADR-0020: Evidence-IDs sind EVD_… (statt früher "evidence-verify-").
+	hasAll(t, rr.Body.String(), "compliant", `"id":"EVD_`)
 
 	// DELETE instance
 	rr = deleteReq(h, "/api/v1/instances/PI-ACC-MBX-EXAMPLE-001")

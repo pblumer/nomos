@@ -1,3 +1,3 @@
-id: req-login-required
+id: REQ_BXSE37
 name: Login required
 description: Product requires a valid login identity.

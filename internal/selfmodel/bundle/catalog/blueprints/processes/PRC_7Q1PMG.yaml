@@ -1,0 +1,108 @@
+id: PRC_7Q1PMG
+type: process
+name: Blueprint validieren
+version: "0.1.0"
+status: stable
+owner: Nomos Core Team
+summary: Lädt alle Cosmos-Artefakte, prüft Blueprint-Compliance via Decision Table und gibt strukturierte Findings zurück.
+tags:
+    - core
+    - validation
+    - blueprint
+related_product: PRD_EAMBKR
+participant:
+    name: Nomos Core Engine
+    ref: core.nomos/validator-engine
+bpmn:
+    file: prc-blueprint-validieren.bpmn
+    process_id: Process_BlueprintValidieren
+    primary: true
+steps:
+    - id: step-artefakte-laden
+      name: Artefakte laden
+      task_type: service_task
+      service_ref: core.nomos/catalog-manager
+      capability_ref: cap-cosmos-lifecycle
+      method: cosmos_load
+      required: true
+      role: system
+      notes: Liest alle YAML-Artefakte aus dem Cosmos-Workspace.
+    - id: step-compliance-prüfen
+      name: Blueprint-Compliance prüfen
+      task_type: business_rule_task
+      decision_ref: DEC_ERRMQ3
+      required: true
+      role: system
+      depends_on:
+        - step-artefakte-laden
+      notes: Bewertet ob Blueprints vollständig und konsistent sind (required_services, fulfillment, rules).
+    - id: step-referenzen-validieren
+      name: Referenzen validieren
+      task_type: service_task
+      service_ref: core.nomos/validator-engine
+      capability_ref: cap-validate-cosmos
+      method: validate
+      required: true
+      role: system
+      depends_on:
+        - step-compliance-prüfen
+      notes: Prüft cross-referentielle Integrität (service_ref, capability_ref, decision_ref).
+    - id: step-findings-ausgeben
+      name: Findings ausgeben
+      task_type: service_task
+      service_ref: core.nomos/rest-adapter
+      capability_ref: cap-cosmos-read
+      method: validate_cosmos
+      required: true
+      role: system
+      depends_on:
+        - step-referenzen-validieren
+task_mappings:
+    - bpmn_element_id: Task_ArtefakteLaden
+      bpmn_element_type: serviceTask
+      task_name: Artefakte laden
+      service_ref: core.nomos/catalog-manager
+      capability_ref: cap-cosmos-lifecycle
+      method: cosmos_load
+      required: true
+    - bpmn_element_id: Task_CompliancePrüfen
+      bpmn_element_type: businessRuleTask
+      task_name: Blueprint-Compliance prüfen
+      decision_ref: DEC_ERRMQ3
+      required: true
+    - bpmn_element_id: Task_ReferenzenValidieren
+      bpmn_element_type: serviceTask
+      task_name: Referenzen validieren
+      service_ref: core.nomos/validator-engine
+      capability_ref: cap-validate-cosmos
+      method: validate
+      required: true
+    - bpmn_element_id: Task_FindingsAusgeben
+      bpmn_element_type: serviceTask
+      task_name: Findings ausgeben
+      service_ref: core.nomos/rest-adapter
+      capability_ref: cap-cosmos-read
+      method: validate_cosmos
+      required: true
+triggers:
+    - bpmn_element_id: Start_CLI
+      type: message
+      name: CLI-Aufruf
+      description: "nomos validate"
+      message:
+        event_ref: msg-cli-validate
+        topic: cli
+    - bpmn_element_id: Start_CLI
+      type: message
+      name: MCP-Tool
+      description: nomos_validate
+      message:
+        event_ref: msg-mcp-validate
+        topic: mcp
+    - bpmn_element_id: Start_CLI
+      type: message
+      name: REST-API
+      description: "GET /api/v1/validate"
+      message:
+        event_ref: msg-rest-validate
+        topic: rest

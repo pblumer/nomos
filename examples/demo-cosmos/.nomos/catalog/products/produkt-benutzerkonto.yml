@@ -1,10 +1,10 @@
-id: produkt-1
+id: PRD_0BMW1N
 name: Benutzerkonto mit Mailbox
 version: 0.1.0
 description: Reference product for Nomos MVP
 requirement_ids:
-  - req-mailbox-enabled
-  - req-login-required
+    - REQ_T76CAZ
+    - REQ_BXSE37
 rule_ids:
-  - rule-mailbox-quotas
-  - rule-password-policy
+    - RUL_P4WM0C
+    - RUL_BENGD4

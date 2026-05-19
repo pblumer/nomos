@@ -1,4 +1,4 @@
-id: domain-identity-blumer-cloud
+id: DOM_DR16Z8
 type: domain
 name: identity.blumer.cloud
 version: 0.1.0
@@ -7,4 +7,4 @@ owner: Identity Domain Team
 dns_name: identity.blumer.cloud
 summary: Nomos Domaene identity.blumer.cloud.
 services:
-  - user-account
+    - user-account

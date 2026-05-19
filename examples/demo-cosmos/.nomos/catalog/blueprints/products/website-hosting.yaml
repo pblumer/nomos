@@ -1,4 +1,4 @@
-id: PROD-WEBSITE-HOSTING-001
+id: PRD_AQR049
 name: Website Hosting
 version: "1.0"
 type: product_blueprint
@@ -8,12 +8,12 @@ offered_by: blumer.net
 owning_domain: blumer.net
 summary: Legacy sample product now anchored to the blumer.net domain.
 required_inputs:
-  - website_domain
+    - website_domain
 required_service_blueprints:
-  - SVC-001
+    - SVC_RGVTAX
 fulfillment:
-  required_services:
-    - service_ref: identity.blumer.cloud/user-account
-      role: supporting
-      required: true
-      description: Example resolved service reference for the legacy sample.
+    required_services:
+        - service_ref: identity.blumer.cloud/user-account
+          role: supporting
+          required: true
+          description: Example resolved service reference for the legacy sample.

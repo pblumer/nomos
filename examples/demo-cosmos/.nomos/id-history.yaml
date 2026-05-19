@@ -1,0 +1,152 @@
+version: 1
+entries:
+    - old_id: PI-ACC-MBX-EXAMPLE-001
+      new_id: PRI_QD5QZ7
+      artefact_type: product_instance
+      source_path: examples/demo-cosmos/.nomos/catalog/instances/products/example-benutzerkonto-mit-mailbox-instance.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: PROD-ACC-MBX-001
+      new_id: PRD_BW6NWJ
+      artefact_type: product_blueprint
+      source_path: examples/demo-cosmos/.nomos/catalog/blueprints/products/benutzerkonto-mit-mailbox.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: PROD-CLOUD-MAILBOX-001
+      new_id: PRD_2RME8K
+      artefact_type: product_blueprint
+      source_path: examples/demo-cosmos/.nomos/catalog/blueprints/products/cloud-mailbox.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: PROD-WEBSITE-HOSTING-001
+      new_id: PRD_AQR049
+      artefact_type: product_blueprint
+      source_path: examples/demo-cosmos/.nomos/catalog/blueprints/products/website-hosting.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: SB-IDENTITY-ACCOUNT-001
+      new_id: SVC_6HPZVA
+      artefact_type: service_blueprint
+      source_path: examples/demo-cosmos/.nomos/catalog/blueprints/services/identity-account-service.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: SB-LICENSE-ASSIGNMENT-001
+      new_id: SVC_NKXF7G
+      artefact_type: service_blueprint
+      source_path: examples/demo-cosmos/.nomos/catalog/blueprints/services/license-assignment-service.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: SB-MAILBOX-001
+      new_id: SVC_060W11
+      artefact_type: service_blueprint
+      source_path: examples/demo-cosmos/.nomos/catalog/blueprints/services/mailbox-service.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: SG-ACC-001
+      new_id: SGR_CF9WQH
+      artefact_type: servicegraph
+      source_path: examples/demo-cosmos/.nomos/catalog/servicegraphs/benutzerkonto-mit-mailbox.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: SI-IDENTITY-ACCOUNT-EXAMPLE-001
+      new_id: SVI_PYJZ0Z
+      artefact_type: service_instance
+      source_path: examples/demo-cosmos/.nomos/catalog/instances/services/example-identity-account-instance.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: SI-MAILBOX-EXAMPLE-001
+      new_id: SVI_PRA6ZB
+      artefact_type: service_instance
+      source_path: examples/demo-cosmos/.nomos/catalog/instances/services/example-mailbox-instance.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: SVC-001
+      new_id: SVC_RGVTAX
+      artefact_type: service_blueprint
+      source_path: examples/demo-cosmos/.nomos/catalog/blueprints/services/static-website.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: SVC-002
+      new_id: SVC_R9394D
+      artefact_type: service_blueprint
+      source_path: examples/demo-cosmos/.nomos/catalog/blueprints/services/cdn.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: domain-blumer-net
+      new_id: DOM_C65R3F
+      artefact_type: domain
+      source_path: examples/demo-cosmos/.nomos/domains/blumer.net/domain.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: domain-collaboration-blumer-cloud
+      new_id: DOM_JBP95F
+      artefact_type: domain
+      source_path: examples/demo-cosmos/.nomos/domains/collaboration.blumer.cloud/domain.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: domain-identity-blumer-cloud
+      new_id: DOM_DR16Z8
+      artefact_type: domain
+      source_path: examples/demo-cosmos/.nomos/domains/identity.blumer.cloud/domain.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: domain-mailing-blumer-cloud
+      new_id: DOM_KH62N9
+      artefact_type: domain
+      source_path: examples/demo-cosmos/.nomos/domains/mailing.blumer.cloud/domain.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: produkt-1
+      new_id: PRD_0BMW1N
+      artefact_type: product
+      source_path: examples/demo-cosmos/.nomos/catalog/products/produkt-benutzerkonto.yml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: req-login-required
+      new_id: REQ_BXSE37
+      artefact_type: requirement
+      source_path: examples/demo-cosmos/.nomos/catalog/requirements/req-login-required.yml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: req-mailbox-enabled
+      new_id: REQ_T76CAZ
+      artefact_type: requirement
+      source_path: examples/demo-cosmos/.nomos/catalog/requirements/req-mailbox-enabled.yml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: rule-mailbox-quotas
+      new_id: RUL_P4WM0C
+      artefact_type: rule
+      source_path: examples/demo-cosmos/.nomos/catalog/rules/rule-mailbox-quotas.yml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: rule-password-policy
+      new_id: RUL_BENGD4
+      artefact_type: rule
+      source_path: examples/demo-cosmos/.nomos/catalog/rules/rule-password-policy.yml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: service-exchange
+      new_id: SRV_SJCQWM
+      artefact_type: service
+      source_path: examples/demo-cosmos/.nomos/domains/mailing.blumer.cloud/services/exchange/service.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: service-license-assignment
+      new_id: SRV_5AFE65
+      artefact_type: service
+      source_path: examples/demo-cosmos/.nomos/domains/collaboration.blumer.cloud/services/license-assignment/service.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: service-mailbox
+      new_id: SRV_N8DT43
+      artefact_type: service
+      source_path: examples/demo-cosmos/.nomos/domains/collaboration.blumer.cloud/services/mailbox/service.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration
+    - old_id: service-user-account
+      new_id: SRV_NE13C2
+      artefact_type: service
+      source_path: examples/demo-cosmos/.nomos/domains/identity.blumer.cloud/services/user-account/service.yaml
+      migrated_at: "2026-05-19T15:07:32Z"
+      reason: ADR-0020 migration

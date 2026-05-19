@@ -5,6 +5,10 @@ generated: 2026-05-18
 source_locale: de
 supported_locales: [de]
 connector_schema_version: "1"
+# Pfade wurden im Zuge ADR-0020 auf system-generierte IDs umgestellt;
+# Service- und Domain-Dateien behalten ihren Pfad (Namespace-basiert),
+# Product- und Process-Dateien sowie Decision-Dateien wurden auf das
+# neue ID-Schema umbenannt.
 manifest:
   - domains/nomos/core/domain.yaml
   - domains/nomos/core/services/git-repo-manager/service.yaml
@@ -14,11 +18,11 @@ manifest:
   - domains/nomos/core/services/web-adapter/service.yaml
   - domains/nomos/core/services/catalog-manager/service.yaml
   - domains/nomos/core/services/uci-manager/service.yaml
-  - catalog/blueprints/products/nomos-core-engine.yaml
-  - catalog/blueprints/processes/prc-cosmos-init.yaml
-  - catalog/blueprints/processes/prc-domain-add.yaml
-  - catalog/blueprints/processes/prc-service-erfassen.yaml
-  - catalog/blueprints/processes/prc-blueprint-validieren.yaml
-  - catalog/blueprints/processes/prc-instanz-verifizieren.yaml
-  - domains/nomos/core/decisions/dec-dns-format-check/dec-dns-format-check.yaml
-  - domains/nomos/core/decisions/dec-blueprint-compliance/dec-blueprint-compliance.yaml
+  - catalog/blueprints/products/PRD_EAMBKR.yaml
+  - catalog/blueprints/processes/PRC_ESTARF.yaml
+  - catalog/blueprints/processes/PRC_X5QYAW.yaml
+  - catalog/blueprints/processes/PRC_65NN09.yaml
+  - catalog/blueprints/processes/PRC_7Q1PMG.yaml
+  - catalog/blueprints/processes/PRC_38X6YG.yaml
+  - domains/nomos/core/decisions/dec-dns-format-check/DEC_QP3S43.yaml
+  - domains/nomos/core/decisions/dec-blueprint-compliance/DEC_ERRMQ3.yaml

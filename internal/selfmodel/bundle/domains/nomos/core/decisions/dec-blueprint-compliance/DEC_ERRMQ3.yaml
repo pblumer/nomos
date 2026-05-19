@@ -1,0 +1,82 @@
+id: DEC_ERRMQ3
+type: decision
+name: Blueprint-Compliance-Prüfung
+version: "0.1.0"
+status: stable
+owner: Nomos Core Team
+summary: Bewertet ob ein Blueprint oder eine Instanz die definierten Qualitätskriterien und Pflichtfelder erfüllt.
+inputs:
+    - name: artifact_type
+      type: enum[product,service,instance]
+      description: Typ des zu prüfenden Artefakts
+    - name: has_summary
+      type: boolean
+      description: Ob das Artefakt eine summary-Beschreibung hat
+    - name: has_owner
+      type: boolean
+      description: Ob das Artefakt einen owner eingetragen hat
+    - name: has_version
+      type: boolean
+      description: Ob das Artefakt eine version eingetragen hat
+    - name: has_required_services
+      type: boolean
+      description: Ob ein Produkt seine required_services vollständig definiert hat
+    - name: blueprint_ref_resolved
+      type: boolean
+      description: Ob der blueprint_ref einer Instanz aufgelöst werden konnte
+outputs:
+    - name: compliant
+      type: boolean
+      description: true wenn das Artefakt alle Compliance-Regeln erfüllt
+    - name: severity
+      type: enum[ok,warning,error]
+      description: Schweregrad des Compliance-Ergebnisses
+    - name: findings
+      type: array[string]
+      description: Liste der Compliance-Verstöße
+rules:
+    - id: rule-missing-summary
+      description: Fehlende Zusammenfassung erzeugt Warnung
+      condition: "has_summary == false"
+      output:
+        compliant: true
+        severity: warning
+        findings: ["summary fehlt — Artefakt ist nicht selbstbeschreibend"]
+    - id: rule-missing-owner
+      description: Fehlender Owner erzeugt Warnung
+      condition: "has_owner == false"
+      output:
+        compliant: true
+        severity: warning
+        findings: ["owner fehlt — Verantwortlichkeit nicht zugewiesen"]
+    - id: rule-missing-version
+      description: Fehlende Version erzeugt Fehler
+      condition: "has_version == false"
+      output:
+        compliant: false
+        severity: error
+        findings: ["version fehlt — Artefakt kann nicht versioniert werden"]
+    - id: rule-product-no-services
+      description: Produkt ohne required_services erzeugt Fehler
+      condition: "artifact_type == 'product' && has_required_services == false"
+      output:
+        compliant: false
+        severity: error
+        findings: ["Produkt hat keine required_services definiert"]
+    - id: rule-instance-unresolved-blueprint
+      description: Instanz mit nicht aufgelöstem Blueprint erzeugt Fehler
+      condition: "artifact_type == 'instance' && blueprint_ref_resolved == false"
+      output:
+        compliant: false
+        severity: error
+        findings: ["blueprint_ref konnte nicht aufgelöst werden"]
+    - id: rule-compliant
+      description: Alle Regeln erfüllt
+      condition: "default"
+      output:
+        compliant: true
+        severity: ok
+        findings: []
+used_by:
+    - PRC_7Q1PMG
+    - PRC_38X6YG

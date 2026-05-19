@@ -1,4 +1,4 @@
-id: service-user-account
+id: SRV_NE13C2
 type: service
 name: user-account
 version: 0.1.0
@@ -6,14 +6,14 @@ status: draft
 owner: Identity Domain Team
 owned_by: identity.blumer.cloud
 operated_by:
-  - identity.blumer.cloud
+    - identity.blumer.cloud
 capabilities:
-  - user-account-management
+    - user-account-management
 supported_products:
-  - PROD-ACC-MBX-001
-  - PROD-CLOUD-MAILBOX-001
+    - PRD_BW6NWJ
+    - PRD_2RME8K
 summary: Domain-owned service capability for identity account management.
 ola:
-  name: Identity Account OLA
-  target: 4h
-  availability: business-hours
+    name: Identity Account OLA
+    target: 4h
+    availability: business-hours

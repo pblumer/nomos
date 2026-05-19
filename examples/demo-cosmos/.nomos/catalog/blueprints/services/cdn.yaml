@@ -1,4 +1,4 @@
-id: SVC-002
+id: SVC_R9394D
 name: CDN
 version: 0.1.0
 status: draft
@@ -7,10 +7,10 @@ type: service_blueprint
 category: networking
 provider: cloudflare
 capabilities:
-  - cdn_delivery
+    - cdn_delivery
 target_systems:
-  - SYS-CDN-001
+    - SYS-CDN-001
 parameters:
-  - key: domain
-    type: string
-    required: true
+    - key: domain
+      type: string
+      required: true

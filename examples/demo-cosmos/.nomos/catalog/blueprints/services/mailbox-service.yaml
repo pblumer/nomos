@@ -1,4 +1,4 @@
-id: SB-MAILBOX-001
+id: SVC_060W11
 type: service_blueprint
 name: Mailbox Service
 version: 0.1.0
@@ -7,16 +7,16 @@ owner: Identity & Collaboration
 namespace_service_ref: collaboration.blumer.cloud/mailbox
 summary: Blueprint fuer die Bereitstellung einer Mailbox.
 capabilities:
-  - create_mailbox
-  - assign_primary_address
+    - create_mailbox
+    - assign_primary_address
 target_systems:
-  - SYS-M365-001
+    - SYS-M365-001
 required_inputs:
-  - account_reference
-  - tenant_id
+    - account_reference
+    - tenant_id
 quality_criteria:
-  - mailbox_exists
-  - primary_address_assigned
-  - tenant_matches
+    - mailbox_exists
+    - primary_address_assigned
+    - tenant_matches
 evidence_requirements:
-  - mailbox_creation_response
+    - mailbox_creation_response

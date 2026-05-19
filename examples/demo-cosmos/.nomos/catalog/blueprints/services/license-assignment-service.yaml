@@ -1,4 +1,4 @@
-id: SB-LICENSE-ASSIGNMENT-001
+id: SVC_NKXF7G
 type: service_blueprint
 name: License Assignment Service
 version: 0.1.0
@@ -7,15 +7,15 @@ owner: Identity & Collaboration
 namespace_service_ref: collaboration.blumer.cloud/license-assignment
 summary: Blueprint fuer die Zuweisung erforderlicher Lizenzen.
 capabilities:
-  - assign_license
-  - validate_license_state
+    - assign_license
+    - validate_license_state
 target_systems:
-  - SYS-LICENSE-001
+    - SYS-LICENSE-001
 required_inputs:
-  - account_reference
-  - license_sku
+    - account_reference
+    - license_sku
 quality_criteria:
-  - license_assigned
-  - license_active
+    - license_assigned
+    - license_active
 evidence_requirements:
-  - license_assignment_response
+    - license_assignment_response

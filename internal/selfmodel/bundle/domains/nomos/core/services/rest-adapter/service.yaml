@@ -1,4 +1,4 @@
-id: service-rest-adapter
+id: SRV_M75Z6D
 type: service
 name: rest-adapter
 version: "0.1.0"
@@ -6,118 +6,118 @@ status: stable
 owner: Nomos Core Team
 owned_by: core.nomos
 operated_by:
-  - core.nomos
+    - core.nomos
 summary: HTTP/REST-Server für alle Nomos-Operationen. Startet via "nomos serve" und exponiert REST-API, Web-UI und MCP-Endpoint.
 methods:
-  - name: serve
-    summary: HTTP-Server starten
-    parameters:
-      - name: path
-        type: string
-        description: Workspace-Verzeichnis
-      - name: listen
-        type: string
-        description: "Bind-Adresse (z.B. 127.0.0.1:8080)"
-  - name: key_create
-    summary: API-Key erstellen
-    parameters:
-      - name: name
-        type: string
-        required: true
-        in: body
-      - name: path
-        type: string
-        description: Workspace-Verzeichnis
-  - name: key_list
-    summary: API-Keys auflisten
-    parameters:
-      - name: path
-        type: string
-        description: Workspace-Verzeichnis
-  - name: key_revoke
-    summary: API-Key widerrufen
-    parameters:
-      - name: name
-        type: string
-        required: true
-        in: path
-      - name: path
-        type: string
-        description: Workspace-Verzeichnis
+    - name: serve
+      summary: HTTP-Server starten
+      parameters:
+        - name: path
+          type: string
+          description: Workspace-Verzeichnis
+        - name: listen
+          type: string
+          description: "Bind-Adresse (z.B. 127.0.0.1:8080)"
+    - name: key_create
+      summary: API-Key erstellen
+      parameters:
+        - name: name
+          type: string
+          required: true
+          in: body
+        - name: path
+          type: string
+          description: Workspace-Verzeichnis
+    - name: key_list
+      summary: API-Keys auflisten
+      parameters:
+        - name: path
+          type: string
+          description: Workspace-Verzeichnis
+    - name: key_revoke
+      summary: API-Key widerrufen
+      parameters:
+        - name: name
+          type: string
+          required: true
+          in: path
+        - name: path
+          type: string
+          description: Workspace-Verzeichnis
 capabilities:
-  - id: cap-serve
-    name: HTTP-Server starten
-    summary: Startet den eingebetteten HTTP-Server (REST-API + Web-UI + MCP) auf dem konfigurierten Port.
-    stability: stable
-    side_effect: network_egress
-    connectors:
-      - type: cli
-        invocation: "nomos serve"
-        args:
-          - name: path
-            flag: "--path"
-            default: "."
-          - name: listen
-            flag: "--listen"
-            default: "127.0.0.1:8080"
-        exit_codes:
-          - code: 0
-            meaning: ok
-          - code: 1
-            meaning: error
-  - id: cap-health
-    name: Health-Check
-    summary: Liefert Service-Status und Version.
-    stability: stable
-    side_effect: read_only
-    connectors:
-      - type: rest
-        method: GET
-        path: /health
-  - id: cap-openapi
-    name: OpenAPI-Spezifikation
-    summary: OpenAPI 3.0 JSON-Spezifikation und Swagger-UI bereitstellen.
-    stability: stable
-    side_effect: read_only
-    connectors:
-      - type: rest
-        method: GET
-        path: /openapi.json
-      - type: rest
-        method: GET
-        path: /swagger
-      - type: rest
-        method: GET
-        path: /api/docs
-  - id: cap-api-keys
-    name: API-Key-Verwaltung
-    summary: API-Keys erstellen, auflisten und widerrufen. Keys werden als SHA-256-Hash in .nomos/keys.yaml gespeichert und über den X-API-Key-Header zur Authentifizierung genutzt.
-    stability: stable
-    side_effect: mutates_workspace
-    connectors:
-      - type: cli
-        invocation: "nomos key create"
-        args:
-          - name: name
-            positional: true
-            required: true
-          - name: path
-            flag: "--path"
-      - type: cli
-        invocation: "nomos key list"
-        args:
-          - name: path
-            flag: "--path"
-      - type: cli
-        invocation: "nomos key revoke"
-        args:
-          - name: name
-            positional: true
-            required: true
-          - name: path
-            flag: "--path"
-  - id: cap-auth-middleware
-    name: API-Key-Authentifizierung
-    summary: HTTP-Middleware validiert X-API-Key-Header gegen .nomos/keys.yaml. Requests ohne Header werden durchgelassen (Traefik/Upstream-Auth greift).
-    stability: stable
-    side_effect: read_only
+    - id: cap-serve
+      name: HTTP-Server starten
+      summary: Startet den eingebetteten HTTP-Server (REST-API + Web-UI + MCP) auf dem konfigurierten Port.
+      stability: stable
+      side_effect: network_egress
+      connectors:
+        - type: cli
+          invocation: "nomos serve"
+          args:
+            - name: path
+              flag: "--path"
+              default: "."
+            - name: listen
+              flag: "--listen"
+              default: "127.0.0.1:8080"
+          exit_codes:
+            - code: 0
+              meaning: ok
+            - code: 1
+              meaning: error
+    - id: cap-health
+      name: Health-Check
+      summary: Liefert Service-Status und Version.
+      stability: stable
+      side_effect: read_only
+      connectors:
+        - type: rest
+          method: GET
+          path: /health
+    - id: cap-openapi
+      name: OpenAPI-Spezifikation
+      summary: OpenAPI 3.0 JSON-Spezifikation und Swagger-UI bereitstellen.
+      stability: stable
+      side_effect: read_only
+      connectors:
+        - type: rest
+          method: GET
+          path: /openapi.json
+        - type: rest
+          method: GET
+          path: /swagger
+        - type: rest
+          method: GET
+          path: /api/docs
+    - id: cap-api-keys
+      name: API-Key-Verwaltung
+      summary: API-Keys erstellen, auflisten und widerrufen. Keys werden als SHA-256-Hash in .nomos/keys.yaml gespeichert und über den X-API-Key-Header zur Authentifizierung genutzt.
+      stability: stable
+      side_effect: mutates_workspace
+      connectors:
+        - type: cli
+          invocation: "nomos key create"
+          args:
+            - name: name
+              positional: true
+              required: true
+            - name: path
+              flag: "--path"
+        - type: cli
+          invocation: "nomos key list"
+          args:
+            - name: path
+              flag: "--path"
+        - type: cli
+          invocation: "nomos key revoke"
+          args:
+            - name: name
+              positional: true
+              required: true
+            - name: path
+              flag: "--path"
+    - id: cap-auth-middleware
+      name: API-Key-Authentifizierung
+      summary: HTTP-Middleware validiert X-API-Key-Header gegen .nomos/keys.yaml. Requests ohne Header werden durchgelassen (Traefik/Upstream-Auth greift).
+      stability: stable
+      side_effect: read_only

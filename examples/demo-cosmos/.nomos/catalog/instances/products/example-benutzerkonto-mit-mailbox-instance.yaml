@@ -1,26 +1,26 @@
-id: PI-ACC-MBX-EXAMPLE-001
+id: PRI_QD5QZ7
 type: product_instance
 name: Beispielinstanz Benutzerkonto mit Mailbox
-blueprint_ref: PROD-ACC-MBX-001
+blueprint_ref: PRD_BW6NWJ
 blueprint_version: 0.1.0
 status: active
 owner: Identity & Collaboration
 inputs:
-  person_reference: P-10001
-  first_name: Anna
-  last_name: Beispiel
-  user_type: internal
-  tenant_id: tenant-main
+    person_reference: P-10001
+    first_name: Anna
+    last_name: Beispiel
+    user_type: internal
+    tenant_id: tenant-main
 provisioned_service_instances:
-  - SI-IDENTITY-ACCOUNT-EXAMPLE-001
-  - SI-MAILBOX-EXAMPLE-001
+    - SVI_PYJZ0Z
+    - SVI_PRA6ZB
 observed_state:
-  account_status: active
-  mailbox_status: active
-  tenant_id: tenant-main
+    account_status: active
+    mailbox_status: active
+    tenant_id: tenant-main
 compliance_status: compliant
 evidence:
-  - id: EV-ACC-MBX-001
-    type: compliance_check_result
-    summary: Blueprint Compliance Check erfolgreich.
+    - id: EV-ACC-MBX-001
+      type: compliance_check_result
+      summary: Blueprint Compliance Check erfolgreich.
 findings: []

@@ -1,4 +1,4 @@
-id: domain-collaboration-blumer-cloud
+id: DOM_JBP95F
 type: domain
 name: collaboration.blumer.cloud
 version: 0.1.0
@@ -7,5 +7,5 @@ owner: Collaboration Domain Team
 dns_name: collaboration.blumer.cloud
 summary: Domain for collaboration services.
 services:
-  - mailbox
-  - license-assignment
+    - mailbox
+    - license-assignment

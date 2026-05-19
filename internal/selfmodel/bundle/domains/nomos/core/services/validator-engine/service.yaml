@@ -1,4 +1,4 @@
-id: service-validator-engine
+id: SRV_1H48QW
 type: service
 name: validator-engine
 version: "0.1.0"
@@ -6,165 +6,165 @@ status: stable
 owner: Nomos Core Team
 owned_by: core.nomos
 operated_by:
-  - core.nomos
+    - core.nomos
 summary: Deterministische Validierung von Cosmos-Artefakten gegen Struktur-, Referenz- und Compliance-Regeln.
 methods:
-  - name: validate
-    summary: Gesamten Cosmos validieren
-    parameters:
-      - name: path
-        type: string
-        description: Workspace-Verzeichnis
-      - name: format
-        type: enum[text,json]
-        in: query
-  - name: blueprint_validate
-    summary: Einzelnen Blueprint validieren
-    parameters:
-      - name: id
-        type: string
-        required: true
-        in: path
-  - name: instance_verify
-    summary: Instanz gegen Blueprint prüfen
-    parameters:
-      - name: id
-        type: string
-        required: true
-        in: path
-  - name: servicegraph_validate
-    summary: Service-Graph auf Konsistenz prüfen
-    parameters:
-      - name: id
-        type: string
-        required: true
-        in: path
-  - name: process_validate
-    summary: Prozess-Definition validieren
-    parameters:
-      - name: id
-        type: string
-        required: true
-        in: path
-  - name: cosmos_doctor
-    summary: Häufige Konfigurationsprobleme im Cosmos erkennen
-    parameters:
-      - name: path
-        type: string
-        description: Workspace-Verzeichnis
+    - name: validate
+      summary: Gesamten Cosmos validieren
+      parameters:
+        - name: path
+          type: string
+          description: Workspace-Verzeichnis
+        - name: format
+          type: enum[text,json]
+          in: query
+    - name: blueprint_validate
+      summary: Einzelnen Blueprint validieren
+      parameters:
+        - name: id
+          type: string
+          required: true
+          in: path
+    - name: instance_verify
+      summary: Instanz gegen Blueprint prüfen
+      parameters:
+        - name: id
+          type: string
+          required: true
+          in: path
+    - name: servicegraph_validate
+      summary: Service-Graph auf Konsistenz prüfen
+      parameters:
+        - name: id
+          type: string
+          required: true
+          in: path
+    - name: process_validate
+      summary: Prozess-Definition validieren
+      parameters:
+        - name: id
+          type: string
+          required: true
+          in: path
+    - name: cosmos_doctor
+      summary: Häufige Konfigurationsprobleme im Cosmos erkennen
+      parameters:
+        - name: path
+          type: string
+          description: Workspace-Verzeichnis
 capabilities:
-  - id: cap-validate-cosmos
-    name: Cosmos validieren
-    summary: Vollständige strukturelle und referentielle Validierung aller Artefakte eines Cosmos.
-    stability: stable
-    side_effect: read_only
-    connectors:
-      - type: cli
-        invocation: "nomos validate"
-        args:
-          - name: path
-            flag: "--path"
-            default: "."
-          - name: format
-            flag: "--format"
-            enum: [text, json]
-        exit_codes:
-          - code: 0
-            meaning: valid
-          - code: 1
-            meaning: findings_present
-          - code: 2
-            meaning: invocation_error
-      - type: rest
-        method: GET
-        path: /api/v1/validate
-      - type: mcp
-        tool: nomos_validate
-        kind: tool
-        idempotent: true
-  - id: cap-cosmos-doctor
-    name: Cosmos Doctor
-    summary: Schnell-Check auf häufige Konfigurationsprobleme.
-    stability: stable
-    side_effect: read_only
-    connectors:
-      - type: cli
-        invocation: "nomos cosmos doctor"
-        args:
-          - name: path
-            flag: "--path"
-            default: "."
-  - id: cap-blueprint-validate
-    name: Blueprint validieren
-    summary: Einzelnen Blueprint auf Vollständigkeit und Regelkonformität prüfen.
-    stability: stable
-    side_effect: read_only
-    connectors:
-      - type: cli
-        invocation: "nomos blueprint validate"
-        args:
-          - name: id
-            positional: true
-            required: true
-          - name: path
-            flag: "--path"
-          - name: format
-            flag: "--format"
-            enum: [text, json]
-      - type: rest
-        method: GET
-        path: /api/v1/blueprints/{id}/validate
-  - id: cap-instance-verify
-    name: Instanz prüfen
-    summary: Instanz gegen Blueprint verifizieren und Compliance-Status berechnen.
-    stability: stable
-    side_effect: read_only
-    connectors:
-      - type: cli
-        invocation: "nomos instance verify"
-        args:
-          - name: id
-            positional: true
-            required: true
-          - name: path
-            flag: "--path"
-          - name: format
-            flag: "--format"
-            enum: [text, json]
-      - type: rest
-        method: POST
-        path: /api/v1/instances/{id}/verify
-      - type: rest
-        method: GET
-        path: /api/v1/instances/{id}/compliance
-      - type: rest
-        method: GET
-        path: /api/v1/instances/{id}/attribute-validation
-  - id: cap-servicegraph-validate
-    name: Service-Graph validieren
-    summary: Service-Graph auf Referenz-Konsistenz und Zyklen prüfen.
-    stability: stable
-    side_effect: read_only
-    connectors:
-      - type: cli
-        invocation: "nomos servicegraph validate"
-        args:
-          - name: id
-            positional: true
-            required: true
-          - name: path
-            flag: "--path"
-  - id: cap-process-validate
-    name: Prozess validieren
-    summary: BPMN-Prozess-Definition auf Vollständigkeit und Mapping-Konsistenz prüfen.
-    stability: stable
-    side_effect: read_only
-    connectors:
-      - type: cli
-        invocation: "nomos process validate"
-        args:
-          - name: id
-            positional: true
-            required: true
-          - name: path
-            flag: "--path"
+    - id: cap-validate-cosmos
+      name: Cosmos validieren
+      summary: Vollständige strukturelle und referentielle Validierung aller Artefakte eines Cosmos.
+      stability: stable
+      side_effect: read_only
+      connectors:
+        - type: cli
+          invocation: "nomos validate"
+          args:
+            - name: path
+              flag: "--path"
+              default: "."
+            - name: format
+              flag: "--format"
+              enum: [text, json]
+          exit_codes:
+            - code: 0
+              meaning: valid
+            - code: 1
+              meaning: findings_present
+            - code: 2
+              meaning: invocation_error
+        - type: rest
+          method: GET
+          path: /api/v1/validate
+        - type: mcp
+          tool: nomos_validate
+          kind: tool
+          idempotent: true
+    - id: cap-cosmos-doctor
+      name: Cosmos Doctor
+      summary: Schnell-Check auf häufige Konfigurationsprobleme.
+      stability: stable
+      side_effect: read_only
+      connectors:
+        - type: cli
+          invocation: "nomos cosmos doctor"
+          args:
+            - name: path
+              flag: "--path"
+              default: "."
+    - id: cap-blueprint-validate
+      name: Blueprint validieren
+      summary: Einzelnen Blueprint auf Vollständigkeit und Regelkonformität prüfen.
+      stability: stable
+      side_effect: read_only
+      connectors:
+        - type: cli
+          invocation: "nomos blueprint validate"
+          args:
+            - name: id
+              positional: true
+              required: true
+            - name: path
+              flag: "--path"
+            - name: format
+              flag: "--format"
+              enum: [text, json]
+        - type: rest
+          method: GET
+          path: /api/v1/blueprints/{id}/validate
+    - id: cap-instance-verify
+      name: Instanz prüfen
+      summary: Instanz gegen Blueprint verifizieren und Compliance-Status berechnen.
+      stability: stable
+      side_effect: read_only
+      connectors:
+        - type: cli
+          invocation: "nomos instance verify"
+          args:
+            - name: id
+              positional: true
+              required: true
+            - name: path
+              flag: "--path"
+            - name: format
+              flag: "--format"
+              enum: [text, json]
+        - type: rest
+          method: POST
+          path: /api/v1/instances/{id}/verify
+        - type: rest
+          method: GET
+          path: /api/v1/instances/{id}/compliance
+        - type: rest
+          method: GET
+          path: /api/v1/instances/{id}/attribute-validation
+    - id: cap-servicegraph-validate
+      name: Service-Graph validieren
+      summary: Service-Graph auf Referenz-Konsistenz und Zyklen prüfen.
+      stability: stable
+      side_effect: read_only
+      connectors:
+        - type: cli
+          invocation: "nomos servicegraph validate"
+          args:
+            - name: id
+              positional: true
+              required: true
+            - name: path
+              flag: "--path"
+    - id: cap-process-validate
+      name: Prozess validieren
+      summary: BPMN-Prozess-Definition auf Vollständigkeit und Mapping-Konsistenz prüfen.
+      stability: stable
+      side_effect: read_only
+      connectors:
+        - type: cli
+          invocation: "nomos process validate"
+          args:
+            - name: id
+              positional: true
+              required: true
+            - name: path
+              flag: "--path"

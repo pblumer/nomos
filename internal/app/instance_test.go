@@ -3,7 +3,6 @@ package app
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/nomos/nomos/internal/idgen"
@@ -289,7 +288,8 @@ func TestVerifyInstance_SetsCompliantAndAddsEvidence(t *testing.T) {
 	if len(got.Evidence) == 0 {
 		t.Fatal("expected at least one evidence entry after verify")
 	}
-	if !strings.HasPrefix(got.Evidence[0].ID, "evidence-verify-") {
+	// ADR-0020: Evidence-IDs sind system-generiert (EVD_xxxxxx).
+	if !idgen.IsValidForType(got.Evidence[0].ID, "evidence") {
 		t.Fatalf("unexpected evidence ID: %s", got.Evidence[0].ID)
 	}
 }

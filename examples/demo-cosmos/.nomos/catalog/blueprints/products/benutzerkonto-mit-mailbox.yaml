@@ -1,4 +1,4 @@
-id: PROD-ACC-MBX-001
+id: PRD_BW6NWJ
 type: product_blueprint
 name: Benutzerkonto mit Mailbox
 version: 0.1.0
@@ -7,58 +7,59 @@ owner: Identity & Collaboration
 offered_by: identity.blumer.cloud
 owning_domain: identity.blumer.cloud
 summary: >
-  Bereitstellung eines Benutzerkontos mit zugehoeriger Mailbox.
+    Bereitstellung eines Benutzerkontos mit zugehoeriger Mailbox.
+
 variants:
-  - id: VAR-ACC-MBX-INT
-    name: Internes Benutzerkonto mit Mailbox
-  - id: VAR-ACC-MBX-EXT
-    name: Externes Benutzerkonto mit Mailbox
+    - id: VAR-ACC-MBX-INT
+      name: Internes Benutzerkonto mit Mailbox
+    - id: VAR-ACC-MBX-EXT
+      name: Externes Benutzerkonto mit Mailbox
 required_inputs:
-  - person_reference
-  - first_name
-  - last_name
-  - user_type
-  - tenant_id
+    - person_reference
+    - first_name
+    - last_name
+    - user_type
+    - tenant_id
 required_service_blueprints:
-  - SB-IDENTITY-ACCOUNT-001
-  - SB-MAILBOX-001
-  - SB-LICENSE-ASSIGNMENT-001
+    - SVC_6HPZVA
+    - SVC_060W11
+    - SVC_NKXF7G
 required_services:
-  - service_ref: identity.blumer.cloud/user-account
-    service_blueprint_ref: SB-IDENTITY-ACCOUNT-001
-    purpose: Erstellt und verwaltet das Benutzerkonto.
-    required: true
-  - service_ref: mailing.blumer.cloud/exchange
-    service_blueprint_ref: SB-MAILBOX-001
-    purpose: Erstellt und verwaltet die Mailbox.
-    required: true
-  - service_ref: collaboration.blumer.cloud/license-assignment
-    service_blueprint_ref: SB-LICENSE-ASSIGNMENT-001
-    purpose: Weist die fuer Konto und Mailbox benoetigte Lizenz zu.
-    required: true
-fulfillment:
-  required_services:
     - service_ref: identity.blumer.cloud/user-account
-      role: primary
+      service_blueprint_ref: SVC_6HPZVA
+      purpose: Erstellt und verwaltet das Benutzerkonto.
       required: true
-      description: Creates the identity account.
-      sla_ref: SLA-IDENTITY-ACCOUNT-STANDARD
-      ola_ref: OLA-IDENTITY-OPS-STANDARD
     - service_ref: mailing.blumer.cloud/exchange
-      role: primary
+      service_blueprint_ref: SVC_060W11
+      purpose: Erstellt und verwaltet die Mailbox.
       required: true
-      description: Provides the mailbox capability.
-      sla_ref: SLA-MAILBOX-STANDARD
-      ola_ref: OLA-MAILING-OPS-STANDARD
+    - service_ref: collaboration.blumer.cloud/license-assignment
+      service_blueprint_ref: SVC_NKXF7G
+      purpose: Weist die fuer Konto und Mailbox benoetigte Lizenz zu.
+      required: true
+fulfillment:
+    required_services:
+        - service_ref: identity.blumer.cloud/user-account
+          role: primary
+          required: true
+          description: Creates the identity account.
+          sla_ref: SLA-IDENTITY-ACCOUNT-STANDARD
+          ola_ref: OLA-IDENTITY-OPS-STANDARD
+        - service_ref: mailing.blumer.cloud/exchange
+          role: primary
+          required: true
+          description: Provides the mailbox capability.
+          sla_ref: SLA-MAILBOX-STANDARD
+          ola_ref: OLA-MAILING-OPS-STANDARD
 rules:
-  - RULE-ACC-001
-  - RULE-ACC-003
+    - RULE-ACC-001
+    - RULE-ACC-003
 quality_criteria:
-  - account_exists
-  - mailbox_exists
-  - tenant_matches
-  - no_blocking_findings
+    - account_exists
+    - mailbox_exists
+    - tenant_matches
+    - no_blocking_findings
 evidence_requirements:
-  - account_creation_response
-  - mailbox_creation_response
-  - compliance_check_result
+    - account_creation_response
+    - mailbox_creation_response
+    - compliance_check_result

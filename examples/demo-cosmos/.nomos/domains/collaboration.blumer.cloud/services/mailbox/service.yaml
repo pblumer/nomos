@@ -1,4 +1,4 @@
-id: service-mailbox
+id: SRV_N8DT43
 type: service
 name: mailbox
 version: 0.1.0
@@ -6,13 +6,13 @@ status: draft
 owner: Collaboration Domain Team
 owned_by: collaboration.blumer.cloud
 operated_by:
-  - collaboration.blumer.cloud
+    - collaboration.blumer.cloud
 capabilities:
-  - mailbox-provisioning
+    - mailbox-provisioning
 supported_products:
-  - PROD-ACC-MBX-001
+    - PRD_BW6NWJ
 summary: Domain-owned service capability for mailbox provisioning.
 sla:
-  name: Mailbox Provisioning SLA
-  target: 8h
-  availability: business-hours
+    name: Mailbox Provisioning SLA
+    target: 8h
+    availability: business-hours

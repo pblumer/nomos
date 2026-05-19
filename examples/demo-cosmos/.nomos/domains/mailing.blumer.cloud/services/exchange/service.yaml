@@ -1,4 +1,4 @@
-id: service-exchange
+id: SRV_SJCQWM
 type: service
 name: exchange
 version: 0.1.0
@@ -6,13 +6,13 @@ status: draft
 owner: Mailing Domain Team
 owned_by: mailing.blumer.cloud
 operated_by:
-  - mailing.blumer.cloud
+    - mailing.blumer.cloud
 capabilities:
-  - exchange-mailbox-provisioning
+    - exchange-mailbox-provisioning
 supported_products:
-  - PROD-ACC-MBX-001
+    - PRD_BW6NWJ
 summary: Domain-owned service capability for Exchange mailbox provisioning.
 sla:
-  name: Exchange Mailbox SLA
-  target: 8h
-  availability: business-hours
+    name: Exchange Mailbox SLA
+    target: 8h
+    availability: business-hours

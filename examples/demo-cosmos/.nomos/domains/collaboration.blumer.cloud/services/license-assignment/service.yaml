@@ -1,4 +1,4 @@
-id: service-license-assignment
+id: SRV_5AFE65
 type: service
 name: license-assignment
 version: 0.1.0
@@ -6,13 +6,13 @@ status: draft
 owner: Collaboration Domain Team
 owned_by: collaboration.blumer.cloud
 operated_by:
-  - collaboration.blumer.cloud
+    - collaboration.blumer.cloud
 capabilities:
-  - license-assignment
+    - license-assignment
 supported_products:
-  - PROD-ACC-MBX-001
+    - PRD_BW6NWJ
 summary: Domain-owned service capability for license assignment.
 ola:
-  name: License Assignment OLA
-  target: 4h
-  availability: business-hours
+    name: License Assignment OLA
+    target: 4h
+    availability: business-hours

@@ -1,4 +1,4 @@
-id: SVC-001
+id: SVC_RGVTAX
 name: Static Website
 version: 0.1.0
 status: draft
@@ -7,13 +7,13 @@ type: service_blueprint
 category: hosting
 provider: aws
 capabilities:
-  - static_website_hosting
+    - static_website_hosting
 target_systems:
-  - SYS-HOSTING-001
+    - SYS-HOSTING-001
 parameters:
-  - key: region
-    type: string
-    default: eu-central-1
-  - key: bucket_name
-    type: string
-    required: true
+    - key: region
+      type: string
+      default: eu-central-1
+    - key: bucket_name
+      type: string
+      required: true
