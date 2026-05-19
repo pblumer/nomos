@@ -785,6 +785,35 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// PUT/DELETE /api/v1/services/{domain}/{service}/capabilities/{id}
+	if len(parts) == 4 && parts[2] == "capabilities" {
+		domain, service, capID := parts[0], parts[1], parts[3]
+		switch r.Method {
+		case http.MethodPut:
+			var patch model.ServiceCapability
+			if err := json.NewDecoder(r.Body).Decode(&patch); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			dto, err := app.UpdateServiceCapability(h.cosmosPath, domain, service, capID, patch)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, 200, dto)
+		case http.MethodDelete:
+			dto, err := app.RemoveServiceCapability(h.cosmosPath, domain, service, capID)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, 200, dto)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
 	// POST /api/v1/services/{domain}/{service}/data-objects
 	if len(parts) == 3 && parts[2] == "data-objects" {
 		domain, service := parts[0], parts[1]
@@ -806,6 +835,35 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// PUT/DELETE /api/v1/services/{domain}/{service}/data-objects/{id}
+	if len(parts) == 4 && parts[2] == "data-objects" {
+		domain, service, doID := parts[0], parts[1], parts[3]
+		switch r.Method {
+		case http.MethodPut:
+			var patch model.ServiceDataObject
+			if err := json.NewDecoder(r.Body).Decode(&patch); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			dto, err := app.UpdateServiceDataObject(h.cosmosPath, domain, service, doID, patch)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, 200, dto)
+		case http.MethodDelete:
+			dto, err := app.RemoveServiceDataObject(h.cosmosPath, domain, service, doID)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, 200, dto)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
 	// POST /api/v1/services/{domain}/{service}/user-interfaces
 	if len(parts) == 3 && parts[2] == "user-interfaces" {
 		domain, service := parts[0], parts[1]
@@ -824,6 +882,35 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	// PUT/DELETE /api/v1/services/{domain}/{service}/user-interfaces/{id}
+	if len(parts) == 4 && parts[2] == "user-interfaces" {
+		domain, service, uiID := parts[0], parts[1], parts[3]
+		switch r.Method {
+		case http.MethodPut:
+			var patch model.ServiceUserInterface
+			if err := json.NewDecoder(r.Body).Decode(&patch); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+				return
+			}
+			dto, err := app.UpdateServiceUserInterface(h.cosmosPath, domain, service, uiID, patch)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, 200, dto)
+		case http.MethodDelete:
+			dto, err := app.RemoveServiceUserInterface(h.cosmosPath, domain, service, uiID)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, 200, dto)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
 		return
 	}
 
