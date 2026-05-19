@@ -590,6 +590,26 @@ type EngineInfo struct {
 	Commit  string `yaml:"commit,omitempty" json:"commit,omitempty"`
 }
 
+// DecisionScenario is a named, persisted test case for a Decision.
+// Scenarios are typically promoted from a previous DecisionTrace (Inputs +
+// Outputs captured as ExpectedOutputs), and are stored in
+// <decision>/scenarios/<VSC-id>.yaml so they're git-versioned and reviewable.
+// Unlike traces (which are an audit log and may rotate), scenarios are
+// curated regression cases keyed by a stable ID.
+type DecisionScenario struct {
+	SchemaVersion   int            `yaml:"schema_version" json:"schema_version"`
+	ID              string         `yaml:"id" json:"id"`
+	Name            string         `yaml:"name" json:"name"`
+	Description     string         `yaml:"description,omitempty" json:"description,omitempty"`
+	Domain          string         `yaml:"domain" json:"domain"`
+	DecisionID      string         `yaml:"decision_id" json:"decision_id"`
+	Inputs          map[string]any `yaml:"inputs" json:"inputs"`
+	ExpectedOutputs map[string]any `yaml:"expected_outputs,omitempty" json:"expected_outputs,omitempty"`
+	SourceTraceID   string         `yaml:"source_trace_id,omitempty" json:"source_trace_id,omitempty"`
+	CreatedAt       string         `yaml:"created_at" json:"created_at"`
+	UpdatedAt       string         `yaml:"updated_at,omitempty" json:"updated_at,omitempty"`
+}
+
 // DecisionTrace is the persisted, content-addressed record of one decision evaluation.
 // The TraceID is a sha256 over a canonical JSON encoding of all other fields (excluding
 // TraceID itself), forming a hash chain via ParentTraceID for tamper-evidence.

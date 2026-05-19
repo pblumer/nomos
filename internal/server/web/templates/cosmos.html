@@ -326,6 +326,44 @@
 .trace-footer{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:.2rem .6rem;font-size:.7rem;color:#475569;border-top:1px dashed #e2e8f0;padding-top:.5rem;margin-top:.1rem}
 .trace-footer dt{color:#94a3b8;font-weight:700}
 .trace-footer dd{margin:0;font-family:ui-monospace,monospace;color:#334155;word-break:break-all}
+.trace-card-actions{display:flex;justify-content:flex-end;gap:.35rem;padding:.05rem 0 .1rem}
+.trace-save-btn{font-size:.72rem;font-weight:700;color:#4338ca;background:#eef2ff;border:1px solid #c7d2fe;border-radius:6px;padding:.18rem .55rem;cursor:pointer;display:inline-flex;align-items:center;gap:.25rem}
+.trace-save-btn:hover{background:#e0e7ff;border-color:#a5b4fc}
+.trace-save-btn .mi{font-family:'Material Symbols Outlined';font-size:.95rem}
+/* ── Decision-Scenarios (curated, named test cases) ── */
+.dec-scenarios{margin-top:.7rem;border:1px solid #e2e8f0;border-radius:14px;background:#fff;padding:.7rem .85rem}
+.dec-scenarios-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem}
+.dec-scenarios-title{font-size:.85rem;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:.5rem}
+.dec-scenarios-count{background:#f1f5f9;color:#475569;border-radius:999px;padding:.08rem .5rem;font-size:.7rem;font-weight:700}
+.dec-scenarios-actions{display:flex;gap:.35rem}
+.dec-scenarios-empty{color:#64748b;font-size:.82rem;font-style:italic;padding:.4rem 0}
+.dec-scenarios-error{color:#991b1b;font-size:.82rem;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:.4rem .6rem}
+.dec-scenarios-list{display:flex;flex-direction:column;gap:.4rem}
+.scenario-card{border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;padding:.55rem .7rem;display:flex;flex-direction:column;gap:.35rem}
+.scenario-card.pass{border-color:#bbf7d0;background:#f0fdf4}
+.scenario-card.fail{border-color:#fecaca;background:#fef2f2}
+.scenario-head{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.scenario-name{font-size:.85rem;font-weight:700;color:#0f172a;flex:1;min-width:0;word-break:break-word}
+.scenario-id{font-family:ui-monospace,monospace;font-size:.68rem;color:#94a3b8}
+.scenario-badge{font-size:.68rem;font-weight:800;border-radius:999px;padding:.08rem .5rem;text-transform:uppercase;letter-spacing:.04em;display:inline-flex;align-items:center;gap:.25rem}
+.scenario-badge.pass{background:#dcfce7;color:#166534}
+.scenario-badge.fail{background:#fee2e2;color:#991b1b}
+.scenario-badge.pending{background:#f1f5f9;color:#64748b}
+.scenario-badge.no-baseline{background:#fef3c7;color:#92400e}
+.scenario-badge .mi{font-family:'Material Symbols Outlined';font-size:.85rem}
+.scenario-desc{font-size:.75rem;color:#475569;line-height:1.35}
+.scenario-io-row{display:flex;flex-wrap:wrap;gap:.3rem;align-items:baseline;font-size:.72rem}
+.scenario-io-label{color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.03em;font-size:.66rem;min-width:5.2rem}
+.scenario-io-pills{display:flex;flex-wrap:wrap;gap:.2rem;flex:1;min-width:0}
+.scenario-pill{display:inline-block;padding:.05rem .35rem;border-radius:5px;font-family:ui-monospace,monospace;font-size:.7rem;background:#ecfeff;color:#0c4a6e;border:1px solid #a5f3fc}
+.scenario-pill.expected{background:#fef3c7;color:#78350f;border-color:#fde68a}
+.scenario-pill.actual{background:#e0e7ff;color:#3730a3;border-color:#c7d2fe}
+.scenario-pill.diff{background:#fee2e2;color:#991b1b;border-color:#fecaca;font-weight:700}
+.scenario-actions{display:flex;gap:.3rem;justify-content:flex-end;flex-wrap:wrap}
+.scenario-actions .btn{font-size:.72rem;padding:.2rem .55rem}
+.scenario-result{font-size:.72rem;color:#475569;border-top:1px dashed #e2e8f0;padding-top:.4rem;margin-top:.1rem;display:none}
+.scenario-result.show{display:block}
+.scenario-result .scenario-io-row{margin-top:.2rem}
 .bpmn-map-dot{display:inline-block;width:14px;height:14px;border-radius:999px;border:2px solid #fff;box-shadow:0 1px 4px rgba(15,23,42,.25)}.bpmn-map-dot.mapped{background:#10b981}.bpmn-map-dot.unmapped{background:#f59e0b}
 .bpmn-detail-panel{border:1px solid #dbeafe;border-radius:12px;background:#f8fbff;padding:.75rem;margin:.6rem 0 .8rem}.bpmn-detail-panel.is-empty{color:#64748b;font-size:.82rem;background:#f8fafc;border-style:dashed}.bpmn-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;margin-bottom:.55rem}.bpmn-detail-title{font-weight:800;color:#0f172a;font-size:.92rem}.bpmn-detail-subtitle{font-size:.74rem;color:#64748b;margin-top:.1rem}.bpmn-detail-grid{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:.3rem .75rem;font-size:.78rem}.bpmn-detail-grid dt{color:#64748b;font-weight:700}.bpmn-detail-grid dd{margin:0;min-width:0;word-break:break-word}.bpmn-detail-section{margin-top:.6rem}.bpmn-detail-section h5{margin:0 0 .3rem;font-size:.75rem;color:#475569}.bpmn-detail-chips{display:flex;flex-wrap:wrap;gap:.25rem}.bpmn-detail-code{font-family:ui-monospace,monospace;background:#eef2ff;color:#3730a3;border-radius:5px;padding:1px 5px}.bpmn-canvas .djs-shape.bpmn-selected .djs-visual>:not(text){stroke:#4f46e5!important;stroke-width:2px!important;filter:drop-shadow(0 0 2px rgba(79,70,229,.22))}.bpmn-canvas .djs-shape.bpmn-selected text,.bpmn-canvas .djs-shape.bpmn-selected .djs-label{stroke:none!important;fill:#0f172a!important}.bpmn-canvas .djs-shape{cursor:pointer}.task-fallback-row.is-selected{border-color:#6366f1;background:#eef2ff;box-shadow:inset 3px 0 0 #6366f1}
 .tp-panel{display:flex;flex-direction:column;gap:0}.tp-tabs{display:flex;border-bottom:2px solid #e2e8f0;margin-bottom:.65rem}.tp-tab{flex:1;padding:.4rem .5rem;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;font-size:.78rem;font-weight:700;color:#64748b;transition:color .1s}.tp-tab.active{color:#4338ca;border-bottom-color:#4338ca}.tp-tab-panel.hidden{display:none}.tp-header{display:flex;align-items:center;gap:.6rem;padding:.3rem 0 .65rem;border-bottom:1px solid #e2e8f0;margin-bottom:.6rem}.tp-type-icon{width:38px;height:38px;border-radius:10px;background:#eef2ff;color:#4338ca;display:grid;place-items:center;flex-shrink:0}.tp-type-label{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:.1rem}.tp-name-display{font-size:.9rem;font-weight:700;color:#0f172a;word-break:break-word;line-height:1.2}.tp-section{border:1px solid #e2e8f0;border-radius:9px;overflow:hidden;margin-bottom:.4rem}.tp-section-head{display:flex;align-items:center;justify-content:space-between;padding:.38rem .6rem;background:#f8fafc;cursor:pointer;user-select:none;font-size:.73rem;font-weight:800;color:#334155}.tp-section-head:hover{background:#f1f5f9}.tp-section-arrow{font-style:normal;font-size:.7rem;color:#94a3b8}.tp-section-body{padding:.5rem .6rem;display:flex;flex-direction:column;gap:.4rem;border-top:1px solid #f1f5f9}.tp-field{display:flex;flex-direction:column;gap:.18rem}.tp-label{font-size:.71rem;font-weight:700;color:#64748b}.tp-input{border:1px solid #cbd5e1;border-radius:6px;padding:.3rem .45rem;font-size:.79rem;width:100%;box-sizing:border-box;font-family:inherit;resize:vertical;background:#fff;color:#0f172a;line-height:1.4}.tp-input:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.15)}.tp-input[readonly]{background:#f8fafc;color:#64748b;cursor:default}.tp-input-code{font-family:ui-monospace,monospace;font-size:.74rem;background:#f1f5f9;border-color:#e2e8f0;color:#475569}.tp-select{border:1px solid #cbd5e1;border-radius:6px;padding:.3rem .4rem;font-size:.78rem;background:#fff;cursor:pointer;width:100%;color:#0f172a}.tp-select:focus{outline:none;border-color:#6366f1}.tp-check-row{display:flex;align-items:center;gap:.35rem;font-size:.78rem;color:#475569;cursor:pointer}.tp-actions{padding:.6rem 0 .1rem;display:flex;gap:.5rem;align-items:center}.tp-save-btn{background:#4f46e5;color:#fff;border:none;border-radius:7px;padding:.38rem .9rem;font-size:.8rem;font-weight:800;cursor:pointer;flex-shrink:0}.tp-save-btn:hover{background:#4338ca}.tp-save-btn:disabled{opacity:.55;cursor:not-allowed}.tp-status{font-size:.72rem;color:#64748b;flex:1}.tp-status.ok{color:#059669}.tp-status.err{color:#dc2626}
@@ -716,21 +754,37 @@ async function doRunTest(row){
   const domain=row.dataset.decisionDomain||row.dataset.domainCanonical;
   if(!decisionId||!domain){alert('Decision nicht auflösbar.');return;}
   const baseURL='/api/v1/domains/'+encodeURIComponent(domain)+'/decisions/'+encodeURIComponent(decisionId);
-  let dec=null,traces=[];
+  let dec=null,traces=[],scenarios=[];
   try{
-    const [decR,trR]=await Promise.all([fetch(baseURL),fetch(baseURL+'/traces').catch(()=>null)]);
+    const [decR,trR,scR]=await Promise.all([
+      fetch(baseURL),
+      fetch(baseURL+'/traces').catch(()=>null),
+      fetch(baseURL+'/scenarios').catch(()=>null),
+    ]);
     if(!decR.ok)throw new Error(await decR.text().catch(()=>'')||'Decision konnte nicht geladen werden');
     dec=await decR.json();
     if(trR&&trR.ok){const dto=await trR.json().catch(()=>null);if(dto&&Array.isArray(dto.items))traces=dto.items.slice().reverse();}
+    if(scR&&scR.ok){const dto=await scR.json().catch(()=>null);if(dto&&Array.isArray(dto.items))scenarios=dto.items.slice().reverse();}
   }catch(err){alert(err.message);return;}
   if(!dec.has_dmn){alert('Diese Decision hat noch keine DMN-Datei — ein Test ist erst nach dem Anlegen möglich.');return;}
   const declaredInputs=Array.isArray(dec.inputs)?dec.inputs:[];
-  const scenarioOpts=['<option value="">— Neuer Test (leere Eingaben) —</option>']
-    .concat(traces.slice(0,20).map((t,i)=>{
-      const ts=esc((t.timestamp||'').replace('T',' ').replace(/\..+$/,''));
-      const summary=Object.entries(t.inputs||{}).map(([k,v])=>k+'='+JSON.stringify(v)).join(', ');
-      return '<option value="trace-'+i+'">'+ts+' · '+esc(summary).slice(0,80)+'</option>';
-    })).join('');
+  // Two-group select: saved scenarios first (curated, named), then the
+  // recent trace history (raw audit log). Both feed the same pre-fill code.
+  let scenarioOpts='<option value="">— Neuer Test (leere Eingaben) —</option>';
+  if(scenarios.length){
+    scenarioOpts+='<optgroup label="Szenarien">'
+      +scenarios.map((s,i)=>'<option value="scenario-'+i+'">'+esc(s.name)+(s.expected_outputs&&Object.keys(s.expected_outputs).length?' · mit Baseline':'')+'</option>').join('')
+      +'</optgroup>';
+  }
+  if(traces.length){
+    scenarioOpts+='<optgroup label="Trace-Historie">'
+      +traces.slice(0,20).map((t,i)=>{
+        const ts=esc((t.timestamp||'').replace('T',' ').replace(/\..+$/,''));
+        const summary=Object.entries(t.inputs||{}).map(([k,v])=>k+'='+JSON.stringify(v)).join(', ');
+        return '<option value="trace-'+i+'">'+ts+' · '+esc(summary).slice(0,80)+'</option>';
+      }).join('')
+      +'</optgroup>';
+  }
   function fieldFor(inp){
     const name=inp.name||'';
     const type=(inp.type||'string').toLowerCase();
@@ -795,9 +849,12 @@ async function doRunTest(row){
   setTimeout(()=>{
     const sel=$('rt-scenario');
     sel?.addEventListener('change',()=>{
-      const v=sel.value;if(!v.startsWith('trace-'))return;
-      const idx=parseInt(v.slice(6));const t=traces[idx];if(!t)return;
-      const fields=$('rt-fields');const ins=t.inputs||{};
+      const v=sel.value;
+      let ins=null;
+      if(v.startsWith('trace-')){const idx=parseInt(v.slice(6));const t=traces[idx];if(t)ins=t.inputs||{};}
+      else if(v.startsWith('scenario-')){const idx=parseInt(v.slice(9));const s=scenarios[idx];if(s)ins=s.inputs||{};}
+      if(!ins)return;
+      const fields=$('rt-fields');
       if(declaredInputs.length){
         fields.querySelectorAll('[data-rt-name]').forEach(el=>{
           const val=ins[el.dataset.rtName];
@@ -2123,6 +2180,7 @@ function renderDecisionDetail(dec,defs,domainCanonical){
     </div>
   </div>
   <div id="dmn-canvas" class="dmn-canvas" data-decision-id="${esc(dec.id)}" data-decision-domain="${esc(domainCanonical)}"><div class="detail-empty">Lade DMN&hellip;</div></div>
+  ${dec.has_dmn?`<div id="dec-scenarios" class="dec-scenarios" data-decision-id="${esc(dec.id)}" data-decision-domain="${esc(domainCanonical)}"><div class="dec-scenarios-head"><div class="dec-scenarios-title"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:1.05rem">bookmark</span>Szenarien<span class="dec-scenarios-count" id="dec-scenarios-count">&hellip;</span></div><div class="dec-scenarios-actions"><button class="btn btn-secondary btn-sm" id="dec-scenarios-add" title="Neues Szenario manuell anlegen"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:.95rem;vertical-align:middle">add</span> Szenario</button><button class="btn btn-secondary btn-sm" id="dec-scenarios-run-all" title="Alle Szenarien ausf&uuml;hren"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:.95rem;vertical-align:middle">play_arrow</span> Alle pr&uuml;fen</button></div></div><div class="dec-scenarios-body" id="dec-scenarios-body"><div class="dec-scenarios-empty">Lade Szenarien&hellip;</div></div></div>`:''}
   ${dec.has_dmn?`<div id="dec-history" class="dec-history" data-decision-id="${esc(dec.id)}" data-decision-domain="${esc(domainCanonical)}"><div class="dec-history-head"><div class="dec-history-title"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:1.05rem">history</span>Evaluationen<span class="dec-history-count" id="dec-history-count">&hellip;</span></div><span class="dec-history-verify pending" id="dec-history-verify"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:.9rem">hourglass_empty</span>Pr&uuml;fe&hellip;</span></div><div class="dec-history-body" id="dec-history-body"><div class="dec-history-empty">Lade Trace-Historie&hellip;</div></div></div>`:''}
 </div>`;
 }
@@ -2227,6 +2285,7 @@ async function loadDecisionExplorerDetail(row){
   });
   if(dec.has_dmn){
     setTimeout(()=>initDmnEditor(detail,dec,domainCanonical,xml),50);
+    setTimeout(()=>loadDecisionScenarios(detail,dec,defs,domainCanonical),55);
     setTimeout(()=>loadDecisionHistory(detail,dec,defs,domainCanonical),60);
   }else{
     setTimeout(()=>renderDmnTypePicker(detail,dec,domainCanonical),50);
@@ -2371,7 +2430,7 @@ function renderTraceCard(trace,defs,idx){
   const inputPills=Object.entries(trace.inputs||{}).map(([k,v])=>`<span class="pill"><strong>${esc(k)}</strong>=${fmtTraceVal(v)}</span>`).join('');
   const outputPills=Object.entries(trace.outputs||{}).map(([k,v])=>`<span class="pill"><strong>${esc(k)}</strong>=${fmtTraceVal(v)}</span>`).join('');
   const tableHTML=renderTraceTable(defs,trace);
-  return `<div class="trace-card" data-trace-idx="${idx}">
+  return `<div class="trace-card" data-trace-idx="${idx}" data-trace-id="${esc(trace.trace_id||'')}">
     <div class="trace-summary" data-toggle="1">
       <span class="trace-toggle">chevron_right</span>
       <span class="trace-time">${fmtTraceTime(trace.timestamp)}</span>
@@ -2379,6 +2438,7 @@ function renderTraceCard(trace,defs,idx){
       <span class="trace-hash" title="${esc(trace.trace_id||'')}">${esc(shortHash(trace.trace_id))}</span>
     </div>
     <div class="trace-body">
+      <div class="trace-card-actions"><button type="button" class="trace-save-btn" data-save-scenario="${esc(trace.trace_id||'')}" title="Diesen Trace als wiederverwendbares Szenario speichern"><span class="mi">bookmark_add</span>Als Szenario speichern</button></div>
       <div><div class="trace-section-label">Eingaben</div><div class="trace-input-banner">${inputPills||'<span style="color:#94a3b8;font-style:italic">keine</span>'}</div></div>
       <div><div class="trace-section-label">Decision-Tabelle (Treffer hervorgehoben)</div>${tableHTML}</div>
       <div><div class="trace-section-label">Ergebnis</div><div class="trace-output-banner">${outputPills||(noMatch?'<span style="color:#991b1b">keine Regel zutreffend</span>':'<span style="color:#94a3b8;font-style:italic">leer</span>')}</div></div>
@@ -2423,11 +2483,276 @@ async function loadDecisionHistory(container,dec,defs,domainCanonical){
     body.querySelectorAll('.trace-summary').forEach(el=>{
       el.addEventListener('click',()=>{el.closest('.trace-card')?.classList.toggle('open');});
     });
+    body.querySelectorAll('[data-save-scenario]').forEach(btn=>{
+      btn.addEventListener('click',(e)=>{
+        e.stopPropagation();
+        const traceID=btn.getAttribute('data-save-scenario');
+        const trace=items.find(t=>t.trace_id===traceID);
+        if(trace)doSaveTraceAsScenario(container,dec,defs,domainCanonical,trace);
+      });
+    });
   }catch(err){
     body.innerHTML=`<div class="dec-history-error">${esc(err.message||'Fehler beim Laden der Trace-Historie')}</div>`;
     if(countEl)countEl.textContent='!';
     verifyEl.className='dec-history-verify bad';verifyEl.innerHTML='<span class="mi" style="font-family:&quot;Material Symbols Outlined&quot;;font-size:.9rem">error</span>Fehler';
   }
+}
+
+// -----------------------------------------------------------------------
+// Decision-Scenarios (curated, named, git-versioned test cases)
+// -----------------------------------------------------------------------
+// Scenarios complement the trace history: traces are an append-only audit
+// log, scenarios are hand-picked baselines kept around for regression
+// checks. They are typically created by clicking "Als Szenario speichern"
+// on an existing trace card (which seeds inputs + expected_outputs from
+// that trace), but can also be created/edited free-form.
+function scenariosBaseURL(domainCanonical,decID){
+  return '/api/v1/domains/'+encodeURIComponent(domainCanonical)+'/decisions/'+encodeURIComponent(decID)+'/scenarios';
+}
+function fmtScenarioVal(v){return fmtTraceVal(v);}
+function renderScenarioIORow(label,obj,cls){
+  const entries=Object.entries(obj||{});
+  if(!entries.length){
+    return `<div class="scenario-io-row"><span class="scenario-io-label">${esc(label)}</span><span class="scenario-io-pills"><span style="color:#94a3b8;font-style:italic;font-size:.72rem">&mdash;</span></span></div>`;
+  }
+  const pills=entries.map(([k,v])=>`<span class="scenario-pill ${cls||''}"><strong>${esc(k)}</strong>=${fmtScenarioVal(v)}</span>`).join('');
+  return `<div class="scenario-io-row"><span class="scenario-io-label">${esc(label)}</span><span class="scenario-io-pills">${pills}</span></div>`;
+}
+function renderScenarioCard(s){
+  const hasBaseline=s.expected_outputs&&Object.keys(s.expected_outputs).length>0;
+  const badge=hasBaseline
+    ? '<span class="scenario-badge pending" data-scenario-badge><span class="mi">play_circle</span>noch nicht geprüft</span>'
+    : '<span class="scenario-badge no-baseline" title="Kein expected_outputs hinterlegt — Run liefert nur das aktuelle Ergebnis"><span class="mi">help</span>kein Baseline</span>';
+  const source=s.source_trace_id?` &middot; <span title="Aus Trace ${esc(s.source_trace_id)} promoted">aus Trace ${esc(shortHash(s.source_trace_id))}</span>`:'';
+  return `<div class="scenario-card" data-scenario-id="${esc(s.id)}">
+    <div class="scenario-head">
+      <span class="scenario-name">${esc(s.name)}</span>
+      ${badge}
+      <span class="scenario-id" title="${esc(s.id)}">${esc(s.id)}${source}</span>
+    </div>
+    ${s.description?`<div class="scenario-desc">${esc(s.description)}</div>`:''}
+    ${renderScenarioIORow('Eingaben',s.inputs,'')}
+    ${hasBaseline?renderScenarioIORow('Erwartet',s.expected_outputs,'expected'):''}
+    <div class="scenario-result" data-scenario-result></div>
+    <div class="scenario-actions">
+      <button class="btn btn-primary btn-sm" data-scenario-run title="Szenario ausführen und mit Baseline vergleichen"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:.9rem;vertical-align:middle">play_arrow</span> Ausführen</button>
+      <button class="btn btn-secondary btn-sm" data-scenario-edit title="Szenario bearbeiten">Bearbeiten</button>
+      <button class="btn btn-danger btn-sm" data-scenario-delete title="Szenario löschen">Löschen</button>
+    </div>
+  </div>`;
+}
+async function loadDecisionScenarios(container,dec,defs,domainCanonical){
+  const panel=container.querySelector('#dec-scenarios');
+  if(!panel)return;
+  const body=panel.querySelector('#dec-scenarios-body');
+  const countEl=panel.querySelector('#dec-scenarios-count');
+  const baseURL=scenariosBaseURL(domainCanonical,dec.id);
+  try{
+    const r=await fetch(baseURL);
+    if(!r.ok)throw new Error(await r.text().catch(()=>'')||'Szenarien konnten nicht geladen werden');
+    const dto=await r.json();
+    const items=(dto.items||[]).slice().reverse(); // newest first
+    if(countEl)countEl.textContent=String(dto.count||items.length||0);
+    if(!items.length){
+      body.innerHTML='<div class="dec-scenarios-empty">Noch keine Szenarien gespeichert. Klicke unten in der Trace-Historie auf <strong>„Als Szenario speichern"</strong>, um eine Evaluation zu einem wiederverwendbaren Testfall zu machen.</div>';
+    }else{
+      body.innerHTML='<div class="dec-scenarios-list">'+items.map(renderScenarioCard).join('')+'</div>';
+      body.querySelectorAll('[data-scenario-run]').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          const card=btn.closest('.scenario-card');const id=card?.dataset.scenarioId;
+          const s=items.find(x=>x.id===id);if(s)doRunScenario(card,s,dec,domainCanonical);
+        });
+      });
+      body.querySelectorAll('[data-scenario-edit]').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          const id=btn.closest('.scenario-card')?.dataset.scenarioId;
+          const s=items.find(x=>x.id===id);if(s)doEditScenario(container,dec,defs,domainCanonical,s);
+        });
+      });
+      body.querySelectorAll('[data-scenario-delete]').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          const id=btn.closest('.scenario-card')?.dataset.scenarioId;
+          const s=items.find(x=>x.id===id);if(s)doDeleteScenario(container,dec,defs,domainCanonical,s);
+        });
+      });
+    }
+    // Header buttons.
+    panel.querySelector('#dec-scenarios-add')?.addEventListener('click',()=>doCreateScenarioFreeForm(container,dec,defs,domainCanonical),{once:true});
+    panel.querySelector('#dec-scenarios-run-all')?.addEventListener('click',async(e)=>{
+      e.currentTarget.disabled=true;
+      const cards=body.querySelectorAll('.scenario-card');
+      for(const card of cards){
+        const id=card.dataset.scenarioId;const s=items.find(x=>x.id===id);
+        if(s)await doRunScenario(card,s,dec,domainCanonical);
+      }
+      e.currentTarget.disabled=false;
+    },{once:true});
+  }catch(err){
+    body.innerHTML=`<div class="dec-scenarios-error">${esc(err.message||'Fehler beim Laden der Szenarien')}</div>`;
+    if(countEl)countEl.textContent='!';
+  }
+}
+async function doRunScenario(card,scenario,dec,domainCanonical){
+  const badge=card.querySelector('[data-scenario-badge]');
+  const resultEl=card.querySelector('[data-scenario-result]');
+  card.classList.remove('pass','fail');
+  if(badge){badge.className='scenario-badge pending';badge.innerHTML='<span class="mi">progress_activity</span>läuft…';}
+  if(resultEl){resultEl.classList.remove('show');resultEl.innerHTML='';}
+  try{
+    const r=await fetch('/api/v1/domains/'+encodeURIComponent(domainCanonical)+'/decisions/'+encodeURIComponent(dec.id)+'/evaluate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({inputs:scenario.inputs||{}})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(d.error?.message||d.error||'Auswertung fehlgeschlagen');
+    const actual=(d.result&&d.result.outputs)||{};
+    const expected=scenario.expected_outputs||{};
+    const hasBaseline=Object.keys(expected).length>0;
+    let pass=true;
+    const diffs={};
+    if(hasBaseline){
+      for(const k of Object.keys(expected)){
+        if(JSON.stringify(expected[k])!==JSON.stringify(actual[k])){pass=false;diffs[k]=true;}
+      }
+      // Extra actual keys are not a failure on their own (decision may emit
+      // more than the baseline declares), but flag them visually.
+    }
+    if(badge){
+      if(!hasBaseline){badge.className='scenario-badge no-baseline';badge.innerHTML='<span class="mi">check</span>OK (ohne Baseline)';}
+      else if(pass){badge.className='scenario-badge pass';badge.innerHTML='<span class="mi">check_circle</span>Pass';card.classList.add('pass');}
+      else{badge.className='scenario-badge fail';badge.innerHTML='<span class="mi">cancel</span>Fail';card.classList.add('fail');}
+    }
+    if(resultEl){
+      const actualPills=Object.entries(actual).map(([k,v])=>{
+        const cls=diffs[k]?'diff':'actual';
+        return `<span class="scenario-pill ${cls}"><strong>${esc(k)}</strong>=${fmtScenarioVal(v)}</span>`;
+      }).join('')||'<span style="color:#94a3b8;font-style:italic;font-size:.72rem">&mdash;</span>';
+      resultEl.innerHTML=`<div class="scenario-io-row"><span class="scenario-io-label">Aktuell</span><span class="scenario-io-pills">${actualPills}</span></div>`;
+      resultEl.classList.add('show');
+    }
+  }catch(err){
+    if(badge){badge.className='scenario-badge fail';badge.innerHTML='<span class="mi">error</span>Fehler';}
+    if(resultEl){resultEl.innerHTML=`<div style="color:#991b1b;font-size:.74rem">${esc(err.message||'Fehler')}</div>`;resultEl.classList.add('show');}
+    card.classList.add('fail');
+  }
+}
+function doSaveTraceAsScenario(container,dec,defs,domainCanonical,trace){
+  const inputsPreview=Object.entries(trace.inputs||{}).map(([k,v])=>`<span class="scenario-pill"><strong>${esc(k)}</strong>=${fmtTraceVal(v)}</span>`).join('')||'<span style="color:#94a3b8;font-style:italic">keine</span>';
+  const outputsPreview=Object.entries(trace.outputs||{}).map(([k,v])=>`<span class="scenario-pill expected"><strong>${esc(k)}</strong>=${fmtTraceVal(v)}</span>`).join('')||'<span style="color:#94a3b8;font-style:italic">keine</span>';
+  openModal('Trace als Szenario speichern',
+    `<div class="nfield"><label>Name</label><input id="sc-name" placeholder="z.B. Premium happy path" /></div>
+     <div class="nfield"><label>Beschreibung <span style="color:#94a3b8;font-size:.72rem">(optional)</span></label><textarea id="sc-desc" rows="2" placeholder="Wozu dient dieses Szenario?"></textarea></div>
+     <div class="nfield"><label>Eingaben (übernommen aus Trace)</label><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.45rem .55rem">${inputsPreview}</div></div>
+     <div class="nfield"><label><input type="checkbox" id="sc-keep-expected" checked style="margin-right:.35rem">Ergebnis als <code>expected_outputs</code>-Baseline mitspeichern</label><div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:.45rem .55rem;margin-top:.3rem">${outputsPreview}</div><div class="nfield-hint" style="color:#64748b;font-size:.74rem;margin-top:.25rem">Ohne Baseline läuft das Szenario zwar, aber es gibt kein Pass/Fail.</div></div>
+     <div style="color:#64748b;font-size:.72rem;margin-top:.3rem">Quelle: <code>${esc(trace.trace_id||'')}</code></div>`,
+    async()=>{
+      const name=$('sc-name')?.value.trim();
+      if(!name)throw new Error('Name erforderlich');
+      const keep=$('sc-keep-expected')?.checked;
+      const baseURL=scenariosBaseURL(domainCanonical,dec.id);
+      let r;
+      if(keep){
+        // Use the shortcut endpoint: it seeds inputs + expected_outputs from
+        // the trace atomically, so we don't risk drift if the trace changes.
+        r=await fetch(baseURL+'/from-trace/'+encodeURIComponent(trace.trace_id),{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({name,description:$('sc-desc')?.value.trim()||''}),
+        });
+      }else{
+        // No baseline: fall back to the free-form create with just inputs.
+        r=await fetch(baseURL,{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({name,description:$('sc-desc')?.value.trim()||'',inputs:trace.inputs||{}}),
+        });
+      }
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(d.error?.message||d.error||'Speichern fehlgeschlagen');
+      closeModal();
+      loadDecisionScenarios(container,dec,defs,domainCanonical);
+    },'Szenario speichern');
+}
+function doCreateScenarioFreeForm(container,dec,defs,domainCanonical){
+  const declaredInputs=Array.isArray(dec.inputs)?dec.inputs:[];
+  function fieldFor(inp){
+    const name=inp.name||'';
+    const type=(inp.type||'string').toLowerCase();
+    let ctrl;
+    if(type==='boolean')ctrl='<select data-sc-name="'+esc(name)+'" data-sc-type="boolean"><option value="">—</option><option value="true">true</option><option value="false">false</option></select>';
+    else if(type==='number')ctrl='<input type="number" step="any" data-sc-name="'+esc(name)+'" data-sc-type="number">';
+    else if(type==='date')ctrl='<input type="date" data-sc-name="'+esc(name)+'" data-sc-type="date">';
+    else ctrl='<input type="text" data-sc-name="'+esc(name)+'" data-sc-type="string">';
+    return '<div class="nfield"><label><code>'+esc(name)+'</code> <span style="color:#64748b;font-size:.75rem">('+esc(type)+')</span></label>'+ctrl+'</div>';
+  }
+  const inputsHTML=declaredInputs.length
+    ? declaredInputs.map(fieldFor).join('')
+    : '<div class="nfield"><label>Eingaben (Name / Wert)</label><div id="sc-dyn-rows"></div><button type="button" class="btn btn-secondary btn-sm" id="sc-add-row">+ Eingabe</button></div>';
+  openModal('Szenario manuell anlegen',
+    `<div class="nfield"><label>Name</label><input id="sc-name" placeholder="z.B. Premium happy path" /></div>
+     <div class="nfield"><label>Beschreibung <span style="color:#94a3b8;font-size:.72rem">(optional)</span></label><textarea id="sc-desc" rows="2"></textarea></div>
+     <div class="nfield-hint" style="color:#64748b;font-size:.75rem;margin:.1rem 0 .4rem">Eingaben definieren. Eine Baseline (<code>expected_outputs</code>) kannst du später nach dem ersten Run setzen.</div>
+     <div id="sc-inputs">${inputsHTML}</div>`,
+    async()=>{
+      const name=$('sc-name')?.value.trim();
+      if(!name)throw new Error('Name erforderlich');
+      const inputs={};
+      if(declaredInputs.length){
+        document.querySelectorAll('#sc-inputs [data-sc-name]').forEach(el=>{
+          const n=el.dataset.scName,t=el.dataset.scType,v=el.value;
+          if(v===''||v==null)return;
+          if(t==='number'){const num=Number(v);if(!isNaN(num))inputs[n]=num;}
+          else if(t==='boolean')inputs[n]=v==='true';
+          else inputs[n]=v;
+        });
+      }else{
+        document.querySelectorAll('#sc-dyn-rows .rt-dyn-row').forEach(row=>{
+          const k=row.querySelector('[data-rt-k]')?.value.trim();
+          const raw=row.querySelector('[data-rt-v]')?.value??'';
+          if(!k)return;
+          if(raw==='true')inputs[k]=true;
+          else if(raw==='false')inputs[k]=false;
+          else if(raw!==''&&!isNaN(Number(raw)))inputs[k]=Number(raw);
+          else inputs[k]=raw;
+        });
+      }
+      const r=await fetch(scenariosBaseURL(domainCanonical,dec.id),{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({name,description:$('sc-desc')?.value.trim()||'',inputs}),
+      });
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(d.error?.message||d.error||'Anlegen fehlgeschlagen');
+      closeModal();
+      loadDecisionScenarios(container,dec,defs,domainCanonical);
+    },'Anlegen');
+  if(!declaredInputs.length){
+    setTimeout(()=>{
+      const wrap=$('sc-dyn-rows');
+      const add=(k,v)=>{
+        const r=document.createElement('div');r.className='rt-dyn-row';r.style.cssText='display:flex;gap:.4rem;margin-bottom:.3rem';
+        r.innerHTML='<input data-rt-k placeholder="Name" value="'+esc(k||'')+'" style="flex:1"><input data-rt-v placeholder="Wert" value="'+esc(v||'')+'" style="flex:2"><button type="button" class="btn btn-secondary btn-sm">×</button>';
+        r.querySelector('button').addEventListener('click',()=>r.remove());
+        wrap.appendChild(r);
+      };
+      $('sc-add-row')?.addEventListener('click',()=>add('',''));
+      add('','');
+    },0);
+  }
+}
+function doEditScenario(container,dec,defs,domainCanonical,scenario){
+  const newName=prompt('Neuer Name für Szenario:',scenario.name);
+  if(newName==null)return;
+  const trimmed=newName.trim();
+  if(!trimmed){alert('Name darf nicht leer sein');return;}
+  fetch(scenariosBaseURL(domainCanonical,dec.id)+'/'+encodeURIComponent(scenario.id),{
+    method:'PUT',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name:trimmed}),
+  }).then(async r=>{
+    if(!r.ok){const d=await r.json().catch(()=>({}));alert(d.error?.message||d.error||'Speichern fehlgeschlagen');return;}
+    loadDecisionScenarios(container,dec,defs,domainCanonical);
+  });
+}
+function doDeleteScenario(container,dec,defs,domainCanonical,scenario){
+  if(!confirm('Szenario "'+scenario.name+'" wirklich löschen?'))return;
+  fetch(scenariosBaseURL(domainCanonical,dec.id)+'/'+encodeURIComponent(scenario.id),{method:'DELETE'}).then(r=>{
+    if(!r.ok&&r.status!==204){r.json().then(d=>alert(d.error?.message||'Löschen fehlgeschlagen')).catch(()=>alert('Löschen fehlgeschlagen'));return;}
+    loadDecisionScenarios(container,dec,defs,domainCanonical);
+  });
 }
 
 function wireBPMNMethodDrop(canvasEl,modeler,proc){
