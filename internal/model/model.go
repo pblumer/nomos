@@ -136,6 +136,52 @@ func (c *ServiceCapability) UnmarshalYAML(unmarshal func(interface{}) error) err
 	return unmarshal((*plain)(c))
 }
 
+// ServiceDataObject describes a named data object owned/exposed by a service
+// (ArchiMate "data object" / application data). Unmarshals from plain string
+// ("name") or full object.
+type ServiceDataObject struct {
+	ID        string `yaml:"id" json:"id"`
+	Name      string `yaml:"name" json:"name"`
+	Summary   string `yaml:"summary,omitempty" json:"summary,omitempty"`
+	Schema    string `yaml:"schema,omitempty" json:"schema,omitempty"`
+	Format    string `yaml:"format,omitempty" json:"format,omitempty"`
+	Stability string `yaml:"stability,omitempty" json:"stability,omitempty"`
+}
+
+func (d *ServiceDataObject) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err == nil {
+		d.ID = s
+		d.Name = s
+		return nil
+	}
+	type plain ServiceDataObject
+	return unmarshal((*plain)(d))
+}
+
+// ServiceUserInterface describes a named user interface offered by a service
+// (e.g. web UI, CLI surface, mobile app). Unmarshals from plain string
+// ("name") or full object.
+type ServiceUserInterface struct {
+	ID        string `yaml:"id" json:"id"`
+	Name      string `yaml:"name" json:"name"`
+	Summary   string `yaml:"summary,omitempty" json:"summary,omitempty"`
+	Channel   string `yaml:"channel,omitempty" json:"channel,omitempty"`
+	URL       string `yaml:"url,omitempty" json:"url,omitempty"`
+	Stability string `yaml:"stability,omitempty" json:"stability,omitempty"`
+}
+
+func (u *ServiceUserInterface) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err == nil {
+		u.ID = s
+		u.Name = s
+		return nil
+	}
+	type plain ServiceUserInterface
+	return unmarshal((*plain)(u))
+}
+
 // SelfModelRef records the embedded self-model bundle version imported into a cosmos.
 type SelfModelRef struct {
 	Version        string `yaml:"version" json:"version"`
@@ -144,20 +190,22 @@ type SelfModelRef struct {
 }
 
 type Service struct {
-	ID                string              `yaml:"id" json:"id"`
-	Type              string              `yaml:"type" json:"type"`
-	Name              string              `yaml:"name" json:"name"`
-	Version           string              `yaml:"version" json:"version"`
-	Status            string              `yaml:"status" json:"status"`
-	Owner             string              `yaml:"owner" json:"owner"`
-	OwnedBy           string              `yaml:"owned_by,omitempty" json:"owned_by,omitempty"`
-	OperatedBy        []string            `yaml:"operated_by,omitempty" json:"operated_by,omitempty"`
-	Capabilities      []ServiceCapability `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
-	SupportedProducts []string            `yaml:"supported_products,omitempty" json:"supported_products,omitempty"`
-	Methods           []MethodDefinition  `yaml:"methods,omitempty" json:"methods,omitempty"`
-	Summary           string              `yaml:"summary" json:"summary"`
-	SLA               *ServiceLevelInfo   `yaml:"sla,omitempty" json:"sla,omitempty"`
-	OLA               *ServiceLevelInfo   `yaml:"ola,omitempty" json:"ola,omitempty"`
+	ID                string                 `yaml:"id" json:"id"`
+	Type              string                 `yaml:"type" json:"type"`
+	Name              string                 `yaml:"name" json:"name"`
+	Version           string                 `yaml:"version" json:"version"`
+	Status            string                 `yaml:"status" json:"status"`
+	Owner             string                 `yaml:"owner" json:"owner"`
+	OwnedBy           string                 `yaml:"owned_by,omitempty" json:"owned_by,omitempty"`
+	OperatedBy        []string               `yaml:"operated_by,omitempty" json:"operated_by,omitempty"`
+	Capabilities      []ServiceCapability    `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
+	DataObjects       []ServiceDataObject    `yaml:"data_objects,omitempty" json:"data_objects,omitempty"`
+	UserInterfaces    []ServiceUserInterface `yaml:"user_interfaces,omitempty" json:"user_interfaces,omitempty"`
+	SupportedProducts []string               `yaml:"supported_products,omitempty" json:"supported_products,omitempty"`
+	Methods           []MethodDefinition     `yaml:"methods,omitempty" json:"methods,omitempty"`
+	Summary           string                 `yaml:"summary" json:"summary"`
+	SLA               *ServiceLevelInfo      `yaml:"sla,omitempty" json:"sla,omitempty"`
+	OLA               *ServiceLevelInfo      `yaml:"ola,omitempty" json:"ola,omitempty"`
 }
 
 type Variant struct {

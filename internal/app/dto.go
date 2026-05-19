@@ -95,18 +95,40 @@ type ServiceCapabilityDTO struct {
 	ConnectorTypes string         `json:"connector_types,omitempty"` // e.g. "CLI · REST · MCP"
 }
 
+type ServiceDataObjectDTO struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Summary   string `json:"summary,omitempty"`
+	Schema    string `json:"schema,omitempty"`
+	Format    string `json:"format,omitempty"`
+	Stability string `json:"stability,omitempty"`
+}
+
+type ServiceUserInterfaceDTO struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Summary   string `json:"summary,omitempty"`
+	Channel   string `json:"channel,omitempty"`
+	URL       string `json:"url,omitempty"`
+	Stability string `json:"stability,omitempty"`
+}
+
 type ServiceDTO struct {
-	Name              string                 `json:"name"`
-	Domain            string                 `json:"domain"`
-	Owner             string                 `json:"owner"`
-	OwnedBy           string                 `json:"owned_by,omitempty"`
-	OperatedBy        []string               `json:"operated_by,omitempty"`
-	Capabilities      []string               `json:"capabilities,omitempty"`
-	CapabilityDefs    []ServiceCapabilityDTO `json:"capability_defs,omitempty"`
-	SupportedProducts []string               `json:"supported_products,omitempty"`
-	Methods           []MethodDefinitionDTO  `json:"methods,omitempty"`
-	Status            string                 `json:"status"`
-	Path              string                 `json:"path"`
+	Name              string                    `json:"name"`
+	Domain            string                    `json:"domain"`
+	Owner             string                    `json:"owner"`
+	OwnedBy           string                    `json:"owned_by,omitempty"`
+	OperatedBy        []string                  `json:"operated_by,omitempty"`
+	Capabilities      []string                  `json:"capabilities,omitempty"`
+	CapabilityDefs    []ServiceCapabilityDTO    `json:"capability_defs,omitempty"`
+	DataObjects       []string                  `json:"data_objects,omitempty"`
+	DataObjectDefs    []ServiceDataObjectDTO    `json:"data_object_defs,omitempty"`
+	UserInterfaces    []string                  `json:"user_interfaces,omitempty"`
+	UserInterfaceDefs []ServiceUserInterfaceDTO `json:"user_interface_defs,omitempty"`
+	SupportedProducts []string                  `json:"supported_products,omitempty"`
+	Methods           []MethodDefinitionDTO     `json:"methods,omitempty"`
+	Status            string                    `json:"status"`
+	Path              string                    `json:"path"`
 }
 
 type DomainsDTO struct {
@@ -163,6 +185,8 @@ type NamespaceTreeNodeDTO struct {
 	MethodName           string                     `json:"methodName,omitempty"`
 	Decision             *DecisionDTO               `json:"decision,omitempty"`
 	Capability           *ServiceCapabilityDTO      `json:"capability,omitempty"`
+	DataObject           *ServiceDataObjectDTO      `json:"dataObject,omitempty"`
+	UserInterface        *ServiceUserInterfaceDTO   `json:"userInterface,omitempty"`
 	Children             []NamespaceTreeNodeDTO     `json:"children,omitempty"`
 }
 
