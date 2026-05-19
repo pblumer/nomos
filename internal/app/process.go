@@ -14,6 +14,7 @@ import (
 
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/idgen"
+	"github.com/nomos/nomos/internal/idmigrate"
 	"github.com/nomos/nomos/internal/model"
 	"github.com/nomos/nomos/internal/storage"
 )
@@ -84,8 +85,10 @@ func GetProcess(path, id string) (ProcessDTO, error) {
 	if err != nil {
 		return ProcessDTO{}, err
 	}
+	// ADR-0020: Legacy-IDs werden transparent via id-history aufgelöst.
+	resolved, _ := idmigrate.Resolve(path, id)
 	for _, n := range nodes {
-		if n.Meta.ID == id {
+		if n.Meta.ID == id || n.Meta.ID == resolved {
 			return processDTO(path, n, true), nil
 		}
 	}

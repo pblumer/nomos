@@ -27,6 +27,8 @@ const CosmosRootID = "COS_root"
 var artefactPrefixes = map[string]string{
 	"cosmos":              "COS",
 	"domain":              "DOM",
+	"service":             "SRV", // Namespace-Service (live)
+	"product":             "PRD", // legacy product artefact, gleicher Präfix wie product_blueprint
 	"product_blueprint":   "PRD",
 	"service_blueprint":   "SVC",
 	"product_instance":    "PRI",

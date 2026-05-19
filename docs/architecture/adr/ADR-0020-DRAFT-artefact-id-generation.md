@@ -1,6 +1,6 @@
 # ADR-0020 - System-generierte IDs für Nomos-Artefakte
 
-Status: Draft
+Status: Proposed
 
 ## Kontext
 
@@ -105,20 +105,54 @@ UI, CLI-Listings und Suche zeigen `name` (ggf. `slug`) prominent, die ID nur als
 - **Kein manuelles „sprechendes" ID-Wählen mehr.** Wer heute `PROD-CLOUD-MAILBOX-001` mochte, verliert das. Kompensiert durch `name`/`slug`.
 - **Tooling-Pflicht.** Artefakte können nicht mehr sinnvoll per Hand ohne CLI angelegt werden. `validate --fix` mildert das ab, ist aber Voraussetzung.
 
-## Migrationsplan (Skizze)
+## Kollisionsverhalten (wichtig)
 
-1. Präfix-Register und ID-Generator in `internal/idgen/` implementieren.
-2. `nomos id` Subcommand (`new`, `assign`, `validate`) + Integration in `nomos validate`.
-3. Schema-/Validator-Regel: `id` Pflicht, Format-Regex, Präfix-Passung, Eindeutigkeit.
-4. Migrationskommando `nomos id migrate` für bestehende Cosmos-Verzeichnisse: erzeugt neue IDs, schreibt `.nomos/id-history.yaml`, aktualisiert alle Referenzen.
-5. Beispiel-Cosmos (`examples/demo-cosmos/`) migrieren — dient als Referenz.
-6. Pre-commit-Hook (optional, repo-lokal) der `nomos validate` aufruft.
+6 Crockford-Base32-Zeichen ergeben 32⁶ ≈ 1,07 × 10⁹ mögliche Werte. Nach
+dem Geburtstagsproblem liegt die Kollisionswahrscheinlichkeit bei ~5 ×
+10⁻⁴ pro 1000 Artefakten desselben Typs und steigt bei ca. 46.000
+Artefakten desselben Typs auf 50 %. Für realistische Cosmos-Größen
+(<10.000 Artefakte je Typ) ist eine zufällige Kollision selten, aber nicht
+ausgeschlossen.
+
+Konsequenz: `CreateBlueprint`/`CreateInstance` prüfen Eindeutigkeit
+explizit und liefern bei Konflikt einen 409 — der Aufrufer (CLI/MCP)
+kann transparent neu generieren. Falls langfristig nötig, ohne ADR-
+Bruch: Suffix-Länge auf 8 Zeichen erhöhen (Gesamt 12 Zeichen, ~10¹²
+Werte) — kompatibel zur bestehenden Regex.
+
+## Umsetzung (Stand)
+
+1. **`internal/idgen`** — Präfix-Register (18 Typen), `New`, `NewForType`,
+   `IsValid`, `IsValidForType`, `IsLegacy`. Vollständige Unit-Tests.
+2. **`internal/idmigrate`** — `Scan`, `BuildPlan`, `Apply`, History-
+   Persistenz (`.nomos/id-history.yaml`), transparente `Resolve(path,
+   anyID)`-Auflösung mit In-Memory-Cache.
+3. **Auto-Vergabe in `app.Create*`** — Leere `id` triggert
+   `idgen.NewForType(type)`; vorhandene IDs werden weiterhin akzeptiert
+   (Backward-Compat während der Migration).
+4. **MCP-Tools** — `id` ist optional bei `nomos_product_create`,
+   `nomos_decision_create`, `nomos_instance_create`. Bei Auslassung
+   generiert der Server.
+5. **CLI** — `nomos id new <type>`, `nomos id check`, `nomos id migrate
+   [--dry-run]`. `--id` bei `blueprint create` und `instance create`
+   optional.
+6. **Transparente Auflösung** — `GetBlueprint`, `GetInstance`,
+   `GetProcess`, `GetDecision` konsultieren die History und finden
+   Artefakte auch über ihre alte ID. Externe Konsumenten, die alte
+   Referenzen halten, können weiter lesen.
 
 ## Offene Punkte
 
-- Referenz-Auflösung über `id-history` für externe Konsumenten, die alte IDs noch kennen — Verfallszeit?
-- Verhalten beim Forken eines Cosmos: bleibt die ID, oder wird im neuen Cosmos rebrandet?
-- Sub-Artefakte (z. B. `ProcessStep` innerhalb eines `Process`): eigenständige ID nach diesem Schema oder zusammengesetzt (`PRC_…/STP_…`)? Vorschlag: eigenständig, weil sie individuell referenziert werden.
+- Verfallszeit von `id-history.yaml`-Einträgen (heute: forever; akzeptabel
+  weil append-only und sehr klein).
+- Verhalten beim Forken eines Cosmos: bleibt die ID, oder wird im neuen
+  Cosmos rebrandet? Empfehlung: ID bleibt; Cosmos-eigene Identität wird
+  separat über die Cosmos-Wurzel (`COS_root`) markiert.
+- Sub-Artefakte (`ProcessStep`): eigenständige ID-Vergabe (`STP_…`) wurde
+  implementiert. Verbund-IDs (`PRC_…/STP_…`) wurden verworfen, weil
+  Steps individuell referenzierbar sein müssen.
+- Optional: Suffix-Länge konfigurierbar machen — derzeit Konstante
+  `idgen.SuffixLength = 6`.
 
 ## Bezüge
 

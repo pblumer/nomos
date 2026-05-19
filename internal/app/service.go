@@ -16,6 +16,7 @@ import (
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/graph"
 	"github.com/nomos/nomos/internal/idgen"
+	"github.com/nomos/nomos/internal/idmigrate"
 	"github.com/nomos/nomos/internal/model"
 	"github.com/nomos/nomos/internal/namespace"
 	"github.com/nomos/nomos/internal/storage"
@@ -778,8 +779,10 @@ func GetBlueprint(path, id string) (BlueprintDTO, error) {
 	if err != nil {
 		return BlueprintDTO{}, err
 	}
+	// ADR-0020: Legacy-IDs werden transparent via id-history aufgelöst.
+	resolved, _ := idmigrate.Resolve(path, id)
 	for _, b := range items.Blueprints {
-		if b.ID == id {
+		if b.ID == id || b.ID == resolved {
 			return b, nil
 		}
 	}
@@ -804,8 +807,9 @@ func GetInstance(path, id string) (InstanceDTO, error) {
 	if err != nil {
 		return InstanceDTO{}, err
 	}
+	resolved, _ := idmigrate.Resolve(path, id)
 	for _, i := range items.Instances {
-		if i.ID == id {
+		if i.ID == id || i.ID == resolved {
 			return i, nil
 		}
 	}

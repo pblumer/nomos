@@ -158,7 +158,10 @@ func TestIsLegacy(t *testing.T) {
 }
 
 func TestUniqueness(t *testing.T) {
-	const N = 20000
+	// 32^6 ≈ 1.07e9 Werte. Geburtstagsproblem: Kollisionswahrscheinlichkeit
+	// für N=1000 Stichproben liegt bei ~5e-4 — testbar ohne Flakes.
+	// (Größere Stichproben würden absichtsgemäß irgendwann kollidieren.)
+	const N = 1000
 	seen := make(map[string]bool, N)
 	for i := 0; i < N; i++ {
 		id, err := New("PRD")

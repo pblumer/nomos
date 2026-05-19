@@ -12,6 +12,7 @@ import (
 	"github.com/nomos/nomos/internal/dmn"
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/idgen"
+	"github.com/nomos/nomos/internal/idmigrate"
 	"github.com/nomos/nomos/internal/model"
 )
 
@@ -61,8 +62,10 @@ func GetDecision(path, domainCanonical, id string) (DecisionDTO, error) {
 	if err != nil {
 		return DecisionDTO{}, err
 	}
+	// ADR-0020: Legacy-IDs werden transparent via id-history aufgelöst.
+	resolved, _ := idmigrate.Resolve(path, id)
 	for _, n := range nodes {
-		if n.Metadata.ID == id {
+		if n.Metadata.ID == id || n.Metadata.ID == resolved {
 			return decisionDTO(n), nil
 		}
 	}
