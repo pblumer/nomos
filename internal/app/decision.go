@@ -308,23 +308,49 @@ func UpdateDecisionDMN(path, domainCanonical, id, dmnXML string) (DecisionDTO, e
 // that's the case we look up the matching decision-table <input> column by
 // expression / label and adopt its typeRef so the I/O panel reflects what
 // the modeller actually entered.
+//
+// When the <inputData>'s variable name and the column expression have drifted
+// apart (e.g. the pill still reads "Value" / "Customer Status" but the column
+// already uses the snake_case FEEL identifier the evaluator expects), we
+// match on SnakeCase normalization and adopt the column expression as the
+// canonical name — otherwise the test dialog would send requests keyed by
+// the descriptive name and the evaluator wouldn't find them.
 func inputsFromDMN(defs *model.DMNDefinitions) []model.DecisionIO {
 	if defs == nil {
 		return nil
 	}
-	colTypes := decisionTableInputTypes(defs)
+	cols := decisionTableInputs(defs)
 	out := make([]model.DecisionIO, 0, len(defs.InputData))
 	for _, in := range defs.InputData {
-		name := strings.TrimSpace(in.Variable.Name)
+		varName := strings.TrimSpace(in.Variable.Name)
+		pillName := strings.TrimSpace(in.Name)
+		var (
+			col   colInputInfo
+			found bool
+		)
+		for _, key := range []string{varName, pillName, dmn.SnakeCase(varName), dmn.SnakeCase(pillName)} {
+			key = strings.TrimSpace(key)
+			if key == "" {
+				continue
+			}
+			if c, ok := cols[key]; ok {
+				col, found = c, true
+				break
+			}
+		}
+		name := varName
 		if name == "" {
-			name = strings.TrimSpace(in.Name)
+			name = pillName
+		}
+		if found {
+			name = col.expression
 		}
 		if name == "" {
 			continue
 		}
 		typ := normalizeDMNType(in.Variable.TypeRef)
-		if typ == "" {
-			typ = colTypes[name]
+		if typ == "" && found {
+			typ = col.typeRef
 		}
 		out = append(out, model.DecisionIO{
 			Name:        name,
@@ -335,36 +361,48 @@ func inputsFromDMN(defs *model.DMNDefinitions) []model.DecisionIO {
 	return out
 }
 
-// decisionTableInputTypes indexes the typeRef of every decision table input
-// column by the name it references (expression first, label as fallback).
-// The first non-empty type wins; collisions across tables are unusual and
-// would indicate a modelling inconsistency the modeller needs to resolve.
-func decisionTableInputTypes(defs *model.DMNDefinitions) map[string]string {
-	types := map[string]string{}
+// colInputInfo carries a decision-table <input> column's evaluator-visible
+// identifier (Expression) alongside its declared typeRef.
+type colInputInfo struct {
+	expression string
+	typeRef    string
+}
+
+// decisionTableInputs indexes every decision-table <input> column by all the
+// name variants an <inputData> might reference it under — the column
+// expression, its label, and the SnakeCase normalization of each. Indexing
+// the SnakeCase variants lets us recover the column type for DMNs whose
+// variable.name (e.g. "Value", "Customer Status") never went through the
+// snake_case rewrite that aligned the decision-table expressions. The first
+// non-empty entry wins; collisions across tables are unusual and would
+// indicate a modelling inconsistency the modeller needs to resolve.
+func decisionTableInputs(defs *model.DMNDefinitions) map[string]colInputInfo {
+	out := map[string]colInputInfo{}
 	if defs == nil {
-		return types
+		return out
 	}
 	for _, d := range defs.Decisions {
 		if d.Logic == nil || d.Logic.DecisionTable == nil {
 			continue
 		}
 		for _, col := range d.Logic.DecisionTable.Inputs {
-			typ := normalizeDMNType(col.TypeRef)
-			if typ == "" {
+			expr := strings.TrimSpace(col.Expression)
+			if expr == "" {
 				continue
 			}
-			for _, key := range []string{col.Expression, col.Label} {
+			info := colInputInfo{expression: expr, typeRef: normalizeDMNType(col.TypeRef)}
+			for _, key := range []string{col.Expression, col.Label, dmn.SnakeCase(col.Expression), dmn.SnakeCase(col.Label)} {
 				key = strings.TrimSpace(key)
 				if key == "" {
 					continue
 				}
-				if _, seen := types[key]; !seen {
-					types[key] = typ
+				if _, seen := out[key]; !seen {
+					out[key] = info
 				}
 			}
 		}
 	}
-	return types
+	return out
 }
 
 // outputsFromDMN maps each top-level <decision>'s outputs to an output entry.
