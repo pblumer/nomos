@@ -132,6 +132,11 @@ func BuildNamespaceTree(path string) (NamespaceTreeDTO, error) {
 	if err != nil {
 		return NamespaceTreeDTO{}, err
 	}
+	tree, err := load(path)
+	if err != nil {
+		return NamespaceTreeDTO{}, err
+	}
+	decIdx := buildDecisionIndex(tree)
 	root := NamespaceTreeNodeDTO{Label: fallback(cosmos.Name, "Local Cosmos"), Kind: "cosmos", CanOpenDetails: true}
 	namespaces := NamespaceTreeNodeDTO{Label: "Namespaces", Kind: "namespace-parent"}
 	for _, d := range domains.Domains {
@@ -139,11 +144,36 @@ func BuildNamespaceTree(path string) (NamespaceTreeDTO, error) {
 		if err != nil {
 			return NamespaceTreeDTO{}, err
 		}
-		insertDomain(&namespaces, full)
+		insertDomain(&namespaces, full, decIdx)
 	}
 	root.Children = append(root.Children, namespaces)
 	sortTree(&root)
 	return NamespaceTreeDTO{Root: root}, nil
+}
+
+// decisionIndexEntry locates a decision globally: the decision DTO plus the
+// canonical name of the domain that owns it (which may differ from the domain
+// whose product references it).
+type decisionIndexEntry struct {
+	Decision        DecisionDTO
+	DomainCanonical string
+}
+
+func buildDecisionIndex(tree cosmosfs.Tree) map[string]decisionIndexEntry {
+	idx := make(map[string]decisionIndexEntry)
+	for _, d := range tree.Domains {
+		canonical := namespace.Canonical(d.Name)
+		for _, dec := range d.Decisions {
+			if dec.Metadata.ID == "" {
+				continue
+			}
+			if _, exists := idx[dec.Metadata.ID]; exists {
+				continue
+			}
+			idx[dec.Metadata.ID] = decisionIndexEntry{Decision: decisionDTO(dec), DomainCanonical: canonical}
+		}
+	}
+	return idx
 }
 
 func domainDTO(tree cosmosfs.Tree, d cosmosfs.DomainNode, includeServices bool) DomainDTO {
@@ -561,7 +591,7 @@ func verificationStatus(status string) string {
 	}
 }
 
-func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
+func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO, decIdx map[string]decisionIndexEntry) {
 	node := root
 	parts := d.Namespace.TreeParts
 	for i, label := range parts {
@@ -640,15 +670,24 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO) {
 				productNode.Children = append(productNode.Children, processesParent)
 			}
 			if len(referencedDecisions) > 0 {
-				businessRulesParent := NamespaceTreeNodeDTO{Label: "Business Rules", Kind: "product-decision-parent", Canonical: product.ID + "/decisions", CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: false, FulfillmentCount: len(referencedDecisions)}
-				for _, dec := range d.Decisions {
-					if !referencedDecisions[dec.ID] {
+				refIDs := make([]string, 0, len(referencedDecisions))
+				for id := range referencedDecisions {
+					refIDs = append(refIDs, id)
+				}
+				sort.Strings(refIDs)
+				businessRulesParent := NamespaceTreeNodeDTO{Label: "Business Rules", Kind: "product-decision-parent", Canonical: product.ID + "/decisions", CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: false}
+				for _, refID := range refIDs {
+					entry, ok := decIdx[refID]
+					if !ok {
 						continue
 					}
-					dd := dec
-					businessRulesParent.Children = append(businessRulesParent.Children, NamespaceTreeNodeDTO{Label: dec.Name, Kind: "decision", Canonical: d.Canonical + "/decisions/" + dec.ID, CanonicalName: d.Canonical, Decision: &dd, Persisted: true, CanOpenDetails: true})
+					dd := entry.Decision
+					businessRulesParent.Children = append(businessRulesParent.Children, NamespaceTreeNodeDTO{Label: entry.Decision.Name, Kind: "decision", Canonical: entry.DomainCanonical + "/decisions/" + entry.Decision.ID, CanonicalName: entry.DomainCanonical, Decision: &dd, Persisted: true, CanOpenDetails: true})
 				}
-				productNode.Children = append(productNode.Children, businessRulesParent)
+				if len(businessRulesParent.Children) > 0 {
+					businessRulesParent.FulfillmentCount = len(businessRulesParent.Children)
+					productNode.Children = append(productNode.Children, businessRulesParent)
+				}
 			}
 			if len(product.Processes) == 0 && len(product.Fulfillment.RequiredServices) > 0 {
 				fulfillmentParent := NamespaceTreeNodeDTO{Label: "Fulfillment Services", Kind: "product-fulfillment-parent", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true, FulfillmentCount: len(product.Fulfillment.RequiredServices)}
