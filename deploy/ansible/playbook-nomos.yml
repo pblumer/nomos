@@ -16,6 +16,5 @@
 
   post_tasks:
     - name: Upgrade self-model in Docker cosmos
-      command: "{{ nomos_home }}/nomos self upgrade --path {{ nomos_cosmos_path }}"
-      become_user: "{{ nomos_user }}"
+      command: docker exec nomos /usr/local/bin/nomos self upgrade --path /workspace
       ignore_errors: true
