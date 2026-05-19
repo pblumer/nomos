@@ -265,6 +265,7 @@
 .dmn-drg-list{display:flex;flex-wrap:wrap;gap:.3rem;font-size:.78rem}
 .dmn-drg-chip{background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:7px;padding:.18rem .5rem}
 .dmn-drg-chip.input-data{background:#ecfeff;color:#155e75;border-color:#a5f3fc}
+.dmn-drg-chip.output-data{background:#fef2f2;color:#9f1239;border-color:#fecdd3}
 .dmn-drg-chip.bkm{background:#fef3c7;color:#92400e;border-color:#fde68a}
 .dmn-drg-chip.ks{background:#f3e8ff;color:#6b21a8;border-color:#e9d5ff}
 .dmn-drg-chip.ds{background:#dcfce7;color:#166534;border-color:#bbf7d0}
@@ -1887,6 +1888,8 @@ function decisionDRGSummary(defs){
   const parts=[];
   const chip=(label,kind,extra='')=>`<span class="dmn-drg-chip ${kind}" title="${esc(extra||'')}">${esc(label)}</span>`;
   if(defs.input_data?.length)parts.push(`<div class="dmn-drg-card"><h5>Input Data (${defs.input_data.length})</h5><div class="dmn-drg-list">${defs.input_data.map(x=>chip(x.name+(x.variable?.type_ref?' : '+x.variable.type_ref:''),'input-data',x.description||'')).join('')}</div></div>`);
+  const drgOutputs=(defs.decisions||[]).filter(d=>{const reqs=new Set();(defs.decisions||[]).forEach(o=>(o.information_requirements||[]).forEach(ir=>{if(ir.required_decision)reqs.add(String(ir.required_decision).replace(/^#/,''));}));return !reqs.has(d.id);});
+  if(drgOutputs.length)parts.push(`<div class="dmn-drg-card"><h5>Output Data (${drgOutputs.length})</h5><div class="dmn-drg-list">${drgOutputs.map(d=>chip((d.variable?.name||d.name)+(d.variable?.type_ref?' : '+d.variable.type_ref:''),'output-data',d.question||d.description||'')).join('')}</div></div>`);
   if(defs.decisions?.length)parts.push(`<div class="dmn-drg-card"><h5>Decisions (${defs.decisions.length})</h5><div class="dmn-drg-list">${defs.decisions.map(d=>chip(d.name+(d.logic?.kind?' · '+d.logic.kind:''),'',d.question||d.description||'')).join('')}</div></div>`);
   if(defs.business_knowledge_models?.length)parts.push(`<div class="dmn-drg-card"><h5>Business Knowledge Models (${defs.business_knowledge_models.length})</h5><div class="dmn-drg-list">${defs.business_knowledge_models.map(b=>chip(b.name,'bkm',b.description||'')).join('')}</div></div>`);
   if(defs.knowledge_sources?.length)parts.push(`<div class="dmn-drg-card"><h5>Knowledge Sources (${defs.knowledge_sources.length})</h5><div class="dmn-drg-list">${defs.knowledge_sources.map(k=>chip(k.name+(k.source_type?' · '+k.source_type:''),'ks',k.location_uri||'')).join('')}</div></div>`);
