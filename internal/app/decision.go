@@ -280,10 +280,17 @@ func UpdateDecisionDMN(path, domainCanonical, id, dmnXML string) (DecisionDTO, e
 }
 
 // inputsFromDMN maps DMN <inputData> nodes to the decision artifact's inputs.
+//
+// <inputData> elements often omit a typeRef on their <variable>; DMN editors
+// only let modellers pick a type on the decision table's input column. When
+// that's the case we look up the matching decision-table <input> column by
+// expression / label and adopt its typeRef so the I/O panel reflects what
+// the modeller actually entered.
 func inputsFromDMN(defs *model.DMNDefinitions) []model.DecisionIO {
 	if defs == nil {
 		return nil
 	}
+	colTypes := decisionTableInputTypes(defs)
 	out := make([]model.DecisionIO, 0, len(defs.InputData))
 	for _, in := range defs.InputData {
 		name := strings.TrimSpace(in.Variable.Name)
@@ -293,18 +300,62 @@ func inputsFromDMN(defs *model.DMNDefinitions) []model.DecisionIO {
 		if name == "" {
 			continue
 		}
+		typ := normalizeDMNType(in.Variable.TypeRef)
+		if typ == "" {
+			typ = colTypes[name]
+		}
 		out = append(out, model.DecisionIO{
 			Name:        name,
-			Type:        normalizeDMNType(in.Variable.TypeRef),
+			Type:        typ,
 			Description: strings.TrimSpace(in.Description),
 		})
 	}
 	return out
 }
 
-// outputsFromDMN maps each top-level <decision>'s variable to an output.
+// decisionTableInputTypes indexes the typeRef of every decision table input
+// column by the name it references (expression first, label as fallback).
+// The first non-empty type wins; collisions across tables are unusual and
+// would indicate a modelling inconsistency the modeller needs to resolve.
+func decisionTableInputTypes(defs *model.DMNDefinitions) map[string]string {
+	types := map[string]string{}
+	if defs == nil {
+		return types
+	}
+	for _, d := range defs.Decisions {
+		if d.Logic == nil || d.Logic.DecisionTable == nil {
+			continue
+		}
+		for _, col := range d.Logic.DecisionTable.Inputs {
+			typ := normalizeDMNType(col.TypeRef)
+			if typ == "" {
+				continue
+			}
+			for _, key := range []string{col.Expression, col.Label} {
+				key = strings.TrimSpace(key)
+				if key == "" {
+					continue
+				}
+				if _, seen := types[key]; !seen {
+					types[key] = typ
+				}
+			}
+		}
+	}
+	return types
+}
+
+// outputsFromDMN maps each top-level <decision>'s outputs to an output entry.
 // "Top-level" = decisions not required by any other decision in the DRG; if
 // the requirement graph is empty (single-decision DMN) every decision counts.
+//
+// For a decision whose logic is a <decisionTable>, the table's <output>
+// columns are the source of truth: a multi-output table yields one entry per
+// column, and a single-output column overrides the decision variable when it
+// carries an explicit name/type (DMN editors routinely leave the decision
+// variable stale after the column is renamed or retyped). Decisions without
+// a decision table (literalExpression, context, ...) fall back to the
+// decision variable.
 func outputsFromDMN(defs *model.DMNDefinitions) []model.DecisionIO {
 	if defs == nil {
 		return nil
@@ -322,19 +373,58 @@ func outputsFromDMN(defs *model.DMNDefinitions) []model.DecisionIO {
 		if required[d.ID] {
 			continue
 		}
-		name := strings.TrimSpace(d.Variable.Name)
-		if name == "" {
-			name = strings.TrimSpace(d.Name)
-		}
-		if name == "" {
-			continue
-		}
-		out = append(out, model.DecisionIO{
-			Name: name,
-			Type: normalizeDMNType(d.Variable.TypeRef),
-		})
+		out = append(out, decisionOutputs(d)...)
 	}
 	return out
+}
+
+// decisionOutputs derives the output I/O entries for a single decision,
+// preferring decision table output columns over the decision variable.
+func decisionOutputs(d model.DMNDecision) []model.DecisionIO {
+	varName := strings.TrimSpace(d.Variable.Name)
+	if varName == "" {
+		varName = strings.TrimSpace(d.Name)
+	}
+	varType := normalizeDMNType(d.Variable.TypeRef)
+
+	var cols []model.DMNDecisionTableOutput
+	if d.Logic != nil && d.Logic.DecisionTable != nil {
+		cols = d.Logic.DecisionTable.Outputs
+	}
+
+	switch {
+	case len(cols) > 1:
+		out := make([]model.DecisionIO, 0, len(cols))
+		for _, c := range cols {
+			name := strings.TrimSpace(c.Name)
+			if name == "" {
+				continue
+			}
+			out = append(out, model.DecisionIO{
+				Name: name,
+				Type: normalizeDMNType(c.TypeRef),
+			})
+		}
+		return out
+	case len(cols) == 1:
+		name := strings.TrimSpace(cols[0].Name)
+		if name == "" {
+			name = varName
+		}
+		typ := normalizeDMNType(cols[0].TypeRef)
+		if typ == "" {
+			typ = varType
+		}
+		if name == "" {
+			return nil
+		}
+		return []model.DecisionIO{{Name: name, Type: typ}}
+	default:
+		if varName == "" {
+			return nil
+		}
+		return []model.DecisionIO{{Name: varName, Type: varType}}
+	}
 }
 
 // normalizeDMNType lower-cases standard DMN/FEEL type refs and leaves custom

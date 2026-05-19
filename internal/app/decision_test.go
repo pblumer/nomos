@@ -86,6 +86,57 @@ func TestEvaluateDecision_AgainstDMNFile(t *testing.T) {
 	}
 }
 
+// Cosmos Explorer's "Inputs/Outputs (aus Diagramm)" panel derives I/O from
+// the DMN file. Many DMN editors only let modellers pick types on the
+// decision table's input columns (the <inputData> variable stays typeless)
+// and routinely leave the decision <variable> stale after renaming or
+// retyping the table's output column. Both situations must be recovered
+// from the table itself.
+func TestUpdateDecisionDMN_DerivesIOFromDecisionTable(t *testing.T) {
+	p := createDecisionTestCosmos(t)
+	dmnXML := `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20240513/MODEL/" id="Defs" name="Kreditpruefungsstufe evaluieren">
+  <inputData id="ID_value" name="value"><variable id="V_value" name="value"/></inputData>
+  <inputData id="ID_status" name="customer_status"><variable id="V_status" name="customer_status"/></inputData>
+  <decision id="Dec_1" name="Kreditpruefungsstufe evaluieren">
+    <variable id="Var_Dec1" name="result" typeRef="boolean"/>
+    <informationRequirement id="IR_1"><requiredInput href="#ID_value"/></informationRequirement>
+    <informationRequirement id="IR_2"><requiredInput href="#ID_status"/></informationRequirement>
+    <decisionTable id="DT_1" hitPolicy="FIRST">
+      <input id="In_value" label="value"><inputExpression id="IE_value" typeRef="number"><text>value</text></inputExpression></input>
+      <input id="In_status" label="customer_status"><inputExpression id="IE_status" typeRef="string"><text>customer_status</text></inputExpression></input>
+      <output id="Out_1" name="kredit_stufe" typeRef="string"/>
+      <rule id="R_1">
+        <inputEntry id="IE_R1_1"><text>&lt; 100</text></inputEntry>
+        <inputEntry id="IE_R1_2"><text>-</text></inputEntry>
+        <outputEntry id="OE_R1"><text>"kleiner Betrag"</text></outputEntry>
+      </rule>
+      <rule id="R_2">
+        <inputEntry id="IE_R2_1"><text>-</text></inputEntry>
+        <inputEntry id="IE_R2_2"><text>-</text></inputEntry>
+        <outputEntry id="OE_R2"><text>"grosser Betrag"</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+</definitions>`
+	dec, err := UpdateDecisionDMN(p, "governance.blumer.com", "DEC-001", dmnXML)
+	if err != nil {
+		t.Fatalf("UpdateDecisionDMN: %v", err)
+	}
+	wantInputs := map[string]string{"value": "number", "customer_status": "string"}
+	if len(dec.Inputs) != len(wantInputs) {
+		t.Fatalf("inputs: got %+v, want %v", dec.Inputs, wantInputs)
+	}
+	for _, in := range dec.Inputs {
+		if wantInputs[in.Name] != in.Type {
+			t.Errorf("input %q: got type %q, want %q", in.Name, in.Type, wantInputs[in.Name])
+		}
+	}
+	if len(dec.Outputs) != 1 || dec.Outputs[0].Name != "kredit_stufe" || dec.Outputs[0].Type != "string" {
+		t.Errorf("outputs: got %+v, want [{kredit_stufe string}]", dec.Outputs)
+	}
+}
+
 func TestGetDecisionDMN_ReturnsRawXML(t *testing.T) {
 	p := createDecisionTestCosmos(t)
 	raw, err := GetDecisionDMN(p, "governance.blumer.com", "DEC-001")
