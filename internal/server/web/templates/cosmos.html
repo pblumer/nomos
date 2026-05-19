@@ -432,6 +432,7 @@
   <div class="nctx-item" data-action="add-subdomain"><span class="mi">subdirectory_arrow_right</span> Sub-Domain hinzuf&uuml;gen</div>
   <div class="nctx-item" data-action="add-product"><span class="mi">inventory_2</span> Produkt hinzuf&uuml;gen</div>
   <div class="nctx-item" data-action="add-service"><span class="mi">add_circle</span> Service hinzuf&uuml;gen</div>
+  <div class="nctx-item" data-action="add-decision"><span class="mi">gavel</span> Decision hinzuf&uuml;gen</div>
   <div class="nctx-item" data-action="move-product"><span class="mi">drive_file_move</span> Produkt verschieben</div>
   <div class="nctx-item" data-action="copy-service-ref"><span class="mi">content_copy</span> service_ref kopieren</div>
   <div class="nctx-item" data-action="add-blueprint"><span class="mi">add_circle</span> Blueprint hinzuf&uuml;gen</div>
@@ -525,7 +526,7 @@ function expandOwnChildren(row){const ul=row.closest('.cn')?.querySelector(':sco
 function expandProductFulfillment(productRow){expandOwnChildren(productRow);const fulfillmentRow=productRow.closest('.cn')?.querySelector(':scope > .cn-children > .cn > .cn-row[data-kind="product-fulfillment-parent"]');if(fulfillmentRow)expandOwnChildren(fulfillmentRow);}
 
 const ctx=$('nctx');let ctxRow=null;
-const CTX={cosmos:['add-domain'],namespace:['add-domain'],'domain-parent':['add-domain'],'namespace-parent':['add-domain'],domain:['add-subdomain','add-product','add-service','verify-domain','edit','delete'],'product-parent':['add-product'],'service-parent':['add-service'],service:['edit','delete'],product:['move-product','edit','delete'],'product-fulfillment-service':['copy-service-ref'],'blueprint-parent':['add-blueprint'],blueprint:['edit','delete']};
+const CTX={cosmos:['add-domain'],namespace:['add-domain'],'domain-parent':['add-domain'],'namespace-parent':['add-domain'],domain:['add-subdomain','add-product','add-service','add-decision','verify-domain','edit','delete'],'product-parent':['add-product'],'service-parent':['add-service'],'decision-parent':['add-decision'],service:['edit','delete'],product:['move-product','edit','delete'],'product-fulfillment-service':['copy-service-ref'],'blueprint-parent':['add-blueprint'],blueprint:['edit','delete']};
 function showCtx(x,y,row){ctxRow=row;const allowed=CTX[row.dataset.kind]||[];ctx.querySelectorAll('.nctx-item').forEach(it=>{it.style.display=allowed.includes(it.dataset.action)?'flex':'none';});ctx.querySelectorAll('.nctx-sep').forEach(s=>{s.style.display='block';});ctx.style.left=x+'px';ctx.style.top=y+'px';ctx.classList.add('open');requestAnimationFrame(()=>{const r=ctx.getBoundingClientRect();if(r.right>innerWidth)ctx.style.left=(x-r.width)+'px';if(r.bottom>innerHeight)ctx.style.top=(y-r.height)+'px';});}
 function hideCtx(){ctx.classList.remove('open');}
 ctx.addEventListener('click',e=>{const it=e.target.closest('.nctx-item');if(!it)return;e.stopPropagation();hideCtx();handleAction(it.dataset.action,ctxRow);});
@@ -540,7 +541,7 @@ function closeModal(){modal.classList.remove('open');}
 function showModalError(msg){modalError.textContent=msg;modalError.classList.add('show');}
 modalConfirm.addEventListener('click',async()=>{if(!modalSubmit)return;modalConfirm.disabled=true;const prev=modalConfirm.textContent;modalConfirm.textContent='Wird gespeichert…';try{await modalSubmit();}catch(err){showModalError(err.message);}finally{modalConfirm.disabled=false;modalConfirm.textContent=prev;}});
 
-function handleAction(action,row){if(!row)return;if(action==='copy-service-ref')navigator.clipboard?.writeText(row.dataset.serviceRef||'');else if(action==='move-product')doMoveProduct(row);else if(action==='delete')doDelete(row);else if(action==='verify-domain')doVerify(row);else if(action==='edit')doEdit(row);else if(action==='add-domain')doAddDomain(row);else if(action==='add-subdomain')doAddSubdomain(row);else if(action==='add-product')doAddProduct(row);else if(action==='add-service')doAddService(row);else if(action==='add-blueprint')doAddBlueprint(row);}
+function handleAction(action,row){if(!row)return;if(action==='copy-service-ref')navigator.clipboard?.writeText(row.dataset.serviceRef||'');else if(action==='move-product')doMoveProduct(row);else if(action==='delete')doDelete(row);else if(action==='verify-domain')doVerify(row);else if(action==='edit')doEdit(row);else if(action==='add-domain')doAddDomain(row);else if(action==='add-subdomain')doAddSubdomain(row);else if(action==='add-product')doAddProduct(row);else if(action==='add-service')doAddService(row);else if(action==='add-decision')doAddDecision(row);else if(action==='add-blueprint')doAddBlueprint(row);}
 
 function domainOptions(current,target){return knownDomains.map(d=>`<option value="${esc(d.canonical)}" ${d.canonical===current?'disabled':''} ${d.canonical===target?'selected':''}>${esc(d.canonical)}${d.displayPath?' — '+esc(d.displayPath):''}${d.canonical===current?' (aktuell)':''}</option>`).join('');}
 async function doMoveProduct(row,targetDomain){
@@ -589,6 +590,51 @@ function doAddService(row){const domainId=row.dataset.kind==='service-parent'?ro
 
 function doAddProduct(row){const domainId=row.dataset.kind==='product-parent'?row.dataset.domain:row.dataset.canonical||row.dataset.id;openModal('Produkt hinzufügen zu '+domainId,`<div class="nfield"><label>This product will be offered by</label><input value="${esc(domainId)}" disabled /></div><div class="nfield"><label>Product ID</label><input id="af-prod-id" placeholder="PROD-..." /></div><div class="nfield"><label>Name</label><input id="af-prod-name" placeholder="Produktname" /></div><div class="nfield"><label>Version</label><input id="af-prod-version" value="0.1.0" /></div><div class="nfield"><label>Status</label><select id="af-prod-status"><option value="draft">draft</option><option value="active">active</option><option value="published">published</option><option value="deprecated">deprecated</option></select></div><div class="nfield"><label>Owning domain</label><input id="af-prod-owning" value="${esc(domainId)}" /><div class="nfield-hint">Defaults to the selected domain.</div></div><div class="nfield"><label>Summary</label><textarea id="af-prod-summary"></textarea></div>`,async()=>{const id=$('af-prod-id')?.value.trim(),name=$('af-prod-name')?.value.trim();if(!id)throw new Error('Product ID required');if(!name)throw new Error('Product name required');const body={id,name,version:$('af-prod-version')?.value.trim()||'0.1.0',status:$('af-prod-status')?.value||'draft',owning_domain:$('af-prod-owning')?.value.trim()||domainId,summary:$('af-prod-summary')?.value.trim()||''};const r=await fetch('/api/v1/domains/'+encodeURIComponent(domainId)+'/products',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(r.ok){closeModal();location.href='/cosmos?selected=product:'+encodeURIComponent(d.id);}else throw new Error(d.error?.message||'Produkt konnte nicht erstellt werden');},'Produkt erstellen');}
 
+function doAddDecision(row){
+  const kind=row.dataset.kind;
+  const domainId=kind==='decision-parent'?(row.dataset.canonical||row.dataset.id):(row.dataset.canonical||row.dataset.id);
+  if(!domainId){alert('Domain nicht auflösbar');return;}
+  const ioRow=(prefix,name='',type='string')=>`<div class="dec-io-row" data-prefix="${prefix}" style="display:flex;gap:.35rem;margin-bottom:.3rem"><input class="dec-io-name" placeholder="Name" value="${esc(name)}" style="flex:1;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.82rem"><select class="dec-io-type" style="width:110px;border:1px solid #d1d5db;border-radius:5px;padding:.25rem .4rem;font-size:.82rem"><option value="string"${type==='string'?' selected':''}>string</option><option value="number"${type==='number'?' selected':''}>number</option><option value="boolean"${type==='boolean'?' selected':''}>boolean</option><option value="date"${type==='date'?' selected':''}>date</option></select><button type="button" class="btn btn-secondary btn-sm dec-io-rm" title="Entfernen">&#x2715;</button></div>`;
+  openModal('Decision hinzufügen zu '+domainId,
+`<div class="nfield"><label>Domain</label><input value="${esc(domainId)}" disabled /></div>
+<div class="nfield"><label>Name</label><input id="ad-name" placeholder="z.B. Account Deactivation Rule" /></div>
+<div class="nfield"><label>ID <span style="font-size:.72rem;color:#94a3b8;font-weight:400">(optional &ndash; sonst DEC-NNN)</span></label><input id="ad-id" placeholder="DEC-001" /></div>
+<div class="nfield"><label>Number <span style="font-size:.72rem;color:#94a3b8;font-weight:400">(fachliche Nummer)</span></label><input id="ad-number" placeholder="DEC-IDC-001" /></div>
+<div class="nfield"><label>Owner</label><input id="ad-owner" placeholder="Team" /></div>
+<div class="nfield"><label>Summary</label><textarea id="ad-summary" rows="2"></textarea></div>
+<div class="nfield"><label>Context</label><textarea id="ad-context" rows="2" placeholder="Fachlicher Hintergrund (optional)"></textarea></div>
+<div class="nfield"><label>Inputs</label><div id="ad-inputs">${ioRow('ad-in','','string')}</div><button type="button" class="btn btn-secondary btn-sm" id="ad-add-in">+ Input</button></div>
+<div class="nfield"><label>Outputs</label><div id="ad-outputs">${ioRow('ad-out','result','boolean')}</div><button type="button" class="btn btn-secondary btn-sm" id="ad-add-out">+ Output</button></div>`,
+  async()=>{
+    const name=$('ad-name')?.value.trim();
+    if(!name)throw new Error('Name erforderlich');
+    const collect=(parentId)=>{const out=[];document.querySelectorAll('#'+parentId+' .dec-io-row').forEach(r=>{const n=r.querySelector('.dec-io-name')?.value.trim();const t=r.querySelector('.dec-io-type')?.value||'string';if(n)out.push({name:n,type:t});});return out;};
+    const inputs=collect('ad-inputs');
+    const outputs=collect('ad-outputs');
+    const body={
+      name,
+      id:$('ad-id')?.value.trim()||'',
+      number:$('ad-number')?.value.trim()||'',
+      owner:$('ad-owner')?.value.trim()||'unknown',
+      summary:$('ad-summary')?.value.trim()||'',
+      context:$('ad-context')?.value.trim()||'',
+      inputs,
+      outputs,
+    };
+    const r=await fetch('/api/v1/domains/'+encodeURIComponent(domainId)+'/decisions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json().catch(()=>({}));
+    if(r.ok){closeModal();location.href='/cosmos?selected=decision:'+encodeURIComponent(domainId+'/decisions/'+(d.id||''));}
+    else throw new Error(d.error?.message||'Erstellen fehlgeschlagen');
+  },'Decision erstellen');
+  setTimeout(()=>{
+    const onRemove=(e)=>{const btn=e.target.closest('.dec-io-rm');if(!btn)return;const row=btn.closest('.dec-io-row');const list=row?.parentElement;if(list&&list.querySelectorAll('.dec-io-row').length>1)row.remove();};
+    $('ad-inputs')?.addEventListener('click',onRemove);
+    $('ad-outputs')?.addEventListener('click',onRemove);
+    $('ad-add-in')?.addEventListener('click',()=>{$('ad-inputs').insertAdjacentHTML('beforeend',ioRow('ad-in','','string'));});
+    $('ad-add-out')?.addEventListener('click',()=>{$('ad-outputs').insertAdjacentHTML('beforeend',ioRow('ad-out','','string'));});
+  },0);
+}
+
 function doAddBlueprint(row){openModal('Blueprint hinzufuegen',`<div class="nfield"><label>ID</label><input id="af-id" placeholder="PB-... oder SB-..." /></div><div class="nfield"><label>Typ</label><select id="af-type"><option value="product_blueprint">product_blueprint</option><option value="service_blueprint">service_blueprint</option></select></div><div class="nfield"><label>Name</label><input id="af-name" placeholder="Anzeigename" /></div><div class="nfield"><label>Owner</label><input id="af-owner" placeholder="Team" /></div>`,async()=>{const id=$('af-id')?.value.trim(),type=$('af-type')?.value,name=$('af-name')?.value.trim()||id,owner=$('af-owner')?.value.trim()||'unknown';if(!id)throw new Error('Blueprint-ID erforderlich');const r=await fetch('/api/v1/blueprints',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,type,name,version:'0.1.0',status:'draft',owner})});const d=await r.json().catch(()=>({}));if(r.ok){closeModal();location.reload();}else throw new Error(d.error?.message||'Erstellen fehlgeschlagen');},'Erstellen');}
 
 function getNamespacePath(row){const parts=[];let li=row.closest('.cn');while(li){const r=li.querySelector(':scope > .cn-row');if(!r)break;const k=r.dataset.kind;if(k==='namespace'||k==='domain')parts.unshift(r.querySelector('.cn-label')?.textContent.trim()||'');else break;li=li.parentElement?.closest('.cn');}return parts[0]||'';}
@@ -605,6 +651,7 @@ async function loadDetail(row){const kind=row.dataset.kind,id=row.dataset.id,can
   if(kind==='product-parent'){const domain=row.dataset.domain;fetch('/api/v1/domains/'+encodeURIComponent(domain)+'/products').then(r=>r.json()).then(d=>{detail.innerHTML=domainProductsDetail(domain,d.products||[]);detail.querySelector('#det-add-product')?.addEventListener('click',()=>doAddProduct(row));});return;}
   if(kind==='service-parent'){detail.innerHTML=`<div class="detail-head"><div class="detail-head-left">${iconDiv('service')}<div><div class="detail-title">Services</div><div class="detail-subtitle">${esc(row.dataset.domain)}</div></div></div></div><div class="detail-footer"><button class="btn btn-primary" id="det-add-svc"><span class="mi" style="font-family:'Material Symbols Outlined'">add_circle</span> Service hinzuf&uuml;gen</button></div>`;detail.querySelector('#det-add-svc')?.addEventListener('click',()=>doAddService(row));
   detail.querySelector('#det-add-product')?.addEventListener('click',()=>doAddProduct(row));return;}
+  if(kind==='decision-parent'){const domain=row.dataset.canonical||row.dataset.id;detail.innerHTML=`<div class="detail-head"><div class="detail-head-left">${iconDiv('decision')}<div><div class="detail-title">Decisions</div><div class="detail-subtitle">${esc(domain)}</div></div></div></div><div class="detail-body"><p style="color:#64748b;font-size:.88rem">Decisions kapseln Entscheidungslogik (optional als DMN). Sie werden von BPMN-Prozessen über businessRuleTask-Schritte aufgerufen.</p></div><div class="detail-footer"><button class="btn btn-primary" id="det-add-dec"><span class="mi" style="font-family:'Material Symbols Outlined'">add_circle</span> Decision hinzuf&uuml;gen</button></div>`;detail.querySelector('#det-add-dec')?.addEventListener('click',()=>doAddDecision(row));return;}
   if(kind==='process-steps-parent'){
     const procId=row.dataset.treeTarget;if(!procId){detail.innerHTML='<div class="detail-empty">Keine Details verfügbar.</div>';return;}
     detail.innerHTML='<div class="detail-empty">Lade…</div>';
@@ -1407,9 +1454,9 @@ function renderDecisionDetail(dec,defs,domainCanonical){
   <dl class="detail-props" style="margin-bottom:.6rem">
     <dt>ID</dt><dd><code>${esc(dec.id)}</code></dd>
     <dt>Domain</dt><dd><code>${esc(domainCanonical)}</code></dd>
-    <dt>Owner</dt><dd>${esc(dec.owner||'&ndash;')}</dd>
-    <dt>Summary</dt><dd>${esc(dec.summary||'&ndash;')}</dd>
-    <dt>Context</dt><dd>${esc(dec.context||'&ndash;')}</dd>
+    <dt>Owner</dt><dd>${dec.owner?esc(dec.owner):'&ndash;'}</dd>
+    <dt>Summary</dt><dd>${dec.summary?esc(dec.summary):'&ndash;'}</dd>
+    <dt>Context</dt><dd>${dec.context?esc(dec.context):'&ndash;'}</dd>
     <dt>DMN-File</dt><dd>${dec.has_dmn?'<code>'+esc(dec.dmn_file||'decision.dmn')+'</code>':'<span class="badge badge-warning">noch keine DMN-Datei</span>'}</dd>
     <dt>Inputs</dt><dd>${ios(dec.inputs,'input-data')}</dd>
     <dt>Outputs</dt><dd>${ios(dec.outputs,'')}</dd>
@@ -1523,7 +1570,7 @@ async function initDmnEditor(container,dec,domainCanonical,xml){
     // Default to DRD overview if multiple decisions exist; else first view.
     try{const views=modeler.getViews?.()||[];const drd=views.find(v=>v.type==='drd');if(drd)modeler.open(drd);}catch(_){}
     setStatus('Bereit');
-  }catch(e){console.error('dmn-js error:',e);setStatus(e.message||'DMN konnte nicht geladen werden',true);canvas.innerHTML=`<div class="detail-empty">${esc(e.message||'DMN konnte nicht geladen werden')}</div>`;if(saveBtn)saveBtn.disabled=true;return;}
+  }catch(e){console.error('dmn-js error:',e);setStatus(e.message||'DMN konnte nicht geladen werden',true);canvas.innerHTML=`<div class="detail-empty" style="padding:1.2rem;display:flex;flex-direction:column;gap:.6rem;align-items:flex-start"><div style="color:#dc2626;font-weight:600">${esc(e.message||'DMN konnte nicht geladen werden')}</div><div style="color:#64748b;font-size:.82rem">Die DMN-Datei konnte nicht geladen werden. W&auml;hle einen Decision-Typ, um eine neue Vorlage anzulegen.</div><button class="btn btn-primary btn-sm" id="dmn-error-pick">Neuen Decision-Typ w&auml;hlen</button></div>`;canvas.querySelector('#dmn-error-pick')?.addEventListener('click',()=>renderDmnTypePicker(container,dec,domainCanonical));if(saveBtn)saveBtn.disabled=true;return;}
   // View switcher buttons map to dmn-js's view types.
   const openView=(type)=>{try{const v=(modeler.getViews?.()||[]).find(v=>v.type===type);if(v)modeler.open(v);}catch(_){}};
   container.querySelector('#dmn-view-drd')?.addEventListener('click',()=>openView('drd'));
