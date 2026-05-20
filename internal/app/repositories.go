@@ -78,7 +78,7 @@ func serverNode(m MountDTO, repoCount int, status string) NamespaceTreeNodeDTO {
 		Label:          m.Endpoint,
 		Kind:           "server",
 		CanOpenDetails: true,
-		Server:         &ServerDTO{Endpoint: m.Endpoint, Label: m.Label, Local: m.Local, Status: status, RepositoryCount: repoCount},
+		Server:         &ServerDTO{MountID: m.ID, Endpoint: m.Endpoint, Label: m.Label, Local: m.Local, Status: status, RepositoryCount: repoCount},
 	}
 }
 

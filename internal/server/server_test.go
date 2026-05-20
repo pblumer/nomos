@@ -296,7 +296,8 @@ func TestCosmosExplorerRendersServerAndRepository(t *testing.T) {
 	if rr.Code != 200 {
 		t.Fatalf("status=%d", rr.Code)
 	}
-	hasAll(t, rr.Body.String(), `data-kind="server"`, "localhost:7373", `data-kind="repository"`, "Namespaces")
+	hasAll(t, rr.Body.String(), `data-kind="server"`, "localhost:7373", `data-kind="repository"`, "Namespaces",
+		`data-action="mount-server"`, `data-action="unmount-server"`, `data-mount-id="local"`)
 }
 
 func TestRepositoryScopedReadsMatchAliases(t *testing.T) {

@@ -32,6 +32,7 @@ type RepositoriesDTO struct {
 // (ADR-0022 §1). The server answers on its endpoint (port 7373) and manages the
 // repositories beneath it.
 type ServerDTO struct {
+	MountID         string `json:"mountId,omitempty"`
 	Endpoint        string `json:"endpoint"`
 	Label           string `json:"label,omitempty"`
 	Local           bool   `json:"local"`
