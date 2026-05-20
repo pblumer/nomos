@@ -2229,7 +2229,7 @@ func (h *handler) apiProvisionServiceInstance(w http.ResponseWriter, r *http.Req
 }
 
 func (h *handler) apiPage(w http.ResponseWriter, r *http.Request) {
-	h.page(w, "api", map[string]any{"ActiveNav": "api", "PageTitle": "API"})
+	h.page(w, "api", map[string]any{"ActiveNav": "api", "PageTitle": "API", "Endpoints": endpointSummaries()})
 }
 
 func (h *handler) page(w http.ResponseWriter, name string, extra map[string]any) {
