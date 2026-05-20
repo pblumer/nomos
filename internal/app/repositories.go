@@ -95,12 +95,27 @@ func repositoryNode(r RepositoryDTO, content []NamespaceTreeNodeDTO) NamespaceTr
 
 func localServerNode(path string, m MountDTO) NamespaceTreeNodeDTO {
 	repos, _ := ListRepositories(path)
-	ns, _ := BuildNamespaceTree(path)
 	server := serverNode(m, len(repos.Repositories), "online")
 	for _, r := range repos.Repositories {
+		// Each repository renders its own content from its own workspace.
+		loc := r.Location
+		if loc == "" {
+			loc = path
+		}
+		ns, _ := BuildNamespaceTree(loc)
 		server.Children = append(server.Children, repositoryNode(r, ns.Root.Children))
 	}
 	return server
+}
+
+// CreateRepository creates a new local filesystem repository on this server and
+// records it in the server's repository config (ADR-0022 §2).
+func CreateRepository(path, name string) (RepositoryDTO, error) {
+	r, err := repo.NewLocalRegistry(path).CreateFilesystem("", name)
+	if err != nil {
+		return RepositoryDTO{}, Error(CodeInvalidInput, err.Error(), http.StatusBadRequest, err)
+	}
+	return RepositoryDTO{ID: r.ID, Name: r.Name, Kind: string(r.Kind), Location: r.Location, DefaultBranch: r.DefaultBranch, Status: r.Status, Head: r.Head}, nil
 }
 
 func remoteServerNode(m MountDTO) NamespaceTreeNodeDTO {

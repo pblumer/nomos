@@ -65,3 +65,50 @@ func TestListRepositoriesNameFallsBackWithoutCosmos(t *testing.T) {
 		t.Errorf("Name = %q, want Local Repository", dto.Repositories[0].Name)
 	}
 }
+
+func TestCreateRepositoryAndListAndScopedContent(t *testing.T) {
+	p := createAppTestCosmos(t)
+	created, err := CreateRepository(p, "Team Beta")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.ID != "team-beta" || created.Kind != "filesystem" {
+		t.Fatalf("unexpected created repo: %+v", created)
+	}
+	repos, _ := ListRepositories(p)
+	var ids []string
+	for _, r := range repos.Repositories {
+		ids = append(ids, r.ID)
+	}
+	if len(repos.Repositories) != 2 {
+		t.Fatalf("expected default + team-beta, got %v", ids)
+	}
+	// New repo resolves and has its own (empty) cosmos.
+	got, err := GetRepository(p, "team-beta")
+	if err != nil || got.Location == "" {
+		t.Fatalf("GetRepository(team-beta) = %+v err %v", got, err)
+	}
+	co, err := GetCosmos(got.Location)
+	if err != nil || co.Name != "Team Beta" {
+		t.Fatalf("new repo cosmos = %+v err %v", co, err)
+	}
+	// Duplicate name → conflict/error.
+	if _, err := CreateRepository(p, "Team Beta"); err == nil {
+		t.Fatal("duplicate repository should fail")
+	}
+}
+
+func TestExplorerTreeShowsMultipleRepositories(t *testing.T) {
+	p := createAppTestCosmos(t)
+	if _, err := CreateRepository(p, "extra"); err != nil {
+		t.Fatal(err)
+	}
+	tree, err := BuildExplorerTree(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := tree.Root.Children[0]
+	if len(server.Children) != 2 {
+		t.Fatalf("expected 2 repository nodes under local server, got %d", len(server.Children))
+	}
+}

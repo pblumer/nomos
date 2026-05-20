@@ -28,6 +28,16 @@ func MountsFile(workspace string) string  { return filepath.Join(NomosDir(worksp
 // in git (ADR-0027).
 func FolderFile(dir string) string { return filepath.Join(dir, "folder.yaml") }
 
+// RepositoriesFile lists the additional repositories a server manages beyond
+// its default workspace (ADR-0022 §2). Non-authoritative server config.
+func RepositoriesFile(workspace string) string {
+	return filepath.Join(NomosDir(workspace), "repositories.yaml")
+}
+
+// ReposDir is the base directory under which new local filesystem repositories
+// are created.
+func ReposDir(workspace string) string { return filepath.Join(NomosDir(workspace), "repos") }
+
 func SelfModelDir(workspace string) string {
 	return filepath.Join(DomainsDir(workspace), "nomos", "core")
 }

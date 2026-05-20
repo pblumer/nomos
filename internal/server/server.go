@@ -108,16 +108,27 @@ func (h *handler) apiRepositories(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if r.Method != http.MethodGet {
+	switch r.Method {
+	case http.MethodGet:
+		dto, err := app.ListRepositories(h.cosmosPath)
+		h.writeOrErr(w, dto, err)
+	case http.MethodPost:
+		var body struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+			return
+		}
+		dto, err := app.CreateRepository(h.cosmosPath, body.Name)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, dto)
+	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
 	}
-	dto, err := app.ListRepositories(h.cosmosPath)
-	if err != nil {
-		h.apiErr(w, err)
-		return
-	}
-	writeJSON(w, 200, dto)
 }
 
 // apiRepositoryRoutes serves repository-scoped reads (ADR-0022 §2). It resolves
