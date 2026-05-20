@@ -662,7 +662,11 @@ tree.addEventListener('dragstart',e=>{
 });
 tree.addEventListener('dragover',e=>{const row=e.target.closest('.cn-row[data-node-type="domain"]');if(!row||!draggedProductRow)return;const target=row.dataset.domainCanonical||row.dataset.canonical;if(target&&target!==draggedProductRow.dataset.currentDomain){e.preventDefault();row.classList.add('drag-over-domain');}else{row.classList.add('drag-invalid');}});
 tree.addEventListener('dragleave',e=>{const row=e.target.closest('.cn-row');row?.classList.remove('drag-over-domain','drag-invalid');});
-tree.addEventListener('drop',e=>{const row=e.target.closest('.cn-row[data-node-type="domain"]');tree.querySelectorAll('.drag-over-domain,.drag-invalid').forEach(r=>r.classList.remove('drag-over-domain','drag-invalid'));if(!row||!draggedProductRow)return;const target=row.dataset.domainCanonical||row.dataset.canonical;if(target&&target!==draggedProductRow.dataset.currentDomain){e.preventDefault();doMoveProduct(draggedProductRow,target);}else alert('Produkt wird bereits von dieser Domäne angeboten.');draggedProductRow=null;});
+tree.addEventListener('drop',e=>{const row=e.target.closest('.cn-row[data-node-type="domain"]');tree.querySelectorAll('.drag-over-domain,.drag-invalid').forEach(r=>r.classList.remove('drag-over-domain','drag-invalid'));if(!row||!draggedProductRow)return;const target=row.dataset.domainCanonical||row.dataset.canonical;const src=draggedProductRow;draggedProductRow=null;if(!target||target===src.dataset.currentDomain){alert('Produkt wird bereits von dieser Domäne angeboten.');return;}e.preventDefault();
+  // Alt = Kopieren (vorgemerkt, noch nicht aktiv); Ctrl/Cmd = Dialog; sonst direkt verschieben.
+  if(e.altKey){alert('Kopieren ist noch nicht aktiv — die Geste ist vorgemerkt.');return;}
+  if(e.ctrlKey||e.metaKey){doMoveProduct(src,target);}else{moveProductDirect(src,target);}
+});
 tree.addEventListener('click',e=>{
   const btn=e.target.closest('.cn-toggle');
   if(btn){e.stopPropagation();const li=btn.closest('.cn');const ul=li.querySelector(':scope > .cn-children');if(!ul)return;const o=!ul.classList.contains('collapsed');ul.classList.toggle('collapsed',o);btn.classList.toggle('open',!o);return;}
@@ -986,6 +990,19 @@ async function doRunTest(row){
 }
 
 function domainOptions(current,target,list){return (list||knownDomains).map(d=>`<option value="${esc(d.canonical)}" ${d.canonical===current?'disabled':''} ${d.canonical===target?'selected':''}>${esc(d.canonical)}${d.displayPath?' — '+esc(d.displayPath):''}${d.canonical===current?' (aktuell)':''}</option>`).join('');}
+// Direct product move without a dialog (plain drag&drop). Ctrl+drop uses
+// doMoveProduct for the settings dialog; Alt is reserved for copy (future).
+async function moveProductDirect(row,target){
+  const _b=writeGuard(row);if(_b===null)return;
+  const productID=row.dataset.productId||row.dataset.id;
+  let owning='',offered=row.dataset.currentDomain||row.dataset.domain||'';
+  try{const r=await fetch(readBase(row)+'/api/v1/products/'+encodeURIComponent(productID));if(r.ok){const d=await r.json();offered=d.offered_by||offered;owning=d.owning_domain||'';}}catch(_e){}
+  const body={target_domain:target,update_owning_domain:(!owning||owning===offered)};
+  const r=await fetch(_b+'/api/v1/products/'+encodeURIComponent(productID)+'/move',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json().catch(()=>({}));
+  if(r.ok){location.href='/cosmos?selected=product:'+encodeURIComponent(d.id||productID);}
+  else alert(d.error?.message||'Verschieben fehlgeschlagen');
+}
 async function doMoveProduct(row,targetDomain){
   const _r=readBase(row),_w=mountBase(row);if(_w===null){blockRemoteWrite();return;}
   let _domains=knownDomains;
