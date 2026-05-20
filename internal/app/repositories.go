@@ -1,7 +1,9 @@
 package app
 
 import (
+	"net"
 	"net/http"
+	"strings"
 
 	"github.com/nomos/nomos/internal/repo"
 )
@@ -49,13 +51,14 @@ func GetRepository(path, id string) (RepositoryDTO, error) {
 // (ADR-0015 default port 7373).
 const LocalServerEndpoint = "localhost:7373"
 
-// BuildExplorerTree builds the Cosmos Explorer tree by aggregating over the
-// mounted servers (ADR-0022 §1/§4/§6): the local server plus configured remote
-// servers. Each server exposes its repositories, and each repository's content
-// is the namespace tree. The plain namespace tree (BuildNamespaceTree) is left
-// unchanged for the namespace/domain views. Server and repository levels are
-// always shown; an unreachable remote server degrades to a status badge instead
-// of breaking the whole tree.
+// BuildExplorerTree builds the Cosmos Explorer tree as a DNS-shaped namespace
+// (ADR-0022/0026): used TLDs at the top, domain labels beneath, and a server
+// shown as a marker at the domain where it runs (e.g. cloud → blumer → nomos).
+// Servers without a DNS domain (localhost / bare hostname) appear under a
+// synthetic "local" branch (local → hostname). A server's content hangs
+// directly under it when it has a single repository; with several repositories
+// a repository level is inserted (Variant 3). Unreachable remote servers degrade
+// to an "offline" marker.
 func BuildExplorerTree(path string) (NamespaceTreeDTO, error) {
 	mounts, err := ListMounts(path)
 	if err != nil {
@@ -64,22 +67,48 @@ func BuildExplorerTree(path string) (NamespaceTreeDTO, error) {
 	cosmos, _ := GetCosmos(path)
 	root := NamespaceTreeNodeDTO{Label: fallback(cosmos.Name, "Local Cosmos"), Kind: "cosmos", CanOpenDetails: true}
 	for _, m := range mounts.Mounts {
-		if m.Local {
-			root.Children = append(root.Children, localServerNode(path, m))
-		} else {
-			root.Children = append(root.Children, remoteServerNode(m))
-		}
+		srv, content := serverContent(path, m)
+		insertServer(&root, dnsPlacement(m), srv, content)
 	}
 	return NamespaceTreeDTO{Root: root}, nil
 }
 
-func serverNode(m MountDTO, repoCount int, status string) NamespaceTreeNodeDTO {
-	return NamespaceTreeNodeDTO{
-		Label:          m.Endpoint,
-		Kind:           "server",
-		CanOpenDetails: true,
-		Server:         &ServerDTO{MountID: m.ID, Endpoint: m.Endpoint, Label: m.Label, Local: m.Local, Authenticated: m.Authenticated, Status: status, RepositoryCount: repoCount},
+// dnsPlacement returns the tree labels (TLD first) where a server is shown.
+// A DNS host like nomos.blumer.cloud → [cloud, blumer, nomos]; a server without
+// a DNS domain → [local, <host>].
+func dnsPlacement(m MountDTO) []string {
+	host := hostOnly(m.Endpoint)
+	if m.Local || host == "" || host == "localhost" {
+		if host == "" {
+			host = "localhost"
+		}
+		return []string{"local", host}
 	}
+	// Remote servers without a DNS hierarchy (IP or bare hostname) are a single leaf.
+	if net.ParseIP(host) != nil || !strings.Contains(host, ".") {
+		return []string{host}
+	}
+	labels := strings.Split(host, ".")
+	out := make([]string, len(labels))
+	for i, l := range labels {
+		out[len(labels)-1-i] = l
+	}
+	return out
+}
+
+// hostOnly extracts the bare host from a mount endpoint (drops scheme, path, port).
+func hostOnly(endpoint string) string {
+	e := endpoint
+	if i := strings.Index(e, "://"); i >= 0 {
+		e = e[i+3:]
+	}
+	if i := strings.IndexByte(e, '/'); i >= 0 {
+		e = e[:i]
+	}
+	if i := strings.LastIndexByte(e, ':'); i >= 0 {
+		e = e[:i]
+	}
+	return e
 }
 
 func repositoryNode(r RepositoryDTO, content []NamespaceTreeNodeDTO) NamespaceTreeNodeDTO {
@@ -93,28 +122,84 @@ func repositoryNode(r RepositoryDTO, content []NamespaceTreeNodeDTO) NamespaceTr
 	}
 }
 
-func localServerNode(path string, m MountDTO) NamespaceTreeNodeDTO {
-	repos, _ := ListRepositories(path)
-	ns, _ := BuildNamespaceTree(path)
-	server := serverNode(m, len(repos.Repositories), "online")
-	for _, r := range repos.Repositories {
-		server.Children = append(server.Children, repositoryNode(r, ns.Root.Children))
+// serverContent returns the server marker DTO and the nodes shown beneath it:
+// the content directly for a single repository, or one node per repository when
+// there are several.
+func serverContent(path string, m MountDTO) (*ServerDTO, []NamespaceTreeNodeDTO) {
+	if m.Local {
+		repos, _ := ListRepositories(path)
+		s := &ServerDTO{MountID: m.ID, Endpoint: m.Endpoint, Label: m.Label, Local: true, Authenticated: m.Authenticated, Status: "online", RepositoryCount: len(repos.Repositories)}
+		return s, repoChildren(repos.Repositories, func(r RepositoryDTO) []NamespaceTreeNodeDTO {
+			loc := r.Location
+			if loc == "" {
+				loc = path
+			}
+			ns, _ := BuildNamespaceTree(loc)
+			return ns.Root.Children
+		})
 	}
-	return server
-}
-
-func remoteServerNode(m MountDTO) NamespaceTreeNodeDTO {
 	repos, err := fetchRemoteRepositories(m.Endpoint)
 	if err != nil {
-		return serverNode(m, 0, "unreachable")
+		return &ServerDTO{MountID: m.ID, Endpoint: m.Endpoint, Label: m.Label, Authenticated: m.Authenticated, Status: "unreachable"}, nil
 	}
-	server := serverNode(m, len(repos.Repositories), "online")
-	for _, r := range repos.Repositories {
-		var content []NamespaceTreeNodeDTO
-		if ns, nerr := fetchRemoteNamespaces(m.Endpoint, r.ID); nerr == nil {
-			content = ns.Root.Children
+	s := &ServerDTO{MountID: m.ID, Endpoint: m.Endpoint, Label: m.Label, Authenticated: m.Authenticated, Status: "online", RepositoryCount: len(repos.Repositories)}
+	return s, repoChildren(repos.Repositories, func(r RepositoryDTO) []NamespaceTreeNodeDTO {
+		ns, nerr := fetchRemoteNamespaces(m.Endpoint, r.ID)
+		if nerr != nil {
+			return nil
 		}
-		server.Children = append(server.Children, repositoryNode(r, content))
+		return ns.Root.Children
+	})
+}
+
+// repoChildren collapses a single repository (content shown directly) or wraps
+// each repository when there are several (Variant 3).
+func repoChildren(repos []RepositoryDTO, content func(RepositoryDTO) []NamespaceTreeNodeDTO) []NamespaceTreeNodeDTO {
+	if len(repos) == 1 {
+		return content(repos[0])
 	}
-	return server
+	out := []NamespaceTreeNodeDTO{}
+	for _, r := range repos {
+		out = append(out, repositoryNode(r, content(r)))
+	}
+	return out
+}
+
+// insertServer places a server marker at its DNS path, creating neutral "dns"
+// positioning nodes for the TLD and intermediate labels.
+func insertServer(root *NamespaceTreeNodeDTO, labels []string, s *ServerDTO, content []NamespaceTreeNodeDTO) {
+	node := root
+	for i, label := range labels {
+		idx := findChildByLabel(node, label)
+		if idx == -1 {
+			node.Children = append(node.Children, NamespaceTreeNodeDTO{Label: label, Kind: "dns"})
+			idx = len(node.Children) - 1
+		}
+		if i == len(labels)-1 {
+			node.Children[idx].Kind = "server"
+			node.Children[idx].Server = s
+			node.Children[idx].CanOpenDetails = true
+			node.Children[idx].Children = content
+		}
+		node = &node.Children[idx]
+	}
+}
+
+func findChildByLabel(n *NamespaceTreeNodeDTO, label string) int {
+	for i := range n.Children {
+		if n.Children[i].Label == label {
+			return i
+		}
+	}
+	return -1
+}
+
+// CreateRepository creates a new local filesystem repository on this server and
+// records it in the server's repository config (ADR-0022 §2).
+func CreateRepository(path, name string) (RepositoryDTO, error) {
+	r, err := repo.NewLocalRegistry(path).CreateFilesystem("", name)
+	if err != nil {
+		return RepositoryDTO{}, Error(CodeInvalidInput, err.Error(), http.StatusBadRequest, err)
+	}
+	return RepositoryDTO{ID: r.ID, Name: r.Name, Kind: string(r.Kind), Location: r.Location, DefaultBranch: r.DefaultBranch, Status: r.Status, Head: r.Head}, nil
 }

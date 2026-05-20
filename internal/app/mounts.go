@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -27,8 +28,20 @@ type MountsDTO struct {
 	Mounts []MountDTO `json:"mounts"`
 }
 
+// localDisplayEndpoint shows the local server under the machine hostname rather
+// than a bare "localhost", so an official deployment (e.g. nomos.blumer.cloud)
+// is recognizable. Falls back to LocalServerEndpoint when the hostname is
+// unavailable. Internal resolution still keys the local mount by mount.LocalID.
+func localDisplayEndpoint() string {
+	h, err := os.Hostname()
+	if err != nil || strings.TrimSpace(h) == "" {
+		return LocalServerEndpoint
+	}
+	return h + ":7373"
+}
+
 func localMountDTO() MountDTO {
-	return MountDTO{ID: mount.LocalID, Endpoint: LocalServerEndpoint, Label: "Local", Local: true, Authenticated: true}
+	return MountDTO{ID: mount.LocalID, Endpoint: localDisplayEndpoint(), Label: "Local", Local: true, Authenticated: true}
 }
 
 // ListMounts returns the implicit local server mount followed by the configured
@@ -202,7 +215,7 @@ func DiscoverServers(path string) (DiscoveryDTO, error) {
 	if err != nil {
 		return DiscoveryDTO{}, Error(CodeInternalError, err.Error(), http.StatusInternalServerError, err)
 	}
-	known := map[string]bool{LocalServerEndpoint: true}
+	known := map[string]bool{LocalServerEndpoint: true, localDisplayEndpoint(): true}
 	for _, m := range remotes {
 		known[m.Endpoint] = true
 	}

@@ -26,30 +26,26 @@ func TestListRepositoriesReturnsLocalDefault(t *testing.T) {
 	}
 }
 
-func TestBuildExplorerTreeWrapsNamespacesUnderServerRepository(t *testing.T) {
+func TestBuildExplorerTreePlacesLocalServerUnderLocal(t *testing.T) {
 	tree, err := BuildExplorerTree(createAppTestCosmos(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tree.Root.Children) != 1 {
-		t.Fatalf("expected single server child, got %d", len(tree.Root.Children))
+	// Local server lives under a synthetic "local" branch (local → hostname).
+	local := findTreeNode(tree.Root, "dns", "local")
+	if local == nil {
+		t.Fatal("expected a 'local' DNS branch for the local server")
 	}
-	server := tree.Root.Children[0]
-	if server.Kind != "server" || server.Server == nil || !server.Server.Local {
+	server := findLocalServerNode(tree.Root)
+	if server == nil || server.Server == nil || !server.Server.Local {
 		t.Fatalf("expected local server node, got %+v", server)
 	}
-	if len(server.Children) != 1 {
-		t.Fatalf("expected single repository child, got %d", len(server.Children))
+	// Single repository → content hangs directly under the server (no repo level).
+	if findTreeNode(*server, "namespace-parent", "Namespaces") == nil {
+		t.Fatal("namespace tree should hang directly under the single-repo server")
 	}
-	repository := server.Children[0]
-	if repository.Kind != "repository" || repository.Repository == nil || repository.Repository.ID != "default" {
-		t.Fatalf("expected default repository node, got %+v", repository)
-	}
-	if findTreeNode(repository, "namespace-parent", "Namespaces") == nil {
-		t.Fatal("namespace tree should hang under the repository node")
-	}
-	if findTreeNode(repository, "service", "user-account") == nil {
-		t.Fatal("repository content should include domain services")
+	if findTreeNode(*server, "service", "user-account") == nil {
+		t.Fatal("server content should include domain services")
 	}
 }
 
@@ -63,5 +59,61 @@ func TestListRepositoriesNameFallsBackWithoutCosmos(t *testing.T) {
 	}
 	if dto.Repositories[0].Name != "Local Repository" {
 		t.Errorf("Name = %q, want Local Repository", dto.Repositories[0].Name)
+	}
+}
+
+func TestCreateRepositoryAndListAndScopedContent(t *testing.T) {
+	p := createAppTestCosmos(t)
+	created, err := CreateRepository(p, "Team Beta")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.ID != "team-beta" || created.Kind != "filesystem" {
+		t.Fatalf("unexpected created repo: %+v", created)
+	}
+	repos, _ := ListRepositories(p)
+	var ids []string
+	for _, r := range repos.Repositories {
+		ids = append(ids, r.ID)
+	}
+	if len(repos.Repositories) != 2 {
+		t.Fatalf("expected default + team-beta, got %v", ids)
+	}
+	// New repo resolves and has its own (empty) cosmos.
+	got, err := GetRepository(p, "team-beta")
+	if err != nil || got.Location == "" {
+		t.Fatalf("GetRepository(team-beta) = %+v err %v", got, err)
+	}
+	co, err := GetCosmos(got.Location)
+	if err != nil || co.Name != "Team Beta" {
+		t.Fatalf("new repo cosmos = %+v err %v", co, err)
+	}
+	// Duplicate name → conflict/error.
+	if _, err := CreateRepository(p, "Team Beta"); err == nil {
+		t.Fatal("duplicate repository should fail")
+	}
+}
+
+func TestExplorerTreeShowsMultipleRepositories(t *testing.T) {
+	p := createAppTestCosmos(t)
+	if _, err := CreateRepository(p, "extra"); err != nil {
+		t.Fatal(err)
+	}
+	tree, err := BuildExplorerTree(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := findLocalServerNode(tree.Root)
+	if server == nil {
+		t.Fatal("local server node not found")
+	}
+	repos := 0
+	for _, c := range server.Children {
+		if c.Kind == "repository" {
+			repos++
+		}
+	}
+	if repos != 2 {
+		t.Fatalf("expected 2 repository nodes under local server, got %d", repos)
 	}
 }
