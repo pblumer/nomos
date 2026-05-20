@@ -29,6 +29,7 @@ ADRs record significant architectural and technology decisions. Each ADR capture
 | [ADR-0019](ADR-0019-dmn-feel-engine-scope.md) | DMN 1.5 / FEEL Evaluation Engine: Scope und Build-vs-Buy | Accepted |
 | [ADR-0020](ADR-0020-DRAFT-artefact-id-generation.md) | System-generierte IDs für Nomos-Artefakte | Proposed |
 | [ADR-0021](ADR-0021-DRAFT-process-workflow-engine.md) | Process/Workflow Engine: Scope und Build-vs-Buy | Draft |
+| [ADR-0022](ADR-0022-DRAFT-cosmos-explorer-server-and-repository-mounts.md) | Cosmos Explorer — Server- und Repository-Mounts im Namespace-Tree | Proposed |
 
 ## Superseded / legacy stubs
 
