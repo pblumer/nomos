@@ -33,6 +33,7 @@ ADRs record significant architectural and technology decisions. Each ADR capture
 | [ADR-0023](ADR-0023-DRAFT-inter-server-authentication.md) | Inter-Server-Authentifizierung für Cosmos-Mounts | Proposed |
 | [ADR-0024](ADR-0024-DRAFT-declarative-view-artifacts.md) | Deklarative View-/Form-Artefakte und lokaler Renderer | Proposed |
 | [ADR-0025](ADR-0025-DRAFT-server-discovery-ping.md) | Server-Discovery via PING (1-Hop-Peer-Gossip) | Proposed |
+| [ADR-0026](ADR-0026-DRAFT-domains-as-derived-naming-and-folders.md) | Domänen als abgeleitetes Naming, Ordner als Nomos-Namensräume | Proposed |
 
 ## Superseded / legacy stubs
 
