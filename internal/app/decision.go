@@ -15,6 +15,7 @@ import (
 	"github.com/nomos/nomos/internal/idgen"
 	"github.com/nomos/nomos/internal/idmigrate"
 	"github.com/nomos/nomos/internal/model"
+	"github.com/nomos/nomos/internal/namespace"
 )
 
 // decisionsDir returns the decisions directory for a domain node.
@@ -189,6 +190,38 @@ func UpdateDecision(path, domainCanonical, id string, req UpdateDecisionRequest)
 		return decisionDTO(n), nil
 	}
 	return DecisionDTO{}, Error(CodeInvalidInput, "Decision not found: "+id, http.StatusNotFound, nil)
+}
+
+// MoveDecision relocates a decision directory from one domain to another
+// (git-first). The decision id is preserved, so references by id keep resolving.
+func MoveDecision(path, fromDomain, id, toDomain string) (DecisionDTO, error) {
+	if namespace.Canonical(fromDomain) == namespace.Canonical(toDomain) {
+		return DecisionDTO{}, Error(CodeInvalidInput, "source and target domain are the same", http.StatusBadRequest, nil)
+	}
+	from, err := findDomainNode(path, fromDomain)
+	if err != nil {
+		return DecisionDTO{}, err
+	}
+	to, err := findDomainNode(path, toDomain)
+	if err != nil {
+		return DecisionDTO{}, err
+	}
+	src := filepath.Join(decisionsDir(from.Path), id)
+	if _, err := os.Stat(src); err != nil {
+		return DecisionDTO{}, Error(CodeInvalidInput, "Decision not found: "+id, http.StatusNotFound, nil)
+	}
+	dstParent := decisionsDir(to.Path)
+	dst := filepath.Join(dstParent, id)
+	if _, err := os.Stat(dst); err == nil {
+		return DecisionDTO{}, Error(CodeInvalidInput, "Decision already exists in target domain: "+id, http.StatusConflict, nil)
+	}
+	if err := os.MkdirAll(dstParent, 0o755); err != nil {
+		return DecisionDTO{}, Error(CodeInternalError, err.Error(), http.StatusInternalServerError, err)
+	}
+	if err := os.Rename(src, dst); err != nil {
+		return DecisionDTO{}, Error(CodeInternalError, "move failed: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetDecision(path, toDomain, id)
 }
 
 func DeleteDecision(path, domainCanonical, id string) error {

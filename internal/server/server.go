@@ -503,6 +503,23 @@ func (h *handler) apiDomainRoutes(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, dto)
 		return
 	}
+	// POST /api/v1/domains/{domain}/services/{service}/move
+	if len(parts) == 4 && parts[1] == "services" && parts[3] == "move" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			TargetDomain string `json:"target_domain"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+			return
+		}
+		dto, err := app.MoveService(h.cosmosPath, parts[0], parts[2], req.TargetDomain)
+		h.writeOrErr(w, dto, err)
+		return
+	}
 	// GET/POST /api/v1/domains/{domain}/decisions
 	if len(parts) == 2 && parts[1] == "decisions" {
 		h.apiDomainDecisions(w, r, parts[0])
@@ -571,6 +588,22 @@ func (h *handler) apiDomainDecisionByID(w http.ResponseWriter, r *http.Request, 
 			"result": result,
 			"trace":  trace,
 		})
+		return
+	}
+	if len(tail) == 1 && tail[0] == "move" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			TargetDomain string `json:"target_domain"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+			return
+		}
+		dto, err := app.MoveDecision(h.cosmosPath, domain, id, req.TargetDomain)
+		h.writeOrErr(w, dto, err)
 		return
 	}
 	if len(tail) >= 1 && tail[0] == "traces" {
@@ -977,6 +1010,30 @@ func (h *handler) apiProcessRoutes(w http.ResponseWriter, r *http.Request) {
 func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/services/")
 	parts := strings.Split(rest, "/")
+
+	// POST /api/v1/services/{domain}/{service}/{endpoint}/{id}/move
+	if len(parts) == 5 && parts[4] == "move" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		kind := map[string]string{"capabilities": "capability", "data-objects": "data-object", "user-interfaces": "user-interface", "methods": "method"}[parts[2]]
+		if kind == "" {
+			htmlNotFound(w, r)
+			return
+		}
+		var req struct {
+			TargetDomain  string `json:"target_domain"`
+			TargetService string `json:"target_service"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+			return
+		}
+		dto, err := app.MoveServiceElement(h.cosmosPath, parts[0], parts[1], kind, parts[3], req.TargetDomain, req.TargetService)
+		h.writeOrErr(w, dto, err)
+		return
+	}
 
 	// POST /api/v1/services/{domain}/{service}/capabilities
 	if len(parts) == 3 && parts[2] == "capabilities" {
