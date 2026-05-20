@@ -55,7 +55,7 @@ func TestBuildExplorerTreePlacesLocalServerUnderLocal(t *testing.T) {
 
 func TestBuildExplorerTreePlacesLocalServerUnderDomain(t *testing.T) {
 	t.Setenv("NOMOS_DOMAIN", "nomos.blumer.cloud")
-	stubDomainOwnership(t, "nomos.blumer.cloud", true)
+	stubDomainOwnership(t, "nomos.blumer.cloud")
 	tree, err := BuildExplorerTree(createAppTestCosmos(t))
 	if err != nil {
 		t.Fatal(err)
@@ -81,9 +81,23 @@ func TestBuildExplorerTreePlacesLocalServerUnderDomain(t *testing.T) {
 	}
 }
 
+func TestBuildExplorerTreeVerifiesViaParentZone(t *testing.T) {
+	t.Setenv("NOMOS_DOMAIN", "nomos.blumer.cloud")
+	// Only the registrable parent zone carries the record.
+	stubDomainOwnership(t, "blumer.cloud")
+	tree, err := BuildExplorerTree(createAppTestCosmos(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cloud := findTreeNode(tree.Root, "dns", "cloud")
+	if cloud == nil || findTreeNode(*cloud, "dns", "blumer") == nil {
+		t.Fatal("a record on the parent zone should verify the subdomain")
+	}
+}
+
 func TestBuildExplorerTreeIgnoresUnverifiedDomain(t *testing.T) {
 	t.Setenv("NOMOS_DOMAIN", "nomos.blumer.cloud")
-	stubDomainOwnership(t, "nomos.blumer.cloud", false)
+	stubDomainOwnership(t, "") // no record anywhere
 	tree, err := BuildExplorerTree(createAppTestCosmos(t))
 	if err != nil {
 		t.Fatal(err)
@@ -98,14 +112,28 @@ func TestBuildExplorerTreeIgnoresUnverifiedDomain(t *testing.T) {
 	}
 }
 
+func TestBuildExplorerTreeRejectsTLDOnlyRecord(t *testing.T) {
+	t.Setenv("NOMOS_DOMAIN", "nomos.blumer.cloud")
+	// A record on the bare TLD must never grant ownership of a subdomain.
+	stubDomainOwnership(t, "cloud")
+	tree, err := BuildExplorerTree(createAppTestCosmos(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if findTreeNode(tree.Root, "dns", "cloud") != nil {
+		t.Fatal("a TLD-only record must not verify the domain")
+	}
+}
+
 // stubDomainOwnership overrides the TXT resolver and resets the verification
-// cache so a domain reports the given ownership result for one test.
-func stubDomainOwnership(t *testing.T, domain string, verified bool) {
+// cache so that exactly _nomos.<recordDomain> carries the proof for one test;
+// pass "" for a domain that is provable nowhere.
+func stubDomainOwnership(t *testing.T, recordDomain string) {
 	t.Helper()
 	prev := lookupTXT
 	lookupTXT = func(_ context.Context, name string) ([]string, error) {
-		if verified && name == "_nomos."+domain {
-			return []string{"nomos-domain=" + domain}, nil
+		if recordDomain != "" && name == "_nomos."+recordDomain {
+			return []string{"nomos-domain=" + recordDomain}, nil
 		}
 		return nil, errors.New("no record")
 	}

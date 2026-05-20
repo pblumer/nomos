@@ -360,11 +360,16 @@ Startet einen HTTP-Server.
   Maschinen-Hostname verwendet – in einem Container ist das die Container-ID
   (z. B. `56afaec69c76`). Eine echte DNS-Domäne wird in der DNS-Hierarchie
   einsortiert (cloud → blumer → nomos) statt unter `local` – **aber nur, wenn
-  der Besitz nachgewiesen ist**: Es muss ein TXT-Record
-  `_nomos.<domain>` mit dem Inhalt `nomos-domain=<domain>` existieren (derselbe
-  Nachweis wie bei `nomos verify domain`). Ist die Domäne (noch) nicht
-  verifizierbar, fällt die Anzeige auf den Hostnamen unter `local` zurück. Der
-  DNS-Check wird kurz gecacht (5 min) und ist selbstheilend.
+  der Besitz nachgewiesen ist**. Akzeptiert werden zwei Varianten:
+    - Record direkt auf der Domäne: `_nomos.<domain>` mit Inhalt
+      `nomos-domain=<domain>` (z. B. `_nomos.nomos.blumer.cloud`).
+    - Record auf einer Eltern-Zone (mindestens zwei Labels, also nie auf der
+      bloßen TLD): `_nomos.<parent>` mit Inhalt `nomos-domain=<parent>`
+      (z. B. ein einziger Record `_nomos.blumer.cloud` deckt alle Subdomains
+      ab). Es ist derselbe Nachweis wie bei `nomos verify domain`.
+  Ist die Domäne (noch) nicht verifizierbar, fällt die Anzeige auf den
+  Hostnamen unter `local` zurück. Der DNS-Check wird kurz gecacht (5 min) und
+  ist selbstheilend.
 
 **Endpoints:**
 - `GET /health` → `{ "status": "ok", "service": "nomos", "version": "..." }`

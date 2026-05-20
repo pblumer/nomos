@@ -73,10 +73,13 @@ var (
 	domainVerifyCache = map[string]domainVerifyResult{}
 )
 
-// domainOwnershipVerified reports whether host is provably owned via its
-// _nomos.<host> TXT record (content "nomos-domain=<host>"). The DNS lookup is
-// cached for domainVerifyTTL and bounded by a short timeout so it stays out of
-// the Explorer's hot path (Option 1: verified live, self-healing).
+// domainOwnershipVerified reports whether host is provably owned. Ownership is
+// accepted via the host's own _nomos TXT record (_nomos.<host> =
+// "nomos-domain=<host>") or via any parent zone down to two labels
+// (_nomos.<parent> = "nomos-domain=<parent>"), so a single record on the
+// registrable domain (e.g. _nomos.blumer.cloud) covers all its subdomains. The
+// lookup is cached for domainVerifyTTL and bounded by a short timeout so it
+// stays out of the Explorer's hot path (verified live, self-healing).
 func domainOwnershipVerified(host string) bool {
 	host = strings.TrimSpace(host)
 	if host == "" {
@@ -92,13 +95,10 @@ func domainOwnershipVerified(host string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	verified := false
-	if txt, err := lookupTXT(ctx, "_nomos."+host); err == nil {
-		exp := "nomos-domain=" + host
-		for _, t := range txt {
-			if strings.Contains(t, exp) {
-				verified = true
-				break
-			}
+	for _, cand := range ownershipCandidates(host) {
+		if txtHasRecord(ctx, cand) {
+			verified = true
+			break
 		}
 	}
 
@@ -106,6 +106,31 @@ func domainOwnershipVerified(host string) bool {
 	domainVerifyCache[host] = domainVerifyResult{verified: verified, checked: time.Now()}
 	domainVerifyMu.Unlock()
 	return verified
+}
+
+func txtHasRecord(ctx context.Context, domain string) bool {
+	txt, err := lookupTXT(ctx, "_nomos."+domain)
+	if err != nil {
+		return false
+	}
+	exp := "nomos-domain=" + domain
+	for _, t := range txt {
+		if strings.Contains(t, exp) {
+			return true
+		}
+	}
+	return false
+}
+
+// ownershipCandidates returns host plus each parent zone with at least two
+// labels (so a TLD label like "cloud" is never accepted), most-specific first.
+func ownershipCandidates(host string) []string {
+	labels := strings.Split(host, ".")
+	var out []string
+	for i := 0; i+2 <= len(labels); i++ {
+		out = append(out, strings.Join(labels[i:], "."))
+	}
+	return out
 }
 
 func localMountDTO() MountDTO {
