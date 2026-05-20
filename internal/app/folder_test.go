@@ -80,10 +80,31 @@ func TestRenameAndDeleteFolder(t *testing.T) {
 	if _, err := GetFolder(p, "wolke"); err != nil {
 		t.Fatalf("renamed folder should be wolke: %v", err)
 	}
-	if err := DeleteFolder(p, "wolke"); err != nil {
+	if err := DeleteFolder(p, "wolke", false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(storage.DomainsDir(p), "wolke")); !os.IsNotExist(err) {
+		t.Fatal("folder dir should be removed")
+	}
+}
+
+func TestDeleteFolderRecursive(t *testing.T) {
+	p := folderTestCosmos(t)
+	if _, err := CreateFolder(p, "", "scratch"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := CreateFolder(p, "scratch", "scenario"); err != nil {
+		t.Fatal(err)
+	}
+	// Non-empty folder cannot be deleted without recursive.
+	if err := DeleteFolder(p, "scratch", false); err == nil {
+		t.Fatal("expected non-empty folder delete to fail without recursive")
+	}
+	// Recursive delete removes the folder and its contents.
+	if err := DeleteFolder(p, "scratch", true); err != nil {
+		t.Fatalf("recursive delete should succeed: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(storage.DomainsDir(p), "scratch")); !os.IsNotExist(err) {
 		t.Fatal("folder dir should be removed")
 	}
 }

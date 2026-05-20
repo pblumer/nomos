@@ -137,8 +137,11 @@ func moveFolderTo(path, canonical, newParent, newLabel string) (FolderDTO, error
 	return FolderDTO{Canonical: dstCanon, Label: newLabel, TreePath: dstTp, Path: dstDir}, nil
 }
 
-// DeleteFolder removes an empty folder (only its folder.yaml may remain).
-func DeleteFolder(path, canonical string) error {
+// DeleteFolder removes a folder. By default only an empty folder (whose only
+// remaining entry may be folder.yaml) is removed. When recursive is true the
+// folder is deleted together with all of its contents — intended for clearing
+// out throwaway test scenarios where Git history is the safety net.
+func DeleteFolder(path, canonical string, recursive bool) error {
 	dir, canon, _, err := folderDir(path, canonical)
 	if err != nil {
 		return err
@@ -146,13 +149,15 @@ func DeleteFolder(path, canonical string) error {
 	if _, err := os.Stat(dir); err != nil {
 		return Error(CodeDomainNotFound, "Folder not found: "+canon, http.StatusNotFound, nil)
 	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return Error(CodeInternalError, err.Error(), http.StatusInternalServerError, err)
-	}
-	for _, e := range entries {
-		if e.Name() != "folder.yaml" {
-			return Error(CodeInvalidInput, "Folder is not empty: "+canon, http.StatusConflict, nil)
+	if !recursive {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			return Error(CodeInternalError, err.Error(), http.StatusInternalServerError, err)
+		}
+		for _, e := range entries {
+			if e.Name() != "folder.yaml" {
+				return Error(CodeInvalidInput, "Folder is not empty: "+canon, http.StatusConflict, nil)
+			}
 		}
 	}
 	if err := os.RemoveAll(dir); err != nil {
