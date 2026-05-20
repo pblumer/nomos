@@ -24,11 +24,26 @@ Faktisch ist diese Hierarchie **schon ein Ordnerbaum** — sie wurde nur als
 
 ## Entscheidung
 
-### 1. Ein Ordner ist ein git-first Verzeichnisknoten
+### 1. Ein Ordner ist ein reales, git-getracktes Verzeichnis
 
-Ein **Ordner** ist ein Verzeichnis im Content-Baum eines Repositories. Optional
-liegt darin eine `folder.yaml` mit menschlichen Metadaten (Label, Beschreibung).
-Ohne `folder.yaml` ist der Ordner trotzdem gültig — sein Segmentname genügt.
+Ein **Ordner** ist ein **echtes Verzeichnis** im Content-Baum eines Repositories
+und damit 1:1 im Dateisystem abgebildet und git-getrackt (diffbar, mit normalen
+git-/Editor-Tools bearbeitbar). Es gibt keine rein virtuellen, nur in Metadaten
+existierenden Ordner.
+
+Da Git **keine leeren Verzeichnisse** trackt, muss ein Ordner durch eine
+Markerdatei materialisiert werden. Ein Ordner mit Inhalt (z. B. `services/`)
+persistiert ohnehin; ein andernfalls leerer Ordner braucht den Marker.
+
+**Empfehlung: `folder.yaml` als Standard-Marker** (bei jeder Ordner-Erstellung
+mitgeschrieben), weil eine Datei zugleich (a) das Verzeichnis in Git
+materialisiert und (b) optionale Metadaten trägt (Label, Beschreibung,
+Sortierung …). Eine `folder.yaml` ist selbsterklärend, reviewbar und fügt sich
+in das YAML-/git-first-Modell ein — im Gegensatz zu einem bedeutungslosen
+`.gitkeep`, das später ohnehin eine zweite Metadaten-Datei nötig machen würde.
+
+Die finale Wahl `folder.yaml` vs. `.gitkeep` ist noch offen (siehe Offene
+Punkte); inhaltlich genügt in beiden Fällen der Segmentname zur Adressbildung.
 
 ```text
 <repo>/.nomos/tree/
@@ -100,6 +115,8 @@ ggf. eine eigene ADR (Referenz-Stabilität / ID-Modell).
 
 - **Referenz-Modell**: ID-basierte Verweise vs. abgeleitete Adress-Strings
   (eigene ADR). Bestimmt, wie schmerzhaft Ordner-Moves sind.
+- **Marker-Datei**: `folder.yaml` (empfohlen) vs. `.gitkeep` für die
+  Materialisierung leerer Ordner — finale Wahl offen.
 - **Pfadwurzel & `folder.yaml`-Schema**: `domains/` → `tree/`? Welche Felder hat
   `folder.yaml` (nur Label/Beschreibung, oder mehr)?
 - **Migration** existierender `domain.yaml` (Owner/Status → `folder.yaml` oder
