@@ -354,6 +354,23 @@ Startet einen HTTP-Server.
 - `--path` (Default: `.`)
 - `--listen` (Default: `127.0.0.1:7373`)
 
+**Environment:**
+- `NOMOS_DOMAIN` – Öffentliche Domäne, unter der der lokale Server im Cosmos
+  Explorer erscheint (z. B. `nomos.blumer.cloud`). Ohne diese Variable wird der
+  Maschinen-Hostname verwendet – in einem Container ist das die Container-ID
+  (z. B. `56afaec69c76`). Eine echte DNS-Domäne wird in der DNS-Hierarchie
+  einsortiert (cloud → blumer → nomos) statt unter `local` – **aber nur, wenn
+  der Besitz nachgewiesen ist**. Akzeptiert werden zwei Varianten:
+    - Record direkt auf der Domäne: `_nomos.<domain>` mit Inhalt
+      `nomos-domain=<domain>` (z. B. `_nomos.nomos.blumer.cloud`).
+    - Record auf einer Eltern-Zone (mindestens zwei Labels, also nie auf der
+      bloßen TLD): `_nomos.<parent>` mit Inhalt `nomos-domain=<parent>`
+      (z. B. ein einziger Record `_nomos.blumer.cloud` deckt alle Subdomains
+      ab). Es ist derselbe Nachweis wie bei `nomos verify domain`.
+  Ist die Domäne (noch) nicht verifizierbar, fällt die Anzeige auf den
+  Hostnamen unter `local` zurück. Der DNS-Check wird kurz gecacht (5 min) und
+  ist selbstheilend.
+
 **Endpoints:**
 - `GET /health` → `{ "status": "ok", "service": "nomos", "version": "..." }`
 - `GET /api/v1/validate` → `{ "status": "ok" }`

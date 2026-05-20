@@ -1,6 +1,10 @@
 package app
 
-import "testing"
+import (
+	"context"
+	"errors"
+	"testing"
+)
 
 func TestListRepositoriesReturnsLocalDefault(t *testing.T) {
 	p := createAppTestCosmos(t)
@@ -47,6 +51,101 @@ func TestBuildExplorerTreePlacesLocalServerUnderLocal(t *testing.T) {
 	if findTreeNode(*server, "service", "user-account") == nil {
 		t.Fatal("server content should include domain services")
 	}
+}
+
+func TestBuildExplorerTreePlacesLocalServerUnderDomain(t *testing.T) {
+	t.Setenv("NOMOS_DOMAIN", "nomos.blumer.cloud")
+	stubDomainOwnership(t, "nomos.blumer.cloud")
+	tree, err := BuildExplorerTree(createAppTestCosmos(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// With a public domain configured, the local server is placed in the DNS
+	// hierarchy (cloud → blumer → nomos) instead of under "local".
+	if findTreeNode(tree.Root, "dns", "local") != nil {
+		t.Fatal("local server should not appear under 'local' when NOMOS_DOMAIN is set")
+	}
+	cloud := findTreeNode(tree.Root, "dns", "cloud")
+	if cloud == nil {
+		t.Fatal("expected a 'cloud' TLD branch")
+	}
+	if findTreeNode(*cloud, "dns", "blumer") == nil {
+		t.Fatal("expected a 'blumer' branch under 'cloud'")
+	}
+	server := findLocalServerNode(tree.Root)
+	if server == nil || server.Server == nil || !server.Server.Local {
+		t.Fatalf("expected local server node, got %+v", server)
+	}
+	if server.Label != "nomos" {
+		t.Errorf("server label = %q, want nomos", server.Label)
+	}
+}
+
+func TestBuildExplorerTreeVerifiesViaParentZone(t *testing.T) {
+	t.Setenv("NOMOS_DOMAIN", "nomos.blumer.cloud")
+	// Only the registrable parent zone carries the record.
+	stubDomainOwnership(t, "blumer.cloud")
+	tree, err := BuildExplorerTree(createAppTestCosmos(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cloud := findTreeNode(tree.Root, "dns", "cloud")
+	if cloud == nil || findTreeNode(*cloud, "dns", "blumer") == nil {
+		t.Fatal("a record on the parent zone should verify the subdomain")
+	}
+}
+
+func TestBuildExplorerTreeIgnoresUnverifiedDomain(t *testing.T) {
+	t.Setenv("NOMOS_DOMAIN", "nomos.blumer.cloud")
+	stubDomainOwnership(t, "") // no record anywhere
+	tree, err := BuildExplorerTree(createAppTestCosmos(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Unverified domain must not be promoted into the DNS hierarchy; the server
+	// falls back under the synthetic "local" branch.
+	if findTreeNode(tree.Root, "dns", "cloud") != nil {
+		t.Fatal("unverified domain should not appear in the DNS hierarchy")
+	}
+	if findTreeNode(tree.Root, "dns", "local") == nil {
+		t.Fatal("expected fallback to the 'local' branch for an unverified domain")
+	}
+}
+
+func TestBuildExplorerTreeRejectsTLDOnlyRecord(t *testing.T) {
+	t.Setenv("NOMOS_DOMAIN", "nomos.blumer.cloud")
+	// A record on the bare TLD must never grant ownership of a subdomain.
+	stubDomainOwnership(t, "cloud")
+	tree, err := BuildExplorerTree(createAppTestCosmos(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if findTreeNode(tree.Root, "dns", "cloud") != nil {
+		t.Fatal("a TLD-only record must not verify the domain")
+	}
+}
+
+// stubDomainOwnership overrides the TXT resolver and resets the verification
+// cache so that exactly _nomos.<recordDomain> carries the proof for one test;
+// pass "" for a domain that is provable nowhere.
+func stubDomainOwnership(t *testing.T, recordDomain string) {
+	t.Helper()
+	prev := lookupTXT
+	lookupTXT = func(_ context.Context, name string) ([]string, error) {
+		if recordDomain != "" && name == "_nomos."+recordDomain {
+			return []string{"nomos-domain=" + recordDomain}, nil
+		}
+		return nil, errors.New("no record")
+	}
+	domainVerifyMu.Lock()
+	domainVerifyCache = map[string]domainVerifyResult{}
+	domainVerifyMu.Unlock()
+	t.Cleanup(func() {
+		lookupTXT = prev
+		domainVerifyMu.Lock()
+		domainVerifyCache = map[string]domainVerifyResult{}
+		domainVerifyMu.Unlock()
+	})
 }
 
 func TestListRepositoriesNameFallsBackWithoutCosmos(t *testing.T) {
