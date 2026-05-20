@@ -13,6 +13,22 @@ Place these two files in this directory (names matter — they are referenced by
 - `form-viewer.umd.js` — the UMD build of the form-js **viewer**
 - `form-js.css` — the form-js stylesheet
 
+For in-place editing (ADR-0024 step 1), also add the **editor** build:
+
+- `form-editor.umd.js` — the UMD build of the form-js **editor**
+- `form-js-editor.css` — the form-js editor stylesheet
+
+```sh
+curl -L -o form-editor.umd.js "https://unpkg.com/@bpmn-io/form-js@1/dist/form-editor.umd.js"
+curl -L -o form-js-editor.css "https://unpkg.com/@bpmn-io/form-js@1/dist/assets/form-js-editor.css"
+```
+
+The editor loader (`loadFormJsEditor()` in `cosmos.html`) probes the globals
+`@bpmn-io/form-js-editor` / `@bpmn-io/form-js` / `FormEditor` / `FormJSEditor`
+and supports both `createFormEditor({container, schema})` and
+`new FormEditor({container}).importSchema(schema)`; on save it reads
+`getSchema()`/`saveSchema()`. Adjust if your build differs.
+
 ## How to vendor
 
 From an environment with npm/CDN access, e.g.:

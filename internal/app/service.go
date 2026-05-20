@@ -584,6 +584,18 @@ func UpdateServiceUserInterface(path, domainName, serviceName, uiID string, patc
 			if patch.Stability != "" {
 				raw.UserInterfaces[i].Stability = patch.Stability
 			}
+			if patch.Engine != "" {
+				raw.UserInterfaces[i].Engine = patch.Engine
+			}
+			if patch.EngineVersion != "" {
+				raw.UserInterfaces[i].EngineVersion = patch.EngineVersion
+			}
+			if patch.Schema != nil {
+				raw.UserInterfaces[i].Schema = patch.Schema
+			}
+			if patch.Binding != nil {
+				raw.UserInterfaces[i].Binding = patch.Binding
+			}
 			found = true
 			break
 		}

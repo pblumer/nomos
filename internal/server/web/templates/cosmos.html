@@ -810,6 +810,31 @@ async function renderFormJsView(target,schema){
   if(g.createForm){await g.createForm({container:target,schema,data:{}});}
   else{const f=new g.Form({container:target});await f.importSchema(schema,{});}
 }
+let _formEdLoad=null;
+function loadFormJsEditor(){
+  if(window.__nomosFormEd)return Promise.resolve(window.__nomosFormEd);
+  if(_formEdLoad)return _formEdLoad;
+  _formEdLoad=new Promise((resolve,reject)=>{
+    if(!document.querySelector('link[data-formjs-ed]')){const l=document.createElement('link');l.rel='stylesheet';l.href='/static/vendor/form-js/form-js-editor.css';l.dataset.formjsEd='1';document.head.appendChild(l);}
+    const s=document.createElement('script');s.src='/static/vendor/form-js/form-editor.umd.js';s.async=true;
+    s.onload=()=>{const g=window['@bpmn-io/form-js-editor']||window['@bpmn-io/form-js']||window.FormEditor||window.FormJSEditor;if(g&&(g.createFormEditor||g.FormEditor)){resolve(g);}else{reject(new Error('form-js-editor geladen, aber kein createFormEditor/FormEditor-Export gefunden'));}};
+    s.onerror=()=>reject(new Error('form-js-editor Bundle nicht gefunden (vendor/form-js/form-editor.umd.js)'));
+    document.head.appendChild(s);
+  }).then(g=>{window.__nomosFormEd=g;return g;});
+  return _formEdLoad;
+}
+async function renderFormJsEditor(target,schema){
+  const g=await loadFormJsEditor();
+  target.innerHTML='';target.style.minHeight='480px';
+  const initial=schema||{type:'default',components:[]};
+  if(g.createFormEditor){return await g.createFormEditor({container:target,schema:initial});}
+  const ed=new g.FormEditor({container:target});await ed.importSchema(initial);return ed;
+}
+async function formEditorSchema(ed){
+  if(typeof ed.getSchema==='function')return ed.getSchema();
+  if(typeof ed.saveSchema==='function')return await ed.saveSchema();
+  throw new Error('Editor stellt kein getSchema/saveSchema bereit');
+}
 
 function handleAction(action,row){if(!row)return;if(action==='copy-service-ref')navigator.clipboard?.writeText(row.dataset.serviceRef||'');else if(action==='move-product')doMoveProduct(row);else if(action==='delete')doDelete(row);else if(action==='verify-domain')doVerify(row);else if(action==='edit')doEdit(row);else if(action==='add-domain')doAddDomain(row);else if(action==='add-subdomain')doAddSubdomain(row);else if(action==='add-product')doAddProduct(row);else if(action==='add-service')doAddService(row);else if(action==='add-decision')doAddDecision(row);else if(action==='add-blueprint')doAddBlueprint(row);else if(action==='run-test')doRunTest(row);else if(action==='mount-server')doMountServer(row);else if(action==='unmount-server')doUnmountServer(row);}
 
@@ -3946,9 +3971,25 @@ function renderSvcElementDetail(container,svc,domain,svcName,cfg,item,row){
   }
   const body=`<div class="detail-body"><div class="nfield"><label>ID</label><input value="${esc(item.id)}" disabled style="background:#f8fafc;color:#64748b" /></div><div class="nfield"><label>Name</label><input id="se-name" value="${esc(item.name||'')}" /></div><div class="nfield"><label>Summary</label><textarea id="se-summary">${esc(item.summary||'')}</textarea></div>${extraFields}${linksHtml}</div>`;
   const footer=`<div class="detail-footer"><button class="btn btn-primary" id="svc-elem-save"><span class="mi" style="font-family:'Material Symbols Outlined'">save</span> Speichern</button><span id="svc-elem-status" style="font-size:.8rem;color:#64748b;margin-left:.5rem"></span></div>`;
-  const viewBlock=(cfg.kind==='user-interface'&&item.schema)?`<div class="detail-body" style="border-top:1px solid #eef2f7;margin-top:.5rem"><h4 style="margin:.4rem 0">Formular-Vorschau</h4><div class="vf-meta" style="font-size:.82rem;color:#64748b;margin-bottom:.4rem">Engine: <code>${esc(item.engine||'—')}</code>${item.binding&&item.binding.submit?` · Submit: <code>${esc(item.binding.submit)}</code>`:''}</div><div id="view-render" class="view-render"></div><details style="margin-top:.5rem"><summary>Schema (JSON)</summary><pre class="view-schema">${esc(JSON.stringify(item.schema,null,2))}</pre></details></div>`:'';
+  const viewBlock=(cfg.kind==='user-interface')?`<div class="detail-body" style="border-top:1px solid #eef2f7;margin-top:.5rem"><div style="display:flex;align-items:center;gap:.5rem;margin:.2rem 0 .5rem"><h4 style="margin:0;flex:1">Formular</h4><button class="btn btn-secondary btn-sm" id="view-edit-toggle"><span class="mi" style="font-family:'Material Symbols Outlined'">edit</span> Bearbeiten</button><button class="btn btn-primary btn-sm" id="view-save" style="display:none"><span class="mi" style="font-family:'Material Symbols Outlined'">save</span> Formular speichern</button></div><div class="vf-meta" style="font-size:.82rem;color:#64748b;margin-bottom:.4rem">Engine: <code>${esc(item.engine||'form-js')}</code>${item.binding&&item.binding.submit?` · Submit: <code>${esc(item.binding.submit)}</code>`:''}</div><div id="view-render" class="view-render"></div>${item.schema?`<details style="margin-top:.5rem"><summary>Schema (JSON)</summary><pre class="view-schema">${esc(JSON.stringify(item.schema,null,2))}</pre></details>`:''}</div>`:'';
   container.innerHTML=head+body+footer+viewBlock;
-  if(cfg.kind==='user-interface'&&item.schema){renderView(container.querySelector('#view-render'),item.engine,item.schema);}
+  if(cfg.kind==='user-interface'){
+    const target=container.querySelector('#view-render');
+    if(item.schema)renderView(target,item.engine||'form-js',item.schema);
+    else target.innerHTML='<p class="muted" style="color:#64748b;font-size:.85rem">Noch kein Formular — „Bearbeiten" öffnet den Editor.</p>';
+    let editor=null;
+    container.querySelector('#view-edit-toggle')?.addEventListener('click',async(e)=>{
+      const btn=e.currentTarget;btn.disabled=true;
+      try{editor=await renderFormJsEditor(target,item.schema);container.querySelector('#view-save').style.display='';}
+      catch(err){btn.disabled=false;target.innerHTML=`<p class="muted" style="color:#b45309;font-size:.85rem">${esc(err.message)}</p>`;}
+    });
+    container.querySelector('#view-save')?.addEventListener('click',async()=>{
+      const _b=writeGuard(row);if(_b===null)return;if(!editor)return;
+      let schema;try{schema=await formEditorSchema(editor);}catch(err){alert(err.message);return;}
+      const r=await fetch(_b+'/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svcName)+'/'+cfg.endpoint+'/'+encodeURIComponent(item.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({engine:'form-js',schema})});
+      if(r.ok){location.reload();}else{const d=await r.json().catch(()=>({}));alert(d.error?.message||'Speichern fehlgeschlagen');}
+    });
+  }
   // Toggle ref chips
   container.querySelectorAll('[data-ref-chip]').forEach(chip=>{
     chip.addEventListener('click',()=>{

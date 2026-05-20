@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/nomos/nomos/internal/model"
 	"github.com/nomos/nomos/internal/storage"
 )
 
@@ -52,5 +53,21 @@ user_interfaces:
 	}
 	if ui.Binding == nil || ui.Binding.Submit != "identity.blumer.cloud/user-account#createAccount" {
 		t.Fatalf("binding not carried: %+v", ui.Binding)
+	}
+
+	updated, err := UpdateServiceUserInterface(p, "identity.blumer.cloud", "user-account", "UI-CAPTURE", model.ServiceUserInterface{
+		Engine: "form-js",
+		Schema: map[string]any{"type": "default", "components": []any{map[string]any{"type": "textfield", "key": "surname"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := updated.UserInterfaceDefs[0].Schema
+	comps, ok := got["components"].([]any)
+	if !ok || len(comps) != 1 {
+		t.Fatalf("updated schema not persisted: %+v", got)
+	}
+	if c := comps[0].(map[string]any); c["key"] != "surname" {
+		t.Fatalf("schema edit not persisted: %+v", c)
 	}
 }
