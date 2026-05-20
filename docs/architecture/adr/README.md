@@ -31,6 +31,7 @@ ADRs record significant architectural and technology decisions. Each ADR capture
 | [ADR-0021](ADR-0021-DRAFT-process-workflow-engine.md) | Process/Workflow Engine: Scope und Build-vs-Buy | Draft |
 | [ADR-0022](ADR-0022-DRAFT-cosmos-explorer-server-and-repository-mounts.md) | Cosmos Explorer — Server- und Repository-Mounts im Namespace-Tree | Proposed |
 | [ADR-0023](ADR-0023-DRAFT-inter-server-authentication.md) | Inter-Server-Authentifizierung für Cosmos-Mounts | Proposed |
+| [ADR-0024](ADR-0024-DRAFT-declarative-view-artifacts.md) | Deklarative View-/Form-Artefakte und lokaler Renderer | Proposed |
 
 ## Superseded / legacy stubs
 
