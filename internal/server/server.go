@@ -42,6 +42,8 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/v1/repositories/", h.apiRepositoryRoutes)
 	mux.HandleFunc("/api/v1/mounts", h.apiMounts)
 	mux.HandleFunc("/api/v1/mounts/", h.apiMountRoutes)
+	mux.HandleFunc("/api/v1/ping", h.apiPing)
+	mux.HandleFunc("/api/v1/discover", h.apiDiscover)
 	mux.HandleFunc("/api/v1/domains", h.apiDomains)
 	mux.HandleFunc("/api/v1/domains/", h.apiDomainRoutes)
 	mux.HandleFunc("/api/v1/services/refs", h.apiServiceRefs)
@@ -268,6 +270,26 @@ func (h *handler) proxyMount(w http.ResponseWriter, r *http.Request, mountID, re
 	}
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
+}
+
+// apiPing answers the discovery PING with this server's identity and peers (ADR-0025).
+func (h *handler) apiPing(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/ping" {
+		http.NotFound(w, r)
+		return
+	}
+	dto, err := app.Ping(h.cosmosPath)
+	h.writeOrErr(w, dto, err)
+}
+
+// apiDiscover aggregates 1-hop peer gossip into mount candidates (ADR-0025).
+func (h *handler) apiDiscover(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/discover" {
+		http.NotFound(w, r)
+		return
+	}
+	dto, err := app.DiscoverServers(h.cosmosPath)
+	h.writeOrErr(w, dto, err)
 }
 func (h *handler) writeOrErr(w http.ResponseWriter, dto any, err error) {
 	if err != nil {

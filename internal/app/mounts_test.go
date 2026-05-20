@@ -77,3 +77,52 @@ func TestBuildExplorerTreeDegradesUnreachableMount(t *testing.T) {
 		t.Fatalf("expected degraded unreachable server with no children, got %+v", down)
 	}
 }
+
+func TestPingReturnsIdentityAndPeers(t *testing.T) {
+	p := createAppTestCosmos(t)
+	if _, err := AddMount(p, "nomos.blumer.cloud:7373", "Prod", ""); err != nil {
+		t.Fatal(err)
+	}
+	ping, err := Ping(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ping.Server.Name == "" {
+		t.Fatal("expected server name in ping")
+	}
+	if len(ping.Peers) != 1 || ping.Peers[0].Endpoint != "nomos.blumer.cloud:7373" {
+		t.Fatalf("expected one advertised peer, got %+v", ping.Peers)
+	}
+}
+
+func TestDiscoverServersAggregatesPeers(t *testing.T) {
+	p := createAppTestCosmos(t)
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/ping" {
+			w.Write([]byte(`{"server":{"name":"Remote","version":"0.1.0","repositoryCount":1},"peers":[{"endpoint":"newserver:7373","label":"New"}]}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer remote.Close()
+	endpoint := strings.TrimPrefix(remote.URL, "http://")
+	if _, err := AddMount(p, endpoint, "Remote", ""); err != nil {
+		t.Fatal(err)
+	}
+	disc, err := DiscoverServers(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found *DiscoveredServerDTO
+	for i := range disc.Servers {
+		if disc.Servers[i].Endpoint == "newserver:7373" {
+			found = &disc.Servers[i]
+		}
+		if disc.Servers[i].Endpoint == endpoint {
+			t.Fatal("already-mounted server should not be a candidate")
+		}
+	}
+	if found == nil || found.Mounted || found.Via != endpoint {
+		t.Fatalf("expected newserver candidate via %s, got %+v", endpoint, disc.Servers)
+	}
+}
