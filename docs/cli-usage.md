@@ -354,6 +354,13 @@ Startet einen HTTP-Server.
 - `--path` (Default: `.`)
 - `--listen` (Default: `127.0.0.1:7373`)
 
+**Environment:**
+- `NOMOS_DOMAIN` – Öffentliche Domäne, unter der der lokale Server im Cosmos
+  Explorer erscheint (z. B. `nomos.blumer.cloud`). Ohne diese Variable wird der
+  Maschinen-Hostname verwendet – in einem Container ist das die Container-ID
+  (z. B. `56afaec69c76`). Eine echte DNS-Domäne wird in der DNS-Hierarchie
+  einsortiert (cloud → blumer → nomos) statt unter `local`.
+
 **Endpoints:**
 - `GET /health` → `{ "status": "ok", "service": "nomos", "version": "..." }`
 - `GET /api/v1/validate` → `{ "status": "ok" }`

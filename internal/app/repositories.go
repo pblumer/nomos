@@ -78,16 +78,20 @@ func BuildExplorerTree(path string) (NamespaceTreeDTO, error) {
 // a DNS domain → [local, <host>].
 func dnsPlacement(m MountDTO) []string {
 	host := hostOnly(m.Endpoint)
-	if m.Local || host == "" || host == "localhost" {
-		if host == "" {
-			host = "localhost"
-		}
-		return []string{"local", host}
+	if host == "" {
+		host = "localhost"
 	}
-	// Remote servers without a DNS hierarchy (IP or bare hostname) are a single leaf.
-	if net.ParseIP(host) != nil || !strings.Contains(host, ".") {
+	// localhost, an IP, or a bare hostname (e.g. a container ID) has no DNS
+	// hierarchy: the local server is shown under a synthetic "local" branch
+	// (local → host), a remote as a single leaf.
+	if host == "localhost" || net.ParseIP(host) != nil || !strings.Contains(host, ".") {
+		if m.Local {
+			return []string{"local", host}
+		}
 		return []string{host}
 	}
+	// A real DNS host (e.g. nomos.blumer.cloud) is placed in the DNS hierarchy
+	// regardless of whether it is the local server.
 	labels := strings.Split(host, ".")
 	out := make([]string, len(labels))
 	for i, l := range labels {

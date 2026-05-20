@@ -28,11 +28,18 @@ type MountsDTO struct {
 	Mounts []MountDTO `json:"mounts"`
 }
 
-// localDisplayEndpoint shows the local server under the machine hostname rather
+// localDisplayEndpoint shows the local server under its public domain rather
 // than a bare "localhost", so an official deployment (e.g. nomos.blumer.cloud)
-// is recognizable. Falls back to LocalServerEndpoint when the hostname is
-// unavailable. Internal resolution still keys the local mount by mount.LocalID.
+// is recognizable. The NOMOS_DOMAIN environment variable takes precedence (set
+// it to the public hostname behind the TLS proxy); otherwise the machine
+// hostname is used, falling back to LocalServerEndpoint when unavailable.
+// A container hostname (e.g. a Docker container ID like "56afaec69c76") is thus
+// overridable without rebuilding the image. Internal resolution still keys the
+// local mount by mount.LocalID.
 func localDisplayEndpoint() string {
+	if d := strings.TrimSpace(os.Getenv("NOMOS_DOMAIN")); d != "" {
+		return d
+	}
 	h, err := os.Hostname()
 	if err != nil || strings.TrimSpace(h) == "" {
 		return LocalServerEndpoint

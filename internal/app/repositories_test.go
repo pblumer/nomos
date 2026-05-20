@@ -49,6 +49,33 @@ func TestBuildExplorerTreePlacesLocalServerUnderLocal(t *testing.T) {
 	}
 }
 
+func TestBuildExplorerTreePlacesLocalServerUnderDomain(t *testing.T) {
+	t.Setenv("NOMOS_DOMAIN", "nomos.blumer.cloud")
+	tree, err := BuildExplorerTree(createAppTestCosmos(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// With a public domain configured, the local server is placed in the DNS
+	// hierarchy (cloud → blumer → nomos) instead of under "local".
+	if findTreeNode(tree.Root, "dns", "local") != nil {
+		t.Fatal("local server should not appear under 'local' when NOMOS_DOMAIN is set")
+	}
+	cloud := findTreeNode(tree.Root, "dns", "cloud")
+	if cloud == nil {
+		t.Fatal("expected a 'cloud' TLD branch")
+	}
+	if findTreeNode(*cloud, "dns", "blumer") == nil {
+		t.Fatal("expected a 'blumer' branch under 'cloud'")
+	}
+	server := findLocalServerNode(tree.Root)
+	if server == nil || server.Server == nil || !server.Server.Local {
+		t.Fatalf("expected local server node, got %+v", server)
+	}
+	if server.Label != "nomos" {
+		t.Errorf("server label = %q, want nomos", server.Label)
+	}
+}
+
 func TestListRepositoriesNameFallsBackWithoutCosmos(t *testing.T) {
 	dto, err := ListRepositories(t.TempDir())
 	if err != nil {

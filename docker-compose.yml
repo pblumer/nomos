@@ -11,6 +11,9 @@ services:
     environment:
       COSMOS_PATH: /cosmos/data
       NOMOS_LISTEN: 0.0.0.0:7373
+      # Public domain shown in the Cosmos Explorer instead of the container
+      # hostname. Set this to your deployment's domain.
+      NOMOS_DOMAIN: nomos.blumer.cloud
     restart: unless-stopped
 
 volumes:
