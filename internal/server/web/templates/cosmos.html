@@ -785,11 +785,11 @@ function isRemoteNode(row){return readBase(row)!=='';}
 // vendored under /static/vendor/form-js/ (see vendor/form-js/README.md).
 const VIEW_RENDERERS={'form-js':renderFormJsView};
 function renderView(target,engine,schema){
-  if(!target)return;
+  if(!target)return Promise.resolve(null);
   const r=VIEW_RENDERERS[engine];
-  if(!r){target.innerHTML=`<p class="muted" style="color:#64748b;font-size:.85rem">Kein Renderer für engine &quot;${esc(engine||'—')}&quot; registriert — Schema unten als JSON.</p>`;return;}
+  if(!r){target.innerHTML=`<p class="muted" style="color:#64748b;font-size:.85rem">Kein Renderer für engine &quot;${esc(engine||'—')}&quot; registriert — Schema unten als JSON.</p>`;return Promise.resolve(null);}
   target.innerHTML='<div class="detail-empty">Renderer lädt…</div>';
-  Promise.resolve().then(()=>r(target,schema)).catch(e=>{target.innerHTML=`<p class="muted" style="color:#b45309;font-size:.85rem">${esc(e.message)} — Schema unten als JSON.</p>`;});
+  return Promise.resolve().then(()=>r(target,schema)).catch(e=>{target.innerHTML=`<p class="muted" style="color:#b45309;font-size:.85rem">${esc(e.message)} — Schema unten als JSON.</p>`;return null;});
 }
 let _formJsLoad=null;
 function loadFormJs(){
@@ -807,8 +807,8 @@ function loadFormJs(){
 async function renderFormJsView(target,schema){
   const g=await loadFormJs();
   target.innerHTML='';
-  if(g.createForm){await g.createForm({container:target,schema,data:{}});}
-  else{const f=new g.Form({container:target});await f.importSchema(schema,{});}
+  if(g.createForm){return await g.createForm({container:target,schema,data:{}});}
+  const f=new g.Form({container:target});await f.importSchema(schema,{});return f;
 }
 let _formEdLoad=null;
 function loadFormJsEditor(){
@@ -3971,15 +3971,18 @@ function renderSvcElementDetail(container,svc,domain,svcName,cfg,item,row){
   }
   const body=`<div class="detail-body"><div class="nfield"><label>ID</label><input value="${esc(item.id)}" disabled style="background:#f8fafc;color:#64748b" /></div><div class="nfield"><label>Name</label><input id="se-name" value="${esc(item.name||'')}" /></div><div class="nfield"><label>Summary</label><textarea id="se-summary">${esc(item.summary||'')}</textarea></div>${extraFields}${linksHtml}</div>`;
   const footer=`<div class="detail-footer"><button class="btn btn-primary" id="svc-elem-save"><span class="mi" style="font-family:'Material Symbols Outlined'">save</span> Speichern</button><span id="svc-elem-status" style="font-size:.8rem;color:#64748b;margin-left:.5rem"></span></div>`;
-  const viewBlock=(cfg.kind==='user-interface')?`<div class="detail-body" style="border-top:1px solid #eef2f7;margin-top:.5rem"><div style="display:flex;align-items:center;gap:.5rem;margin:.2rem 0 .5rem"><h4 style="margin:0;flex:1">Formular</h4><button class="btn btn-secondary btn-sm" id="view-edit-toggle"><span class="mi" style="font-family:'Material Symbols Outlined'">edit</span> Bearbeiten</button><button class="btn btn-primary btn-sm" id="view-save" style="display:none"><span class="mi" style="font-family:'Material Symbols Outlined'">save</span> Formular speichern</button></div><div class="vf-meta" style="font-size:.82rem;color:#64748b;margin-bottom:.4rem">Engine: <code>${esc(item.engine||'form-js')}</code>${item.binding&&item.binding.submit?` · Submit: <code>${esc(item.binding.submit)}</code>`:''}</div><div id="view-render" class="view-render"></div>${item.schema?`<details style="margin-top:.5rem"><summary>Schema (JSON)</summary><pre class="view-schema">${esc(JSON.stringify(item.schema,null,2))}</pre></details>`:''}</div>`:'';
+  const submitBtn=`<button class="btn btn-primary btn-sm" id="view-submit"${item.schema?'':' style="display:none"'}><span class="mi" style="font-family:'Material Symbols Outlined'">send</span> Absenden</button>`;
+  const viewBlock=(cfg.kind==='user-interface')?`<div class="detail-body" style="border-top:1px solid #eef2f7;margin-top:.5rem"><div style="display:flex;align-items:center;gap:.5rem;margin:.2rem 0 .5rem"><h4 style="margin:0;flex:1">Formular</h4>${submitBtn}<button class="btn btn-secondary btn-sm" id="view-edit-toggle"><span class="mi" style="font-family:'Material Symbols Outlined'">edit</span> Bearbeiten</button><button class="btn btn-primary btn-sm" id="view-save" style="display:none"><span class="mi" style="font-family:'Material Symbols Outlined'">save</span> Formular speichern</button></div><div class="vf-meta" style="font-size:.82rem;color:#64748b;margin-bottom:.4rem">Engine: <code>${esc(item.engine||'form-js')}</code>${item.binding&&item.binding.submit?` · Submit: <code>${esc(item.binding.submit)}</code>`:''}</div><div id="view-render" class="view-render"></div><div id="view-submit-result" style="margin-top:.5rem"></div>${item.schema?`<details style="margin-top:.5rem"><summary>Schema (JSON)</summary><pre class="view-schema">${esc(JSON.stringify(item.schema,null,2))}</pre></details>`:''}</div>`:'';
   container.innerHTML=head+body+footer+viewBlock;
   if(cfg.kind==='user-interface'){
     const target=container.querySelector('#view-render');
-    if(item.schema)renderView(target,item.engine||'form-js',item.schema);
+    let formInst=null;
+    if(item.schema)renderView(target,item.engine||'form-js',item.schema).then(inst=>{formInst=inst;}).catch(()=>{});
     else target.innerHTML='<p class="muted" style="color:#64748b;font-size:.85rem">Noch kein Formular — „Bearbeiten" öffnet den Editor.</p>';
     let editor=null;
     container.querySelector('#view-edit-toggle')?.addEventListener('click',async(e)=>{
       const btn=e.currentTarget;btn.disabled=true;
+      const sb=container.querySelector('#view-submit');if(sb)sb.style.display='none';
       try{editor=await renderFormJsEditor(target,item.schema);container.querySelector('#view-save').style.display='';}
       catch(err){btn.disabled=false;target.innerHTML=`<p class="muted" style="color:#b45309;font-size:.85rem">${esc(err.message)}</p>`;}
     });
@@ -3988,6 +3991,23 @@ function renderSvcElementDetail(container,svc,domain,svcName,cfg,item,row){
       let schema;try{schema=await formEditorSchema(editor);}catch(err){alert(err.message);return;}
       const r=await fetch(_b+'/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svcName)+'/'+cfg.endpoint+'/'+encodeURIComponent(item.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({engine:'form-js',schema})});
       if(r.ok){location.reload();}else{const d=await r.json().catch(()=>({}));alert(d.error?.message||'Speichern fehlgeschlagen');}
+    });
+    container.querySelector('#view-submit')?.addEventListener('click',async()=>{
+      if(!formInst||typeof formInst.submit!=='function'){alert('Formular noch nicht bereit.');return;}
+      const {data,errors}=formInst.submit();
+      if(errors&&Object.keys(errors).length)return; // form-js zeigt Fehler inline
+      const out=container.querySelector('#view-submit-result');
+      const targetRef=(item.binding&&item.binding.submit)||'';
+      const dec=targetRef.match(/^(.+)\/decisions\/([^/]+)$/);
+      if(dec){
+        const _b=mountBase(row);if(_b===null){blockRemoteWrite();return;}
+        out.innerHTML='<div class="detail-empty">Evaluiere…</div>';
+        const r=await fetch(_b+'/api/v1/domains/'+encodeURIComponent(dec[1])+'/decisions/'+encodeURIComponent(dec[2])+'/evaluate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({inputs:data})});
+        const d=await r.json().catch(()=>({}));
+        out.innerHTML=r.ok?`<h5 style="margin:.3rem 0">Decision-Ergebnis</h5><pre class="view-schema">${esc(JSON.stringify(d,null,2))}</pre>`:`<div class="nerror show">${esc(d.error?.message||'Evaluation fehlgeschlagen')}</div>`;
+      } else {
+        out.innerHTML=`<h5 style="margin:.3rem 0">Erfasste Daten</h5><pre class="view-schema">${esc(JSON.stringify(data,null,2))}</pre>`+(targetRef?`<p class="muted" style="color:#64748b;font-size:.8rem">Ziel <code>${esc(targetRef)}</code> ist nicht evaluierbar — Service-Ausführung folgt mit der Runtime (ADR-0021).</p>`:'<p class="muted" style="color:#64748b;font-size:.8rem">Kein <code>binding.submit</code> hinterlegt — nur erfasste Daten.</p>');
+      }
     });
   }
   // Toggle ref chips
