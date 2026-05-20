@@ -62,14 +62,14 @@ func versionCmd() *cobra.Command {
 
 func appendGitignore(p string) error {
 	path := filepath.Join(p, ".gitignore")
-	block := "# Nomos local generated data\n.nomos/cache/\n.nomos/index/\n"
+	block := "# Nomos local generated data\n.nomos/cache/\n.nomos/index/\n.nomos/mounts.yaml\n"
 	data, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	content := string(data)
 	changed := false
-	for _, line := range []string{"# Nomos local generated data", ".nomos/cache/", ".nomos/index/"} {
+	for _, line := range []string{"# Nomos local generated data", ".nomos/cache/", ".nomos/index/", ".nomos/mounts.yaml"} {
 		if !strings.Contains(content, line) {
 			changed = true
 			break

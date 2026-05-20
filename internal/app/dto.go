@@ -14,6 +14,33 @@ type CosmosDTO struct {
 	ServiceCount       int    `json:"serviceCount"`
 }
 
+type RepositoryDTO struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Kind          string `json:"kind"`
+	Location      string `json:"location"`
+	DefaultBranch string `json:"default_branch,omitempty"`
+	Status        string `json:"status,omitempty"`
+	Head          string `json:"head,omitempty"`
+}
+
+type RepositoriesDTO struct {
+	Repositories []RepositoryDTO `json:"repositories"`
+}
+
+// ServerDTO describes a Nomos server mounted in the Cosmos Explorer tree
+// (ADR-0022 §1). The server answers on its endpoint (port 7373) and manages the
+// repositories beneath it.
+type ServerDTO struct {
+	MountID         string `json:"mountId,omitempty"`
+	Endpoint        string `json:"endpoint"`
+	Label           string `json:"label,omitempty"`
+	Local           bool   `json:"local"`
+	Authenticated   bool   `json:"authenticated"`
+	Status          string `json:"status,omitempty"`
+	RepositoryCount int    `json:"repositoryCount"`
+}
+
 type NamespaceDTO struct {
 	Canonical       string   `json:"canonical"`
 	CanonicalName   string   `json:"canonicalName"`
@@ -50,6 +77,7 @@ type DomainDTO struct {
 	ProductCount       int                 `json:"productCount"`
 	Persisted          bool                `json:"persisted"`
 	Virtual            bool                `json:"virtual"`
+	IsFolder           bool                `json:"isFolder"`
 	Products           []ProductSummaryDTO `json:"products,omitempty"`
 	Services           []ServiceDTO        `json:"services,omitempty"`
 	Decisions          []DecisionDTO       `json:"decisions,omitempty"`
@@ -138,12 +166,21 @@ type ServiceDataObjectDTO struct {
 }
 
 type ServiceUserInterfaceDTO struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Summary   string `json:"summary,omitempty"`
-	Channel   string `json:"channel,omitempty"`
-	URL       string `json:"url,omitempty"`
-	Stability string `json:"stability,omitempty"`
+	ID            string          `json:"id"`
+	Name          string          `json:"name"`
+	Summary       string          `json:"summary,omitempty"`
+	Channel       string          `json:"channel,omitempty"`
+	URL           string          `json:"url,omitempty"`
+	Stability     string          `json:"stability,omitempty"`
+	Engine        string          `json:"engine,omitempty"`
+	EngineVersion string          `json:"engine_version,omitempty"`
+	Schema        map[string]any  `json:"schema,omitempty"`
+	Binding       *ViewBindingDTO `json:"binding,omitempty"`
+}
+
+type ViewBindingDTO struct {
+	DataObjectRef string `json:"data_object_ref,omitempty"`
+	Submit        string `json:"submit,omitempty"`
 }
 
 type ServiceDTO struct {
@@ -208,6 +245,7 @@ type NamespaceTreeNodeDTO struct {
 	ProcessStep          *ProcessStepSummaryDTO     `json:"processStep,omitempty"`
 	Persisted            bool                       `json:"persisted"`
 	Virtual              bool                       `json:"virtual"`
+	IsFolder             bool                       `json:"isFolder,omitempty"`
 	CanCreateChildDomain bool                       `json:"canCreateChildDomain"`
 	CanAddService        bool                       `json:"canAddService"`
 	CanOpenDetails       bool                       `json:"canOpenDetails"`
@@ -217,6 +255,8 @@ type NamespaceTreeNodeDTO struct {
 	TreeTarget           string                     `json:"treeTarget,omitempty"`
 	MethodName           string                     `json:"methodName,omitempty"`
 	Decision             *DecisionDTO               `json:"decision,omitempty"`
+	Server               *ServerDTO                 `json:"server,omitempty"`
+	Repository           *RepositoryDTO             `json:"repository,omitempty"`
 	Capability           *ServiceCapabilityDTO      `json:"capability,omitempty"`
 	DataObject           *ServiceDataObjectDTO      `json:"dataObject,omitempty"`
 	UserInterface        *ServiceUserInterfaceDTO   `json:"userInterface,omitempty"`

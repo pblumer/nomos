@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	mcphttp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/nomos/nomos/internal/app"
@@ -37,6 +38,16 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/swagger/", h.swaggerUI)
 	mux.HandleFunc("/api/docs", h.swaggerUI)
 	mux.HandleFunc("/api/v1/cosmos", h.apiCosmos)
+	mux.HandleFunc("/api/v1/repositories", h.apiRepositories)
+	mux.HandleFunc("/api/v1/repositories/", h.apiRepositoryRoutes)
+	mux.HandleFunc("/api/v1/mounts", h.apiMounts)
+	mux.HandleFunc("/api/v1/mounts/", h.apiMountRoutes)
+	mux.HandleFunc("/api/v1/ping", h.apiPing)
+	mux.HandleFunc("/api/v1/discover", h.apiDiscover)
+	mux.HandleFunc("/api/v1/folders", h.apiFolders)
+	mux.HandleFunc("/api/v1/folders/", h.apiFolderRoutes)
+	mux.HandleFunc("/api/v1/index", h.apiIndex)
+	mux.HandleFunc("/api/v1/index/", h.apiIndexResolve)
 	mux.HandleFunc("/api/v1/domains", h.apiDomains)
 	mux.HandleFunc("/api/v1/domains/", h.apiDomainRoutes)
 	mux.HandleFunc("/api/v1/services/refs", h.apiServiceRefs)
@@ -86,6 +97,301 @@ func (h *handler) apiCosmos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dto, err := app.GetCosmos(h.cosmosPath)
+	if err != nil {
+		h.apiErr(w, err)
+		return
+	}
+	writeJSON(w, 200, dto)
+}
+func (h *handler) apiRepositories(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/repositories" {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	dto, err := app.ListRepositories(h.cosmosPath)
+	if err != nil {
+		h.apiErr(w, err)
+		return
+	}
+	writeJSON(w, 200, dto)
+}
+
+// apiRepositoryRoutes serves repository-scoped reads (ADR-0022 §2). It resolves
+// {repo} to its workspace and delegates to the same app read functions the
+// non-scoped aliases use, so /api/v1/repositories/default/cosmos and
+// /api/v1/cosmos return identical payloads.
+func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/repositories/")
+	parts := strings.Split(rest, "/")
+	repoID := parts[0]
+	if repoID == "" {
+		http.NotFound(w, r)
+		return
+	}
+	repoDTO, err := app.GetRepository(h.cosmosPath, repoID)
+	if err != nil {
+		h.apiErr(w, err)
+		return
+	}
+	loc := repoDTO.Location
+	switch resource := strings.Join(parts[1:], "/"); {
+	case resource == "":
+		writeJSON(w, 200, repoDTO)
+	case resource == "cosmos":
+		dto, err := app.GetCosmos(loc)
+		h.writeOrErr(w, dto, err)
+	case resource == "namespaces":
+		dto, err := app.BuildNamespaceTree(loc)
+		h.writeOrErr(w, dto, err)
+	case resource == "domains":
+		dto, err := app.ListDomains(loc)
+		h.writeOrErr(w, dto, err)
+	case strings.HasPrefix(resource, "domains/"):
+		domain := strings.TrimPrefix(resource, "domains/")
+		if domain == "" || strings.Contains(domain, "/") {
+			http.NotFound(w, r)
+			return
+		}
+		dto, err := app.GetDomain(loc, domain)
+		h.writeOrErr(w, dto, err)
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+// apiMounts lists or adds server mounts (ADR-0022 §5).
+func (h *handler) apiMounts(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/mounts" {
+		http.NotFound(w, r)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		dto, err := app.ListMounts(h.cosmosPath)
+		h.writeOrErr(w, dto, err)
+	case http.MethodPost:
+		var body struct {
+			Endpoint string `json:"endpoint"`
+			Label    string `json:"label"`
+			Token    string `json:"token"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+			return
+		}
+		dto, err := app.AddMount(h.cosmosPath, body.Endpoint, body.Label, body.Token)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, dto)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+// apiMountRoutes removes a server mount by id (ADR-0022 §5) or proxies a request
+// to a remote mounted server (ADR-0023). Proxy paths are
+// /api/v1/mounts/{id}/r/<remote-path>; the local server forwards the request to
+// http://{endpoint}/<remote-path> with the mount token as X-API-Key.
+func (h *handler) apiMountRoutes(w http.ResponseWriter, r *http.Request) {
+	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/mounts/")
+	if i := strings.Index(rest, "/r/"); i >= 0 {
+		h.proxyMount(w, r, rest[:i], rest[i+len("/r/"):])
+		return
+	}
+	if id, ok := strings.CutSuffix(rest, "/r"); ok {
+		h.proxyMount(w, r, id, "")
+		return
+	}
+	id := rest
+	if id == "" || strings.Contains(id, "/") {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodDelete {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	if err := app.RemoveMount(h.cosmosPath, id); err != nil {
+		h.apiErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+var mountProxyClient = &http.Client{Timeout: 10 * time.Second}
+
+func isMutating(method string) bool {
+	switch method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+		return true
+	}
+	return false
+}
+
+func (h *handler) proxyMount(w http.ResponseWriter, r *http.Request, mountID, remotePath string) {
+	endpoint, token, err := app.MountTarget(h.cosmosPath, mountID)
+	if err != nil {
+		h.apiErr(w, err)
+		return
+	}
+	if isMutating(r.Method) && token == "" {
+		h.apiErr(w, app.Error(app.CodeMountNotAuthenticated, "mount has no token; writes to this server are not allowed", http.StatusForbidden, nil))
+		return
+	}
+	target := "http://" + endpoint + "/" + remotePath
+	if r.URL.RawQuery != "" {
+		target += "?" + r.URL.RawQuery
+	}
+	req, err := http.NewRequestWithContext(r.Context(), r.Method, target, r.Body)
+	if err != nil {
+		h.apiErr(w, app.Error(app.CodeInternalError, err.Error(), http.StatusBadGateway, err))
+		return
+	}
+	if ct := r.Header.Get("Content-Type"); ct != "" {
+		req.Header.Set("Content-Type", ct)
+	}
+	if token != "" {
+		req.Header.Set("X-API-Key", token)
+	}
+	resp, err := mountProxyClient.Do(req)
+	if err != nil {
+		h.apiErr(w, app.Error(app.CodeInternalError, "remote server unreachable: "+err.Error(), http.StatusBadGateway, err))
+		return
+	}
+	defer resp.Body.Close()
+	if ct := resp.Header.Get("Content-Type"); ct != "" {
+		w.Header().Set("Content-Type", ct)
+	}
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
+}
+
+// apiIndex returns the ID→address index (ADR-0028).
+func (h *handler) apiIndex(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/index" {
+		http.NotFound(w, r)
+		return
+	}
+	dto, err := app.BuildIDIndex(h.cosmosPath)
+	h.writeOrErr(w, dto, err)
+}
+
+// apiIndexResolve resolves a single ID to its current address (ADR-0028).
+func (h *handler) apiIndexResolve(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimPrefix(r.URL.Path, "/api/v1/index/")
+	if id == "" || strings.Contains(id, "/") {
+		http.NotFound(w, r)
+		return
+	}
+	dto, err := app.ResolveID(h.cosmosPath, id)
+	h.writeOrErr(w, dto, err)
+}
+
+// apiFolders lists/creates namespace folders (ADR-0027).
+func (h *handler) apiFolders(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/folders" {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	var body struct {
+		Parent string `json:"parent"`
+		Label  string `json:"label"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+		return
+	}
+	dto, err := app.CreateFolder(h.cosmosPath, body.Parent, body.Label)
+	if err != nil {
+		h.apiErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, dto)
+}
+
+// apiFolderRoutes serves GET/DELETE /api/v1/folders/{canonical},
+// PUT (rename) and POST /api/v1/folders/{canonical}/move (ADR-0027).
+func (h *handler) apiFolderRoutes(w http.ResponseWriter, r *http.Request) {
+	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/folders/")
+	if rest == "" {
+		http.NotFound(w, r)
+		return
+	}
+	if canon, ok := strings.CutSuffix(rest, "/move"); ok {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var body struct {
+			TargetParent string `json:"target_parent"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+			return
+		}
+		dto, err := app.MoveFolder(h.cosmosPath, canon, body.TargetParent)
+		h.writeOrErr(w, dto, err)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		dto, err := app.GetFolder(h.cosmosPath, rest)
+		h.writeOrErr(w, dto, err)
+	case http.MethodPut:
+		var body struct {
+			Label string `json:"label"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+			return
+		}
+		dto, err := app.RenameFolder(h.cosmosPath, rest, body.Label)
+		h.writeOrErr(w, dto, err)
+	case http.MethodDelete:
+		if err := app.DeleteFolder(h.cosmosPath, rest); err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+// apiPing answers the discovery PING with this server's identity and peers (ADR-0025).
+func (h *handler) apiPing(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/ping" {
+		http.NotFound(w, r)
+		return
+	}
+	dto, err := app.Ping(h.cosmosPath)
+	h.writeOrErr(w, dto, err)
+}
+
+// apiDiscover aggregates 1-hop peer gossip into mount candidates (ADR-0025).
+func (h *handler) apiDiscover(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/discover" {
+		http.NotFound(w, r)
+		return
+	}
+	dto, err := app.DiscoverServers(h.cosmosPath)
+	h.writeOrErr(w, dto, err)
+}
+func (h *handler) writeOrErr(w http.ResponseWriter, dto any, err error) {
 	if err != nil {
 		h.apiErr(w, err)
 		return
@@ -297,6 +603,23 @@ func (h *handler) apiDomainRoutes(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, dto)
 		return
 	}
+	// POST /api/v1/domains/{domain}/services/{service}/move
+	if len(parts) == 4 && parts[1] == "services" && parts[3] == "move" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			TargetDomain string `json:"target_domain"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+			return
+		}
+		dto, err := app.MoveService(h.cosmosPath, parts[0], parts[2], req.TargetDomain)
+		h.writeOrErr(w, dto, err)
+		return
+	}
 	// GET/POST /api/v1/domains/{domain}/decisions
 	if len(parts) == 2 && parts[1] == "decisions" {
 		h.apiDomainDecisions(w, r, parts[0])
@@ -365,6 +688,22 @@ func (h *handler) apiDomainDecisionByID(w http.ResponseWriter, r *http.Request, 
 			"result": result,
 			"trace":  trace,
 		})
+		return
+	}
+	if len(tail) == 1 && tail[0] == "move" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			TargetDomain string `json:"target_domain"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+			return
+		}
+		dto, err := app.MoveDecision(h.cosmosPath, domain, id, req.TargetDomain)
+		h.writeOrErr(w, dto, err)
 		return
 	}
 	if len(tail) >= 1 && tail[0] == "traces" {
@@ -771,6 +1110,30 @@ func (h *handler) apiProcessRoutes(w http.ResponseWriter, r *http.Request) {
 func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/services/")
 	parts := strings.Split(rest, "/")
+
+	// POST /api/v1/services/{domain}/{service}/{endpoint}/{id}/move
+	if len(parts) == 5 && parts[4] == "move" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		kind := map[string]string{"capabilities": "capability", "data-objects": "data-object", "user-interfaces": "user-interface", "methods": "method"}[parts[2]]
+		if kind == "" {
+			htmlNotFound(w, r)
+			return
+		}
+		var req struct {
+			TargetDomain  string `json:"target_domain"`
+			TargetService string `json:"target_service"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+			return
+		}
+		dto, err := app.MoveServiceElement(h.cosmosPath, parts[0], parts[1], kind, parts[3], req.TargetDomain, req.TargetService)
+		h.writeOrErr(w, dto, err)
+		return
+	}
 
 	// POST /api/v1/services/{domain}/{service}/capabilities
 	if len(parts) == 3 && parts[2] == "capabilities" {
@@ -1610,7 +1973,7 @@ func (h *handler) cosmosPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	doc, _ := app.DoctorCosmos(h.cosmosPath)
-	ns, _ := app.BuildNamespaceTree(h.cosmosPath)
+	ns, _ := app.BuildExplorerTree(h.cosmosPath)
 	bp, _ := app.ListBlueprints(h.cosmosPath)
 	domains, _ := app.ListDomains(h.cosmosPath)
 	h.page(w, "cosmos", map[string]any{

@@ -22,6 +22,11 @@ func IndexDir(workspace string) string    { return filepath.Join(NomosDir(worksp
 func CacheDir(workspace string) string    { return filepath.Join(NomosDir(workspace), "cache") }
 func UCIDir(workspace string) string      { return filepath.Join(NomosDir(workspace), "uci") }
 func KeysFile(workspace string) string    { return filepath.Join(NomosDir(workspace), "keys.yaml") }
+func MountsFile(workspace string) string  { return filepath.Join(NomosDir(workspace), "mounts.yaml") }
+
+// FolderFile is the marker/metadata file that materializes a namespace folder
+// in git (ADR-0027).
+func FolderFile(dir string) string { return filepath.Join(dir, "folder.yaml") }
 
 func SelfModelDir(workspace string) string {
 	return filepath.Join(DomainsDir(workspace), "nomos", "core")

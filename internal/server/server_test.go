@@ -226,6 +226,170 @@ func TestNamespaceTreeAPIAndContentTypes(t *testing.T) {
 	hasAll(t, body, "Namespaces", "com", "cloud", "blumer", "identity", "home", "identity.blumer.com", "identity.blumer.cloud", "treePath", "displayPath")
 }
 
+func TestRepositoriesAPIReturnsLocalDefault(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	rr := get(h, "/api/v1/repositories")
+	if rr.Code != 200 {
+		t.Fatalf("status=%d", rr.Code)
+	}
+	if !strings.Contains(rr.Header().Get("Content-Type"), "application/json") {
+		t.Fatalf("content-type=%s", rr.Header().Get("Content-Type"))
+	}
+	var out struct {
+		Repositories []struct {
+			ID       string `json:"id"`
+			Kind     string `json:"kind"`
+			Name     string `json:"name"`
+			Location string `json:"location"`
+		} `json:"repositories"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Repositories) != 1 {
+		t.Fatalf("expected 1 repository, got %d", len(out.Repositories))
+	}
+	r := out.Repositories[0]
+	if r.ID != "default" || r.Kind != "filesystem" || r.Name != "Local Cosmos" {
+		t.Fatalf("unexpected repository %+v", r)
+	}
+	if get(h, "/api/v1/repositories/").Code == 200 {
+		t.Fatal("trailing-slash path should not be served by exact handler in PR 1")
+	}
+}
+
+func TestMountsAPICRUD(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	if rr := get(h, "/api/v1/mounts"); rr.Code != 200 {
+		t.Fatalf("list status=%d", rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), `"local":true`, "localhost:7373")
+	}
+	if rr := postJSON(h, "/api/v1/mounts", `{"endpoint":"nomos.blumer.cloud:7373","label":"Prod"}`); rr.Code != 201 {
+		t.Fatalf("add status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if rr := postJSON(h, "/api/v1/mounts", `{"endpoint":"nomos.blumer.cloud:7373"}`); rr.Code != 409 {
+		t.Fatalf("duplicate status=%d, want 409", rr.Code)
+	}
+	if rr := get(h, "/api/v1/mounts"); !strings.Contains(rr.Body.String(), "nomos.blumer.cloud:7373") {
+		t.Fatalf("listed mounts missing remote: %s", rr.Body.String())
+	}
+	del := func(path string) int {
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, path, nil))
+		return rr.Code
+	}
+	if code := del("/api/v1/mounts/nomos-blumer-cloud-7373"); code != 204 {
+		t.Fatalf("delete status=%d, want 204", code)
+	}
+	if code := del("/api/v1/mounts/local"); code != 400 {
+		t.Fatalf("delete local status=%d, want 400", code)
+	}
+	if code := del("/api/v1/mounts/does-not-exist"); code != 404 {
+		t.Fatalf("delete missing status=%d, want 404", code)
+	}
+}
+
+func TestMountProxyForwardsTokenAndBlocksUnauthenticated(t *testing.T) {
+	var gotKey, gotMethod string
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotKey = r.Header.Get("X-API-Key")
+		gotMethod = r.Method
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	defer remote.Close()
+	endpoint := strings.TrimPrefix(remote.URL, "http://")
+
+	h := NewHandler(createTestCosmos(t))
+	if rr := postJSON(h, "/api/v1/mounts", `{"endpoint":"`+endpoint+`","token":"secret"}`); rr.Code != 201 {
+		t.Fatalf("add authenticated mount status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	var list struct {
+		Mounts []struct {
+			ID            string `json:"id"`
+			Local         bool   `json:"local"`
+			Authenticated bool   `json:"authenticated"`
+		} `json:"mounts"`
+	}
+	if err := json.Unmarshal(get(h, "/api/v1/mounts").Body.Bytes(), &list); err != nil {
+		t.Fatal(err)
+	}
+	var id string
+	for _, m := range list.Mounts {
+		if !m.Local {
+			id = m.ID
+			if !m.Authenticated {
+				t.Fatal("expected mount to report authenticated")
+			}
+		}
+	}
+	if id == "" {
+		t.Fatal("remote mount id not found")
+	}
+	if rr := postJSON(h, "/api/v1/mounts/"+id+"/r/api/v1/domains", `{"dns":"x.example"}`); rr.Code != 201 {
+		t.Fatalf("proxy POST status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if gotKey != "secret" || gotMethod != "POST" {
+		t.Fatalf("proxy did not forward correctly: key=%q method=%q", gotKey, gotMethod)
+	}
+	if rr := get(h, "/api/v1/mounts/"+id+"/r/api/v1/cosmos"); rr.Code != 201 {
+		t.Fatalf("proxy GET status=%d", rr.Code)
+	}
+	if gotMethod != "GET" {
+		t.Fatalf("read not forwarded as GET: %q", gotMethod)
+	}
+
+	if rr := postJSON(h, "/api/v1/mounts", `{"endpoint":"127.0.0.1:9"}`); rr.Code != 201 {
+		t.Fatalf("add unauthenticated mount status=%d", rr.Code)
+	}
+	if rr := postJSON(h, "/api/v1/mounts/127-0-0-1-9/r/api/v1/domains", `{}`); rr.Code != 403 {
+		t.Fatalf("write to unauthenticated mount status=%d, want 403", rr.Code)
+	}
+}
+
+func TestCosmosExplorerRendersServerAndRepository(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	rr := get(h, "/cosmos")
+	if rr.Code != 200 {
+		t.Fatalf("status=%d", rr.Code)
+	}
+	hasAll(t, rr.Body.String(), `data-kind="server"`, "localhost:7373", `data-kind="repository"`, "Namespaces",
+		`data-action="mount-server"`, `data-action="unmount-server"`, `data-mount-id="local"`)
+}
+
+func TestRepositoryScopedReadsMatchAliases(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	for _, p := range [][2]string{
+		{"/api/v1/cosmos", "/api/v1/repositories/default/cosmos"},
+		{"/api/v1/namespaces", "/api/v1/repositories/default/namespaces"},
+		{"/api/v1/domains", "/api/v1/repositories/default/domains"},
+	} {
+		alias := get(h, p[0])
+		scoped := get(h, p[1])
+		if alias.Code != 200 || scoped.Code != 200 {
+			t.Fatalf("%s=%d %s=%d", p[0], alias.Code, p[1], scoped.Code)
+		}
+		if alias.Body.String() != scoped.Body.String() {
+			t.Fatalf("payload mismatch:\n%s\n%s", p[0], p[1])
+		}
+	}
+	if meta := get(h, "/api/v1/repositories/default"); meta.Code != 200 {
+		t.Fatalf("repo metadata status=%d", meta.Code)
+	} else {
+		hasAll(t, meta.Body.String(), `"id":"default"`, "filesystem")
+	}
+	if dom := get(h, "/api/v1/repositories/default/domains/identity.blumer.cloud"); dom.Code != 200 {
+		t.Fatalf("scoped domain detail status=%d", dom.Code)
+	} else {
+		hasAll(t, dom.Body.String(), "user-account")
+	}
+	if rr := get(h, "/api/v1/repositories/nope/cosmos"); rr.Code != 404 {
+		t.Fatalf("unknown repo status=%d, want 404", rr.Code)
+	}
+}
+
 func TestRESTDetailRoutesAndErrors(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	if rr := get(h, "/api/v1/domains/identity.blumer.cloud"); rr.Code != 200 {
@@ -1247,5 +1411,34 @@ func TestOpenAPIContainsProductMoveEndpoint(t *testing.T) {
 		if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), want) {
 			t.Fatalf("openapi missing %q status=%d body=%s", want, rr.Code, rr.Body.String())
 		}
+	}
+}
+
+func TestFoldersAPICreateMoveDelete(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	if rr := postJSON(h, "/api/v1/folders", `{"parent":"","label":"workspace"}`); rr.Code != 201 {
+		t.Fatalf("create folder status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if rr := postJSON(h, "/api/v1/folders", `{"parent":"workspace","label":"team-a"}`); rr.Code != 201 {
+		t.Fatalf("create child folder status=%d", rr.Code)
+	}
+	if rr := get(h, "/api/v1/folders/team-a.workspace"); rr.Code != 200 {
+		t.Fatalf("get folder status=%d", rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "team-a.workspace")
+	}
+	if rr := postJSON(h, "/api/v1/folders", `{"parent":"","label":"Invalid Label"}`); rr.Code != 400 {
+		t.Fatalf("invalid label status=%d, want 400", rr.Code)
+	}
+	del := func(path string) int {
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, path, nil))
+		return rr.Code
+	}
+	if code := del("/api/v1/folders/workspace"); code != 409 {
+		t.Fatalf("delete non-empty folder status=%d, want 409", code)
+	}
+	if code := del("/api/v1/folders/team-a.workspace"); code != 204 {
+		t.Fatalf("delete empty folder status=%d, want 204", code)
 	}
 }

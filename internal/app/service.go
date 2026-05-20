@@ -180,7 +180,7 @@ func domainDTO(tree cosmosfs.Tree, d cosmosfs.DomainNode, includeServices bool) 
 	canonical := namespace.Canonical(d.Name)
 	v := namespace.View(canonical)
 	products := productSummariesOfferedBy(tree, canonical)
-	dto := DomainDTO{Name: canonical, Canonical: canonical, CanonicalName: canonical, Namespace: namespaceDTO(v), Label: v.Label, NamespaceName: v.Namespace, ParentCanonical: v.ParentCanonical, ParentTreePath: v.ParentTreePath, TreePath: v.TreePath, GitPath: v.GitPath, VerificationStatus: verificationStatus(fallback(d.Metadata.Status, "unknown")), DisplayName: v.Label, Owner: fallback(d.Metadata.Owner, "unknown"), Status: fallback(d.Metadata.Status, "unknown"), Path: d.Path, ServiceCount: len(d.Services), ProductCount: len(products), Persisted: true, Virtual: false}
+	dto := DomainDTO{Name: canonical, Canonical: canonical, CanonicalName: canonical, Namespace: namespaceDTO(v), Label: v.Label, NamespaceName: v.Namespace, ParentCanonical: v.ParentCanonical, ParentTreePath: v.ParentTreePath, TreePath: v.TreePath, GitPath: v.GitPath, VerificationStatus: verificationStatus(fallback(d.Metadata.Status, "unknown")), DisplayName: v.Label, Owner: fallback(d.Metadata.Owner, "unknown"), Status: fallback(d.Metadata.Status, "unknown"), Path: d.Path, ServiceCount: len(d.Services), ProductCount: len(products), Persisted: true, Virtual: false, IsFolder: d.IsFolder}
 	if includeServices {
 		dto.Products = products
 		dto.Services = make([]ServiceDTO, 0, len(d.Services))
@@ -223,7 +223,11 @@ func serviceDTO(domain string, s cosmosfs.ServiceNode) ServiceDTO {
 	var uiDefs []ServiceUserInterfaceDTO
 	for _, u := range s.Metadata.UserInterfaces {
 		uiNames = append(uiNames, u.Name)
-		uiDefs = append(uiDefs, ServiceUserInterfaceDTO{ID: u.ID, Name: u.Name, Summary: u.Summary, Channel: u.Channel, URL: u.URL, Stability: u.Stability})
+		ui := ServiceUserInterfaceDTO{ID: u.ID, Name: u.Name, Summary: u.Summary, Channel: u.Channel, URL: u.URL, Stability: u.Stability, Engine: u.Engine, EngineVersion: u.EngineVersion, Schema: u.Schema}
+		if u.Binding != nil {
+			ui.Binding = &ViewBindingDTO{DataObjectRef: u.Binding.DataObjectRef, Submit: u.Binding.Submit}
+		}
+		uiDefs = append(uiDefs, ui)
 	}
 	return ServiceDTO{Name: s.Name, Domain: domain, Owner: fallback(s.Metadata.Owner, "unknown"), OwnedBy: ownedBy, OperatedBy: s.Metadata.OperatedBy, Capabilities: capNames, CapabilityDefs: capDefs, DataObjects: doNames, DataObjectDefs: doDefs, UserInterfaces: uiNames, UserInterfaceDefs: uiDefs, SupportedProducts: s.Metadata.SupportedProducts, Methods: methods, Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path}
 }
@@ -580,6 +584,18 @@ func UpdateServiceUserInterface(path, domainName, serviceName, uiID string, patc
 			if patch.Stability != "" {
 				raw.UserInterfaces[i].Stability = patch.Stability
 			}
+			if patch.Engine != "" {
+				raw.UserInterfaces[i].Engine = patch.Engine
+			}
+			if patch.EngineVersion != "" {
+				raw.UserInterfaces[i].EngineVersion = patch.EngineVersion
+			}
+			if patch.Schema != nil {
+				raw.UserInterfaces[i].Schema = patch.Schema
+			}
+			if patch.Binding != nil {
+				raw.UserInterfaces[i].Binding = patch.Binding
+			}
 			found = true
 			break
 		}
@@ -922,6 +938,7 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO, decIdx map[string]dec
 		if kind == "domain" && i == len(parts)-1 {
 			node.Children[idx].Persisted = true
 			node.Children[idx].Virtual = false
+			node.Children[idx].IsFolder = d.IsFolder
 			node.Children[idx].CanCreateChildDomain = true
 			node.Children[idx].CanAddService = true
 			node.Children[idx].CanOpenDetails = true
@@ -1310,13 +1327,23 @@ func resolveDomain(tree cosmosfs.Tree, canonical string) bool {
 }
 
 func resolveService(tree cosmosfs.Tree, serviceRef string) ServiceResolution {
-	_, domain, service := normalizeServiceRef(serviceRef)
-	if strings.TrimSpace(serviceRef) == "" {
+	ref := strings.TrimSpace(serviceRef)
+	if ref == "" {
 		return ServiceResolution{Status: "missing"}
 	}
-	if domain == "" || service == "" {
-		return ServiceResolution{Status: "unresolved_domain"}
+	// ID-based reference (ADR-0028): a ref without "/" is a stable service ID,
+	// resolved by scanning for the service regardless of its current address.
+	if !strings.Contains(ref, "/") {
+		for _, d := range tree.Domains {
+			for _, s := range d.Services {
+				if s.Metadata.ID == ref {
+					return ServiceResolution{Status: "resolved", Domain: namespace.Canonical(d.Name), Service: s.Name, SLA: s.Metadata.SLA, OLA: s.Metadata.OLA}
+				}
+			}
+		}
+		return ServiceResolution{Status: "unresolved_service", Service: ref}
 	}
+	_, domain, service := normalizeServiceRef(serviceRef)
 	for _, d := range tree.Domains {
 		if namespace.Canonical(d.Name) != domain {
 			continue
@@ -1460,6 +1487,133 @@ func DeleteService(path, domainName, serviceName string) error {
 	return nil
 }
 
+// MoveService relocates a service directory from one domain to another
+// (git-first). owned_by follows the target domain when it matched the source.
+func MoveService(path, fromDomain, serviceName, toDomain string) (ServiceDTO, error) {
+	fromCanon := namespace.Canonical(strings.TrimSpace(fromDomain))
+	toCanon := namespace.Canonical(strings.TrimSpace(toDomain))
+	if fromCanon == toCanon {
+		return ServiceDTO{}, Error(CodeInvalidInput, "source and target domain are the same", http.StatusBadRequest, nil)
+	}
+	from, err := GetDomain(path, fromCanon)
+	if err != nil {
+		return ServiceDTO{}, err
+	}
+	to, err := GetDomain(path, toCanon)
+	if err != nil {
+		return ServiceDTO{}, err
+	}
+	if _, err := GetService(path, fromCanon, serviceName); err != nil {
+		return ServiceDTO{}, err
+	}
+	src := filepath.Join(from.Path, "services", serviceName)
+	dstParent := filepath.Join(to.Path, "services")
+	dst := filepath.Join(dstParent, serviceName)
+	if _, err := os.Stat(dst); err == nil {
+		return ServiceDTO{}, Error(CodeInvalidInput, "Service already exists in target domain: "+serviceName, http.StatusConflict, nil)
+	}
+	if err := os.MkdirAll(dstParent, 0o755); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, err.Error(), http.StatusInternalServerError, err)
+	}
+	if err := os.Rename(src, dst); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "move failed: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	// Update owned_by to the target domain when it pointed at the source domain.
+	yamlPath := filepath.Join(dst, "service.yaml")
+	var raw model.Service
+	if err := fsx.ReadYAML(yamlPath, &raw); err == nil {
+		if raw.OwnedBy == "" || raw.OwnedBy == fromCanon {
+			raw.OwnedBy = toCanon
+			_ = fsx.WriteYAML(yamlPath, raw)
+		}
+	}
+	return GetService(path, toCanon, serviceName)
+}
+
+// MoveServiceElement relocates an embedded element (capability, data object,
+// user interface or method) from one service to another (git-first).
+func MoveServiceElement(path, fromDomain, fromService, kind, elementID, toDomain, toService string) (ServiceDTO, error) {
+	fromCanon := namespace.Canonical(strings.TrimSpace(fromDomain))
+	toCanon := namespace.Canonical(strings.TrimSpace(toDomain))
+	if fromCanon == toCanon && fromService == toService {
+		return ServiceDTO{}, Error(CodeInvalidInput, "source and target service are the same", http.StatusBadRequest, nil)
+	}
+	srcSvc, err := GetService(path, fromCanon, fromService)
+	if err != nil {
+		return ServiceDTO{}, err
+	}
+	dstSvc, err := GetService(path, toCanon, toService)
+	if err != nil {
+		return ServiceDTO{}, err
+	}
+	srcPath := filepath.Join(srcSvc.Path, "service.yaml")
+	dstPath := filepath.Join(dstSvc.Path, "service.yaml")
+	var src model.Service
+	if err := fsx.ReadYAML(srcPath, &src); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "read source service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	var dst model.Service
+	if err := fsx.ReadYAML(dstPath, &dst); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "read target service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	moved, err := moveEmbeddedElement(&src, &dst, kind, elementID)
+	if err != nil {
+		return ServiceDTO{}, err
+	}
+	if !moved {
+		return ServiceDTO{}, Error(CodeInvalidInput, kind+" not found: "+elementID, http.StatusNotFound, nil)
+	}
+	if err := fsx.WriteYAML(srcPath, src); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "write source service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	if err := fsx.WriteYAML(dstPath, dst); err != nil {
+		return ServiceDTO{}, Error(CodeInternalError, "write target service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return GetService(path, toCanon, toService)
+}
+
+// moveEmbeddedElement moves one element of the given kind from src to dst,
+// matching capabilities/data objects/user interfaces by id and methods by name.
+func moveEmbeddedElement(src, dst *model.Service, kind, id string) (bool, error) {
+	switch kind {
+	case "capability":
+		for i, c := range src.Capabilities {
+			if c.ID == id {
+				src.Capabilities = append(src.Capabilities[:i], src.Capabilities[i+1:]...)
+				dst.Capabilities = append(dst.Capabilities, c)
+				return true, nil
+			}
+		}
+	case "data-object":
+		for i, o := range src.DataObjects {
+			if o.ID == id {
+				src.DataObjects = append(src.DataObjects[:i], src.DataObjects[i+1:]...)
+				dst.DataObjects = append(dst.DataObjects, o)
+				return true, nil
+			}
+		}
+	case "user-interface":
+		for i, u := range src.UserInterfaces {
+			if u.ID == id {
+				src.UserInterfaces = append(src.UserInterfaces[:i], src.UserInterfaces[i+1:]...)
+				dst.UserInterfaces = append(dst.UserInterfaces, u)
+				return true, nil
+			}
+		}
+	case "method":
+		for i, m := range src.Methods {
+			if m.Name == id {
+				src.Methods = append(src.Methods[:i], src.Methods[i+1:]...)
+				dst.Methods = append(dst.Methods, m)
+				return true, nil
+			}
+		}
+	default:
+		return false, Error(CodeInvalidInput, "unsupported element kind: "+kind, http.StatusBadRequest, nil)
+	}
+	return false, nil
+}
+
 func RenameDomain(path, oldName, newName string) error {
 	oldCanon := namespace.Canonical(strings.TrimSpace(oldName))
 	newIdentity, err := namespace.Identity(newName)
@@ -1472,6 +1626,9 @@ func RenameDomain(path, oldName, newName string) error {
 	}
 	newCanon := newIdentity.CanonicalName
 	newDir := domainDirFromTreePath(path, newIdentity.TreePath)
+	if err := os.MkdirAll(filepath.Dir(newDir), 0o755); err != nil {
+		return Error(CodeInternalError, "Failed to prepare target path: "+err.Error(), http.StatusInternalServerError, err)
+	}
 	if _, err := os.Stat(newDir); err == nil {
 		return Error(CodeInvalidNamespace, "Domain already exists: "+newCanon, http.StatusConflict, nil)
 	}

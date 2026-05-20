@@ -27,6 +27,10 @@ const (
 	CodeProductMoveNoop           = "PRODUCT_MOVE_NOOP"
 	CodeProductMoveInvalidTarget  = "PRODUCT_MOVE_INVALID_TARGET"
 	CodeProductMoveWriteFailed    = "PRODUCT_MOVE_WRITE_FAILED"
+	CodeRepositoryNotFound        = "REPOSITORY_NOT_FOUND"
+	CodeMountNotFound             = "MOUNT_NOT_FOUND"
+	CodeMountExists               = "MOUNT_EXISTS"
+	CodeMountNotAuthenticated     = "MOUNT_NOT_AUTHENTICATED"
 )
 
 type AppError struct {

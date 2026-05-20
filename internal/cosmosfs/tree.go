@@ -26,6 +26,8 @@ type DomainNode struct {
 	Metadata  model.Domain
 	Services  []ServiceNode
 	Decisions []DecisionNode
+	IsFolder  bool   // node materialized by folder.yaml, not a maintained domain (ADR-0027)
+	Label     string // optional human label from folder.yaml
 }
 
 type DecisionNode struct {
@@ -75,12 +77,29 @@ func LoadTree(path string) (Tree, error) {
 				return filepath.SkipDir
 			}
 			domainYAML := filepath.Join(current, "domain.yaml")
-			if _, err := os.Stat(domainYAML); err != nil {
+			_, domainErr := os.Stat(domainYAML)
+			hasDomain := domainErr == nil
+			folderYAML := storage.FolderFile(current)
+			_, folderErr := os.Stat(folderYAML)
+			hasFolder := folderErr == nil
+			// A directory is a tree node if it is a maintained domain (domain.yaml)
+			// or a folder namespace (folder.yaml, ADR-0027).
+			if !hasDomain && !hasFolder {
 				return nil
 			}
 			var d model.Domain
-			if err := fsx.ReadYAML(domainYAML, &d); err != nil {
-				return err
+			if hasDomain {
+				if err := fsx.ReadYAML(domainYAML, &d); err != nil {
+					return err
+				}
+			}
+			var folderLabel string
+			isFolder := !hasDomain && hasFolder
+			if hasFolder {
+				var f model.Folder
+				if err := fsx.ReadYAML(folderYAML, &f); err == nil {
+					folderLabel = f.Label
+				}
 			}
 			// Derive canonical from directory path (e.g. domains/nomos/core → core.nomos).
 			// This ensures multi-level domains match offered_by references without requiring
@@ -90,7 +109,7 @@ func LoadTree(path string) (Tree, error) {
 				treePath := "/" + filepath.ToSlash(rel)
 				pathDerived, _ = namespace.TreePathToCanonical(treePath)
 			}
-			dn := DomainNode{Path: current, Metadata: d, Name: firstNonEmpty(d.CanonicalName, pathDerived, d.DNSName, d.Name, filepath.Base(current))}
+			dn := DomainNode{Path: current, Metadata: d, Name: firstNonEmpty(d.CanonicalName, pathDerived, d.DNSName, d.Name, filepath.Base(current)), IsFolder: isFolder, Label: folderLabel}
 			sents, err := os.ReadDir(filepath.Join(current, "services"))
 			if err != nil && !os.IsNotExist(err) {
 				return err
