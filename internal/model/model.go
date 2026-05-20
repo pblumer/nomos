@@ -237,6 +237,16 @@ func (u *ServiceUserInterface) UnmarshalYAML(unmarshal func(interface{}) error) 
 	return unmarshal((*plain)(u))
 }
 
+// Folder is a git-tracked namespace directory (ADR-0027). Its address/domain is
+// derived from the directory path; the folder itself carries only optional
+// human metadata. Stored as folder.yaml, which also materializes the directory
+// in git.
+type Folder struct {
+	ID          string `yaml:"id,omitempty" json:"id,omitempty"`
+	Label       string `yaml:"label,omitempty" json:"label,omitempty"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+}
+
 // SelfModelRef records the embedded self-model bundle version imported into a cosmos.
 type SelfModelRef struct {
 	Version        string `yaml:"version" json:"version"`

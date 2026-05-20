@@ -44,6 +44,8 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/v1/mounts/", h.apiMountRoutes)
 	mux.HandleFunc("/api/v1/ping", h.apiPing)
 	mux.HandleFunc("/api/v1/discover", h.apiDiscover)
+	mux.HandleFunc("/api/v1/folders", h.apiFolders)
+	mux.HandleFunc("/api/v1/folders/", h.apiFolderRoutes)
 	mux.HandleFunc("/api/v1/domains", h.apiDomains)
 	mux.HandleFunc("/api/v1/domains/", h.apiDomainRoutes)
 	mux.HandleFunc("/api/v1/services/refs", h.apiServiceRefs)
@@ -270,6 +272,81 @@ func (h *handler) proxyMount(w http.ResponseWriter, r *http.Request, mountID, re
 	}
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
+}
+
+// apiFolders lists/creates namespace folders (ADR-0027).
+func (h *handler) apiFolders(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/folders" {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	var body struct {
+		Parent string `json:"parent"`
+		Label  string `json:"label"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+		return
+	}
+	dto, err := app.CreateFolder(h.cosmosPath, body.Parent, body.Label)
+	if err != nil {
+		h.apiErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, dto)
+}
+
+// apiFolderRoutes serves GET/DELETE /api/v1/folders/{canonical},
+// PUT (rename) and POST /api/v1/folders/{canonical}/move (ADR-0027).
+func (h *handler) apiFolderRoutes(w http.ResponseWriter, r *http.Request) {
+	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/folders/")
+	if rest == "" {
+		http.NotFound(w, r)
+		return
+	}
+	if canon, ok := strings.CutSuffix(rest, "/move"); ok {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var body struct {
+			TargetParent string `json:"target_parent"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+			return
+		}
+		dto, err := app.MoveFolder(h.cosmosPath, canon, body.TargetParent)
+		h.writeOrErr(w, dto, err)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		dto, err := app.GetFolder(h.cosmosPath, rest)
+		h.writeOrErr(w, dto, err)
+	case http.MethodPut:
+		var body struct {
+			Label string `json:"label"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+			return
+		}
+		dto, err := app.RenameFolder(h.cosmosPath, rest, body.Label)
+		h.writeOrErr(w, dto, err)
+	case http.MethodDelete:
+		if err := app.DeleteFolder(h.cosmosPath, rest); err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
 }
 
 // apiPing answers the discovery PING with this server's identity and peers (ADR-0025).

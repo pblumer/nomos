@@ -1413,3 +1413,32 @@ func TestOpenAPIContainsProductMoveEndpoint(t *testing.T) {
 		}
 	}
 }
+
+func TestFoldersAPICreateMoveDelete(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	if rr := postJSON(h, "/api/v1/folders", `{"parent":"","label":"workspace"}`); rr.Code != 201 {
+		t.Fatalf("create folder status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if rr := postJSON(h, "/api/v1/folders", `{"parent":"workspace","label":"team-a"}`); rr.Code != 201 {
+		t.Fatalf("create child folder status=%d", rr.Code)
+	}
+	if rr := get(h, "/api/v1/folders/team-a.workspace"); rr.Code != 200 {
+		t.Fatalf("get folder status=%d", rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), "team-a.workspace")
+	}
+	if rr := postJSON(h, "/api/v1/folders", `{"parent":"","label":"Invalid Label"}`); rr.Code != 400 {
+		t.Fatalf("invalid label status=%d, want 400", rr.Code)
+	}
+	del := func(path string) int {
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, path, nil))
+		return rr.Code
+	}
+	if code := del("/api/v1/folders/workspace"); code != 409 {
+		t.Fatalf("delete non-empty folder status=%d, want 409", code)
+	}
+	if code := del("/api/v1/folders/team-a.workspace"); code != 204 {
+		t.Fatalf("delete empty folder status=%d, want 204", code)
+	}
+}
