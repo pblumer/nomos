@@ -136,9 +136,14 @@ func (r *Registry) CreateFilesystem(id, name string) (Repository, error) {
 	if err := os.WriteFile(storage.CosmosFile(loc), []byte(cosmosYAML), 0o644); err != nil {
 		return Repository{}, err
 	}
-	// Store a workspace-relative location so repositories.yaml stays portable.
-	rel := filepath.ToSlash(filepath.Join(".nomos", "repos", id))
-	cfg.Repositories = append(cfg.Repositories, configEntry{ID: id, Name: displayName, Kind: KindFilesystem, Location: rel})
+	// Prefer a workspace-relative location so repositories.yaml stays portable;
+	// fall back to an absolute path when the repos base lives outside the
+	// workspace (e.g. NOMOS_REPOS_DIR points elsewhere).
+	location := loc
+	if rel, err := filepath.Rel(r.workspace, loc); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel) {
+		location = filepath.ToSlash(rel)
+	}
+	cfg.Repositories = append(cfg.Repositories, configEntry{ID: id, Name: displayName, Kind: KindFilesystem, Location: location})
 	if err := r.save(cfg); err != nil {
 		return Repository{}, err
 	}

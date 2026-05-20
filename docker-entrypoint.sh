@@ -1,6 +1,11 @@
 #!/bin/sh
 set -e
 
+# Ensure the base directory for new local repositories exists and is writable.
+if [ -n "$NOMOS_REPOS_DIR" ]; then
+  mkdir -p "$NOMOS_REPOS_DIR"
+fi
+
 # If no cosmos.yaml exists yet, bootstrap a demo cosmos
 if [ ! -f "$COSMOS_PATH/.nomos/cosmos.yaml" ]; then
   echo "==> Bootstrapping demo cosmos at $COSMOS_PATH"

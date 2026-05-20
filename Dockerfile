@@ -30,6 +30,9 @@ COPY scripts/create-demo-cosmos.sh /usr/local/bin/create-demo-cosmos.sh
 WORKDIR /cosmos
 
 ENV COSMOS_PATH=/cosmos/data
+# Base directory for new local repositories. Kept separate from COSMOS_PATH so
+# repository creation works even when the cosmos data is a read-only mount.
+ENV NOMOS_REPOS_DIR=/cosmos/repos
 ENV NOMOS_BIN=/usr/local/bin/nomos
 ENV NOMOS_LISTEN=0.0.0.0:7373
 
