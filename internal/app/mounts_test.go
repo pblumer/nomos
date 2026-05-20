@@ -126,3 +126,16 @@ func TestDiscoverServersAggregatesPeers(t *testing.T) {
 		t.Fatalf("expected newserver candidate via %s, got %+v", endpoint, disc.Servers)
 	}
 }
+
+func TestRemoteBaseURL(t *testing.T) {
+	cases := map[string]string{
+		"host:7373":                  "http://host:7373",
+		"https://nomos.blumer.cloud": "https://nomos.blumer.cloud",
+		"http://x:7373/":             "http://x:7373",
+	}
+	for in, want := range cases {
+		if got := RemoteBaseURL(in); got != want {
+			t.Errorf("RemoteBaseURL(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
