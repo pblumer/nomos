@@ -16,14 +16,16 @@ var openAPISpec = map[string]any{
 	"tags": []map[string]string{
 		{"name": "System", "description": "Health and service metadata"},
 		{"name": "Cosmos", "description": "Cosmos repository summary"},
+		{"name": "Repositories", "description": "Server-managed git-first repositories"},
 		{"name": "Domains", "description": "Domain and service namespace operations"},
 		{"name": "Validation", "description": "Validation and graph outputs"},
 		{"name": "Catalog", "description": "Blueprint and instance catalog operations"},
 		{"name": "Verification", "description": "Domain verification operations"},
 	},
 	"paths": map[string]any{
-		"/health":        pathItem("System", "Health check", "Returns Nomos service status and version.", nil, schemaRef("HealthResponse")),
-		"/api/v1/cosmos": pathItem("Cosmos", "Get Cosmos", "Returns the current Cosmos metadata and aggregate counts.", nil, schemaRef("Cosmos")),
+		"/health":              pathItem("System", "Health check", "Returns Nomos service status and version.", nil, schemaRef("HealthResponse")),
+		"/api/v1/cosmos":       pathItem("Cosmos", "Get Cosmos", "Returns the current Cosmos metadata and aggregate counts.", nil, schemaRef("Cosmos")),
+		"/api/v1/repositories": pathItem("Repositories", "List repositories", "Returns the git-first repositories managed by this server (ADR-0022). The local server returns its single default repository.", nil, schemaRef("RepositoriesResponse")),
 		"/api/v1/domains": map[string]any{
 			"get":  operation("Domains", "List domains", "Returns all known domains.", nil, schemaRef("DomainsResponse")),
 			"post": operationWithRequest("Domains", "Create domain", "Creates a domain in the local Cosmos.", nil, formRequestBody(map[string]any{"dns": stringSchema("Canonical DNS name."), "owner": stringSchema("Domain owner."), "force": map[string]any{"type": "boolean"}}), map[string]any{"201": response("Created domain.", schemaRef("Domain")), "400": errorResponse(), "409": errorResponse()}),
@@ -179,6 +181,8 @@ func schemas() map[string]any {
 	return map[string]any{
 		"HealthResponse":             object(map[string]any{"service": stringSchema("Service name."), "status": stringSchema("Health status."), "version": stringSchema("Nomos version.")}),
 		"Cosmos":                     object(map[string]any{"path": stringSchema("Filesystem path."), "id": stringSchema("Cosmos id."), "name": stringSchema("Cosmos name."), "version": stringSchema("Cosmos version."), "status": stringSchema("Cosmos status."), "owner": stringSchema("Owner."), "domainCount": map[string]any{"type": "integer"}, "serviceCount": map[string]any{"type": "integer"}}),
+		"Repository":                 object(map[string]any{"id": stringSchema("Repository id, unique per server."), "name": stringSchema("Display name."), "kind": stringSchema("filesystem, github, or gitbucket."), "location": stringSchema("Filesystem path or remote URL."), "default_branch": stringSchema("Default git branch."), "status": stringSchema("clean, dirty, unreachable, or unknown."), "head": stringSchema("Short HEAD commit hash.")}),
+		"RepositoriesResponse":       object(map[string]any{"repositories": arrayOf(schemaRef("Repository"))}),
 		"Namespace":                  object(map[string]any{"canonical": stringSchema("Canonical name."), "parts": arrayOf(map[string]any{"type": "string"}), "treeParts": arrayOf(map[string]any{"type": "string"}), "treePath": stringSchema("Tree path."), "displayPath": stringSchema("Display path."), "leaf": stringSchema("Leaf name.")}),
 		"Domain":                     object(map[string]any{"name": stringSchema("Domain name."), "canonical": stringSchema("Canonical domain."), "namespace": schemaRef("Namespace"), "displayName": stringSchema("Display name."), "owner": stringSchema("Owner."), "status": stringSchema("Status."), "path": stringSchema("Filesystem path."), "serviceCount": map[string]any{"type": "integer"}, "services": arrayOf(schemaRef("Service"))}),
 		"MoveProductOfferingRequest": object(map[string]any{"target_domain": stringSchema("Canonical target domain."), "update_owning_domain": map[string]any{"type": "boolean", "description": "Also set owning_domain to the target domain."}}),

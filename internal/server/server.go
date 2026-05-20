@@ -37,6 +37,7 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/swagger/", h.swaggerUI)
 	mux.HandleFunc("/api/docs", h.swaggerUI)
 	mux.HandleFunc("/api/v1/cosmos", h.apiCosmos)
+	mux.HandleFunc("/api/v1/repositories", h.apiRepositories)
 	mux.HandleFunc("/api/v1/domains", h.apiDomains)
 	mux.HandleFunc("/api/v1/domains/", h.apiDomainRoutes)
 	mux.HandleFunc("/api/v1/services/refs", h.apiServiceRefs)
@@ -86,6 +87,22 @@ func (h *handler) apiCosmos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dto, err := app.GetCosmos(h.cosmosPath)
+	if err != nil {
+		h.apiErr(w, err)
+		return
+	}
+	writeJSON(w, 200, dto)
+}
+func (h *handler) apiRepositories(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/repositories" {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	dto, err := app.ListRepositories(h.cosmosPath)
 	if err != nil {
 		h.apiErr(w, err)
 		return

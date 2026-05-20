@@ -14,6 +14,20 @@ type CosmosDTO struct {
 	ServiceCount       int    `json:"serviceCount"`
 }
 
+type RepositoryDTO struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Kind          string `json:"kind"`
+	Location      string `json:"location"`
+	DefaultBranch string `json:"default_branch,omitempty"`
+	Status        string `json:"status,omitempty"`
+	Head          string `json:"head,omitempty"`
+}
+
+type RepositoriesDTO struct {
+	Repositories []RepositoryDTO `json:"repositories"`
+}
+
 type NamespaceDTO struct {
 	Canonical       string   `json:"canonical"`
 	CanonicalName   string   `json:"canonicalName"`

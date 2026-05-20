@@ -226,6 +226,38 @@ func TestNamespaceTreeAPIAndContentTypes(t *testing.T) {
 	hasAll(t, body, "Namespaces", "com", "cloud", "blumer", "identity", "home", "identity.blumer.com", "identity.blumer.cloud", "treePath", "displayPath")
 }
 
+func TestRepositoriesAPIReturnsLocalDefault(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	rr := get(h, "/api/v1/repositories")
+	if rr.Code != 200 {
+		t.Fatalf("status=%d", rr.Code)
+	}
+	if !strings.Contains(rr.Header().Get("Content-Type"), "application/json") {
+		t.Fatalf("content-type=%s", rr.Header().Get("Content-Type"))
+	}
+	var out struct {
+		Repositories []struct {
+			ID       string `json:"id"`
+			Kind     string `json:"kind"`
+			Name     string `json:"name"`
+			Location string `json:"location"`
+		} `json:"repositories"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Repositories) != 1 {
+		t.Fatalf("expected 1 repository, got %d", len(out.Repositories))
+	}
+	r := out.Repositories[0]
+	if r.ID != "default" || r.Kind != "filesystem" || r.Name != "Local Cosmos" {
+		t.Fatalf("unexpected repository %+v", r)
+	}
+	if get(h, "/api/v1/repositories/").Code == 200 {
+		t.Fatal("trailing-slash path should not be served by exact handler in PR 1")
+	}
+}
+
 func TestRESTDetailRoutesAndErrors(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	if rr := get(h, "/api/v1/domains/identity.blumer.cloud"); rr.Code != 200 {
