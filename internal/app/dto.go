@@ -77,6 +77,7 @@ type DomainDTO struct {
 	ProductCount       int                 `json:"productCount"`
 	Persisted          bool                `json:"persisted"`
 	Virtual            bool                `json:"virtual"`
+	IsFolder           bool                `json:"isFolder"`
 	Products           []ProductSummaryDTO `json:"products,omitempty"`
 	Services           []ServiceDTO        `json:"services,omitempty"`
 	Decisions          []DecisionDTO       `json:"decisions,omitempty"`
@@ -244,6 +245,7 @@ type NamespaceTreeNodeDTO struct {
 	ProcessStep          *ProcessStepSummaryDTO     `json:"processStep,omitempty"`
 	Persisted            bool                       `json:"persisted"`
 	Virtual              bool                       `json:"virtual"`
+	IsFolder             bool                       `json:"isFolder,omitempty"`
 	CanCreateChildDomain bool                       `json:"canCreateChildDomain"`
 	CanAddService        bool                       `json:"canAddService"`
 	CanOpenDetails       bool                       `json:"canOpenDetails"`

@@ -180,7 +180,7 @@ func domainDTO(tree cosmosfs.Tree, d cosmosfs.DomainNode, includeServices bool) 
 	canonical := namespace.Canonical(d.Name)
 	v := namespace.View(canonical)
 	products := productSummariesOfferedBy(tree, canonical)
-	dto := DomainDTO{Name: canonical, Canonical: canonical, CanonicalName: canonical, Namespace: namespaceDTO(v), Label: v.Label, NamespaceName: v.Namespace, ParentCanonical: v.ParentCanonical, ParentTreePath: v.ParentTreePath, TreePath: v.TreePath, GitPath: v.GitPath, VerificationStatus: verificationStatus(fallback(d.Metadata.Status, "unknown")), DisplayName: v.Label, Owner: fallback(d.Metadata.Owner, "unknown"), Status: fallback(d.Metadata.Status, "unknown"), Path: d.Path, ServiceCount: len(d.Services), ProductCount: len(products), Persisted: true, Virtual: false}
+	dto := DomainDTO{Name: canonical, Canonical: canonical, CanonicalName: canonical, Namespace: namespaceDTO(v), Label: v.Label, NamespaceName: v.Namespace, ParentCanonical: v.ParentCanonical, ParentTreePath: v.ParentTreePath, TreePath: v.TreePath, GitPath: v.GitPath, VerificationStatus: verificationStatus(fallback(d.Metadata.Status, "unknown")), DisplayName: v.Label, Owner: fallback(d.Metadata.Owner, "unknown"), Status: fallback(d.Metadata.Status, "unknown"), Path: d.Path, ServiceCount: len(d.Services), ProductCount: len(products), Persisted: true, Virtual: false, IsFolder: d.IsFolder}
 	if includeServices {
 		dto.Products = products
 		dto.Services = make([]ServiceDTO, 0, len(d.Services))
@@ -938,6 +938,7 @@ func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO, decIdx map[string]dec
 		if kind == "domain" && i == len(parts)-1 {
 			node.Children[idx].Persisted = true
 			node.Children[idx].Virtual = false
+			node.Children[idx].IsFolder = d.IsFolder
 			node.Children[idx].CanCreateChildDomain = true
 			node.Children[idx].CanAddService = true
 			node.Children[idx].CanOpenDetails = true

@@ -87,3 +87,21 @@ func TestRenameAndDeleteFolder(t *testing.T) {
 		t.Fatal("folder dir should be removed")
 	}
 }
+
+func TestFolderMarkedInNamespaceTree(t *testing.T) {
+	p := folderTestCosmos(t)
+	if _, err := CreateFolder(p, "", "workspace"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := CreateFolder(p, "workspace", "team-a"); err != nil {
+		t.Fatal(err)
+	}
+	tree, err := BuildNamespaceTree(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := findTreeNode(tree.Root, "domain", "team-a")
+	if n == nil || !n.IsFolder {
+		t.Fatalf("expected team-a to be a folder node, got %+v", n)
+	}
+}
