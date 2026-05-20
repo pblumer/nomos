@@ -248,7 +248,7 @@ func (h *handler) proxyMount(w http.ResponseWriter, r *http.Request, mountID, re
 		h.apiErr(w, app.Error(app.CodeMountNotAuthenticated, "mount has no token; writes to this server are not allowed", http.StatusForbidden, nil))
 		return
 	}
-	target := "http://" + endpoint + "/" + remotePath
+	target := app.RemoteBaseURL(endpoint) + "/" + remotePath
 	if r.URL.RawQuery != "" {
 		target += "?" + r.URL.RawQuery
 	}

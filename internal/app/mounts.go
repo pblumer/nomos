@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/nomos/nomos/internal/mount"
@@ -90,15 +91,25 @@ func MountTarget(path, mountID string) (endpoint, token string, err error) {
 
 var explorerHTTPClient = &http.Client{Timeout: 5 * time.Second}
 
+// RemoteBaseURL returns the base URL for a mount endpoint. A bare host:port
+// defaults to http; an endpoint that already includes a scheme is used as-is,
+// so HTTPS endpoints (e.g. https://nomos.blumer.cloud) work behind a TLS proxy.
+func RemoteBaseURL(endpoint string) string {
+	if strings.Contains(endpoint, "://") {
+		return strings.TrimRight(endpoint, "/")
+	}
+	return "http://" + endpoint
+}
+
 func fetchRemoteRepositories(endpoint string) (RepositoriesDTO, error) {
 	var out RepositoriesDTO
-	err := getRemoteJSON("http://"+endpoint+"/api/v1/repositories", &out)
+	err := getRemoteJSON(RemoteBaseURL(endpoint)+"/api/v1/repositories", &out)
 	return out, err
 }
 
 func fetchRemoteNamespaces(endpoint, repoID string) (NamespaceTreeDTO, error) {
 	var out NamespaceTreeDTO
-	err := getRemoteJSON("http://"+endpoint+"/api/v1/repositories/"+url.PathEscape(repoID)+"/namespaces", &out)
+	err := getRemoteJSON(RemoteBaseURL(endpoint)+"/api/v1/repositories/"+url.PathEscape(repoID)+"/namespaces", &out)
 	return out, err
 }
 
@@ -220,6 +231,6 @@ func DiscoverServers(path string) (DiscoveryDTO, error) {
 
 func fetchRemotePing(endpoint, token string) (PingDTO, error) {
 	var out PingDTO
-	err := getRemoteJSONAuth("http://"+endpoint+"/api/v1/ping", token, &out)
+	err := getRemoteJSONAuth(RemoteBaseURL(endpoint)+"/api/v1/ping", token, &out)
 	return out, err
 }
