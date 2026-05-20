@@ -210,6 +210,20 @@ type ServiceUserInterface struct {
 	Channel   string `yaml:"channel,omitempty" json:"channel,omitempty"`
 	URL       string `yaml:"url,omitempty" json:"url,omitempty"`
 	Stability string `yaml:"stability,omitempty" json:"stability,omitempty"`
+	// View envelope (ADR-0024): pluggable, engine-tagged declarative UI. The
+	// engine-native form definition is stored unchanged in Schema; the Web UI
+	// dispatches to the renderer registered for Engine (e.g. "form-js").
+	Engine        string         `yaml:"engine,omitempty" json:"engine,omitempty"`
+	EngineVersion string         `yaml:"engine_version,omitempty" json:"engine_version,omitempty"`
+	Schema        map[string]any `yaml:"schema,omitempty" json:"schema,omitempty"`
+	Binding       *ViewBinding   `yaml:"binding,omitempty" json:"binding,omitempty"`
+}
+
+// ViewBinding links a view to Nomos artifacts (ADR-0024): the data object it
+// captures and the service-method/REST reference its submit action invokes.
+type ViewBinding struct {
+	DataObjectRef string `yaml:"data_object_ref,omitempty" json:"data_object_ref,omitempty"`
+	Submit        string `yaml:"submit,omitempty" json:"submit,omitempty"`
 }
 
 func (u *ServiceUserInterface) UnmarshalYAML(unmarshal func(interface{}) error) error {

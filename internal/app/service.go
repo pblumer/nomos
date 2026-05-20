@@ -223,7 +223,11 @@ func serviceDTO(domain string, s cosmosfs.ServiceNode) ServiceDTO {
 	var uiDefs []ServiceUserInterfaceDTO
 	for _, u := range s.Metadata.UserInterfaces {
 		uiNames = append(uiNames, u.Name)
-		uiDefs = append(uiDefs, ServiceUserInterfaceDTO{ID: u.ID, Name: u.Name, Summary: u.Summary, Channel: u.Channel, URL: u.URL, Stability: u.Stability})
+		ui := ServiceUserInterfaceDTO{ID: u.ID, Name: u.Name, Summary: u.Summary, Channel: u.Channel, URL: u.URL, Stability: u.Stability, Engine: u.Engine, EngineVersion: u.EngineVersion, Schema: u.Schema}
+		if u.Binding != nil {
+			ui.Binding = &ViewBindingDTO{DataObjectRef: u.Binding.DataObjectRef, Submit: u.Binding.Submit}
+		}
+		uiDefs = append(uiDefs, ui)
 	}
 	return ServiceDTO{Name: s.Name, Domain: domain, Owner: fallback(s.Metadata.Owner, "unknown"), OwnedBy: ownedBy, OperatedBy: s.Metadata.OperatedBy, Capabilities: capNames, CapabilityDefs: capDefs, DataObjects: doNames, DataObjectDefs: doDefs, UserInterfaces: uiNames, UserInterfaceDefs: uiDefs, SupportedProducts: s.Metadata.SupportedProducts, Methods: methods, Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path}
 }

@@ -165,12 +165,21 @@ type ServiceDataObjectDTO struct {
 }
 
 type ServiceUserInterfaceDTO struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Summary   string `json:"summary,omitempty"`
-	Channel   string `json:"channel,omitempty"`
-	URL       string `json:"url,omitempty"`
-	Stability string `json:"stability,omitempty"`
+	ID            string          `json:"id"`
+	Name          string          `json:"name"`
+	Summary       string          `json:"summary,omitempty"`
+	Channel       string          `json:"channel,omitempty"`
+	URL           string          `json:"url,omitempty"`
+	Stability     string          `json:"stability,omitempty"`
+	Engine        string          `json:"engine,omitempty"`
+	EngineVersion string          `json:"engine_version,omitempty"`
+	Schema        map[string]any  `json:"schema,omitempty"`
+	Binding       *ViewBindingDTO `json:"binding,omitempty"`
+}
+
+type ViewBindingDTO struct {
+	DataObjectRef string `json:"data_object_ref,omitempty"`
+	Submit        string `json:"submit,omitempty"`
 }
 
 type ServiceDTO struct {

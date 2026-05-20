@@ -29,43 +29,39 @@ Als gerendertes HTML/JS oder als Modell, das lokal gerendert wird?
 
 ## Entscheidung
 
-### 1. Views sind deklarative Artefakte (git-first)
+### 1. Views sind deklarative Artefakte mit pluggable Engine (git-first)
 
-Eine View wird als deklaratives **View-/Form-Artefakt** (YAML/JSON) im Repository
-gespeichert — analog zu allen anderen Nomos-Artefakten und git-first
-([ADR-0001](ADR-0001-git-first-source-of-truth.md)). Das Artefakt beschreibt
-**was** dargestellt/erfasst wird, nicht **wie** es technisch gerendert wird:
+Eine View wird als deklaratives **View-Artefakt** im Repository gespeichert —
+git-first ([ADR-0001](ADR-0001-git-first-source-of-truth.md)). Entscheidend:
+**welcher Editor/Renderer ein Artefakt verarbeitet, bleibt offen.** Das Artefakt
+ist daher **engine-getaggt** und trägt das **engine-native Schema** als Inhalt —
+genau wie BPMN/DMN das bpmn.io-native XML als Quelle ablegen und mit
+bpmn-js/dmn-js rendern.
 
-- Felder (id, label, Typ, Pflicht, Default, Hilfetext),
-- Validierungen (wiederverwendbar, vgl. Blueprint-Attribut-Regeln),
-- Daten-Bindings (Referenz auf `DataObject`/Service-Method/Decision per kanonischer Ref),
-- Layout/Gruppierung (Sektionen, Reihenfolge),
-- Aktionen (Submit-Ziel als Service-Method-/REST-Referenz).
-
-Skizze (nicht final):
+Ein dünner Nomos-**Envelope** (Metadaten + Engine-Discriminator) umschließt das
+engine-native Schema:
 
 ```yaml
 id: VIEW-ACC-CAPTURE-001
 type: view
 name: Benutzerkonto erfassen
-binding:
+engine: form-js            # Renderer-Discriminator (form-js | forms-js | …)
+engine_version: "1"
+schema:                    # engine-natives Schema, unverändert (hier: @bpmn-io/form-js)
+  type: default
+  components:
+    - { type: textfield, key: given_name, label: Vorname, validate: { required: true } }
+    - { type: datetime,  key: birthdate, label: Geburtsdatum, subtype: date }
+binding:                   # optionale Nomos-Verknüpfung (engine-unabhängig)
   data_object_ref: identity.blumer.cloud/user-account/PersonData
-sections:
-  - title: Stammdaten
-    fields:
-      - id: given_name
-        label: Vorname
-        type: text
-        required: true
-      - id: birthdate
-        label: Geburtsdatum
-        type: date
-        validation: { type: manual }
-actions:
-  - id: submit
-    label: Erfassen
-    invokes: identity.blumer.cloud/user-account#createAccount
+  submit: identity.blumer.cloud/user-account#createAccount
 ```
+
+`engine` ist ein offener Discriminator: pro Engine gibt es einen registrierten
+Renderer im Web-UI. Das `schema` wird **unverändert** gespeichert und ausgeliefert;
+Nomos interpretiert nur Envelope + optionale `binding`-Verknüpfung. So lassen sich
+mehrere Editoren (form-js, forms.js, künftige) nebeneinander betreiben, ohne das
+Artefaktmodell zu ändern.
 
 ### 2. REST liefert die Spec, nicht gerendertes UI
 
@@ -74,12 +70,19 @@ Die View wird als **Spec** über REST ausgeliefert — lokal, repository-scoped 
 seine View also als **Modell**, exakt wie BPMN/DMN ihr XML liefern. Es wird **kein**
 server-gerendertes HTML/JS ausgeliefert.
 
-### 3. Generischer Renderer im Nomos-Web-UI
+### 3. Renderer-Registry im Nomos-Web-UI, erste Engine: @bpmn-io/form-js
 
-Ein generischer, mit dem Nomos-Web-UI ausgelieferter **View-Renderer** (analog
-bpmn-js/dmn-js) baut aus der Spec das Formular. Derselbe Renderer stellt lokale
-**und** entfernte Views dar; entfernte werden über den Proxy als Spec geholt und
-lokal gerendert. Die Renderer-Bibliothek wird **nicht pro Server** ausgeliefert.
+Das Web-UI hält eine **Renderer-Registry**: `engine` → registrierter Renderer.
+Beim Öffnen einer View wird die Spec geholt und an den zur `engine` passenden
+Renderer übergeben. Derselbe Mechanismus stellt lokale **und** entfernte Views dar
+(entfernte über den Proxy als Spec geholt, lokal gerendert). Renderer-Bibliotheken
+werden mit dem Web-UI ausgeliefert (vendored, wie bpmn-js/dmn-js) — **nicht pro
+Server**.
+
+**Erste integrierte Engine: `@bpmn-io/form-js`** (bpmn.io, konsistent mit den
+bestehenden bpmn-js/dmn-js-Integrationen). Weitere Engines (z. B. forms.js) können
+später als zusätzliche Registry-Einträge ergänzt werden, ohne Artefaktmodell oder
+REST zu ändern.
 
 ### 4. Bindings und Aktionen laufen über REST
 
@@ -121,7 +124,9 @@ klar getrennt von deklarativen Views.
 
 ## Offene Punkte
 
-- Genaues JSON-Schema des View-Artefakts und der unterstützte Widget-/Feldtyp-Satz.
+- Genaues Schema des Nomos-**Envelope** (Pflichtfelder, `engine`-Werteliste); das
+  engine-native `schema` validiert die jeweilige Engine selbst.
+- Versionierung/Kompatibilität pro Engine (`engine_version`) und Vendoring-Pinning.
 - Binding-/Ausdruckssprache für berechnete Felder/Sichtbarkeiten (FEEL wiederverwenden?).
 - Mapping von `actions.invokes` auf konkrete Schreib-APIs (Service-Method-Aufruf vs. REST).
 - Verhältnis zu UCI ([ADR-0013](ADR-0013-user-contact-interfaces.md)): ist eine View
