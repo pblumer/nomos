@@ -48,14 +48,11 @@ func TestBuildExplorerTreeAggregatesRemoteMount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tree.Root.Children) != 2 {
-		t.Fatalf("expected local + remote server, got %d", len(tree.Root.Children))
+	remoteServer := findServerByEndpoint(tree.Root, endpoint)
+	if remoteServer == nil || remoteServer.Server == nil || remoteServer.Server.Status != "online" {
+		t.Fatalf("expected online remote server for %s, got %+v", endpoint, remoteServer)
 	}
-	remoteServer := tree.Root.Children[1]
-	if remoteServer.Kind != "server" || remoteServer.Server == nil || remoteServer.Server.Status != "online" {
-		t.Fatalf("expected online remote server, got %+v", remoteServer)
-	}
-	if findTreeNode(remoteServer, "namespace", "example") == nil {
+	if findTreeNode(tree.Root, "namespace", "example") == nil {
 		t.Fatal("remote repository content should be aggregated into the tree")
 	}
 }
@@ -69,13 +66,36 @@ func TestBuildExplorerTreeDegradesUnreachableMount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tree.Root.Children) != 2 {
-		t.Fatalf("expected local + remote server, got %d", len(tree.Root.Children))
-	}
-	down := tree.Root.Children[1]
-	if down.Server == nil || down.Server.Status != "unreachable" || len(down.Children) != 0 {
+	down := findServerByEndpoint(tree.Root, "127.0.0.1:9")
+	if down == nil || down.Server == nil || down.Server.Status != "unreachable" || len(down.Children) != 0 {
 		t.Fatalf("expected degraded unreachable server with no children, got %+v", down)
 	}
+}
+
+func findServerByEndpoint(n NamespaceTreeNodeDTO, endpoint string) *NamespaceTreeNodeDTO {
+	if n.Kind == "server" && n.Server != nil && n.Server.Endpoint == endpoint {
+		m := n
+		return &m
+	}
+	for _, c := range n.Children {
+		if f := findServerByEndpoint(c, endpoint); f != nil {
+			return f
+		}
+	}
+	return nil
+}
+
+func findLocalServerNode(n NamespaceTreeNodeDTO) *NamespaceTreeNodeDTO {
+	if n.Kind == "server" && n.Server != nil && n.Server.Local {
+		m := n
+		return &m
+	}
+	for _, c := range n.Children {
+		if f := findLocalServerNode(c); f != nil {
+			return f
+		}
+	}
+	return nil
 }
 
 func TestPingReturnsIdentityAndPeers(t *testing.T) {

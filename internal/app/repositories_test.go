@@ -26,30 +26,26 @@ func TestListRepositoriesReturnsLocalDefault(t *testing.T) {
 	}
 }
 
-func TestBuildExplorerTreeWrapsNamespacesUnderServerRepository(t *testing.T) {
+func TestBuildExplorerTreePlacesLocalServerUnderLocal(t *testing.T) {
 	tree, err := BuildExplorerTree(createAppTestCosmos(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tree.Root.Children) != 1 {
-		t.Fatalf("expected single server child, got %d", len(tree.Root.Children))
+	// Local server lives under a synthetic "local" branch (local → hostname).
+	local := findTreeNode(tree.Root, "dns", "local")
+	if local == nil {
+		t.Fatal("expected a 'local' DNS branch for the local server")
 	}
-	server := tree.Root.Children[0]
-	if server.Kind != "server" || server.Server == nil || !server.Server.Local {
+	server := findLocalServerNode(tree.Root)
+	if server == nil || server.Server == nil || !server.Server.Local {
 		t.Fatalf("expected local server node, got %+v", server)
 	}
-	if len(server.Children) != 1 {
-		t.Fatalf("expected single repository child, got %d", len(server.Children))
+	// Single repository → content hangs directly under the server (no repo level).
+	if findTreeNode(*server, "namespace-parent", "Namespaces") == nil {
+		t.Fatal("namespace tree should hang directly under the single-repo server")
 	}
-	repository := server.Children[0]
-	if repository.Kind != "repository" || repository.Repository == nil || repository.Repository.ID != "default" {
-		t.Fatalf("expected default repository node, got %+v", repository)
-	}
-	if findTreeNode(repository, "namespace-parent", "Namespaces") == nil {
-		t.Fatal("namespace tree should hang under the repository node")
-	}
-	if findTreeNode(repository, "service", "user-account") == nil {
-		t.Fatal("repository content should include domain services")
+	if findTreeNode(*server, "service", "user-account") == nil {
+		t.Fatal("server content should include domain services")
 	}
 }
 
@@ -107,8 +103,17 @@ func TestExplorerTreeShowsMultipleRepositories(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := tree.Root.Children[0]
-	if len(server.Children) != 2 {
-		t.Fatalf("expected 2 repository nodes under local server, got %d", len(server.Children))
+	server := findLocalServerNode(tree.Root)
+	if server == nil {
+		t.Fatal("local server node not found")
+	}
+	repos := 0
+	for _, c := range server.Children {
+		if c.Kind == "repository" {
+			repos++
+		}
+	}
+	if repos != 2 {
+		t.Fatalf("expected 2 repository nodes under local server, got %d", repos)
 	}
 }
