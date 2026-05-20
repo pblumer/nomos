@@ -189,7 +189,7 @@ func TestOpenAPIAndSwaggerRoutes(t *testing.T) {
 	if apiPage.Code != http.StatusOK {
 		t.Fatalf("api page status=%d", apiPage.Code)
 	}
-	hasAll(t, apiPage.Body.String(), "Open Swagger UI", "GET /openapi.json", "GET /swagger")
+	hasAll(t, apiPage.Body.String(), "Open Swagger UI", "/openapi.json", "/swagger", "endpoint-table")
 }
 
 func TestMissingCosmosStyledError(t *testing.T) {
@@ -455,7 +455,7 @@ func TestExtendedWebPages(t *testing.T) {
 		"/instances":                        {"Instances", "PI-ACC-MBX-EXAMPLE-001"},
 		"/instances/PI-ACC-MBX-EXAMPLE-001": {"Compliance", "compliant"},
 		"/verify":                           {"Verification", "Verify domain", "Evidence files"},
-		"/api":                              {"GET /health", "GET /api/v1/cosmos", "GET /api/v1/instances"},
+		"/api":                              {"/health", "/api/v1/cosmos", "/api/v1/instances"},
 	}
 	for path, want := range pages {
 		rr := get(h, path)

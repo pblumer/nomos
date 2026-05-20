@@ -3,119 +3,294 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
+	"strings"
 )
 
-var openAPISpec = map[string]any{
-	"openapi": "3.1.0",
-	"info": map[string]any{
-		"title":       "Nomos API",
-		"version":     "0.1.0",
-		"description": "OpenAPI documentation for the Nomos local Cosmos HTTP API.",
-	},
-	"servers": []map[string]string{{"url": "/", "description": "Current Nomos server"}},
-	"tags": []map[string]string{
-		{"name": "System", "description": "Health and service metadata"},
-		{"name": "Cosmos", "description": "Cosmos repository summary"},
-		{"name": "Repositories", "description": "Server-managed git-first repositories"},
-		{"name": "Mounts", "description": "Server mounts shown in the Cosmos Explorer"},
-		{"name": "Domains", "description": "Domain and service namespace operations"},
-		{"name": "Validation", "description": "Validation and graph outputs"},
-		{"name": "Catalog", "description": "Blueprint and instance catalog operations"},
-		{"name": "Verification", "description": "Domain verification operations"},
-	},
-	"paths": map[string]any{
-		"/health":                                      pathItem("System", "Health check", "Returns Nomos service status and version.", nil, schemaRef("HealthResponse")),
-		"/api/v1/cosmos":                               pathItem("Cosmos", "Get Cosmos", "Returns the current Cosmos metadata and aggregate counts.", nil, schemaRef("Cosmos")),
-		"/api/v1/repositories":                         pathItem("Repositories", "List repositories", "Returns the git-first repositories managed by this server (ADR-0022). The local server returns its single default repository.", nil, schemaRef("RepositoriesResponse")),
-		"/api/v1/repositories/{repo}":                  pathItem("Repositories", "Get repository", "Returns metadata for one repository.", []map[string]any{pathParam("repo", "Repository id.")}, schemaRef("Repository")),
-		"/api/v1/repositories/{repo}/cosmos":           pathItem("Repositories", "Get repository Cosmos", "Repository-scoped Cosmos summary; equivalent to /api/v1/cosmos for the default repository.", []map[string]any{pathParam("repo", "Repository id.")}, schemaRef("Cosmos")),
-		"/api/v1/repositories/{repo}/namespaces":       pathItem("Repositories", "Get repository namespace tree", "Repository-scoped namespace tree.", []map[string]any{pathParam("repo", "Repository id.")}, schemaRef("NamespaceTree")),
-		"/api/v1/repositories/{repo}/domains":          pathItem("Repositories", "List repository domains", "Repository-scoped domain list.", []map[string]any{pathParam("repo", "Repository id.")}, schemaRef("DomainsResponse")),
-		"/api/v1/repositories/{repo}/domains/{domain}": pathItem("Repositories", "Get repository domain", "Repository-scoped domain detail.", []map[string]any{pathParam("repo", "Repository id."), pathParam("domain", "Canonical domain name.")}, schemaRef("Domain")),
-		"/api/v1/mounts": map[string]any{
-			"get":  operation("Mounts", "List mounts", "Returns the implicit local server mount followed by configured remote mounts (ADR-0022).", nil, schemaRef("MountsResponse")),
-			"post": operationWithRequest("Mounts", "Add mount", "Registers a remote server mount by endpoint (host:7373). An optional token is the remote server's API key used for proxied writes (ADR-0023).", nil, jsonRequestBody(object(map[string]any{"endpoint": stringSchema("Remote server endpoint, e.g. nomos.blumer.cloud:7373."), "label": stringSchema("Optional display label."), "token": stringSchema("Optional remote API key for write access.")})), map[string]any{"201": response("Created mount.", schemaRef("Mount")), "400": errorResponse(), "409": errorResponse()}),
+// apiEndpoint is one documented HTTP operation. The registry below is the
+// single source of truth for the OpenAPI document and the human-readable /api
+// page: both are generated from it. apiendpoint_coverage_test.go asserts every
+// entry is actually served by the router, so the docs cannot silently drift
+// away from the implementation in server.go.
+type apiEndpoint struct {
+	Method      string
+	Path        string
+	Tag         string
+	Summary     string
+	Description string
+	Request     map[string]any // JSON request body schema, or nil
+	Form        map[string]any // form-urlencoded body properties, or nil
+	Response    map[string]any // success response schema, or nil for no/non-JSON body
+	Code        string         // success status code; defaults to "200"
+}
+
+// apiEndpoints lists every documented endpoint of the Nomos HTTP API.
+// Keep this in sync with the routes registered in NewHandler — the coverage
+// test will fail if an entry here is not reachable.
+var apiEndpoints = []apiEndpoint{
+	// System
+	{Method: "GET", Path: "/health", Tag: "System", Summary: "Health check", Description: "Returns Nomos service status and version.", Response: schemaRef("HealthResponse")},
+
+	// Cosmos
+	{Method: "GET", Path: "/api/v1/cosmos", Tag: "Cosmos", Summary: "Get Cosmos", Description: "Returns the current Cosmos metadata and aggregate counts.", Response: schemaRef("Cosmos")},
+	{Method: "GET", Path: "/api/v1/index", Tag: "Cosmos", Summary: "ID index", Description: "Returns the ID→address index of artifacts (ADR-0028).", Response: schemaRef("IndexResponse")},
+	{Method: "GET", Path: "/api/v1/index/{id}", Tag: "Cosmos", Summary: "Resolve ID", Description: "Resolves a stable artifact ID to its current address (ADR-0028).", Response: schemaRef("IndexEntry")},
+
+	// Repositories
+	{Method: "GET", Path: "/api/v1/repositories", Tag: "Repositories", Summary: "List repositories", Description: "Returns the git-first repositories managed by this server (ADR-0022). The local server returns its single default repository.", Response: schemaRef("RepositoriesResponse")},
+	{Method: "GET", Path: "/api/v1/repositories/{repo}", Tag: "Repositories", Summary: "Get repository", Description: "Returns metadata for one repository.", Response: schemaRef("Repository")},
+	{Method: "GET", Path: "/api/v1/repositories/{repo}/cosmos", Tag: "Repositories", Summary: "Get repository Cosmos", Description: "Repository-scoped Cosmos summary; equivalent to /api/v1/cosmos for the default repository.", Response: schemaRef("Cosmos")},
+	{Method: "GET", Path: "/api/v1/repositories/{repo}/namespaces", Tag: "Repositories", Summary: "Get repository namespace tree", Description: "Repository-scoped namespace tree.", Response: schemaRef("NamespaceTree")},
+	{Method: "GET", Path: "/api/v1/repositories/{repo}/domains", Tag: "Repositories", Summary: "List repository domains", Description: "Repository-scoped domain list.", Response: schemaRef("DomainsResponse")},
+	{Method: "GET", Path: "/api/v1/repositories/{repo}/domains/{domain}", Tag: "Repositories", Summary: "Get repository domain", Description: "Repository-scoped domain detail.", Response: schemaRef("Domain")},
+
+	// Mounts
+	{Method: "GET", Path: "/api/v1/mounts", Tag: "Mounts", Summary: "List mounts", Description: "Returns the implicit local server mount followed by configured remote mounts (ADR-0022).", Response: schemaRef("MountsResponse")},
+	{Method: "POST", Path: "/api/v1/mounts", Tag: "Mounts", Summary: "Add mount", Description: "Registers a remote server mount by endpoint (host:7373). An optional token is the remote server's API key used for proxied writes (ADR-0023).", Request: object(map[string]any{"endpoint": stringSchema("Remote server endpoint, e.g. nomos.blumer.cloud:7373."), "label": stringSchema("Optional display label."), "token": stringSchema("Optional remote API key for write access.")}), Response: schemaRef("Mount"), Code: "201"},
+	{Method: "DELETE", Path: "/api/v1/mounts/{id}", Tag: "Mounts", Summary: "Remove mount", Description: "Unmounts a remote server by id. The local mount cannot be removed.", Response: schemaRef("DeletedResponse"), Code: "204"},
+	{Method: "GET", Path: "/api/v1/mounts/{id}/r/{path}", Tag: "Mounts", Summary: "Proxy to mounted server", Description: "Forwards the request to the mounted server, attaching the mount token as X-API-Key (ADR-0023). Reads are open; mutating methods require a token (403 MOUNT_NOT_AUTHENTICATED otherwise).", Response: genObj()},
+	{Method: "GET", Path: "/api/v1/ping", Tag: "Mounts", Summary: "Ping", Description: "Returns this server's identity and the endpoints of its configured mounts (peers), without tokens (ADR-0025).", Response: schemaRef("Ping")},
+	{Method: "GET", Path: "/api/v1/discover", Tag: "Mounts", Summary: "Discover servers", Description: "1-hop peer-gossip discovery (ADR-0025): pings the configured mounts and returns their advertised peers that are not yet mounted as candidates.", Response: schemaRef("Discovery")},
+
+	// Domains
+	{Method: "GET", Path: "/api/v1/domains", Tag: "Domains", Summary: "List domains", Description: "Returns all known domains.", Response: schemaRef("DomainsResponse")},
+	{Method: "POST", Path: "/api/v1/domains", Tag: "Domains", Summary: "Create domain", Description: "Creates a top-level domain or a domain inside a namespace.", Form: map[string]any{"dns": stringSchema("Canonical DNS name."), "namespace": stringSchema("Optional namespace path."), "label": stringSchema("Optional segment label."), "owner": stringSchema("Domain owner."), "force": map[string]any{"type": "boolean"}}, Response: schemaRef("Domain"), Code: "201"},
+	{Method: "GET", Path: "/api/v1/domains/{domain}", Tag: "Domains", Summary: "Get domain", Description: "Returns one domain by canonical name.", Response: schemaRef("Domain")},
+	{Method: "PUT", Path: "/api/v1/domains/{domain}", Tag: "Domains", Summary: "Rename domain", Description: "Renames a domain.", Request: object(map[string]any{"name": stringSchema("New domain name.")}), Response: genObj()},
+	{Method: "DELETE", Path: "/api/v1/domains/{domain}", Tag: "Domains", Summary: "Delete domain", Description: "Deletes one domain by canonical name.", Response: schemaRef("DeletedResponse")},
+	{Method: "POST", Path: "/api/v1/domains/{domain}/children", Tag: "Domains", Summary: "Create child domain", Description: "Creates a child domain below the given domain.", Request: object(map[string]any{"label": stringSchema("Child segment label."), "segment": stringSchema("Alias for label."), "owner": stringSchema("Owner."), "force": map[string]any{"type": "boolean"}, "materializeParent": map[string]any{"type": "boolean"}}), Response: schemaRef("Domain"), Code: "201"},
+	{Method: "GET", Path: "/api/v1/domains/{domain}/products", Tag: "Domains", Summary: "List domain products", Description: "Returns product offerings whose offered_by matches the domain.", Response: genObj()},
+	{Method: "POST", Path: "/api/v1/domains/{domain}/products", Tag: "Domains", Summary: "Create domain product", Description: "Creates a product offering with offered_by defaulted from the domain path.", Request: genObj(), Response: schemaRef("Blueprint"), Code: "201"},
+	{Method: "GET", Path: "/api/v1/domains/{domain}/services", Tag: "Domains", Summary: "List domain services", Description: "Returns services below a domain.", Response: schemaRef("ServicesResponse")},
+	{Method: "POST", Path: "/api/v1/domains/{domain}/services", Tag: "Domains", Summary: "Create service", Description: "Creates a service below a domain.", Form: map[string]any{"name": stringSchema("Service name."), "owner": stringSchema("Service owner."), "force": map[string]any{"type": "boolean"}}, Response: schemaRef("Service"), Code: "201"},
+	{Method: "GET", Path: "/api/v1/domains/{domain}/services/{service}", Tag: "Domains", Summary: "Get service", Description: "Returns one service below a domain.", Response: schemaRef("Service")},
+	{Method: "PUT", Path: "/api/v1/domains/{domain}/services/{service}", Tag: "Domains", Summary: "Rename service", Description: "Renames a service below a domain.", Request: object(map[string]any{"name": stringSchema("New service name.")}), Response: genObj()},
+	{Method: "DELETE", Path: "/api/v1/domains/{domain}/services/{service}", Tag: "Domains", Summary: "Delete service", Description: "Deletes one service below a domain.", Response: schemaRef("DeletedResponse")},
+
+	// Decisions
+	{Method: "GET", Path: "/api/v1/domains/{domain}/decisions", Tag: "Decisions", Summary: "List decisions", Description: "Returns all decisions for a domain.", Response: genObj()},
+	{Method: "POST", Path: "/api/v1/domains/{domain}/decisions", Tag: "Decisions", Summary: "Create decision", Description: "Creates a decision in a domain.", Request: genObj(), Response: genObj(), Code: "201"},
+	{Method: "GET", Path: "/api/v1/domains/{domain}/decisions/{decision}", Tag: "Decisions", Summary: "Get decision", Description: "Returns one decision by id.", Response: genObj()},
+	{Method: "PUT", Path: "/api/v1/domains/{domain}/decisions/{decision}", Tag: "Decisions", Summary: "Update decision", Description: "Updates a decision.", Request: genObj(), Response: genObj()},
+	{Method: "DELETE", Path: "/api/v1/domains/{domain}/decisions/{decision}", Tag: "Decisions", Summary: "Delete decision", Description: "Deletes a decision.", Code: "204"},
+	{Method: "POST", Path: "/api/v1/domains/{domain}/decisions/{decision}/evaluate", Tag: "Decisions", Summary: "Evaluate decision", Description: "Evaluates a decision against supplied inputs and records a trace.", Request: object(map[string]any{"inputs": genObj()}), Response: genObj()},
+	{Method: "GET", Path: "/api/v1/domains/{domain}/decisions/{decision}/definitions", Tag: "Decisions", Summary: "Get decision definitions", Description: "Returns the parsed decision requirements graph (DRG).", Response: genObj()},
+	{Method: "GET", Path: "/api/v1/domains/{domain}/decisions/{decision}/dmn", Tag: "Decisions", Summary: "Get decision DMN", Description: "Returns the raw DMN XML for a decision.", Response: nil},
+	{Method: "PUT", Path: "/api/v1/domains/{domain}/decisions/{decision}/dmn", Tag: "Decisions", Summary: "Update decision DMN", Description: "Replaces the DMN XML of a decision.", Request: genObj(), Response: genObj()},
+	{Method: "GET", Path: "/api/v1/domains/{domain}/decisions/{decision}/traces", Tag: "Decisions", Summary: "List decision traces", Description: "Returns recorded evaluation traces for a decision.", Response: genObj()},
+	{Method: "POST", Path: "/api/v1/domains/{domain}/decisions/{decision}/traces/verify", Tag: "Decisions", Summary: "Verify decision traces", Description: "Re-verifies recorded traces against the current decision logic.", Response: genObj()},
+	{Method: "GET", Path: "/api/v1/domains/{domain}/decisions/{decision}/traces/{trace}", Tag: "Decisions", Summary: "Get decision trace", Description: "Returns one recorded evaluation trace.", Response: genObj()},
+	{Method: "GET", Path: "/api/v1/domains/{domain}/decisions/{decision}/versions", Tag: "Decisions", Summary: "List decision versions", Description: "Returns immutable version snapshots of a decision.", Response: genObj()},
+	{Method: "GET", Path: "/api/v1/domains/{domain}/decisions/{decision}/versions/{version}", Tag: "Decisions", Summary: "Get decision version", Description: "Returns metadata for one decision version.", Response: genObj()},
+	{Method: "GET", Path: "/api/v1/domains/{domain}/decisions/{decision}/versions/{version}/dmn", Tag: "Decisions", Summary: "Get decision version DMN", Description: "Returns the DMN XML at a specific version.", Response: nil},
+	{Method: "GET", Path: "/api/v1/domains/{domain}/decisions/{decision}/versions/{version}/definitions", Tag: "Decisions", Summary: "Get decision version definitions", Description: "Returns the parsed DRG at a specific version.", Response: genObj()},
+	{Method: "GET", Path: "/api/v1/domains/{domain}/decisions/{decision}/scenarios", Tag: "Decisions", Summary: "List decision scenarios", Description: "Returns saved test scenarios for a decision.", Response: genObj()},
+	{Method: "POST", Path: "/api/v1/domains/{domain}/decisions/{decision}/scenarios", Tag: "Decisions", Summary: "Create decision scenario", Description: "Creates a test scenario, optionally from an existing trace.", Request: genObj(), Response: genObj(), Code: "201"},
+	{Method: "POST", Path: "/api/v1/domains/{domain}/decisions/{decision}/scenarios/from-trace/{trace}", Tag: "Decisions", Summary: "Create scenario from trace", Description: "Promotes a recorded trace into a saved scenario.", Response: genObj(), Code: "201"},
+	{Method: "GET", Path: "/api/v1/domains/{domain}/decisions/{decision}/scenarios/{scenario}", Tag: "Decisions", Summary: "Get decision scenario", Description: "Returns one saved scenario.", Response: genObj()},
+	{Method: "PUT", Path: "/api/v1/domains/{domain}/decisions/{decision}/scenarios/{scenario}", Tag: "Decisions", Summary: "Update decision scenario", Description: "Updates a saved scenario.", Request: genObj(), Response: genObj()},
+	{Method: "DELETE", Path: "/api/v1/domains/{domain}/decisions/{decision}/scenarios/{scenario}", Tag: "Decisions", Summary: "Delete decision scenario", Description: "Removes a saved scenario.", Code: "204"},
+
+	// Services
+	{Method: "GET", Path: "/api/v1/services/refs", Tag: "Services", Summary: "List service refs", Description: "Returns canonical service references grouped by domain fields.", Response: genObj()},
+	{Method: "GET", Path: "/api/v1/services/{domain}/{service}", Tag: "Services", Summary: "Get service (legacy)", Description: "Legacy route for reading one service.", Response: schemaRef("Service")},
+	{Method: "POST", Path: "/api/v1/services/{domain}/{service}/capabilities", Tag: "Services", Summary: "Add capability", Description: "Adds a capability to a service.", Request: genObj(), Response: schemaRef("Service"), Code: "201"},
+	{Method: "PUT", Path: "/api/v1/services/{domain}/{service}/capabilities/{capability}", Tag: "Services", Summary: "Update capability", Description: "Updates a service capability.", Request: genObj(), Response: schemaRef("Service")},
+	{Method: "DELETE", Path: "/api/v1/services/{domain}/{service}/capabilities/{capability}", Tag: "Services", Summary: "Delete capability", Description: "Removes a service capability.", Response: schemaRef("Service")},
+	{Method: "POST", Path: "/api/v1/services/{domain}/{service}/data-objects", Tag: "Services", Summary: "Add data object", Description: "Adds a data object to a service.", Request: genObj(), Response: schemaRef("Service"), Code: "201"},
+	{Method: "PUT", Path: "/api/v1/services/{domain}/{service}/data-objects/{dataObject}", Tag: "Services", Summary: "Update data object", Description: "Updates a service data object.", Request: genObj(), Response: schemaRef("Service")},
+	{Method: "DELETE", Path: "/api/v1/services/{domain}/{service}/data-objects/{dataObject}", Tag: "Services", Summary: "Delete data object", Description: "Removes a service data object.", Response: schemaRef("Service")},
+	{Method: "POST", Path: "/api/v1/services/{domain}/{service}/user-interfaces", Tag: "Services", Summary: "Add user interface", Description: "Adds a user interface to a service.", Request: genObj(), Response: schemaRef("Service"), Code: "201"},
+	{Method: "PUT", Path: "/api/v1/services/{domain}/{service}/user-interfaces/{userInterface}", Tag: "Services", Summary: "Update user interface", Description: "Updates a service user interface.", Request: genObj(), Response: schemaRef("Service")},
+	{Method: "DELETE", Path: "/api/v1/services/{domain}/{service}/user-interfaces/{userInterface}", Tag: "Services", Summary: "Delete user interface", Description: "Removes a service user interface.", Response: schemaRef("Service")},
+	{Method: "GET", Path: "/api/v1/services/{domain}/{service}/methods", Tag: "Services", Summary: "List methods", Description: "Returns the methods defined on a service.", Response: genObj()},
+	{Method: "POST", Path: "/api/v1/services/{domain}/{service}/methods", Tag: "Services", Summary: "Add method", Description: "Adds a method to a service.", Request: object(map[string]any{"method": stringSchema("Method name.")}), Response: schemaRef("Service"), Code: "201"},
+	{Method: "GET", Path: "/api/v1/services/{domain}/{service}/methods/{method}", Tag: "Services", Summary: "Get method", Description: "Returns one service method definition.", Response: genObj()},
+	{Method: "PUT", Path: "/api/v1/services/{domain}/{service}/methods/{method}", Tag: "Services", Summary: "Update method", Description: "Updates a service method definition.", Request: genObj(), Response: schemaRef("Service")},
+	{Method: "DELETE", Path: "/api/v1/services/{domain}/{service}/methods/{method}", Tag: "Services", Summary: "Delete method", Description: "Removes a service method.", Response: schemaRef("Service")},
+
+	// Namespaces
+	{Method: "GET", Path: "/api/v1/namespaces", Tag: "Domains", Summary: "Get namespace tree", Description: "Returns the domain/service namespace tree.", Response: schemaRef("NamespaceTree")},
+	{Method: "POST", Path: "/api/v1/namespaces/{namespace}/domains", Tag: "Domains", Summary: "Create domain in namespace", Description: "Creates a domain under a namespace path.", Form: map[string]any{"label": stringSchema("Segment label."), "owner": stringSchema("Owner."), "force": map[string]any{"type": "boolean"}}, Response: schemaRef("Domain"), Code: "201"},
+
+	// Validation
+	{Method: "GET", Path: "/api/v1/graph", Tag: "Validation", Summary: "Get graph", Description: "Returns Mermaid graph text by default, or JSON when format=json is used.", Response: schemaRef("Graph")},
+	{Method: "GET", Path: "/api/v1/validate", Tag: "Validation", Summary: "Validate Cosmos", Description: "Runs deterministic validation for the current Cosmos.", Response: schemaRef("ValidationResult")},
+
+	// Catalog — Blueprints
+	{Method: "GET", Path: "/api/v1/blueprints", Tag: "Catalog", Summary: "List blueprints", Description: "Returns product and service blueprints.", Response: schemaRef("BlueprintsResponse")},
+	{Method: "POST", Path: "/api/v1/blueprints", Tag: "Catalog", Summary: "Create blueprint", Description: "Creates a blueprint artifact.", Request: schemaRef("Blueprint"), Response: schemaRef("Blueprint"), Code: "201"},
+	{Method: "GET", Path: "/api/v1/blueprints/{blueprint}", Tag: "Catalog", Summary: "Get blueprint", Description: "Returns one blueprint by id.", Response: schemaRef("Blueprint")},
+	{Method: "PATCH", Path: "/api/v1/blueprints/{blueprint}", Tag: "Catalog", Summary: "Patch blueprint", Description: "Updates top-level blueprint fields.", Request: genObj(), Response: schemaRef("Blueprint")},
+	{Method: "DELETE", Path: "/api/v1/blueprints/{blueprint}", Tag: "Catalog", Summary: "Delete blueprint", Description: "Deletes one blueprint by id.", Response: schemaRef("DeletedResponse")},
+	{Method: "POST", Path: "/api/v1/blueprints/{blueprint}/publish", Tag: "Catalog", Summary: "Publish blueprint", Description: "Publishes a blueprint.", Response: schemaRef("Blueprint")},
+	{Method: "GET", Path: "/api/v1/blueprints/{blueprint}/validate", Tag: "Catalog", Summary: "Validate blueprint", Description: "Validates one blueprint.", Response: genObj()},
+	{Method: "POST", Path: "/api/v1/blueprints/{blueprint}/requirements", Tag: "Catalog", Summary: "Add requirement", Description: "Adds a blueprint requirement and optionally links it to local blueprint attributes.", Request: object(map[string]any{"label": stringSchema("Requirement text."), "attribute_refs": arrayOf(map[string]any{"type": "string"})}), Response: schemaRef("Blueprint")},
+	{Method: "PATCH", Path: "/api/v1/blueprints/{blueprint}/requirements/{requirement}", Tag: "Catalog", Summary: "Set requirement status", Description: "Sets a requirement status to open or fulfilled.", Request: object(map[string]any{"status": stringSchema("open or fulfilled.")}), Response: schemaRef("Blueprint")},
+	{Method: "DELETE", Path: "/api/v1/blueprints/{blueprint}/requirements/{requirement}", Tag: "Catalog", Summary: "Delete requirement", Description: "Removes a blueprint requirement.", Response: schemaRef("Blueprint")},
+	{Method: "POST", Path: "/api/v1/blueprints/{blueprint}/service-blueprints", Tag: "Catalog", Summary: "Add service blueprint", Description: "Links a service blueprint to a product blueprint.", Request: object(map[string]any{"service_id": stringSchema("Service blueprint id.")}), Response: schemaRef("Blueprint")},
+	{Method: "DELETE", Path: "/api/v1/blueprints/{blueprint}/service-blueprints/{serviceBlueprint}", Tag: "Catalog", Summary: "Remove service blueprint", Description: "Unlinks a service blueprint from a product blueprint.", Response: schemaRef("Blueprint")},
+	{Method: "POST", Path: "/api/v1/blueprints/{blueprint}/attributes", Tag: "Catalog", Summary: "Add attribute", Description: "Adds a typed attribute to a blueprint.", Request: object(map[string]any{"label": stringSchema("Display label."), "type": stringSchema("Attribute type."), "required": map[string]any{"type": "boolean"}, "service_ref": stringSchema("Optional service reference.")}), Response: schemaRef("Blueprint"), Code: "201"},
+	{Method: "DELETE", Path: "/api/v1/blueprints/{blueprint}/attributes/{attribute}", Tag: "Catalog", Summary: "Delete attribute", Description: "Removes an attribute from a blueprint.", Response: schemaRef("Blueprint")},
+	{Method: "POST", Path: "/api/v1/blueprints/{blueprint}/attributes/{attribute}/rules", Tag: "Catalog", Summary: "Add attribute rule", Description: "Adds a validation rule to a blueprint attribute.", Request: object(map[string]any{"label": stringSchema("Rule description."), "type": stringSchema("Rule type."), "value": stringSchema("Constraint value.")}), Response: schemaRef("Blueprint"), Code: "201"},
+	{Method: "DELETE", Path: "/api/v1/blueprints/{blueprint}/attributes/{attribute}/rules/{rule}", Tag: "Catalog", Summary: "Delete attribute rule", Description: "Removes a validation rule from a blueprint attribute.", Response: schemaRef("Blueprint")},
+
+	// Catalog — Products
+	{Method: "GET", Path: "/api/v1/products/{product}", Tag: "Catalog", Summary: "Get product", Description: "Returns one product offering by id.", Response: schemaRef("Blueprint")},
+	{Method: "POST", Path: "/api/v1/products/{product}/move", Tag: "Catalog", Summary: "Move product offering", Description: "Reassigns a product offering to another domain.", Request: schemaRef("MoveProductOfferingRequest"), Response: schemaRef("Blueprint")},
+	{Method: "GET", Path: "/api/v1/products/{product}/collaboration", Tag: "Catalog", Summary: "Get product collaboration", Description: "Returns the collaboration view for a product.", Response: genObj()},
+	{Method: "GET", Path: "/api/v1/products/{product}/processes", Tag: "Catalog", Summary: "List product processes", Description: "Returns processes attached to a product.", Response: genObj()},
+	{Method: "POST", Path: "/api/v1/products/{product}/processes", Tag: "Catalog", Summary: "Create product process", Description: "Creates a process attached to a product.", Request: genObj(), Response: genObj(), Code: "201"},
+	{Method: "POST", Path: "/api/v1/products/{product}/fulfillment-services", Tag: "Catalog", Summary: "Add fulfillment service", Description: "Appends a required fulfillment service reference to a product offering.", Request: genObj(), Response: schemaRef("Blueprint")},
+	{Method: "PUT", Path: "/api/v1/products/{product}/fulfillment-services/{index}", Tag: "Catalog", Summary: "Update fulfillment service", Description: "Updates an existing fulfillment service entry by index.", Request: genObj(), Response: schemaRef("Blueprint")},
+	{Method: "DELETE", Path: "/api/v1/products/{product}/fulfillment-services/{index}", Tag: "Catalog", Summary: "Remove fulfillment service", Description: "Removes an existing fulfillment service entry by index.", Response: schemaRef("Blueprint")},
+
+	// Processes
+	{Method: "GET", Path: "/api/v1/processes/{process}", Tag: "Processes", Summary: "Get process", Description: "Returns one process by id.", Response: genObj()},
+	{Method: "DELETE", Path: "/api/v1/processes/{process}", Tag: "Processes", Summary: "Delete process", Description: "Deletes a process.", Code: "204"},
+	{Method: "GET", Path: "/api/v1/processes/{process}/bpmn", Tag: "Processes", Summary: "Get process BPMN", Description: "Returns the raw BPMN XML for a process.", Response: nil},
+	{Method: "PUT", Path: "/api/v1/processes/{process}/bpmn", Tag: "Processes", Summary: "Update process BPMN", Description: "Replaces the BPMN XML of a process.", Request: genObj(), Response: genObj()},
+	{Method: "GET", Path: "/api/v1/processes/{process}/tasks", Tag: "Processes", Summary: "List process tasks", Description: "Returns the tasks parsed from a process.", Response: genObj()},
+	{Method: "PUT", Path: "/api/v1/processes/{process}/participant", Tag: "Processes", Summary: "Update process participant", Description: "Updates the participant of a process.", Request: genObj(), Response: genObj()},
+	{Method: "GET", Path: "/api/v1/processes/{process}/triggers", Tag: "Processes", Summary: "List process triggers", Description: "Returns the triggers of a process.", Response: genObj()},
+	{Method: "PUT", Path: "/api/v1/processes/{process}/triggers", Tag: "Processes", Summary: "Update process triggers", Description: "Replaces the triggers of a process.", Request: genObj(), Response: genObj()},
+	{Method: "PUT", Path: "/api/v1/processes/{process}/task-mappings", Tag: "Processes", Summary: "Update task mappings", Description: "Updates the task-to-service mappings of a process.", Request: genObj(), Response: genObj()},
+	{Method: "GET", Path: "/api/v1/processes/{process}/steps", Tag: "Processes", Summary: "List process steps", Description: "Returns the steps of a process.", Response: genObj()},
+	{Method: "POST", Path: "/api/v1/processes/{process}/steps", Tag: "Processes", Summary: "Add process step", Description: "Adds a step to a process.", Request: genObj(), Response: genObj(), Code: "201"},
+	{Method: "PUT", Path: "/api/v1/processes/{process}/steps/{step}", Tag: "Processes", Summary: "Update process step", Description: "Updates a process step.", Request: genObj(), Response: genObj()},
+	{Method: "DELETE", Path: "/api/v1/processes/{process}/steps/{step}", Tag: "Processes", Summary: "Delete process step", Description: "Removes a process step.", Response: genObj()},
+
+	// Catalog — Instances
+	{Method: "GET", Path: "/api/v1/instances", Tag: "Catalog", Summary: "List instances", Description: "Returns product and service instances.", Response: schemaRef("InstancesResponse")},
+	{Method: "POST", Path: "/api/v1/instances", Tag: "Catalog", Summary: "Create instance", Description: "Creates an instance artifact.", Request: schemaRef("Instance"), Response: schemaRef("Instance"), Code: "201"},
+	{Method: "GET", Path: "/api/v1/instances/{instance}", Tag: "Catalog", Summary: "Get instance", Description: "Returns one instance by id.", Response: schemaRef("Instance")},
+	{Method: "PATCH", Path: "/api/v1/instances/{instance}", Tag: "Catalog", Summary: "Patch instance", Description: "Updates top-level instance fields.", Request: genObj(), Response: schemaRef("Instance")},
+	{Method: "DELETE", Path: "/api/v1/instances/{instance}", Tag: "Catalog", Summary: "Delete instance", Description: "Deletes one instance by id.", Response: schemaRef("DeletedResponse")},
+	{Method: "GET", Path: "/api/v1/instances/{instance}/compliance", Tag: "Catalog", Summary: "Get instance compliance", Description: "Returns compliance status, evidence, and findings for one instance.", Response: schemaRef("Compliance")},
+	{Method: "POST", Path: "/api/v1/instances/{instance}/verify", Tag: "Catalog", Summary: "Verify instance", Description: "Runs verification for one instance.", Response: genObj()},
+	{Method: "GET", Path: "/api/v1/instances/{instance}/attribute-validation", Tag: "Catalog", Summary: "Validate instance attributes", Description: "Validates an instance's attribute values against its blueprint's attribute rules.", Response: schemaRef("AttributeValidation")},
+	{Method: "PATCH", Path: "/api/v1/instances/{instance}/attribute-values", Tag: "Catalog", Summary: "Set attribute values", Description: "Sets or updates attribute values on an instance.", Request: map[string]any{"type": "object", "additionalProperties": map[string]any{"type": "string"}}, Response: schemaRef("Instance")},
+	{Method: "POST", Path: "/api/v1/product-instances/{product}/service-instances", Tag: "Catalog", Summary: "Provision service instance", Description: "Provisions a service instance under a product instance.", Request: schemaRef("Instance"), Response: schemaRef("Instance"), Code: "201"},
+
+	// Servicegraphs
+	{Method: "GET", Path: "/api/v1/servicegraphs", Tag: "Servicegraphs", Summary: "List servicegraphs", Description: "Returns all servicegraphs.", Response: genObj()},
+	{Method: "POST", Path: "/api/v1/servicegraphs", Tag: "Servicegraphs", Summary: "Create servicegraph", Description: "Creates a servicegraph.", Request: genObj(), Response: genObj(), Code: "201"},
+	{Method: "GET", Path: "/api/v1/servicegraphs/{servicegraph}", Tag: "Servicegraphs", Summary: "Get servicegraph", Description: "Returns one servicegraph by id.", Response: genObj()},
+	{Method: "DELETE", Path: "/api/v1/servicegraphs/{servicegraph}", Tag: "Servicegraphs", Summary: "Delete servicegraph", Description: "Deletes a servicegraph.", Response: schemaRef("DeletedResponse")},
+	{Method: "GET", Path: "/api/v1/servicegraphs/{servicegraph}/mermaid", Tag: "Servicegraphs", Summary: "Get servicegraph Mermaid", Description: "Returns the Mermaid rendering of a servicegraph.", Response: genObj()},
+	{Method: "GET", Path: "/api/v1/servicegraphs/{servicegraph}/execution", Tag: "Servicegraphs", Summary: "Get servicegraph execution order", Description: "Returns the execution order of a servicegraph.", Response: genObj()},
+
+	// Verification
+	{Method: "POST", Path: "/api/v1/verify/domain/{domain}", Tag: "Verification", Summary: "Verify domain", Description: "Runs domain verification for one domain.", Response: genObj()},
+}
+
+var openAPISpec = buildOpenAPISpec()
+
+func buildOpenAPISpec() map[string]any {
+	return map[string]any{
+		"openapi": "3.1.0",
+		"info": map[string]any{
+			"title":       "Nomos API",
+			"version":     "0.1.0",
+			"description": "OpenAPI documentation for the Nomos local Cosmos HTTP API. Generated from the in-code endpoint registry in openapi.go.",
 		},
-		"/api/v1/mounts/{id}": map[string]any{
-			"delete": operation("Mounts", "Remove mount", "Unmounts a remote server by id. The local mount cannot be removed.", []map[string]any{pathParam("id", "Mount id.")}, schemaRef("DeletedResponse")),
+		"servers": []map[string]string{{"url": "/", "description": "Current Nomos server"}},
+		"tags": []map[string]string{
+			{"name": "System", "description": "Health and service metadata"},
+			{"name": "Cosmos", "description": "Cosmos repository summary"},
+			{"name": "Repositories", "description": "Server-managed git-first repositories"},
+			{"name": "Mounts", "description": "Server mounts and peer discovery shown in the Cosmos Explorer"},
+			{"name": "Domains", "description": "Domain, service, and namespace operations"},
+			{"name": "Decisions", "description": "DMN decision authoring, evaluation, traces, versions, and scenarios"},
+			{"name": "Services", "description": "Service detail sub-resources (capabilities, data objects, UIs, methods)"},
+			{"name": "Validation", "description": "Validation and graph outputs"},
+			{"name": "Catalog", "description": "Blueprint, product, and instance catalog operations"},
+			{"name": "Processes", "description": "BPMN process authoring operations"},
+			{"name": "Servicegraphs", "description": "Servicegraph composition operations"},
+			{"name": "Verification", "description": "Domain verification operations"},
 		},
-		"/api/v1/index":      pathItem("Cosmos", "ID index", "Returns the ID→address index of artifacts (ADR-0028).", nil, schemaRef("IndexResponse")),
-		"/api/v1/index/{id}": pathItem("Cosmos", "Resolve ID", "Resolves a stable artifact ID to its current address (ADR-0028).", []map[string]any{pathParam("id", "Artifact id.")}, schemaRef("IndexEntry")),
-		"/api/v1/ping":       pathItem("Mounts", "Ping", "Returns this server's identity and the endpoints of its configured mounts (peers), without tokens (ADR-0025).", nil, schemaRef("Ping")),
-		"/api/v1/discover":   pathItem("Mounts", "Discover servers", "1-hop peer-gossip discovery (ADR-0025): pings the configured mounts and returns their advertised peers that are not yet mounted as candidates.", nil, schemaRef("Discovery")),
-		"/api/v1/mounts/{id}/r/{path}": map[string]any{
-			"get": operation("Mounts", "Proxy to mounted server", "Forwards the request to http://{endpoint}/{path} on the mounted server, attaching the mount token as X-API-Key (ADR-0023). Reads are open; mutating methods require a token (403 MOUNT_NOT_AUTHENTICATED otherwise). All HTTP methods are proxied.", []map[string]any{pathParam("id", "Mount id."), pathParam("path", "Remote API path, e.g. api/v1/domains.")}, map[string]any{"type": "object", "additionalProperties": true}),
-		},
-		"/api/v1/domains": map[string]any{
-			"get":  operation("Domains", "List domains", "Returns all known domains.", nil, schemaRef("DomainsResponse")),
-			"post": operationWithRequest("Domains", "Create domain", "Creates a domain in the local Cosmos.", nil, formRequestBody(map[string]any{"dns": stringSchema("Canonical DNS name."), "owner": stringSchema("Domain owner."), "force": map[string]any{"type": "boolean"}}), map[string]any{"201": response("Created domain.", schemaRef("Domain")), "400": errorResponse(), "409": errorResponse()}),
-		},
-		"/api/v1/domains/{domain}": map[string]any{
-			"get":    operation("Domains", "Get domain", "Returns one domain by canonical name.", []map[string]any{pathParam("domain", "Canonical domain name.")}, schemaRef("Domain")),
-			"delete": operation("Domains", "Delete domain", "Deletes one domain by canonical name.", []map[string]any{pathParam("domain", "Canonical domain name.")}, schemaRef("DeletedResponse")),
-		},
-		"/api/v1/domains/{domain}/products": map[string]any{
-			"get":  operation("Domains", "List domain products", "Returns product offerings whose offered_by matches the domain.", []map[string]any{pathParam("domain", "Canonical domain name.")}, map[string]any{"type": "object", "additionalProperties": true}),
-			"post": operationWithRequest("Domains", "Create domain product", "Creates a product offering with offered_by defaulted from the domain path.", []map[string]any{pathParam("domain", "Canonical domain name.")}, jsonRequestBody(map[string]any{"type": "object", "additionalProperties": true}), map[string]any{"201": response("Created product.", schemaRef("Blueprint")), "400": errorResponse(), "404": errorResponse(), "409": errorResponse()}),
-		},
-		"/api/v1/products/{product}/move": map[string]any{
-			"post": operationWithRequest("Catalog", "Move product offering", "Reassigns a product offering to another domain by updating offered_by and optionally owning_domain. The Catalog Index storage path is unchanged.", []map[string]any{pathParam("product", "Product id.")}, jsonRequestBody(schemaRef("MoveProductOfferingRequest")), map[string]any{"200": response("Moved product.", schemaRef("Blueprint")), "400": errorResponse(), "404": errorResponse(), "409": errorResponse()}),
-		},
-		"/api/v1/products/{product}/fulfillment-services": map[string]any{
-			"post": operationWithRequest("Catalog", "Add fulfillment service", "Appends a required fulfillment service reference to a product offering.", []map[string]any{pathParam("product", "Product id.")}, jsonRequestBody(map[string]any{"type": "object", "additionalProperties": true}), map[string]any{"200": response("Updated product.", schemaRef("Blueprint")), "400": errorResponse(), "404": errorResponse()}),
-		},
-		"/api/v1/products/{product}/fulfillment-services/{index}": map[string]any{
-			"put":    operationWithRequest("Catalog", "Update fulfillment service", "Updates an existing fulfillment service entry by index.", []map[string]any{pathParam("product", "Product id."), pathParam("index", "Fulfillment entry index.")}, jsonRequestBody(map[string]any{"type": "object", "additionalProperties": true}), map[string]any{"200": response("Updated product.", schemaRef("Blueprint")), "400": errorResponse(), "404": errorResponse(), "409": errorResponse()}),
-			"delete": operation("Catalog", "Remove fulfillment service", "Removes an existing fulfillment service entry by index.", []map[string]any{pathParam("product", "Product id."), pathParam("index", "Fulfillment entry index.")}, schemaRef("Blueprint")),
-		},
-		"/api/v1/services/refs": pathItem("Domains", "List service refs", "Returns canonical service references grouped by domain fields.", nil, map[string]any{"type": "object", "additionalProperties": true}),
-		"/api/v1/domains/{domain}/services": map[string]any{
-			"get":  operation("Domains", "List domain services", "Returns services below a domain.", []map[string]any{pathParam("domain", "Canonical domain name.")}, schemaRef("ServicesResponse")),
-			"post": operationWithRequest("Domains", "Create service", "Creates a service below a domain.", []map[string]any{pathParam("domain", "Canonical domain name.")}, formRequestBody(map[string]any{"name": stringSchema("Service name."), "owner": stringSchema("Service owner."), "force": map[string]any{"type": "boolean"}}), map[string]any{"201": response("Created service.", schemaRef("Service")), "400": errorResponse(), "409": errorResponse()}),
-		},
-		"/api/v1/domains/{domain}/services/{service}": map[string]any{
-			"get":    operation("Domains", "Get service", "Returns one service below a domain.", []map[string]any{pathParam("domain", "Canonical domain name."), pathParam("service", "Service name.")}, schemaRef("Service")),
-			"delete": operation("Domains", "Delete service", "Deletes one service below a domain.", []map[string]any{pathParam("domain", "Canonical domain name."), pathParam("service", "Service name.")}, schemaRef("DeletedResponse")),
-		},
-		"/api/v1/services/{domain}/{service}": pathItem("Domains", "Get service (legacy)", "Legacy route for reading one service.", []map[string]any{pathParam("domain", "Canonical domain name."), pathParam("service", "Service name.")}, schemaRef("Service")),
-		"/api/v1/namespaces":                  pathItem("Domains", "Get namespace tree", "Returns the domain/service namespace tree.", nil, schemaRef("NamespaceTree")),
-		"/api/v1/graph":                       map[string]any{"get": map[string]any{"tags": []string{"Validation"}, "summary": "Get graph", "description": "Returns Mermaid graph text by default, or JSON when format=json is used.", "parameters": []map[string]any{{"name": "format", "in": "query", "required": false, "schema": map[string]any{"type": "string", "enum": []string{"json"}}}}, "responses": map[string]any{"200": map[string]any{"description": "Mermaid text or graph JSON.", "content": map[string]any{"text/plain": map[string]any{"schema": map[string]any{"type": "string"}}, "application/json": map[string]any{"schema": schemaRef("Graph")}}}, "500": errorResponse()}}},
-		"/api/v1/validate":                    pathItem("Validation", "Validate Cosmos", "Runs deterministic validation for the current Cosmos.", nil, schemaRef("ValidationResult")),
-		"/api/v1/blueprints": map[string]any{
-			"get":  operation("Catalog", "List blueprints", "Returns product and service blueprints.", nil, schemaRef("BlueprintsResponse")),
-			"post": operationWithRequest("Catalog", "Create blueprint", "Creates a blueprint artifact.", nil, jsonRequestBody(schemaRef("Blueprint")), map[string]any{"201": response("Created blueprint.", schemaRef("Blueprint")), "400": errorResponse(), "409": errorResponse()}),
-		},
-		"/api/v1/blueprints/{blueprint}": map[string]any{
-			"get":    operation("Catalog", "Get blueprint", "Returns one blueprint by id.", []map[string]any{pathParam("blueprint", "Blueprint id.")}, schemaRef("Blueprint")),
-			"delete": operation("Catalog", "Delete blueprint", "Deletes one blueprint by id.", []map[string]any{pathParam("blueprint", "Blueprint id.")}, schemaRef("DeletedResponse")),
-		},
-		"/api/v1/blueprints/{blueprint}/requirements": map[string]any{
-			"post": operationWithRequest("Catalog", "Add requirement", "Adds a blueprint requirement and optionally links it to local blueprint attributes.", []map[string]any{pathParam("blueprint", "Blueprint id.")}, jsonRequestBody(object(map[string]any{"label": stringSchema("Requirement text."), "attribute_refs": arrayOf(map[string]any{"type": "string", "description": "Local blueprint attribute id."})})), map[string]any{"200": response("Updated blueprint.", schemaRef("Blueprint")), "400": errorResponse()}),
-		},
-		"/api/v1/blueprints/{blueprint}/requirements/{requirement}": map[string]any{
-			"patch":  operationWithRequest("Catalog", "Set requirement status", "Sets a requirement status to open or fulfilled.", []map[string]any{pathParam("blueprint", "Blueprint id."), pathParam("requirement", "Requirement id.")}, jsonRequestBody(object(map[string]any{"status": stringSchema("open or fulfilled.")})), map[string]any{"200": response("Updated blueprint.", schemaRef("Blueprint")), "400": errorResponse()}),
-			"delete": operation("Catalog", "Delete requirement", "Removes a blueprint requirement.", []map[string]any{pathParam("blueprint", "Blueprint id."), pathParam("requirement", "Requirement id.")}, schemaRef("Blueprint")),
-		},
-		"/api/v1/blueprints/{blueprint}/attributes": map[string]any{
-			"post": operationWithRequest("Catalog", "Add attribute", "Adds a typed attribute to a blueprint.", []map[string]any{pathParam("blueprint", "Blueprint id.")}, jsonRequestBody(object(map[string]any{"label": stringSchema("Display label."), "type": stringSchema("Attribute type: text, number, boolean, date, enum, service_ref."), "required": map[string]any{"type": "boolean"}, "service_ref": stringSchema("Optional referenced namespace service in the form <domain>/<service> for service_ref attributes.")})), map[string]any{"201": response("Updated blueprint.", schemaRef("Blueprint")), "400": errorResponse()}),
-		},
-		"/api/v1/blueprints/{blueprint}/attributes/{attribute}": map[string]any{
-			"delete": operation("Catalog", "Delete attribute", "Removes an attribute from a blueprint.", []map[string]any{pathParam("blueprint", "Blueprint id."), pathParam("attribute", "Attribute id.")}, schemaRef("Blueprint")),
-		},
-		"/api/v1/blueprints/{blueprint}/attributes/{attribute}/rules": map[string]any{
-			"post": operationWithRequest("Catalog", "Add attribute rule", "Adds a validation rule to a blueprint attribute.", []map[string]any{pathParam("blueprint", "Blueprint id."), pathParam("attribute", "Attribute id.")}, jsonRequestBody(object(map[string]any{"label": stringSchema("Rule description."), "type": stringSchema("Rule type: regex, max_length, min_length, starts_with, ends_with, one_of, manual, reference."), "value": stringSchema("Constraint value. For reference: blueprint id to match against.")})), map[string]any{"201": response("Updated blueprint.", schemaRef("Blueprint")), "400": errorResponse()}),
-		},
-		"/api/v1/blueprints/{blueprint}/attributes/{attribute}/rules/{rule}": map[string]any{
-			"delete": operation("Catalog", "Delete attribute rule", "Removes a validation rule from a blueprint attribute.", []map[string]any{pathParam("blueprint", "Blueprint id."), pathParam("attribute", "Attribute id."), pathParam("rule", "Rule id.")}, schemaRef("Blueprint")),
-		},
-		"/api/v1/instances":                                 pathItem("Catalog", "List instances", "Returns product and service instances.", nil, schemaRef("InstancesResponse")),
-		"/api/v1/instances/{instance}":                      pathItem("Catalog", "Get instance", "Returns one instance by id.", []map[string]any{pathParam("instance", "Instance id.")}, schemaRef("Instance")),
-		"/api/v1/instances/{instance}/compliance":           pathItem("Catalog", "Get instance compliance", "Returns compliance status, evidence, and findings for one instance.", []map[string]any{pathParam("instance", "Instance id.")}, schemaRef("Compliance")),
-		"/api/v1/instances/{instance}/attribute-validation": pathItem("Catalog", "Validate instance attributes", "Validates an instance's attribute values against its blueprint's attribute rules.", []map[string]any{pathParam("instance", "Instance id.")}, schemaRef("AttributeValidation")),
-		"/api/v1/instances/{instance}/attribute-values":     map[string]any{"patch": operationWithRequest("Catalog", "Set attribute values", "Sets or updates attribute values on an instance.", []map[string]any{pathParam("instance", "Instance id.")}, jsonRequestBody(map[string]any{"type": "object", "additionalProperties": map[string]any{"type": "string"}}), map[string]any{"200": response("Updated instance.", schemaRef("Instance")), "400": errorResponse()})},
-		"/api/v1/verify/domain/{domain}":                    map[string]any{"post": operation("Verification", "Verify domain", "Runs domain verification for one domain.", []map[string]any{pathParam("domain", "Canonical domain name.")}, map[string]any{"type": "object", "additionalProperties": true})},
-	},
-	"components": map[string]any{"schemas": schemas()},
+		"paths":      buildPaths(),
+		"components": map[string]any{"schemas": schemas()},
+	}
+}
+
+func buildPaths() map[string]any {
+	paths := map[string]any{}
+	for _, e := range apiEndpoints {
+		item, ok := paths[e.Path].(map[string]any)
+		if !ok {
+			item = map[string]any{}
+			paths[e.Path] = item
+		}
+		item[strings.ToLower(e.Method)] = buildOperation(e)
+	}
+	return paths
+}
+
+func buildOperation(e apiEndpoint) map[string]any {
+	op := map[string]any{
+		"tags":        []string{e.Tag},
+		"summary":     e.Summary,
+		"description": e.Description,
+	}
+	if params := extractPathParams(e.Path); len(params) > 0 {
+		op["parameters"] = params
+	}
+	switch {
+	case e.Request != nil:
+		op["requestBody"] = jsonRequestBody(e.Request)
+	case e.Form != nil:
+		op["requestBody"] = formRequestBody(e.Form)
+	}
+	code := e.Code
+	if code == "" {
+		code = "200"
+	}
+	responses := map[string]any{}
+	if e.Response != nil {
+		responses[code] = response("Successful response.", e.Response)
+	} else {
+		responses[code] = map[string]any{"description": "Successful response."}
+	}
+	responses["400"] = errorResponse()
+	responses["404"] = errorResponse()
+	op["responses"] = responses
+	return op
+}
+
+func extractPathParams(path string) []map[string]any {
+	var params []map[string]any
+	for _, seg := range strings.Split(path, "/") {
+		if strings.HasPrefix(seg, "{") && strings.HasSuffix(seg, "}") {
+			name := seg[1 : len(seg)-1]
+			params = append(params, pathParam(name, "Path parameter: "+name+"."))
+		}
+	}
+	return params
+}
+
+// endpointSummary is the compact view rendered on the human-readable /api page.
+type endpointSummary struct {
+	Method  string
+	Path    string
+	Summary string
+	Tag     string
+	IsGet   bool
+}
+
+// endpointSummaries returns the registry sorted by path then method for display.
+func endpointSummaries() []endpointSummary {
+	out := make([]endpointSummary, 0, len(apiEndpoints))
+	for _, e := range apiEndpoints {
+		out = append(out, endpointSummary{Method: e.Method, Path: e.Path, Summary: e.Summary, Tag: e.Tag, IsGet: e.Method == http.MethodGet})
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Path != out[j].Path {
+			return out[i].Path < out[j].Path
+		}
+		return out[i].Method < out[j].Method
+	})
+	return out
 }
 
 func (h *handler) openAPIJSON(w http.ResponseWriter, r *http.Request) {
@@ -153,26 +328,6 @@ func (h *handler) swaggerUI(w http.ResponseWriter, r *http.Request) {
 </html>`))
 }
 
-func pathItem(tag, summary, description string, params []map[string]any, responseSchema map[string]any) map[string]any {
-	return map[string]any{"get": operation(tag, summary, description, params, responseSchema)}
-}
-
-func operation(tag, summary, description string, params []map[string]any, responseSchema map[string]any) map[string]any {
-	op := map[string]any{"tags": []string{tag}, "summary": summary, "description": description, "responses": map[string]any{"200": response("Successful response.", responseSchema), "404": errorResponse(), "500": errorResponse()}}
-	if len(params) > 0 {
-		op["parameters"] = params
-	}
-	return op
-}
-
-func operationWithRequest(tag, summary, description string, params []map[string]any, requestBody map[string]any, responses map[string]any) map[string]any {
-	op := map[string]any{"tags": []string{tag}, "summary": summary, "description": description, "requestBody": requestBody, "responses": responses}
-	if len(params) > 0 {
-		op["parameters"] = params
-	}
-	return op
-}
-
 func response(description string, schema map[string]any) map[string]any {
 	return map[string]any{"description": description, "content": map[string]any{"application/json": map[string]any{"schema": schema}}}
 }
@@ -183,6 +338,10 @@ func schemaRef(name string) map[string]any {
 }
 func stringSchema(description string) map[string]any {
 	return map[string]any{"type": "string", "description": description}
+}
+
+func genObj() map[string]any {
+	return map[string]any{"type": "object", "additionalProperties": true}
 }
 
 func pathParam(name, description string) map[string]any {
