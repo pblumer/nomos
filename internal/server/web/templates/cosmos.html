@@ -74,6 +74,8 @@
 .cn-row[data-kind="namespace"] .cn-icon{color:#0284c7}
 .cn-row[data-kind="server"] .cn-icon{color:#0f766e}
 .cn-row[data-kind="repository"] .cn-icon{color:#b45309}
+.view-render{border:1px solid #e8edf4;border-radius:8px;padding:.75rem;background:#fff;min-height:48px}
+.view-schema{background:#0f172a;color:#e2e8f0;padding:.6rem;border-radius:6px;font-size:.78rem;overflow:auto;max-height:320px;margin:.3rem 0 0}
 .cn-row[data-kind="domain"] .cn-icon{color:#2563eb}
 .cn-row[data-kind="service"] .cn-icon{color:#7c3aed}
 .cn-row[data-kind="product-parent"] .cn-icon,.cn-row[data-kind="product"] .cn-icon{color:#4338ca}
@@ -777,6 +779,37 @@ function localOnly(row){const b=mountBase(row);if(b==='')return true;if(b===null
 // or the proxy prefix for a remote server (reads are allowed without a token).
 function readBase(row){const s=serverRowFor(row);if(!s||s.dataset.local==='true')return '';return '/api/v1/mounts/'+encodeURIComponent(s.dataset.mountId||'')+'/r';}
 function isRemoteNode(row){return readBase(row)!=='';}
+
+// View renderer registry (ADR-0024): engine -> renderer(target, schema). The
+// engine-native schema is rendered locally; first engine is @bpmn-io/form-js,
+// vendored under /static/vendor/form-js/ (see vendor/form-js/README.md).
+const VIEW_RENDERERS={'form-js':renderFormJsView};
+function renderView(target,engine,schema){
+  if(!target)return;
+  const r=VIEW_RENDERERS[engine];
+  if(!r){target.innerHTML=`<p class="muted" style="color:#64748b;font-size:.85rem">Kein Renderer für engine &quot;${esc(engine||'—')}&quot; registriert — Schema unten als JSON.</p>`;return;}
+  target.innerHTML='<div class="detail-empty">Renderer lädt…</div>';
+  Promise.resolve().then(()=>r(target,schema)).catch(e=>{target.innerHTML=`<p class="muted" style="color:#b45309;font-size:.85rem">${esc(e.message)} — Schema unten als JSON.</p>`;});
+}
+let _formJsLoad=null;
+function loadFormJs(){
+  if(window.__nomosFormJs)return Promise.resolve(window.__nomosFormJs);
+  if(_formJsLoad)return _formJsLoad;
+  _formJsLoad=new Promise((resolve,reject)=>{
+    if(!document.querySelector('link[data-formjs]')){const l=document.createElement('link');l.rel='stylesheet';l.href='/static/vendor/form-js/form-js.css';l.dataset.formjs='1';document.head.appendChild(l);}
+    const s=document.createElement('script');s.src='/static/vendor/form-js/form-viewer.umd.js';s.async=true;
+    s.onload=()=>{const g=window['@bpmn-io/form-js-viewer']||window['@bpmn-io/form-js']||window.FormViewer||window.FormJS||window;if(g&&(g.createForm||g.Form)){resolve(g);}else{reject(new Error('form-js geladen, aber kein createForm/Form-Export gefunden'));}};
+    s.onerror=()=>reject(new Error('form-js Bundle nicht gefunden (vendor/form-js)'));
+    document.head.appendChild(s);
+  }).then(g=>{window.__nomosFormJs=g;return g;});
+  return _formJsLoad;
+}
+async function renderFormJsView(target,schema){
+  const g=await loadFormJs();
+  target.innerHTML='';
+  if(g.createForm){await g.createForm({container:target,schema,data:{}});}
+  else{const f=new g.Form({container:target});await f.importSchema(schema,{});}
+}
 
 function handleAction(action,row){if(!row)return;if(action==='copy-service-ref')navigator.clipboard?.writeText(row.dataset.serviceRef||'');else if(action==='move-product')doMoveProduct(row);else if(action==='delete')doDelete(row);else if(action==='verify-domain')doVerify(row);else if(action==='edit')doEdit(row);else if(action==='add-domain')doAddDomain(row);else if(action==='add-subdomain')doAddSubdomain(row);else if(action==='add-product')doAddProduct(row);else if(action==='add-service')doAddService(row);else if(action==='add-decision')doAddDecision(row);else if(action==='add-blueprint')doAddBlueprint(row);else if(action==='run-test')doRunTest(row);else if(action==='mount-server')doMountServer(row);else if(action==='unmount-server')doUnmountServer(row);}
 
@@ -3880,7 +3913,7 @@ async function loadServiceElementDetail(row,kind){
   if(!domain||!svcName||!itemID){detail.innerHTML='<div class="detail-empty">Knoten nicht ermittelbar.</div>';return;}
   detail.innerHTML='<div class="detail-empty">Lade…</div>';
   try{
-    const res=await fetch('/api/v1/domains/'+encodeURIComponent(domain)+'/services/'+encodeURIComponent(svcName));
+    const res=await fetch(readBase(row)+'/api/v1/domains/'+encodeURIComponent(domain)+'/services/'+encodeURIComponent(svcName));
     if(!res.ok){const d=await res.json().catch(()=>({}));detail.innerHTML=`<div style="padding:1rem"><div class="nerror show">${esc(d.error?.message||'Fehler')}</div></div>`;return;}
     const svc=await res.json();
     const items=svc[cfg.defsKey]||[];
@@ -3913,7 +3946,9 @@ function renderSvcElementDetail(container,svc,domain,svcName,cfg,item,row){
   }
   const body=`<div class="detail-body"><div class="nfield"><label>ID</label><input value="${esc(item.id)}" disabled style="background:#f8fafc;color:#64748b" /></div><div class="nfield"><label>Name</label><input id="se-name" value="${esc(item.name||'')}" /></div><div class="nfield"><label>Summary</label><textarea id="se-summary">${esc(item.summary||'')}</textarea></div>${extraFields}${linksHtml}</div>`;
   const footer=`<div class="detail-footer"><button class="btn btn-primary" id="svc-elem-save"><span class="mi" style="font-family:'Material Symbols Outlined'">save</span> Speichern</button><span id="svc-elem-status" style="font-size:.8rem;color:#64748b;margin-left:.5rem"></span></div>`;
-  container.innerHTML=head+body+footer;
+  const viewBlock=(cfg.kind==='user-interface'&&item.schema)?`<div class="detail-body" style="border-top:1px solid #eef2f7;margin-top:.5rem"><h4 style="margin:.4rem 0">Formular-Vorschau</h4><div class="vf-meta" style="font-size:.82rem;color:#64748b;margin-bottom:.4rem">Engine: <code>${esc(item.engine||'—')}</code>${item.binding&&item.binding.submit?` · Submit: <code>${esc(item.binding.submit)}</code>`:''}</div><div id="view-render" class="view-render"></div><details style="margin-top:.5rem"><summary>Schema (JSON)</summary><pre class="view-schema">${esc(JSON.stringify(item.schema,null,2))}</pre></details></div>`:'';
+  container.innerHTML=head+body+footer+viewBlock;
+  if(cfg.kind==='user-interface'&&item.schema){renderView(container.querySelector('#view-render'),item.engine,item.schema);}
   // Toggle ref chips
   container.querySelectorAll('[data-ref-chip]').forEach(chip=>{
     chip.addEventListener('click',()=>{
@@ -3922,6 +3957,7 @@ function renderSvcElementDetail(container,svc,domain,svcName,cfg,item,row){
     });
   });
   container.querySelector('#svc-elem-save')?.addEventListener('click',async()=>{
+    const _b=writeGuard(row);if(_b===null)return;
     const status=container.querySelector('#svc-elem-status');
     const btn=container.querySelector('#svc-elem-save');
     btn.disabled=true;status.textContent='Speichert…';status.style.color='#64748b';
@@ -3932,7 +3968,7 @@ function renderSvcElementDetail(container,svc,domain,svcName,cfg,item,row){
         payload.method_refs=Array.from(container.querySelectorAll('#se-method-refs [data-ref-chip][data-selected="1"]')).map(c=>c.dataset.refId);
         payload.data_object_refs=Array.from(container.querySelectorAll('#se-do-refs [data-ref-chip][data-selected="1"]')).map(c=>c.dataset.refId);
       }
-      const r=await fetch('/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svcName)+'/'+cfg.endpoint+'/'+encodeURIComponent(item.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const r=await fetch(_b+'/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svcName)+'/'+cfg.endpoint+'/'+encodeURIComponent(item.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       const d=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(d.error?.message||'Speichern fehlgeschlagen');
       status.textContent='Gespeichert ✓';status.style.color='#047857';
@@ -3940,9 +3976,10 @@ function renderSvcElementDetail(container,svc,domain,svcName,cfg,item,row){
     }catch(err){status.textContent=err.message;status.style.color='#b91c1c';btn.disabled=false;}
   });
   container.querySelector('#svc-elem-delete')?.addEventListener('click',async()=>{
+    const _b=writeGuard(row);if(_b===null)return;
     if(!confirm(`${cfg.title.replace(/s$/,'')} "${item.name||item.id}" wirklich löschen?`))return;
     try{
-      const r=await fetch('/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svcName)+'/'+cfg.endpoint+'/'+encodeURIComponent(item.id),{method:'DELETE'});
+      const r=await fetch(_b+'/api/v1/services/'+encodeURIComponent(domain)+'/'+encodeURIComponent(svcName)+'/'+cfg.endpoint+'/'+encodeURIComponent(item.id),{method:'DELETE'});
       if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error?.message||'Löschen fehlgeschlagen');}
       location.reload();
     }catch(err){alert(err.message);}
