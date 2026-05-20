@@ -13,7 +13,8 @@ func TestPathHelpers(t *testing.T) {
 	cases := []struct{ fn, want string }{
 		{storage.NomosDir(ws), filepath.Join(ws, ".nomos")},
 		{storage.CosmosFile(ws), filepath.Join(ws, ".nomos", "cosmos.yaml")},
-		{storage.DomainsDir(ws), filepath.Join(ws, ".nomos", "domains")},
+		{storage.ServicesDir(ws), filepath.Join(ws, ".nomos", "services")},
+		{storage.DecisionsDir(ws), filepath.Join(ws, ".nomos", "decisions")},
 		{storage.CatalogDir(ws), filepath.Join(ws, ".nomos", "catalog")},
 		{storage.ServicegraphsDir(ws), filepath.Join(ws, ".nomos", "servicegraphs")},
 		{storage.EvidenceDir(ws), filepath.Join(ws, ".nomos", "evidence")},
@@ -21,9 +22,8 @@ func TestPathHelpers(t *testing.T) {
 		{storage.CacheDir(ws), filepath.Join(ws, ".nomos", "cache")},
 		{storage.UCIDir(ws), filepath.Join(ws, ".nomos", "uci")},
 		{storage.KeysFile(ws), filepath.Join(ws, ".nomos", "keys.yaml")},
-		{storage.SelfModelDir(ws), filepath.Join(ws, ".nomos", "domains", "nomos", "core")},
+		{storage.SelfModelDir(ws), filepath.Join(ws, ".nomos", "services", "nomos-core")},
 		{storage.LegacyCosmosFile(ws), filepath.Join(ws, "cosmos.yaml")},
-		{storage.LegacyDomainsDir(ws), filepath.Join(ws, "domains")},
 		{storage.LegacyCatalogDir(ws), filepath.Join(ws, "catalog")},
 		{storage.LegacyServicegraphsDir(ws), filepath.Join(ws, "servicegraphs")},
 		{storage.CatalogServicegraphsDir(ws), filepath.Join(ws, ".nomos", "catalog", "servicegraphs")},
@@ -68,30 +68,6 @@ func TestCosmosFileForRead_Neither(t *testing.T) {
 	}
 	if legacy {
 		t.Error("expected legacy=false when no file exists")
-	}
-}
-
-func TestDomainsDirForRead(t *testing.T) {
-	dir := t.TempDir()
-	// canonical
-	must(t, os.MkdirAll(storage.DomainsDir(dir), 0o755))
-	if got := storage.DomainsDirForRead(dir); got != storage.DomainsDir(dir) {
-		t.Errorf("expected canonical domains dir, got %q", got)
-	}
-}
-
-func TestDomainsDirForRead_Legacy(t *testing.T) {
-	dir := t.TempDir()
-	must(t, os.MkdirAll(filepath.Join(dir, "domains"), 0o755))
-	if got := storage.DomainsDirForRead(dir); got != storage.LegacyDomainsDir(dir) {
-		t.Errorf("expected legacy domains dir, got %q", got)
-	}
-}
-
-func TestDomainsDirForRead_Fallback(t *testing.T) {
-	dir := t.TempDir()
-	if got := storage.DomainsDirForRead(dir); got != storage.DomainsDir(dir) {
-		t.Errorf("expected canonical fallback, got %q", got)
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/nomos/nomos/internal/model"
+	"github.com/nomos/nomos/internal/storage"
 )
 
 // Scenarios share the traceTestDMN cosmos fixture defined in
@@ -20,7 +21,7 @@ func TestCreateDecisionScenario_FreeForm(t *testing.T) {
 		Inputs:          map[string]any{"category": "premium"},
 		ExpectedOutputs: map[string]any{"eligible": true},
 	}
-	s, err := CreateDecisionScenario(p, "governance.blumer.com", "DEC-001", req)
+	s, err := CreateDecisionScenario(p, "DEC-001", req)
 	if err != nil {
 		t.Fatalf("CreateDecisionScenario: %v", err)
 	}
@@ -46,12 +47,12 @@ func TestCreateDecisionScenario_FreeForm(t *testing.T) {
 
 func TestCreateDecisionScenario_RequiresNameAndInputs(t *testing.T) {
 	p := createTraceTestCosmos(t)
-	if _, err := CreateDecisionScenario(p, "governance.blumer.com", "DEC-001", CreateDecisionScenarioRequest{
+	if _, err := CreateDecisionScenario(p, "DEC-001", CreateDecisionScenarioRequest{
 		Inputs: map[string]any{"category": "premium"},
 	}); err == nil {
 		t.Error("missing name should error")
 	}
-	if _, err := CreateDecisionScenario(p, "governance.blumer.com", "DEC-001", CreateDecisionScenarioRequest{
+	if _, err := CreateDecisionScenario(p, "DEC-001", CreateDecisionScenarioRequest{
 		Name: "x",
 	}); err == nil {
 		t.Error("missing inputs should error")
@@ -61,11 +62,11 @@ func TestCreateDecisionScenario_RequiresNameAndInputs(t *testing.T) {
 func TestCreateDecisionScenarioFromTrace(t *testing.T) {
 	p := createTraceTestCosmos(t)
 	req := EvaluateDecisionRequest{Inputs: map[string]any{"category": "premium"}}
-	_, trace, err := EvaluateDecisionWithTrace(p, "governance.blumer.com", "DEC-001", req, model.Evaluator{ID: "tester"})
+	_, trace, err := EvaluateDecisionWithTrace(p, "DEC-001", req, model.Evaluator{ID: "tester"})
 	if err != nil {
 		t.Fatalf("EvaluateDecisionWithTrace: %v", err)
 	}
-	s, err := CreateDecisionScenarioFromTrace(p, "governance.blumer.com", "DEC-001", trace.TraceID, "Premium baseline", "")
+	s, err := CreateDecisionScenarioFromTrace(p, "DEC-001", trace.TraceID, "Premium baseline", "")
 	if err != nil {
 		t.Fatalf("CreateDecisionScenarioFromTrace: %v", err)
 	}
@@ -80,7 +81,7 @@ func TestCreateDecisionScenarioFromTrace(t *testing.T) {
 	}
 	// Mutating the scenario's maps must not bleed back into the trace.
 	s.Inputs["category"] = "mutated"
-	got, _ := GetDecisionTrace(p, "governance.blumer.com", "DEC-001", trace.TraceID)
+	got, _ := GetDecisionTrace(p, "DEC-001", trace.TraceID)
 	if got.Inputs["category"] != "premium" {
 		t.Errorf("scenario mutation leaked into trace: %v", got.Inputs)
 	}
@@ -88,12 +89,12 @@ func TestCreateDecisionScenarioFromTrace(t *testing.T) {
 
 func TestCreateDecisionScenario_DispatchesToFromTrace(t *testing.T) {
 	p := createTraceTestCosmos(t)
-	_, trace, err := EvaluateDecisionWithTrace(p, "governance.blumer.com", "DEC-001",
+	_, trace, err := EvaluateDecisionWithTrace(p, "DEC-001",
 		EvaluateDecisionRequest{Inputs: map[string]any{"category": "premium"}}, model.Evaluator{})
 	if err != nil {
 		t.Fatalf("eval: %v", err)
 	}
-	s, err := CreateDecisionScenario(p, "governance.blumer.com", "DEC-001", CreateDecisionScenarioRequest{
+	s, err := CreateDecisionScenario(p, "DEC-001", CreateDecisionScenarioRequest{
 		Name:        "via-dispatch",
 		FromTraceID: trace.TraceID,
 	})
@@ -108,7 +109,7 @@ func TestCreateDecisionScenario_DispatchesToFromTrace(t *testing.T) {
 func TestListDecisionScenarios_SortedAndPersisted(t *testing.T) {
 	p := createTraceTestCosmos(t)
 	mk := func(name string) {
-		if _, err := CreateDecisionScenario(p, "governance.blumer.com", "DEC-001", CreateDecisionScenarioRequest{
+		if _, err := CreateDecisionScenario(p, "DEC-001", CreateDecisionScenarioRequest{
 			Name:   name,
 			Inputs: map[string]any{"category": "premium"},
 		}); err != nil {
@@ -118,7 +119,7 @@ func TestListDecisionScenarios_SortedAndPersisted(t *testing.T) {
 	mk("first")
 	mk("second")
 	mk("third")
-	dto, err := ListDecisionScenarios(p, "governance.blumer.com", "DEC-001")
+	dto, err := ListDecisionScenarios(p, "DEC-001")
 	if err != nil {
 		t.Fatalf("ListDecisionScenarios: %v", err)
 	}
@@ -130,7 +131,7 @@ func TestListDecisionScenarios_SortedAndPersisted(t *testing.T) {
 		t.Errorf("unexpected order: %s, %s, %s", dto.Items[0].Name, dto.Items[1].Name, dto.Items[2].Name)
 	}
 	// Confirm YAML files were actually written.
-	ents, _ := os.ReadDir(filepath.Join(p, ".nomos", "domains", "governance.blumer.com", "decisions", "DEC-001", "scenarios"))
+	ents, _ := os.ReadDir(filepath.Join(storage.DecisionsDir(p), "DEC-001", "scenarios"))
 	if len(ents) != 3 {
 		t.Errorf("expected 3 scenario files on disk, got %d", len(ents))
 	}
@@ -138,7 +139,7 @@ func TestListDecisionScenarios_SortedAndPersisted(t *testing.T) {
 
 func TestUpdateDecisionScenario_PartialAndClear(t *testing.T) {
 	p := createTraceTestCosmos(t)
-	s, err := CreateDecisionScenario(p, "governance.blumer.com", "DEC-001", CreateDecisionScenarioRequest{
+	s, err := CreateDecisionScenario(p, "DEC-001", CreateDecisionScenarioRequest{
 		Name:            "orig",
 		Inputs:          map[string]any{"category": "premium"},
 		ExpectedOutputs: map[string]any{"eligible": true},
@@ -147,7 +148,7 @@ func TestUpdateDecisionScenario_PartialAndClear(t *testing.T) {
 		t.Fatalf("create: %v", err)
 	}
 	newName := "renamed"
-	upd, err := UpdateDecisionScenario(p, "governance.blumer.com", "DEC-001", s.ID, UpdateDecisionScenarioRequest{
+	upd, err := UpdateDecisionScenario(p, "DEC-001", s.ID, UpdateDecisionScenarioRequest{
 		Name: &newName,
 	})
 	if err != nil {
@@ -166,7 +167,7 @@ func TestUpdateDecisionScenario_PartialAndClear(t *testing.T) {
 		t.Error("updated_at should be set after update")
 	}
 	// Clear expected outputs.
-	upd2, err := UpdateDecisionScenario(p, "governance.blumer.com", "DEC-001", s.ID, UpdateDecisionScenarioRequest{
+	upd2, err := UpdateDecisionScenario(p, "DEC-001", s.ID, UpdateDecisionScenarioRequest{
 		ClearExpected: true,
 	})
 	if err != nil {
@@ -179,17 +180,17 @@ func TestUpdateDecisionScenario_PartialAndClear(t *testing.T) {
 
 func TestDeleteDecisionScenario(t *testing.T) {
 	p := createTraceTestCosmos(t)
-	s, _ := CreateDecisionScenario(p, "governance.blumer.com", "DEC-001", CreateDecisionScenarioRequest{
+	s, _ := CreateDecisionScenario(p, "DEC-001", CreateDecisionScenarioRequest{
 		Name:   "doomed",
 		Inputs: map[string]any{"category": "premium"},
 	})
-	if err := DeleteDecisionScenario(p, "governance.blumer.com", "DEC-001", s.ID); err != nil {
+	if err := DeleteDecisionScenario(p, "DEC-001", s.ID); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
-	if _, err := GetDecisionScenario(p, "governance.blumer.com", "DEC-001", s.ID); err == nil {
+	if _, err := GetDecisionScenario(p, "DEC-001", s.ID); err == nil {
 		t.Error("scenario should be gone after delete")
 	}
-	if err := DeleteDecisionScenario(p, "governance.blumer.com", "DEC-001", "VSC_XXXXXX"); err == nil {
+	if err := DeleteDecisionScenario(p, "DEC-001", "VSC_XXXXXX"); err == nil {
 		t.Error("delete on unknown id should 404")
 	}
 }

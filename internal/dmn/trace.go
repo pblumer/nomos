@@ -100,7 +100,6 @@ func encodeCanonical(buf *bytes.Buffer, v any) error {
 
 // TraceBuildInput bundles everything required to build a DecisionTrace from an evaluation.
 type TraceBuildInput struct {
-	Domain          string
 	DecisionID      string
 	DecisionName    string
 	DecisionVersion string
@@ -122,7 +121,6 @@ func BuildTrace(in TraceBuildInput) (model.DecisionTrace, error) {
 		SchemaVersion:   1,
 		ParentTraceID:   in.ParentTraceID,
 		Timestamp:       in.Timestamp,
-		Domain:          in.Domain,
 		DecisionID:      in.DecisionID,
 		DecisionName:    in.DecisionName,
 		DecisionVersion: in.DecisionVersion,

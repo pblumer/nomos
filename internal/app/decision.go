@@ -15,35 +15,16 @@ import (
 	"github.com/nomos/nomos/internal/idgen"
 	"github.com/nomos/nomos/internal/idmigrate"
 	"github.com/nomos/nomos/internal/model"
-	"github.com/nomos/nomos/internal/namespace"
+	"github.com/nomos/nomos/internal/storage"
 )
 
-// decisionsDir returns the decisions directory for a domain node.
-func decisionsDir(domainPath string) string {
-	return filepath.Join(domainPath, "decisions")
+// decisionsRoot returns the flat decisions directory for a cosmos.
+func decisionsRoot(path string) string {
+	return storage.DecisionsDir(path)
 }
 
-func findDomainNode(path, domainCanonical string) (cosmosfs.DomainNode, error) {
-	tree, err := load(path)
-	if err != nil {
-		return cosmosfs.DomainNode{}, err
-	}
-	for _, d := range tree.Domains {
-		if strings.EqualFold(d.Metadata.CanonicalName, domainCanonical) ||
-			strings.EqualFold(d.Metadata.DNSName, domainCanonical) ||
-			strings.EqualFold(d.Name, domainCanonical) {
-			return d, nil
-		}
-	}
-	return cosmosfs.DomainNode{}, Error(CodeDomainNotFound, "Domain not found: "+domainCanonical, http.StatusNotFound, nil)
-}
-
-func ListDecisions(path, domainCanonical string) (DecisionsDTO, error) {
-	d, err := findDomainNode(path, domainCanonical)
-	if err != nil {
-		return DecisionsDTO{}, err
-	}
-	nodes, err := cosmosfs.ScanDecisions(d.Path)
+func ListDecisions(path string) (DecisionsDTO, error) {
+	nodes, err := cosmosfs.ScanDecisions(decisionsRoot(path))
 	if err != nil {
 		return DecisionsDTO{}, err
 	}
@@ -52,15 +33,11 @@ func ListDecisions(path, domainCanonical string) (DecisionsDTO, error) {
 		items = append(items, decisionDTO(n))
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
-	return DecisionsDTO{Domain: domainCanonical, Items: items, Count: len(items)}, nil
+	return DecisionsDTO{Items: items, Count: len(items)}, nil
 }
 
-func GetDecision(path, domainCanonical, id string) (DecisionDTO, error) {
-	d, err := findDomainNode(path, domainCanonical)
-	if err != nil {
-		return DecisionDTO{}, err
-	}
-	nodes, err := cosmosfs.ScanDecisions(d.Path)
+func GetDecision(path, id string) (DecisionDTO, error) {
+	nodes, err := cosmosfs.ScanDecisions(decisionsRoot(path))
 	if err != nil {
 		return DecisionDTO{}, err
 	}
@@ -87,16 +64,12 @@ func GetDecision(path, domainCanonical, id string) (DecisionDTO, error) {
 	return DecisionDTO{}, Error(CodeInvalidInput, "Decision not found: "+id, http.StatusNotFound, nil)
 }
 
-func CreateDecision(path, domainCanonical string, req CreateDecisionRequest) (DecisionDTO, error) {
-	d, err := findDomainNode(path, domainCanonical)
-	if err != nil {
-		return DecisionDTO{}, err
-	}
+func CreateDecision(path string, req CreateDecisionRequest) (DecisionDTO, error) {
 	id := strings.TrimSpace(req.ID)
 	if id == "" {
-		id = nextDecisionID(d.Path)
+		id = nextDecisionID(decisionsRoot(path))
 	}
-	dir := filepath.Join(decisionsDir(d.Path), id)
+	dir := filepath.Join(decisionsRoot(path), id)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return DecisionDTO{}, err
 	}
@@ -126,12 +99,8 @@ func CreateDecision(path, domainCanonical string, req CreateDecisionRequest) (De
 	return decisionDTO(cosmosfs.DecisionNode{Path: dir, Metadata: dec}), nil
 }
 
-func UpdateDecision(path, domainCanonical, id string, req UpdateDecisionRequest) (DecisionDTO, error) {
-	d, err := findDomainNode(path, domainCanonical)
-	if err != nil {
-		return DecisionDTO{}, err
-	}
-	nodes, err := cosmosfs.ScanDecisions(d.Path)
+func UpdateDecision(path, id string, req UpdateDecisionRequest) (DecisionDTO, error) {
+	nodes, err := cosmosfs.ScanDecisions(decisionsRoot(path))
 	if err != nil {
 		return DecisionDTO{}, err
 	}
@@ -192,56 +161,16 @@ func UpdateDecision(path, domainCanonical, id string, req UpdateDecisionRequest)
 	return DecisionDTO{}, Error(CodeInvalidInput, "Decision not found: "+id, http.StatusNotFound, nil)
 }
 
-// MoveDecision relocates a decision directory from one domain to another
-// (git-first). The decision id is preserved, so references by id keep resolving.
-func MoveDecision(path, fromDomain, id, toDomain string) (DecisionDTO, error) {
-	if namespace.Canonical(fromDomain) == namespace.Canonical(toDomain) {
-		return DecisionDTO{}, Error(CodeInvalidInput, "source and target domain are the same", http.StatusBadRequest, nil)
-	}
-	from, err := findDomainNode(path, fromDomain)
-	if err != nil {
-		return DecisionDTO{}, err
-	}
-	to, err := findDomainNode(path, toDomain)
-	if err != nil {
-		return DecisionDTO{}, err
-	}
-	src := filepath.Join(decisionsDir(from.Path), id)
-	if _, err := os.Stat(src); err != nil {
-		return DecisionDTO{}, Error(CodeInvalidInput, "Decision not found: "+id, http.StatusNotFound, nil)
-	}
-	dstParent := decisionsDir(to.Path)
-	dst := filepath.Join(dstParent, id)
-	if _, err := os.Stat(dst); err == nil {
-		return DecisionDTO{}, Error(CodeInvalidInput, "Decision already exists in target domain: "+id, http.StatusConflict, nil)
-	}
-	if err := os.MkdirAll(dstParent, 0o755); err != nil {
-		return DecisionDTO{}, Error(CodeInternalError, err.Error(), http.StatusInternalServerError, err)
-	}
-	if err := os.Rename(src, dst); err != nil {
-		return DecisionDTO{}, Error(CodeInternalError, "move failed: "+err.Error(), http.StatusInternalServerError, err)
-	}
-	return GetDecision(path, toDomain, id)
-}
-
-func DeleteDecision(path, domainCanonical, id string) error {
-	d, err := findDomainNode(path, domainCanonical)
-	if err != nil {
-		return err
-	}
-	dir := filepath.Join(decisionsDir(d.Path), id)
+func DeleteDecision(path, id string) error {
+	dir := filepath.Join(decisionsRoot(path), id)
 	if _, err := os.Stat(dir); err != nil {
 		return Error(CodeInvalidInput, "Decision not found: "+id, http.StatusNotFound, nil)
 	}
 	return os.RemoveAll(dir)
 }
 
-func GetDecisionDMN(path, domainCanonical, id string) (string, error) {
-	d, err := findDomainNode(path, domainCanonical)
-	if err != nil {
-		return "", err
-	}
-	nodes, err := cosmosfs.ScanDecisions(d.Path)
+func GetDecisionDMN(path, id string) (string, error) {
+	nodes, err := cosmosfs.ScanDecisions(decisionsRoot(path))
 	if err != nil {
 		return "", err
 	}
@@ -261,12 +190,8 @@ func GetDecisionDMN(path, domainCanonical, id string) (string, error) {
 	return "", Error(CodeInvalidInput, "Decision not found: "+id, http.StatusNotFound, nil)
 }
 
-func UpdateDecisionDMN(path, domainCanonical, id, dmnXML string) (DecisionDTO, error) {
-	d, err := findDomainNode(path, domainCanonical)
-	if err != nil {
-		return DecisionDTO{}, err
-	}
-	nodes, err := cosmosfs.ScanDecisions(d.Path)
+func UpdateDecisionDMN(path, id, dmnXML string) (DecisionDTO, error) {
+	nodes, err := cosmosfs.ScanDecisions(decisionsRoot(path))
 	if err != nil {
 		return DecisionDTO{}, err
 	}
@@ -583,12 +508,8 @@ func decisionIOsFromDTO(dtos []DecisionIODTO) []model.DecisionIO {
 // GetDecisionDefinitions parses the DMN file backing the decision and returns
 // the full DMN 1.5 Decision Requirements Graph as Nomos types. Used by the
 // Cosmos Explorer to render decision metadata around the dmn-js editor.
-func GetDecisionDefinitions(path, domainCanonical, id string) (*model.DMNDefinitions, error) {
-	d, err := findDomainNode(path, domainCanonical)
-	if err != nil {
-		return nil, err
-	}
-	nodes, err := cosmosfs.ScanDecisions(d.Path)
+func GetDecisionDefinitions(path, id string) (*model.DMNDefinitions, error) {
+	nodes, err := cosmosfs.ScanDecisions(decisionsRoot(path))
 	if err != nil {
 		return nil, err
 	}
@@ -619,12 +540,8 @@ type EvaluateDecisionRequest struct {
 
 // EvaluateDecision loads the DMN file for a decision and evaluates it against the provided inputs.
 // Note: callers that need a persisted audit trail should use EvaluateDecisionWithTrace.
-func EvaluateDecision(path, domainCanonical, id string, req EvaluateDecisionRequest) (*dmn.Result, error) {
-	d, err := findDomainNode(path, domainCanonical)
-	if err != nil {
-		return nil, err
-	}
-	nodes, err := cosmosfs.ScanDecisions(d.Path)
+func EvaluateDecision(path, id string, req EvaluateDecisionRequest) (*dmn.Result, error) {
+	nodes, err := cosmosfs.ScanDecisions(decisionsRoot(path))
 	if err != nil {
 		return nil, err
 	}

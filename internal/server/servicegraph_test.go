@@ -19,8 +19,7 @@ func setupSGServer(t *testing.T) (http.Handler, string) {
 	if err := os.MkdirAll(storage.NomosDir(dir), 0755); err != nil {
 		t.Fatal(err)
 	}
-	os.WriteFile(storage.CosmosFile(dir), []byte("id: test\ntype: cosmos\nname: Test\nversion: 0.1.0\nstatus: active\nowner: test\nsummary: test\ndomains: []\n"), 0644)
-	os.MkdirAll(storage.DomainsDir(dir), 0755)
+	os.WriteFile(storage.CosmosFile(dir), []byte("id: test\ntype: cosmos\nname: Test\nversion: 0.1.0\nstatus: active\nowner: test\nsummary: test\n"), 0644)
 	return NewHandler(dir), dir
 }
 

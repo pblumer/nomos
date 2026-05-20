@@ -58,7 +58,7 @@ func TestRemoveString(t *testing.T) {
 func TestAddServiceCapability_Success(t *testing.T) {
 	p := createAppTestCosmos(t)
 	cap := model.ServiceCapability{Name: "Create User Account", Summary: "Creates a user account"}
-	svc, err := AddServiceCapability(p, "identity.blumer.cloud", "user-account", cap)
+	svc, err := AddServiceCapability(p, "user-account", cap)
 	if err != nil {
 		t.Fatalf("AddServiceCapability: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestAddServiceCapability_Success(t *testing.T) {
 func TestAddServiceCapability_CustomID(t *testing.T) {
 	p := createAppTestCosmos(t)
 	cap := model.ServiceCapability{ID: "my-cap", Name: "My Cap", Summary: "My capability"}
-	svc, err := AddServiceCapability(p, "identity.blumer.cloud", "user-account", cap)
+	svc, err := AddServiceCapability(p, "user-account", cap)
 	if err != nil {
 		t.Fatalf("AddServiceCapability: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestAddServiceCapability_CustomID(t *testing.T) {
 func TestAddServiceCapability_NameOnly(t *testing.T) {
 	p := createAppTestCosmos(t)
 	cap := model.ServiceCapability{Name: "Simple Cap"}
-	svc, err := AddServiceCapability(p, "identity.blumer.cloud", "user-account", cap)
+	svc, err := AddServiceCapability(p, "user-account", cap)
 	if err != nil {
 		t.Fatalf("AddServiceCapability: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestAddServiceCapability_NameOnly(t *testing.T) {
 
 func TestAddServiceCapability_MissingName(t *testing.T) {
 	p := createAppTestCosmos(t)
-	_, err := AddServiceCapability(p, "identity.blumer.cloud", "user-account", model.ServiceCapability{})
+	_, err := AddServiceCapability(p, "user-account", model.ServiceCapability{})
 	if err == nil {
 		t.Error("expected error for missing capability name")
 	}
@@ -113,10 +113,10 @@ func TestAddServiceCapability_MissingName(t *testing.T) {
 func TestAddServiceCapability_Duplicate(t *testing.T) {
 	p := createAppTestCosmos(t)
 	cap := model.ServiceCapability{Name: "Dup Cap"}
-	if _, err := AddServiceCapability(p, "identity.blumer.cloud", "user-account", cap); err != nil {
+	if _, err := AddServiceCapability(p, "user-account", cap); err != nil {
 		t.Fatal(err)
 	}
-	_, err := AddServiceCapability(p, "identity.blumer.cloud", "user-account", cap)
+	_, err := AddServiceCapability(p, "user-account", cap)
 	if err == nil {
 		t.Error("expected error for duplicate capability")
 	}
@@ -124,10 +124,10 @@ func TestAddServiceCapability_Duplicate(t *testing.T) {
 
 func TestUpdateServiceCapability(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if _, err := AddServiceCapability(p, "identity.blumer.cloud", "user-account", model.ServiceCapability{ID: "cap-x", Name: "Cap X", Summary: "initial"}); err != nil {
+	if _, err := AddServiceCapability(p, "user-account", model.ServiceCapability{ID: "cap-x", Name: "Cap X", Summary: "initial"}); err != nil {
 		t.Fatal(err)
 	}
-	svc, err := UpdateServiceCapability(p, "identity.blumer.cloud", "user-account", "cap-x", model.ServiceCapability{
+	svc, err := UpdateServiceCapability(p, "user-account", "cap-x", model.ServiceCapability{
 		Summary:    "Updated summary",
 		Stability:  "stable",
 		MethodRefs: []string{"createUser"},
@@ -148,7 +148,7 @@ func TestUpdateServiceCapability(t *testing.T) {
 
 func TestUpdateServiceCapability_NotFound(t *testing.T) {
 	p := createAppTestCosmos(t)
-	_, err := UpdateServiceCapability(p, "identity.blumer.cloud", "user-account", "ghost", model.ServiceCapability{Name: "x"})
+	_, err := UpdateServiceCapability(p, "user-account", "ghost", model.ServiceCapability{Name: "x"})
 	if err == nil {
 		t.Error("expected error for missing capability")
 	}
@@ -156,10 +156,10 @@ func TestUpdateServiceCapability_NotFound(t *testing.T) {
 
 func TestRemoveServiceCapability(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if _, err := AddServiceCapability(p, "identity.blumer.cloud", "user-account", model.ServiceCapability{ID: "cap-del", Name: "Del", Summary: "to delete"}); err != nil {
+	if _, err := AddServiceCapability(p, "user-account", model.ServiceCapability{ID: "cap-del", Name: "Del", Summary: "to delete"}); err != nil {
 		t.Fatal(err)
 	}
-	svc, err := RemoveServiceCapability(p, "identity.blumer.cloud", "user-account", "cap-del")
+	svc, err := RemoveServiceCapability(p, "user-account", "cap-del")
 	if err != nil {
 		t.Fatalf("RemoveServiceCapability: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestRemoveServiceCapability(t *testing.T) {
 
 func TestRemoveServiceCapability_NotFound(t *testing.T) {
 	p := createAppTestCosmos(t)
-	_, err := RemoveServiceCapability(p, "identity.blumer.cloud", "user-account", "nope")
+	_, err := RemoveServiceCapability(p, "user-account", "nope")
 	if err == nil {
 		t.Error("expected error for missing capability")
 	}
@@ -183,7 +183,7 @@ func TestRemoveServiceCapability_NotFound(t *testing.T) {
 func TestAddServiceDataObject_Success(t *testing.T) {
 	p := createAppTestCosmos(t)
 	obj := model.ServiceDataObject{Name: "User Record"}
-	svc, err := AddServiceDataObject(p, "identity.blumer.cloud", "user-account", obj)
+	svc, err := AddServiceDataObject(p, "user-account", obj)
 	if err != nil {
 		t.Fatalf("AddServiceDataObject: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestAddServiceDataObject_Success(t *testing.T) {
 
 func TestAddServiceDataObject_MissingName(t *testing.T) {
 	p := createAppTestCosmos(t)
-	_, err := AddServiceDataObject(p, "identity.blumer.cloud", "user-account", model.ServiceDataObject{})
+	_, err := AddServiceDataObject(p, "user-account", model.ServiceDataObject{})
 	if err == nil {
 		t.Error("expected error for missing name")
 	}
@@ -203,20 +203,20 @@ func TestAddServiceDataObject_MissingName(t *testing.T) {
 func TestAddServiceDataObject_Duplicate(t *testing.T) {
 	p := createAppTestCosmos(t)
 	obj := model.ServiceDataObject{Name: "Dup DO"}
-	if _, err := AddServiceDataObject(p, "identity.blumer.cloud", "user-account", obj); err != nil {
+	if _, err := AddServiceDataObject(p, "user-account", obj); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := AddServiceDataObject(p, "identity.blumer.cloud", "user-account", obj); err == nil {
+	if _, err := AddServiceDataObject(p, "user-account", obj); err == nil {
 		t.Error("expected duplicate error")
 	}
 }
 
 func TestUpdateServiceDataObject(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if _, err := AddServiceDataObject(p, "identity.blumer.cloud", "user-account", model.ServiceDataObject{ID: "do-test", Name: "Test DO"}); err != nil {
+	if _, err := AddServiceDataObject(p, "user-account", model.ServiceDataObject{ID: "do-test", Name: "Test DO"}); err != nil {
 		t.Fatal(err)
 	}
-	svc, err := UpdateServiceDataObject(p, "identity.blumer.cloud", "user-account", "do-test", model.ServiceDataObject{
+	svc, err := UpdateServiceDataObject(p, "user-account", "do-test", model.ServiceDataObject{
 		Summary:   "A test data object",
 		Stability: "stable",
 	})
@@ -230,7 +230,7 @@ func TestUpdateServiceDataObject(t *testing.T) {
 
 func TestUpdateServiceDataObject_NotFound(t *testing.T) {
 	p := createAppTestCosmos(t)
-	_, err := UpdateServiceDataObject(p, "identity.blumer.cloud", "user-account", "ghost", model.ServiceDataObject{})
+	_, err := UpdateServiceDataObject(p, "user-account", "ghost", model.ServiceDataObject{})
 	if err == nil {
 		t.Error("expected error for missing data object")
 	}
@@ -238,10 +238,10 @@ func TestUpdateServiceDataObject_NotFound(t *testing.T) {
 
 func TestRemoveServiceDataObject(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if _, err := AddServiceDataObject(p, "identity.blumer.cloud", "user-account", model.ServiceDataObject{ID: "do-rm", Name: "Remove"}); err != nil {
+	if _, err := AddServiceDataObject(p, "user-account", model.ServiceDataObject{ID: "do-rm", Name: "Remove"}); err != nil {
 		t.Fatal(err)
 	}
-	svc, err := RemoveServiceDataObject(p, "identity.blumer.cloud", "user-account", "do-rm")
+	svc, err := RemoveServiceDataObject(p, "user-account", "do-rm")
 	if err != nil {
 		t.Fatalf("RemoveServiceDataObject: %v", err)
 	}
@@ -252,7 +252,7 @@ func TestRemoveServiceDataObject(t *testing.T) {
 
 func TestRemoveServiceDataObject_NotFound(t *testing.T) {
 	p := createAppTestCosmos(t)
-	_, err := RemoveServiceDataObject(p, "identity.blumer.cloud", "user-account", "ghost")
+	_, err := RemoveServiceDataObject(p, "user-account", "ghost")
 	if err == nil {
 		t.Error("expected error for missing data object")
 	}
@@ -265,7 +265,7 @@ func TestRemoveServiceDataObject_NotFound(t *testing.T) {
 func TestAddServiceUserInterface_Success(t *testing.T) {
 	p := createAppTestCosmos(t)
 	ui := model.ServiceUserInterface{Name: "Admin Portal"}
-	svc, err := AddServiceUserInterface(p, "identity.blumer.cloud", "user-account", ui)
+	svc, err := AddServiceUserInterface(p, "user-account", ui)
 	if err != nil {
 		t.Fatalf("AddServiceUserInterface: %v", err)
 	}
@@ -276,7 +276,7 @@ func TestAddServiceUserInterface_Success(t *testing.T) {
 
 func TestAddServiceUserInterface_MissingName(t *testing.T) {
 	p := createAppTestCosmos(t)
-	_, err := AddServiceUserInterface(p, "identity.blumer.cloud", "user-account", model.ServiceUserInterface{})
+	_, err := AddServiceUserInterface(p, "user-account", model.ServiceUserInterface{})
 	if err == nil {
 		t.Error("expected error for missing name")
 	}
@@ -285,20 +285,20 @@ func TestAddServiceUserInterface_MissingName(t *testing.T) {
 func TestAddServiceUserInterface_Duplicate(t *testing.T) {
 	p := createAppTestCosmos(t)
 	ui := model.ServiceUserInterface{Name: "Portal"}
-	if _, err := AddServiceUserInterface(p, "identity.blumer.cloud", "user-account", ui); err != nil {
+	if _, err := AddServiceUserInterface(p, "user-account", ui); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := AddServiceUserInterface(p, "identity.blumer.cloud", "user-account", ui); err == nil {
+	if _, err := AddServiceUserInterface(p, "user-account", ui); err == nil {
 		t.Error("expected duplicate error")
 	}
 }
 
 func TestUpdateServiceUserInterface(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if _, err := AddServiceUserInterface(p, "identity.blumer.cloud", "user-account", model.ServiceUserInterface{ID: "ui-test", Name: "Test UI"}); err != nil {
+	if _, err := AddServiceUserInterface(p, "user-account", model.ServiceUserInterface{ID: "ui-test", Name: "Test UI"}); err != nil {
 		t.Fatal(err)
 	}
-	svc, err := UpdateServiceUserInterface(p, "identity.blumer.cloud", "user-account", "ui-test", model.ServiceUserInterface{
+	svc, err := UpdateServiceUserInterface(p, "user-account", "ui-test", model.ServiceUserInterface{
 		Channel: "web",
 		URL:     "https://example.com",
 	})
@@ -312,7 +312,7 @@ func TestUpdateServiceUserInterface(t *testing.T) {
 
 func TestUpdateServiceUserInterface_NotFound(t *testing.T) {
 	p := createAppTestCosmos(t)
-	_, err := UpdateServiceUserInterface(p, "identity.blumer.cloud", "user-account", "ghost", model.ServiceUserInterface{})
+	_, err := UpdateServiceUserInterface(p, "user-account", "ghost", model.ServiceUserInterface{})
 	if err == nil {
 		t.Error("expected error for missing UI")
 	}
@@ -320,10 +320,10 @@ func TestUpdateServiceUserInterface_NotFound(t *testing.T) {
 
 func TestRemoveServiceUserInterface(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if _, err := AddServiceUserInterface(p, "identity.blumer.cloud", "user-account", model.ServiceUserInterface{ID: "ui-rm", Name: "Remove UI"}); err != nil {
+	if _, err := AddServiceUserInterface(p, "user-account", model.ServiceUserInterface{ID: "ui-rm", Name: "Remove UI"}); err != nil {
 		t.Fatal(err)
 	}
-	svc, err := RemoveServiceUserInterface(p, "identity.blumer.cloud", "user-account", "ui-rm")
+	svc, err := RemoveServiceUserInterface(p, "user-account", "ui-rm")
 	if err != nil {
 		t.Fatalf("RemoveServiceUserInterface: %v", err)
 	}
@@ -334,7 +334,7 @@ func TestRemoveServiceUserInterface(t *testing.T) {
 
 func TestRemoveServiceUserInterface_NotFound(t *testing.T) {
 	p := createAppTestCosmos(t)
-	_, err := RemoveServiceUserInterface(p, "identity.blumer.cloud", "user-account", "ghost")
+	_, err := RemoveServiceUserInterface(p, "user-account", "ghost")
 	if err == nil {
 		t.Error("expected error for missing UI")
 	}
@@ -346,10 +346,10 @@ func TestRemoveServiceUserInterface_NotFound(t *testing.T) {
 
 func TestUpdateMethod_Success(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if _, err := AddServiceMethod(p, "identity.blumer.cloud", "user-account", "createUser"); err != nil {
+	if _, err := AddServiceMethod(p, "user-account", "createUser"); err != nil {
 		t.Fatal(err)
 	}
-	dto, err := UpdateMethod(p, "identity.blumer.cloud", "user-account", "createUser", model.MethodDefinition{
+	dto, err := UpdateMethod(p, "user-account", "createUser", model.MethodDefinition{
 		HTTPMethod: "POST",
 		Path:       "/users",
 		Summary:    "Creates a user",
@@ -364,7 +364,7 @@ func TestUpdateMethod_Success(t *testing.T) {
 
 func TestUpdateMethod_NotFound(t *testing.T) {
 	p := createAppTestCosmos(t)
-	_, err := UpdateMethod(p, "identity.blumer.cloud", "user-account", "ghost", model.MethodDefinition{HTTPMethod: "GET"})
+	_, err := UpdateMethod(p, "user-account", "ghost", model.MethodDefinition{HTTPMethod: "GET"})
 	if err == nil {
 		t.Error("expected error for missing method")
 	}
@@ -372,10 +372,10 @@ func TestUpdateMethod_NotFound(t *testing.T) {
 
 func TestUpdateMethod_WithHeadersAndSecurity(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if _, err := AddServiceMethod(p, "identity.blumer.cloud", "user-account", "secureCreate"); err != nil {
+	if _, err := AddServiceMethod(p, "user-account", "secureCreate"); err != nil {
 		t.Fatal(err)
 	}
-	dto, err := UpdateMethod(p, "identity.blumer.cloud", "user-account", "secureCreate", model.MethodDefinition{
+	dto, err := UpdateMethod(p, "user-account", "secureCreate", model.MethodDefinition{
 		Headers:  []model.MethodHeader{{Name: "X-Request-ID", Value: "{{requestId}}", Required: true}},
 		Security: &model.MethodSecurity{Scheme: "bearer", In: "header", Name: "Authorization"},
 		Payload: &model.MethodPayload{
@@ -401,10 +401,10 @@ func TestUpdateMethod_WithHeadersAndSecurity(t *testing.T) {
 
 func TestUpdateMethodParameters(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if _, err := AddServiceMethod(p, "identity.blumer.cloud", "user-account", "getUser"); err != nil {
+	if _, err := AddServiceMethod(p, "user-account", "getUser"); err != nil {
 		t.Fatal(err)
 	}
-	dto, err := UpdateMethodParameters(p, "identity.blumer.cloud", "user-account", "getUser", []model.MethodParameter{
+	dto, err := UpdateMethodParameters(p, "user-account", "getUser", []model.MethodParameter{
 		{Name: "userId", Type: "string", In: "path", Required: true},
 	})
 	if err != nil {
@@ -417,10 +417,10 @@ func TestUpdateMethodParameters(t *testing.T) {
 
 func TestGetServiceMethod_Success(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if _, err := AddServiceMethod(p, "identity.blumer.cloud", "user-account", "findUser"); err != nil {
+	if _, err := AddServiceMethod(p, "user-account", "findUser"); err != nil {
 		t.Fatal(err)
 	}
-	dto, err := GetServiceMethod(p, "identity.blumer.cloud", "user-account", "findUser")
+	dto, err := GetServiceMethod(p, "user-account", "findUser")
 	if err != nil {
 		t.Fatalf("GetServiceMethod: %v", err)
 	}
@@ -431,7 +431,7 @@ func TestGetServiceMethod_Success(t *testing.T) {
 
 func TestGetServiceMethod_NotFound(t *testing.T) {
 	p := createAppTestCosmos(t)
-	_, err := GetServiceMethod(p, "identity.blumer.cloud", "user-account", "ghost")
+	_, err := GetServiceMethod(p, "user-account", "ghost")
 	if err == nil {
 		t.Error("expected error for missing method")
 	}

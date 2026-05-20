@@ -9,29 +9,6 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// ServicesOwnedBy
-// ---------------------------------------------------------------------------
-
-func TestServicesOwnedBy(t *testing.T) {
-	p := createAppTestCosmos(t)
-	svcs, err := ServicesOwnedBy(p, "identity.blumer.cloud")
-	if err != nil {
-		t.Fatalf("ServicesOwnedBy: %v", err)
-	}
-	if len(svcs) == 0 {
-		t.Error("expected services in identity.blumer.cloud")
-	}
-}
-
-func TestServicesOwnedBy_DomainNotFound(t *testing.T) {
-	p := createAppTestCosmos(t)
-	_, err := ServicesOwnedBy(p, "ghost.domain")
-	if err == nil {
-		t.Error("expected error for unknown domain")
-	}
-}
-
-// ---------------------------------------------------------------------------
 // GetProcessTriggers
 // ---------------------------------------------------------------------------
 
@@ -67,7 +44,7 @@ func TestGetProcessTriggers_NotFound(t *testing.T) {
 func TestGetDecisionVersion_HeadFallback(t *testing.T) {
 	// Create a decision directly (without snapshot dir) to trigger headAsVersion path.
 	p := createAppTestCosmos(t)
-	decDir := filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud", "decisions", "DEC-HEAD-001")
+	decDir := filepath.Join(storage.DecisionsDir(p), "DEC-HEAD-001")
 	must := func(err error) {
 		t.Helper()
 		if err != nil {
@@ -80,7 +57,7 @@ func TestGetDecisionVersion_HeadFallback(t *testing.T) {
 		0o644))
 
 	// ListDecisionVersions with no snapshots directory triggers headAsVersion.
-	dto, err := ListDecisionVersions(p, "identity.blumer.cloud", "DEC-HEAD-001")
+	dto, err := ListDecisionVersions(p, "DEC-HEAD-001")
 	if err != nil {
 		t.Fatalf("ListDecisionVersions: %v", err)
 	}
@@ -89,7 +66,7 @@ func TestGetDecisionVersion_HeadFallback(t *testing.T) {
 	}
 
 	// GetDecisionVersion with the current version triggers the HEAD fallback path.
-	vdto, err := GetDecisionVersion(p, "identity.blumer.cloud", "DEC-HEAD-001", "1.0.0")
+	vdto, err := GetDecisionVersion(p, "DEC-HEAD-001", "1.0.0")
 	if err != nil {
 		t.Fatalf("GetDecisionVersion (HEAD fallback): %v", err)
 	}
@@ -101,13 +78,13 @@ func TestGetDecisionVersion_HeadFallback(t *testing.T) {
 func TestGetDecisionVersion_WithSnapshot(t *testing.T) {
 	// Test using the existing version test infrastructure.
 	p := createVersionTestCosmos(t)
-	if _, err := CreateDecision(p, "blumer.cloud", CreateDecisionRequest{
+	if _, err := CreateDecision(p, CreateDecisionRequest{
 		ID: "DEC-VER-CVG-001", Name: "Version Coverage", Version: "0.1.0", Status: "draft",
 	}); err != nil {
 		t.Fatalf("CreateDecision: %v", err)
 	}
 	// GetDecisionVersion for the head (no snapshot yet)
-	vdto, err := GetDecisionVersion(p, "blumer.cloud", "DEC-VER-CVG-001", "0.1.0")
+	vdto, err := GetDecisionVersion(p, "DEC-VER-CVG-001", "0.1.0")
 	if err != nil {
 		t.Fatalf("GetDecisionVersion: %v", err)
 	}
@@ -118,12 +95,12 @@ func TestGetDecisionVersion_WithSnapshot(t *testing.T) {
 
 func TestGetDecisionVersion_NotFound(t *testing.T) {
 	p := createVersionTestCosmos(t)
-	if _, err := CreateDecision(p, "blumer.cloud", CreateDecisionRequest{
+	if _, err := CreateDecision(p, CreateDecisionRequest{
 		ID: "DEC-VER-NF-001", Name: "Not Found Version", Version: "1.0.0", Status: "draft",
 	}); err != nil {
 		t.Fatalf("CreateDecision: %v", err)
 	}
-	_, err := GetDecisionVersion(p, "blumer.cloud", "DEC-VER-NF-001", "9.9.9")
+	_, err := GetDecisionVersion(p, "DEC-VER-NF-001", "9.9.9")
 	if err == nil {
 		t.Error("expected error for non-existent version")
 	}
@@ -153,7 +130,7 @@ func TestCreateProductProcess_AutoID(t *testing.T) {
 
 func TestBuildNamespaceTree_WithDecision(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if _, err := CreateDecision(p, "identity.blumer.cloud", CreateDecisionRequest{
+	if _, err := CreateDecision(p, CreateDecisionRequest{
 		ID: "DEC-NS-001", Name: "Namespace Tree Decision",
 	}); err != nil {
 		t.Fatalf("CreateDecision: %v", err)
@@ -171,7 +148,7 @@ func TestBuildNamespaceTree_WithDecision(t *testing.T) {
 
 func TestGetService_ServiceLevelCoverage(t *testing.T) {
 	p := createAppTestCosmos(t)
-	dto, err := GetService(p, "identity.blumer.cloud", "user-account")
+	dto, err := GetService(p, "user-account")
 	if err != nil {
 		t.Fatalf("GetService: %v", err)
 	}
@@ -184,20 +161,20 @@ func TestGetService_ServiceLevelCoverage(t *testing.T) {
 
 func TestDeleteService_Success(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if _, err := AddService(p, "identity.blumer.cloud", "temp-svc", "Team", false); err != nil {
+	if _, err := AddService(p, "temp-svc", "Team", false); err != nil {
 		t.Fatalf("AddService: %v", err)
 	}
-	if err := DeleteService(p, "identity.blumer.cloud", "temp-svc"); err != nil {
+	if err := DeleteService(p, "temp-svc"); err != nil {
 		t.Fatalf("DeleteService: %v", err)
 	}
 }
 
 func TestRenameServiceExtra(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if _, err := AddService(p, "identity.blumer.cloud", "rename-svc-extra", "Team", false); err != nil {
+	if _, err := AddService(p, "rename-svc-extra", "Team", false); err != nil {
 		t.Fatalf("AddService: %v", err)
 	}
-	if err := RenameService(p, "identity.blumer.cloud", "rename-svc-extra", "renamed-svc-extra"); err != nil {
+	if err := RenameService(p, "rename-svc-extra", "renamed-svc-extra"); err != nil {
 		t.Fatalf("RenameService: %v", err)
 	}
 }

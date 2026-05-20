@@ -1,12 +1,8 @@
 package app
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/nomos/nomos/internal/storage"
 )
 
 // ---------------------------------------------------------------------------
@@ -16,7 +12,7 @@ import (
 func TestAddServiceMethod_Success(t *testing.T) {
 	p := createAppTestCosmos(t)
 
-	svc, err := AddServiceMethod(p, "identity.blumer.cloud", "user-account", "create")
+	svc, err := AddServiceMethod(p, "user-account", "create")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,11 +25,11 @@ func TestAddServiceMethod_MultipleMethodsAccumulate(t *testing.T) {
 	p := createAppTestCosmos(t)
 
 	for _, m := range []string{"create", "delete", "update"} {
-		if _, err := AddServiceMethod(p, "identity.blumer.cloud", "user-account", m); err != nil {
+		if _, err := AddServiceMethod(p, "user-account", m); err != nil {
 			t.Fatalf("AddServiceMethod(%s): %v", m, err)
 		}
 	}
-	svc, err := GetService(p, "identity.blumer.cloud", "user-account")
+	svc, err := GetService(p, "user-account")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,10 +41,10 @@ func TestAddServiceMethod_MultipleMethodsAccumulate(t *testing.T) {
 func TestAddServiceMethod_Duplicate(t *testing.T) {
 	p := createAppTestCosmos(t)
 
-	if _, err := AddServiceMethod(p, "identity.blumer.cloud", "user-account", "create"); err != nil {
+	if _, err := AddServiceMethod(p, "user-account", "create"); err != nil {
 		t.Fatal(err)
 	}
-	_, err := AddServiceMethod(p, "identity.blumer.cloud", "user-account", "create")
+	_, err := AddServiceMethod(p, "user-account", "create")
 	if err == nil {
 		t.Fatal("expected conflict error for duplicate method")
 	}
@@ -57,7 +53,7 @@ func TestAddServiceMethod_Duplicate(t *testing.T) {
 func TestAddServiceMethod_EmptyName(t *testing.T) {
 	p := createAppTestCosmos(t)
 
-	_, err := AddServiceMethod(p, "identity.blumer.cloud", "user-account", "  ")
+	_, err := AddServiceMethod(p, "user-account", "  ")
 	if err == nil {
 		t.Fatal("expected error for empty method name")
 	}
@@ -69,7 +65,7 @@ func TestAddServiceMethod_EmptyName(t *testing.T) {
 func TestAddServiceMethod_TrimmedWhitespace(t *testing.T) {
 	p := createAppTestCosmos(t)
 
-	svc, err := AddServiceMethod(p, "identity.blumer.cloud", "user-account", "  create  ")
+	svc, err := AddServiceMethod(p, "user-account", "  create  ")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +77,7 @@ func TestAddServiceMethod_TrimmedWhitespace(t *testing.T) {
 func TestAddServiceMethod_ServiceNotFound(t *testing.T) {
 	p := createAppTestCosmos(t)
 
-	_, err := AddServiceMethod(p, "identity.blumer.cloud", "does-not-exist", "create")
+	_, err := AddServiceMethod(p, "does-not-exist", "create")
 	if err == nil {
 		t.Fatal("expected error for missing service")
 	}
@@ -90,11 +86,11 @@ func TestAddServiceMethod_ServiceNotFound(t *testing.T) {
 func TestRemoveServiceMethod_Success(t *testing.T) {
 	p := createAppTestCosmos(t)
 
-	if _, err := AddServiceMethod(p, "identity.blumer.cloud", "user-account", "create"); err != nil {
+	if _, err := AddServiceMethod(p, "user-account", "create"); err != nil {
 		t.Fatal(err)
 	}
 
-	svc, err := RemoveServiceMethod(p, "identity.blumer.cloud", "user-account", "create")
+	svc, err := RemoveServiceMethod(p, "user-account", "create")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,11 +103,11 @@ func TestRemoveServiceMethod_OnlyRemovesTarget(t *testing.T) {
 	p := createAppTestCosmos(t)
 
 	for _, m := range []string{"create", "delete"} {
-		if _, err := AddServiceMethod(p, "identity.blumer.cloud", "user-account", m); err != nil {
+		if _, err := AddServiceMethod(p, "user-account", m); err != nil {
 			t.Fatal(err)
 		}
 	}
-	svc, err := RemoveServiceMethod(p, "identity.blumer.cloud", "user-account", "delete")
+	svc, err := RemoveServiceMethod(p, "user-account", "delete")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,10 +119,10 @@ func TestRemoveServiceMethod_OnlyRemovesTarget(t *testing.T) {
 func TestRemoveServiceMethod_NonExistentIsNoOp(t *testing.T) {
 	p := createAppTestCosmos(t)
 
-	if _, err := AddServiceMethod(p, "identity.blumer.cloud", "user-account", "create"); err != nil {
+	if _, err := AddServiceMethod(p, "user-account", "create"); err != nil {
 		t.Fatal(err)
 	}
-	svc, err := RemoveServiceMethod(p, "identity.blumer.cloud", "user-account", "does-not-exist")
+	svc, err := RemoveServiceMethod(p, "user-account", "does-not-exist")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,10 +144,7 @@ func TestProductSummaryDTO_ProcessGroupsWithSteps(t *testing.T) {
 		}
 	}
 
-	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "blumer.cloud"), 0o755))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "blumer.cloud", "domain.yaml"), []byte("name: blumer.cloud\nowner: Cloud Team\nstatus: draft\n"), 0o644))
-
-	prod, err := CreateProductOffering(p, "blumer.cloud", CreateProductOfferingRequest{
+	prod, err := CreateProductOffering(p, CreateProductOfferingRequest{
 		ID: "PROD-GRP-001", Name: "Group Test Product", Summary: "test",
 	})
 	must(err)
@@ -181,8 +174,9 @@ func TestProductSummaryDTO_ProcessGroupsWithSteps(t *testing.T) {
 	})
 	must(err)
 
-	summaries, err := ProductsOfferedBy(p, "blumer.cloud")
+	tree, err := load(p)
 	must(err)
+	summaries := allProductSummaries(tree)
 
 	var summary *ProductSummaryDTO
 	for i := range summaries {
@@ -242,10 +236,7 @@ func TestProductSummaryDTO_NoProcessGroupsWhenNoSteps(t *testing.T) {
 		}
 	}
 
-	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "blumer.cloud"), 0o755))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "blumer.cloud", "domain.yaml"), []byte("name: blumer.cloud\nowner: Cloud Team\nstatus: draft\n"), 0o644))
-
-	prod, err := CreateProductOffering(p, "blumer.cloud", CreateProductOfferingRequest{
+	prod, err := CreateProductOffering(p, CreateProductOfferingRequest{
 		ID: "PROD-GRP-002", Name: "No Steps Product", Summary: "test",
 	})
 	must(err)
@@ -256,8 +247,9 @@ func TestProductSummaryDTO_NoProcessGroupsWhenNoSteps(t *testing.T) {
 	})
 	must(err)
 
-	summaries, err := ProductsOfferedBy(p, "blumer.cloud")
+	tree, err := load(p)
 	must(err)
+	summaries := allProductSummaries(tree)
 
 	var summary *ProductSummaryDTO
 	for i := range summaries {

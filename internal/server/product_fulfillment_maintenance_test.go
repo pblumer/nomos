@@ -11,7 +11,7 @@ func TestProductFulfillmentMaintenanceEndpoints(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 
 	create := httptest.NewRecorder()
-	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/domains/blumer.cloud/products", strings.NewReader(`{"id":"PROD-MAINT-API-001","name":"Maintenance API","summary":"API maintenance"}`))
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/blueprints", strings.NewReader(`{"id":"PROD-MAINT-API-001","type":"product_blueprint","name":"Maintenance API","version":"0.1.0","status":"draft","owner":"Team","summary":"API maintenance"}`))
 	createReq.Header.Set("Content-Type", "application/json")
 	h.ServeHTTP(create, createReq)
 	if create.Code != http.StatusCreated {

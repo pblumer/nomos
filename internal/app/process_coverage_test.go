@@ -10,7 +10,7 @@ import (
 func createProcessTestCosmos(t *testing.T) (string, string) {
 	t.Helper()
 	p := createAppTestCosmos(t)
-	product, err := CreateProductOffering(p, "identity.blumer.cloud", CreateProductOfferingRequest{
+	product, err := CreateProductOffering(p, CreateProductOfferingRequest{
 		ID: "PROD-COV-001", Name: "Coverage Product",
 	})
 	if err != nil {

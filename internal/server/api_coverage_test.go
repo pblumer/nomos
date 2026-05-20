@@ -63,55 +63,37 @@ func TestAPICosmos(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// /api/v1/domains
+// /api/v1/services
 // ---------------------------------------------------------------------------
 
-func TestAPIDomains(t *testing.T) {
+func TestAPIServicesList(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	rr := get(h, "/api/v1/domains")
+	rr := get(h, "/api/v1/services")
 	if rr.Code != 200 {
-		t.Fatalf("GET /api/v1/domains: %d %s", rr.Code, rr.Body.String())
+		t.Fatalf("GET /api/v1/services: %d %s", rr.Code, rr.Body.String())
 	}
 	var d map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &d); err != nil {
 		t.Fatal(err)
 	}
-	// DomainsDTO has "domain_count" or "domains" field depending on version
-	if d["domains"] == nil && d["domain_count"] == nil && d["items"] == nil {
-		// just verify it parsed
-		t.Logf("domains response keys: %v", keysOf(d))
+	if d["services"] == nil {
+		t.Errorf("missing services field")
 	}
 }
 
-func keysOf(m map[string]any) []string {
-	ks := make([]string, 0, len(m))
-	for k := range m {
-		ks = append(ks, k)
-	}
-	return ks
-}
-
-func TestAPIDomainByName(t *testing.T) {
+func TestAPIServiceByName(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	rr := get(h, "/api/v1/domains/identity.blumer.cloud")
+	rr := get(h, "/api/v1/services/user-account")
 	if rr.Code != 200 {
-		t.Fatalf("GET /api/v1/domains/identity.blumer.cloud: %d", rr.Code)
+		t.Fatalf("GET /api/v1/services/user-account: %d", rr.Code)
 	}
 }
 
-func TestAPIDomainNotFound(t *testing.T) {
+func TestAPIServiceNotFound(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	rr := get(h, "/api/v1/domains/ghost.domain")
+	rr := get(h, "/api/v1/services/ghost-service")
 	if rr.Code != 404 {
 		t.Fatalf("expected 404, got %d", rr.Code)
-	}
-}
-
-func TestAPIDomainServices(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-	rr := get(h, "/api/v1/domains/identity.blumer.cloud/services")
-	if rr.Code != 200 {
-		t.Fatalf("GET services: %d %s", rr.Code, rr.Body.String())
 	}
 }
 
@@ -135,35 +117,34 @@ func TestAPIServiceRefs(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// /api/v1/services/{domain}/{service}/capabilities
+// /api/v1/services/{service}/capabilities
 // ---------------------------------------------------------------------------
 
 func TestAPIServiceCapabilities(t *testing.T) {
 	p := createTestCosmos(t)
 	h := NewHandler(p)
 
-	// POST capability — route is under /api/v1/services/{domain}/{service}/capabilities
-	// via apiLegacyService handler
-	rr := postJSONCov(h, "/api/v1/services/identity.blumer.cloud/user-account/capabilities",
+	// POST capability — flat route /api/v1/services/{service}/capabilities
+	rr := postJSONCov(h, "/api/v1/services/user-account/capabilities",
 		map[string]any{"name": "Create Account", "summary": "Creates an account"})
 	if rr.Code != 200 && rr.Code != 201 {
 		t.Fatalf("POST capability: %d %s", rr.Code, rr.Body.String())
 	}
 
 	// GET service (capabilities returned in service detail)
-	rr = get(h, "/api/v1/services/identity.blumer.cloud/user-account")
+	rr = get(h, "/api/v1/services/user-account")
 	if rr.Code != 200 {
 		t.Fatalf("GET service: %d %s", rr.Code, rr.Body.String())
 	}
 }
 
 // ---------------------------------------------------------------------------
-// /api/v1/domains/{domain}/decisions
+// /api/v1/decisions
 // ---------------------------------------------------------------------------
 
-func TestAPIDomainDecisions(t *testing.T) {
+func TestAPIDecisions(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	rr := get(h, "/api/v1/domains/identity.blumer.cloud/decisions")
+	rr := get(h, "/api/v1/decisions")
 	if rr.Code != 200 {
 		t.Fatalf("GET decisions: %d %s", rr.Code, rr.Body.String())
 	}
@@ -176,24 +157,24 @@ func TestAPIDomainDecisions(t *testing.T) {
 	}
 }
 
-func TestAPIDomainDecisionCRUD(t *testing.T) {
+func TestAPIDecisionCRUD(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 
 	// CREATE
-	rr := postJSONCov(h, "/api/v1/domains/identity.blumer.cloud/decisions",
+	rr := postJSONCov(h, "/api/v1/decisions",
 		map[string]any{"id": "DEC-API-001", "name": "Test Decision API"})
 	if rr.Code != 200 && rr.Code != 201 {
 		t.Fatalf("POST decision: %d %s", rr.Code, rr.Body.String())
 	}
 
 	// GET
-	rr = get(h, "/api/v1/domains/identity.blumer.cloud/decisions/DEC-API-001")
+	rr = get(h, "/api/v1/decisions/DEC-API-001")
 	if rr.Code != 200 {
 		t.Fatalf("GET decision: %d %s", rr.Code, rr.Body.String())
 	}
 
 	// DELETE
-	rr = deleteReqCov(h, "/api/v1/domains/identity.blumer.cloud/decisions/DEC-API-001")
+	rr = deleteReqCov(h, "/api/v1/decisions/DEC-API-001")
 	if rr.Code != 200 && rr.Code != 204 {
 		t.Fatalf("DELETE decision: %d %s", rr.Code, rr.Body.String())
 	}
@@ -275,15 +256,6 @@ func TestAPINamespaces(t *testing.T) {
 	}
 }
 
-func TestAPINamespaceDomains(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-	// POST /api/v1/namespaces/{ns}/domains — only supported sub-route
-	rr := postRaw(h, "/api/v1/namespaces/cloud/domains?label=testns&owner=test", "")
-	if rr.Code != 200 && rr.Code != 201 && rr.Code != 409 {
-		t.Fatalf("POST namespace domain: %d %s", rr.Code, rr.Body.String())
-	}
-}
-
 // ---------------------------------------------------------------------------
 // /api/v1/blueprints
 // ---------------------------------------------------------------------------
@@ -313,19 +285,6 @@ func TestAPIInstances(t *testing.T) {
 	rr := get(h, "/api/v1/instances")
 	if rr.Code != 200 {
 		t.Fatalf("GET /api/v1/instances: %d %s", rr.Code, rr.Body.String())
-	}
-}
-
-// ---------------------------------------------------------------------------
-// /api/v1/products
-// ---------------------------------------------------------------------------
-
-func TestAPIProductsOfferedBy(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-	// Products offered by a domain: /api/v1/domains/{domain}/products
-	rr := get(h, "/api/v1/domains/identity.blumer.cloud/products")
-	if rr.Code != 200 {
-		t.Fatalf("GET domain products: %d %s", rr.Code, rr.Body.String())
 	}
 }
 

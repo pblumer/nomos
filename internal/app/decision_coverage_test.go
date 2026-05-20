@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/nomos/nomos/internal/model"
+	"github.com/nomos/nomos/internal/storage"
 )
 
 func createDecisionCosmos(t *testing.T) string {
@@ -13,7 +14,7 @@ func createDecisionCosmos(t *testing.T) string {
 
 func TestListDecisions_Empty(t *testing.T) {
 	p := createDecisionCosmos(t)
-	dto, err := ListDecisions(p, "identity.blumer.cloud")
+	dto, err := ListDecisions(p)
 	if err != nil {
 		t.Fatalf("ListDecisions: %v", err)
 	}
@@ -24,12 +25,12 @@ func TestListDecisions_Empty(t *testing.T) {
 
 func TestListDecisions_WithDecision(t *testing.T) {
 	p := createDecisionCosmos(t)
-	if _, err := CreateDecision(p, "identity.blumer.cloud", CreateDecisionRequest{
+	if _, err := CreateDecision(p, CreateDecisionRequest{
 		ID: "DEC-LIST-001", Name: "Test Decision",
 	}); err != nil {
 		t.Fatal(err)
 	}
-	dto, err := ListDecisions(p, "identity.blumer.cloud")
+	dto, err := ListDecisions(p)
 	if err != nil {
 		t.Fatalf("ListDecisions: %v", err)
 	}
@@ -38,22 +39,14 @@ func TestListDecisions_WithDecision(t *testing.T) {
 	}
 }
 
-func TestListDecisions_DomainNotFound(t *testing.T) {
-	p := createDecisionCosmos(t)
-	_, err := ListDecisions(p, "ghost.domain")
-	if err == nil {
-		t.Error("expected error for unknown domain")
-	}
-}
-
 func TestGetDecision_Success(t *testing.T) {
 	p := createDecisionCosmos(t)
-	if _, err := CreateDecision(p, "identity.blumer.cloud", CreateDecisionRequest{
+	if _, err := CreateDecision(p, CreateDecisionRequest{
 		ID: "DEC-GET-001", Name: "Get Me",
 	}); err != nil {
 		t.Fatal(err)
 	}
-	dto, err := GetDecision(p, "identity.blumer.cloud", "DEC-GET-001")
+	dto, err := GetDecision(p, "DEC-GET-001")
 	if err != nil {
 		t.Fatalf("GetDecision: %v", err)
 	}
@@ -64,7 +57,7 @@ func TestGetDecision_Success(t *testing.T) {
 
 func TestGetDecision_NotFound(t *testing.T) {
 	p := createDecisionCosmos(t)
-	_, err := GetDecision(p, "identity.blumer.cloud", "ghost")
+	_, err := GetDecision(p, "ghost")
 	if err == nil {
 		t.Error("expected error for missing decision")
 	}
@@ -72,15 +65,15 @@ func TestGetDecision_NotFound(t *testing.T) {
 
 func TestDeleteDecision(t *testing.T) {
 	p := createDecisionCosmos(t)
-	if _, err := CreateDecision(p, "identity.blumer.cloud", CreateDecisionRequest{
+	if _, err := CreateDecision(p, CreateDecisionRequest{
 		ID: "DEC-DEL-001", Name: "Delete Me",
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := DeleteDecision(p, "identity.blumer.cloud", "DEC-DEL-001"); err != nil {
+	if err := DeleteDecision(p, "DEC-DEL-001"); err != nil {
 		t.Fatalf("DeleteDecision: %v", err)
 	}
-	_, err := GetDecision(p, "identity.blumer.cloud", "DEC-DEL-001")
+	_, err := GetDecision(p, "DEC-DEL-001")
 	if err == nil {
 		t.Error("expected error after delete")
 	}
@@ -88,7 +81,7 @@ func TestDeleteDecision(t *testing.T) {
 
 func TestDeleteDecision_NotFound(t *testing.T) {
 	p := createDecisionCosmos(t)
-	err := DeleteDecision(p, "identity.blumer.cloud", "ghost")
+	err := DeleteDecision(p, "ghost")
 	if err == nil {
 		t.Error("expected error for missing decision")
 	}
@@ -122,20 +115,15 @@ func TestDecisionIOsEqual(t *testing.T) {
 
 func TestNextDecisionID(t *testing.T) {
 	p := createDecisionCosmos(t)
-	// get domain path
-	domainNode, err := findDomainNode(p, "identity.blumer.cloud")
-	if err != nil {
-		t.Fatal(err)
-	}
-	id1 := nextDecisionID(domainNode.Path)
+	id1 := nextDecisionID(storage.DecisionsDir(p))
 	if id1 == "" {
 		t.Error("expected non-empty decision ID")
 	}
 	// create one decision so count increases
-	if _, err := CreateDecision(p, "identity.blumer.cloud", CreateDecisionRequest{Name: "Auto ID Test"}); err != nil {
+	if _, err := CreateDecision(p, CreateDecisionRequest{Name: "Auto ID Test"}); err != nil {
 		t.Fatal(err)
 	}
-	id2 := nextDecisionID(domainNode.Path)
+	id2 := nextDecisionID(storage.DecisionsDir(p))
 	if id2 == id1 {
 		t.Errorf("expected different IDs, got same: %q", id1)
 	}
@@ -143,7 +131,7 @@ func TestNextDecisionID(t *testing.T) {
 
 func TestGetProductCollaboration(t *testing.T) {
 	p := createAppTestCosmos(t)
-	product, err := CreateProductOffering(p, "identity.blumer.cloud", CreateProductOfferingRequest{
+	product, err := CreateProductOffering(p, CreateProductOfferingRequest{
 		ID: "PROD-COLLAB-001", Name: "Collab Product",
 	})
 	if err != nil {

@@ -13,7 +13,7 @@ import (
 func createProcessForStepTests(t *testing.T) (path, productID, processID string) {
 	t.Helper()
 	p := createAppTestCosmos(t)
-	prod, err := CreateProductOffering(p, "identity.blumer.cloud", CreateProductOfferingRequest{
+	prod, err := CreateProductOffering(p, CreateProductOfferingRequest{
 		ID: "PROD-STEP-001", Name: "Step Test Product", Summary: "for step tests",
 	})
 	if err != nil {

@@ -3,15 +3,14 @@ package app
 import "github.com/nomos/nomos/internal/model"
 
 type CosmosDTO struct {
-	Path               string `json:"path"`
-	ID                 string `json:"id"`
-	Name               string `json:"name"`
-	Version            string `json:"version"`
-	Status             string `json:"status"`
-	Owner              string `json:"owner"`
-	DomainCount        int    `json:"domainCount"`
-	VirtualDomainCount int    `json:"virtualDomainCount"`
-	ServiceCount       int    `json:"serviceCount"`
+	Path          string `json:"path"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Version       string `json:"version"`
+	Status        string `json:"status"`
+	Owner         string `json:"owner"`
+	ServiceCount  int    `json:"serviceCount"`
+	DecisionCount int    `json:"decisionCount"`
 }
 
 type RepositoryDTO struct {
@@ -184,11 +183,9 @@ type ViewBindingDTO struct {
 }
 
 type ServiceDTO struct {
+	ID                string                    `json:"id,omitempty"`
 	Name              string                    `json:"name"`
-	Domain            string                    `json:"domain"`
 	Owner             string                    `json:"owner"`
-	OwnedBy           string                    `json:"owned_by,omitempty"`
-	OperatedBy        []string                  `json:"operated_by,omitempty"`
 	Capabilities      []string                  `json:"capabilities,omitempty"`
 	CapabilityDefs    []ServiceCapabilityDTO    `json:"capability_defs,omitempty"`
 	DataObjects       []string                  `json:"data_objects,omitempty"`

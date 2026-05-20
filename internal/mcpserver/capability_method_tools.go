@@ -49,8 +49,7 @@ func registerCapabilityMethodTools(srv *mcp.Server, cosmosPath string) {
 // ── capability_add ───────────────────────────────────────────────────────────
 
 type capabilityAddIn struct {
-	Domain         string   `json:"domain"                     jsonschema:"canonical domain name"`
-	Service        string   `json:"service"                    jsonschema:"service name within the domain"`
+	Service        string   `json:"service"                    jsonschema:"service name"`
 	Name           string   `json:"name"                       jsonschema:"human-readable capability name"`
 	ID             string   `json:"id,omitempty"               jsonschema:"optional capability ID (e.g. cap-blueprint-crud); derived from name if empty"`
 	Summary        string   `json:"summary,omitempty"          jsonschema:"one-line description of what the capability does"`
@@ -62,8 +61,8 @@ type capabilityAddIn struct {
 
 func toolCapabilityAdd(path string) func(context.Context, *mcp.CallToolRequest, capabilityAddIn) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in capabilityAddIn) (*mcp.CallToolResult, any, error) {
-		if in.Domain == "" || in.Service == "" || in.Name == "" {
-			return nil, nil, fmt.Errorf("domain, service and name are required")
+		if in.Service == "" || in.Name == "" {
+			return nil, nil, fmt.Errorf("service and name are required")
 		}
 		cap := model.ServiceCapability{
 			ID:             strings.TrimSpace(in.ID),
@@ -74,15 +73,14 @@ func toolCapabilityAdd(path string) func(context.Context, *mcp.CallToolRequest, 
 			MethodRefs:     in.MethodRefs,
 			DataObjectRefs: in.DataObjectRefs,
 		}
-		dto, err := app.AddServiceCapability(path, in.Domain, in.Service, cap)
+		dto, err := app.AddServiceCapability(path, in.Service, cap)
 		if err != nil {
-			return nil, nil, fmt.Errorf("capability_add %q in %s/%s: %w", in.Name, in.Domain, in.Service, err)
+			return nil, nil, fmt.Errorf("capability_add %q in %s: %w", in.Name, in.Service, err)
 		}
 		added := findCapability(dto.CapabilityDefs, cap.ID, cap.Name)
 		return textResult(map[string]any{
 			"id":               added.ID,
 			"name":             added.Name,
-			"domain":           in.Domain,
 			"service":          in.Service,
 			"stability":        added.Stability,
 			"side_effect":      added.SideEffect,
@@ -97,8 +95,7 @@ func toolCapabilityAdd(path string) func(context.Context, *mcp.CallToolRequest, 
 // Pointers distinguish "field omitted" (nil → keep existing value) from
 // "field provided as empty string / empty array" (non-nil → write the value).
 type capabilityUpdateIn struct {
-	Domain         string    `json:"domain"                     jsonschema:"canonical domain name"`
-	Service        string    `json:"service"                    jsonschema:"service name within the domain"`
+	Service        string    `json:"service"                    jsonschema:"service name"`
 	CapabilityID   string    `json:"capability_id"              jsonschema:"ID of the capability to update"`
 	Name           *string   `json:"name,omitempty"             jsonschema:"new human-readable name"`
 	Summary        *string   `json:"summary,omitempty"          jsonschema:"new one-line description"`
@@ -110,11 +107,11 @@ type capabilityUpdateIn struct {
 
 func toolCapabilityUpdate(path string) func(context.Context, *mcp.CallToolRequest, capabilityUpdateIn) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in capabilityUpdateIn) (*mcp.CallToolResult, any, error) {
-		if in.Domain == "" || in.Service == "" || in.CapabilityID == "" {
-			return nil, nil, fmt.Errorf("domain, service and capability_id are required")
+		if in.Service == "" || in.CapabilityID == "" {
+			return nil, nil, fmt.Errorf("service and capability_id are required")
 		}
 		// Fetch current so we can preserve slice fields the caller omitted.
-		current, err := app.GetService(path, in.Domain, in.Service)
+		current, err := app.GetService(path, in.Service)
 		if err != nil {
 			return nil, nil, fmt.Errorf("capability_update: %w", err)
 		}
@@ -146,15 +143,14 @@ func toolCapabilityUpdate(path string) func(context.Context, *mcp.CallToolReques
 			patch.DataObjectRefs = *in.DataObjectRefs
 		}
 
-		dto, err := app.UpdateServiceCapability(path, in.Domain, in.Service, in.CapabilityID, patch)
+		dto, err := app.UpdateServiceCapability(path, in.Service, in.CapabilityID, patch)
 		if err != nil {
-			return nil, nil, fmt.Errorf("capability_update %s in %s/%s: %w", in.CapabilityID, in.Domain, in.Service, err)
+			return nil, nil, fmt.Errorf("capability_update %s in %s: %w", in.CapabilityID, in.Service, err)
 		}
 		updated := findCapability(dto.CapabilityDefs, in.CapabilityID, "")
 		return textResult(map[string]any{
 			"id":               updated.ID,
 			"name":             updated.Name,
-			"domain":           in.Domain,
 			"service":          in.Service,
 			"stability":        updated.Stability,
 			"side_effect":      updated.SideEffect,
@@ -167,22 +163,20 @@ func toolCapabilityUpdate(path string) func(context.Context, *mcp.CallToolReques
 // ── capability_delete ────────────────────────────────────────────────────────
 
 type capabilityDeleteIn struct {
-	Domain       string `json:"domain"        jsonschema:"canonical domain name"`
-	Service      string `json:"service"       jsonschema:"service name within the domain"`
+	Service      string `json:"service"       jsonschema:"service name"`
 	CapabilityID string `json:"capability_id" jsonschema:"ID of the capability to delete"`
 }
 
 func toolCapabilityDelete(path string) func(context.Context, *mcp.CallToolRequest, capabilityDeleteIn) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in capabilityDeleteIn) (*mcp.CallToolResult, any, error) {
-		if in.Domain == "" || in.Service == "" || in.CapabilityID == "" {
-			return nil, nil, fmt.Errorf("domain, service and capability_id are required")
+		if in.Service == "" || in.CapabilityID == "" {
+			return nil, nil, fmt.Errorf("service and capability_id are required")
 		}
-		if _, err := app.RemoveServiceCapability(path, in.Domain, in.Service, in.CapabilityID); err != nil {
-			return nil, nil, fmt.Errorf("capability_delete %s in %s/%s: %w", in.CapabilityID, in.Domain, in.Service, err)
+		if _, err := app.RemoveServiceCapability(path, in.Service, in.CapabilityID); err != nil {
+			return nil, nil, fmt.Errorf("capability_delete %s in %s: %w", in.CapabilityID, in.Service, err)
 		}
 		return textResult(map[string]any{
 			"deleted": in.CapabilityID,
-			"domain":  in.Domain,
 			"service": in.Service,
 		})
 	}
@@ -191,8 +185,7 @@ func toolCapabilityDelete(path string) func(context.Context, *mcp.CallToolReques
 // ── method_add ───────────────────────────────────────────────────────────────
 
 type methodAddIn struct {
-	Domain     string `json:"domain"                jsonschema:"canonical domain name"`
-	Service    string `json:"service"               jsonschema:"service name within the domain"`
+	Service    string `json:"service"               jsonschema:"service name"`
 	Name       string `json:"name"                  jsonschema:"method name (snake_case)"`
 	Summary    string `json:"summary,omitempty"     jsonschema:"one-line description"`
 	HTTPMethod string `json:"http_method,omitempty" jsonschema:"GET | POST | PUT | PATCH | DELETE"`
@@ -201,15 +194,15 @@ type methodAddIn struct {
 
 func toolMethodAdd(path string) func(context.Context, *mcp.CallToolRequest, methodAddIn) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in methodAddIn) (*mcp.CallToolResult, any, error) {
-		if in.Domain == "" || in.Service == "" || in.Name == "" {
-			return nil, nil, fmt.Errorf("domain, service and name are required")
+		if in.Service == "" || in.Name == "" {
+			return nil, nil, fmt.Errorf("service and name are required")
 		}
-		if _, err := app.AddServiceMethod(path, in.Domain, in.Service, in.Name); err != nil {
-			return nil, nil, fmt.Errorf("method_add %q in %s/%s: %w", in.Name, in.Domain, in.Service, err)
+		if _, err := app.AddServiceMethod(path, in.Service, in.Name); err != nil {
+			return nil, nil, fmt.Errorf("method_add %q in %s: %w", in.Name, in.Service, err)
 		}
 		// If caller supplied extra fields, follow up with an update.
 		if in.Summary != "" || in.HTTPMethod != "" || in.Path != "" {
-			if _, err := app.UpdateMethod(path, in.Domain, in.Service, in.Name, model.MethodDefinition{
+			if _, err := app.UpdateMethod(path, in.Service, in.Name, model.MethodDefinition{
 				Summary:    in.Summary,
 				HTTPMethod: in.HTTPMethod,
 				Path:       in.Path,
@@ -219,7 +212,6 @@ func toolMethodAdd(path string) func(context.Context, *mcp.CallToolRequest, meth
 		}
 		return textResult(map[string]any{
 			"name":        in.Name,
-			"domain":      in.Domain,
 			"service":     in.Service,
 			"summary":     in.Summary,
 			"http_method": in.HTTPMethod,
@@ -231,8 +223,7 @@ func toolMethodAdd(path string) func(context.Context, *mcp.CallToolRequest, meth
 // ── method_update ────────────────────────────────────────────────────────────
 
 type methodUpdateIn struct {
-	Domain     string `json:"domain"                jsonschema:"canonical domain name"`
-	Service    string `json:"service"               jsonschema:"service name within the domain"`
+	Service    string `json:"service"               jsonschema:"service name"`
 	Method     string `json:"method"                jsonschema:"name of the method to update"`
 	Summary    string `json:"summary,omitempty"     jsonschema:"new one-line description"`
 	HTTPMethod string `json:"http_method,omitempty" jsonschema:"GET | POST | PUT | PATCH | DELETE"`
@@ -241,20 +232,19 @@ type methodUpdateIn struct {
 
 func toolMethodUpdate(path string) func(context.Context, *mcp.CallToolRequest, methodUpdateIn) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in methodUpdateIn) (*mcp.CallToolResult, any, error) {
-		if in.Domain == "" || in.Service == "" || in.Method == "" {
-			return nil, nil, fmt.Errorf("domain, service and method are required")
+		if in.Service == "" || in.Method == "" {
+			return nil, nil, fmt.Errorf("service and method are required")
 		}
-		dto, err := app.UpdateMethod(path, in.Domain, in.Service, in.Method, model.MethodDefinition{
+		dto, err := app.UpdateMethod(path, in.Service, in.Method, model.MethodDefinition{
 			Summary:    in.Summary,
 			HTTPMethod: in.HTTPMethod,
 			Path:       in.Path,
 		})
 		if err != nil {
-			return nil, nil, fmt.Errorf("method_update %q in %s/%s: %w", in.Method, in.Domain, in.Service, err)
+			return nil, nil, fmt.Errorf("method_update %q in %s: %w", in.Method, in.Service, err)
 		}
 		return textResult(map[string]any{
 			"name":        dto.Name,
-			"domain":      in.Domain,
 			"service":     in.Service,
 			"summary":     dto.Summary,
 			"http_method": dto.HTTPMethod,
@@ -266,22 +256,20 @@ func toolMethodUpdate(path string) func(context.Context, *mcp.CallToolRequest, m
 // ── method_delete ────────────────────────────────────────────────────────────
 
 type methodDeleteIn struct {
-	Domain  string `json:"domain"  jsonschema:"canonical domain name"`
-	Service string `json:"service" jsonschema:"service name within the domain"`
+	Service string `json:"service" jsonschema:"service name"`
 	Method  string `json:"method"  jsonschema:"name of the method to delete"`
 }
 
 func toolMethodDelete(path string) func(context.Context, *mcp.CallToolRequest, methodDeleteIn) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in methodDeleteIn) (*mcp.CallToolResult, any, error) {
-		if in.Domain == "" || in.Service == "" || in.Method == "" {
-			return nil, nil, fmt.Errorf("domain, service and method are required")
+		if in.Service == "" || in.Method == "" {
+			return nil, nil, fmt.Errorf("service and method are required")
 		}
-		if _, err := app.RemoveServiceMethod(path, in.Domain, in.Service, in.Method); err != nil {
-			return nil, nil, fmt.Errorf("method_delete %q in %s/%s: %w", in.Method, in.Domain, in.Service, err)
+		if _, err := app.RemoveServiceMethod(path, in.Service, in.Method); err != nil {
+			return nil, nil, fmt.Errorf("method_delete %q in %s: %w", in.Method, in.Service, err)
 		}
 		return textResult(map[string]any{
 			"deleted": in.Method,
-			"domain":  in.Domain,
 			"service": in.Service,
 		})
 	}

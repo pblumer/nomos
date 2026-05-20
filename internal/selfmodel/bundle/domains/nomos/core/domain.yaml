@@ -1,9 +1,0 @@
-id: domain-core-nomos
-type: domain
-name: core
-dns_name: core.nomos
-namespace: nomos
-version: "0.1.0"
-status: stable
-owner: Nomos Core Team
-summary: Reservierte System-Domain für die Nomos-Kernservices. Wird automatisch beim cosmos init importiert.

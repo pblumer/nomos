@@ -7,10 +7,11 @@ import (
 
 const DirName = ".nomos"
 
-func NomosDir(workspace string) string   { return filepath.Join(workspace, DirName) }
-func CosmosFile(workspace string) string { return filepath.Join(NomosDir(workspace), "cosmos.yaml") }
-func DomainsDir(workspace string) string { return filepath.Join(NomosDir(workspace), "domains") }
-func CatalogDir(workspace string) string { return filepath.Join(NomosDir(workspace), "catalog") }
+func NomosDir(workspace string) string     { return filepath.Join(workspace, DirName) }
+func CosmosFile(workspace string) string   { return filepath.Join(NomosDir(workspace), "cosmos.yaml") }
+func ServicesDir(workspace string) string  { return filepath.Join(NomosDir(workspace), "services") }
+func DecisionsDir(workspace string) string { return filepath.Join(NomosDir(workspace), "decisions") }
+func CatalogDir(workspace string) string   { return filepath.Join(NomosDir(workspace), "catalog") }
 func ServicegraphsDir(workspace string) string {
 	return filepath.Join(NomosDir(workspace), "servicegraphs")
 }
@@ -23,10 +24,6 @@ func CacheDir(workspace string) string    { return filepath.Join(NomosDir(worksp
 func UCIDir(workspace string) string      { return filepath.Join(NomosDir(workspace), "uci") }
 func KeysFile(workspace string) string    { return filepath.Join(NomosDir(workspace), "keys.yaml") }
 func MountsFile(workspace string) string  { return filepath.Join(NomosDir(workspace), "mounts.yaml") }
-
-// FolderFile is the marker/metadata file that materializes a namespace folder
-// in git (ADR-0027).
-func FolderFile(dir string) string { return filepath.Join(dir, "folder.yaml") }
 
 // RepositoriesFile lists the additional repositories a server manages beyond
 // its default workspace (ADR-0022 §2). Non-authoritative server config.
@@ -51,11 +48,10 @@ func ReposDir(workspace string) string {
 }
 
 func SelfModelDir(workspace string) string {
-	return filepath.Join(DomainsDir(workspace), "nomos", "core")
+	return filepath.Join(ServicesDir(workspace), "nomos-core")
 }
 
 func LegacyCosmosFile(workspace string) string { return filepath.Join(workspace, "cosmos.yaml") }
-func LegacyDomainsDir(workspace string) string { return filepath.Join(workspace, "domains") }
 func LegacyCatalogDir(workspace string) string { return filepath.Join(workspace, "catalog") }
 func LegacyServicegraphsDir(workspace string) string {
 	return filepath.Join(workspace, "servicegraphs")
@@ -71,16 +67,6 @@ func CosmosFileForRead(workspace string) (string, bool) {
 		return legacy, true
 	}
 	return canonical, false
-}
-
-func DomainsDirForRead(workspace string) string {
-	if _, err := os.Stat(DomainsDir(workspace)); err == nil {
-		return DomainsDir(workspace)
-	}
-	if _, err := os.Stat(LegacyDomainsDir(workspace)); err == nil {
-		return LegacyDomainsDir(workspace)
-	}
-	return DomainsDir(workspace)
 }
 
 func CatalogDirForRead(workspace string) string {

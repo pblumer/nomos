@@ -115,7 +115,7 @@ func CreateProductProcess(path, productID string, req CreateProcessRequest) (Pro
 	}
 	fileBase := safeArtifactName(id)
 	bpmnFile := fileBase + ".bpmn"
-	meta := model.Process{ID: id, Type: "process", Name: name, Version: "0.1.0", Status: "draft", Owner: firstNonEmpty(product.OwningDomain, product.OfferedBy, product.Owner), Summary: strings.TrimSpace(req.Summary), RelatedProduct: productID, BPMN: model.BPMNReference{File: bpmnFile, ProcessID: "Process_" + sanitizeBPMNID(id), Primary: true}}
+	meta := model.Process{ID: id, Type: "process", Name: name, Version: "0.1.0", Status: "draft", Owner: product.Owner, Summary: strings.TrimSpace(req.Summary), RelatedProduct: productID, BPMN: model.BPMNReference{File: bpmnFile, ProcessID: "Process_" + sanitizeBPMNID(id), Primary: true}}
 	if meta.Summary == "" {
 		meta.Summary = "Product-level fulfillment process."
 	}
@@ -859,14 +859,14 @@ func workspaceFromPath(p string) string {
 	return ""
 }
 
-// findDecisionByID scans all domain directories for a decision with the given ID.
+// findDecisionByID scans the decisions directory for a decision with the given ID.
 // When the decision YAML references a DMN file, the DMN output columns replace the
 // YAML outputs so that gatewayBranches always uses the authoritative DMN variable names.
 func findDecisionByID(cosmosPath, id string) *model.Decision {
 	if cosmosPath == "" || id == "" {
 		return nil
 	}
-	root := storage.DomainsDirForRead(cosmosPath)
+	root := storage.DecisionsDir(cosmosPath)
 	var found *model.Decision
 	_ = filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil || found != nil {

@@ -85,28 +85,20 @@ func TestAPIInstanceNotFoundRoute(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Domain routes — additional methods
+// Service routes — additional methods
 // ---------------------------------------------------------------------------
 
-func TestAPIDomainDeleteRoute(t *testing.T) {
+func TestAPIServiceDeleteRoute(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	rr := deleteReq(h, "/api/v1/domains/beispiel.ch")
+	rr := deleteReq(h, "/api/v1/services/zytlog-api")
 	if rr.Code != 200 && rr.Code != 204 {
-		t.Fatalf("DELETE domain: %d %s", rr.Code, rr.Body.String())
+		t.Fatalf("DELETE service: %d %s", rr.Code, rr.Body.String())
 	}
 }
 
-func TestAPIDomainChildrenRoute(t *testing.T) {
+func TestAPIServiceMethodNotAllowedRoute(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	rr := postJSON(h, "/api/v1/domains/blumer.cloud/children", `{"label":"testchild","owner":"Team"}`)
-	if rr.Code != 200 && rr.Code != 201 && rr.Code != 409 {
-		t.Fatalf("POST domain children: %d %s", rr.Code, rr.Body.String())
-	}
-}
-
-func TestAPIDomainMethodNotAllowedRoute(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-	rr := patchJSON(h, "/api/v1/domains/identity.blumer.cloud", `{}`)
+	rr := patchJSON(h, "/api/v1/services/user-account", `{}`)
 	if rr.Code != 405 {
 		t.Fatalf("expected 405 for unsupported method, got %d", rr.Code)
 	}
@@ -152,30 +144,30 @@ func TestAPIServiceRefsMethodNotAllowed(t *testing.T) {
 // Decision decision-by-ID routes
 // ---------------------------------------------------------------------------
 
-func TestAPIDomainDecisionByIDRoute(t *testing.T) {
+func TestAPIDecisionByIDRoute(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	postJSON(h, "/api/v1/domains/identity.blumer.cloud/decisions",
+	postJSON(h, "/api/v1/decisions",
 		`{"id":"DEC-SRV-001","name":"Server Test Decision"}`)
-	rr := get(h, "/api/v1/domains/identity.blumer.cloud/decisions/DEC-SRV-001")
+	rr := get(h, "/api/v1/decisions/DEC-SRV-001")
 	if rr.Code != 200 {
 		t.Fatalf("GET decision by ID: %d %s", rr.Code, rr.Body.String())
 	}
 }
 
-func TestAPIDomainDecisionUpdateRoute(t *testing.T) {
+func TestAPIDecisionUpdateRoute(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	postJSON(h, "/api/v1/domains/identity.blumer.cloud/decisions",
+	postJSON(h, "/api/v1/decisions",
 		`{"id":"DEC-UPD-001","name":"Decision To Update"}`)
-	rr := putJSONCov(h, "/api/v1/domains/identity.blumer.cloud/decisions/DEC-UPD-001",
+	rr := putJSONCov(h, "/api/v1/decisions/DEC-UPD-001",
 		map[string]any{"name": "Updated Decision"})
 	if rr.Code != 200 {
 		t.Fatalf("PUT decision: %d %s", rr.Code, rr.Body.String())
 	}
 }
 
-func TestAPIDomainDecisionMethodNotAllowedRoute(t *testing.T) {
+func TestAPIDecisionMethodNotAllowedRoute(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	rr := patchJSON(h, "/api/v1/domains/identity.blumer.cloud/decisions", `{}`)
+	rr := patchJSON(h, "/api/v1/decisions", `{}`)
 	if rr.Code != 405 {
 		t.Fatalf("expected 405 for PATCH decisions list, got %d", rr.Code)
 	}

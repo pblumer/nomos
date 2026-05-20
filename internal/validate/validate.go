@@ -57,31 +57,14 @@ func Validate(path string) (Result, error) {
 }
 
 func validateCrossArtifacts(tree cosmosfs.Tree, res *Result) {
-	// Build lookup sets
-	domains := make(map[string]bool)
+	// Build lookup sets. Services are flat artifacts keyed by name and id.
 	serviceRefs := make(map[string]bool)
-	for _, d := range tree.Domains {
-		domains[canonical(d.Name)] = true
-		if d.Metadata.DNSName != "" {
-			domains[canonical(d.Metadata.DNSName)] = true
+	for _, svc := range tree.Services {
+		if svc.Name != "" {
+			serviceRefs[svc.Name] = true
 		}
-		if d.Metadata.CanonicalName != "" {
-			domains[canonical(d.Metadata.CanonicalName)] = true
-		}
-	}
-	for _, d := range tree.Domains {
-		domainName := canonical(d.Name)
-		for _, svc := range d.Services {
-			serviceRefs[domainName+"/"+svc.Name] = true
-			ownedBy := strings.TrimSpace(svc.Metadata.OwnedBy)
-			rel := relPath(tree.Path, filepath.Join(svc.Path, "service.yaml"))
-			if ownedBy == "" {
-				res.addTyped("SERVICE_OWNED_BY_MISSING", "warning", "Service "+domainName+"/"+svc.Name+" sollte owned_by explizit setzen", rel, "service", svc.Name, "Setze owned_by: "+domainName+" in service.yaml")
-				continue
-			}
-			if !domains[canonical(ownedBy)] {
-				res.addTyped("SERVICE_OWNED_BY_UNRESOLVED", "error", "Service "+domainName+"/"+svc.Name+" owned_by verweist auf unbekannte Domain: "+ownedBy, rel, "service", svc.Name, "Lege die Domain an oder korrigiere owned_by.")
-			}
+		if svc.Metadata.ID != "" {
+			serviceRefs[svc.Metadata.ID] = true
 		}
 	}
 	blueprintIDs := make(map[string]string) // id → type
@@ -93,7 +76,7 @@ func validateCrossArtifacts(tree cosmosfs.Tree, res *Result) {
 	// (only when ref has the correct domain/service format — malformed refs get a shape warning from validateBlueprint)
 	for _, b := range tree.Blueprints {
 		if b.Metadata.Type == "product_blueprint" {
-			validateProductOwnershipAndFulfillment(tree, b, domains, serviceRefs, res)
+			validateProductOwnershipAndFulfillment(tree, b, serviceRefs, res)
 		}
 		ref := strings.TrimSpace(b.Metadata.NamespaceServiceRef)
 		if ref != "" && strings.Contains(ref, "/") && !serviceRefs[ref] {
@@ -208,15 +191,8 @@ func validateCrossArtifacts(tree cosmosfs.Tree, res *Result) {
 	}
 }
 
-func validateProductOwnershipAndFulfillment(tree cosmosfs.Tree, b cosmosfs.BlueprintNode, domains, serviceRefs map[string]bool, res *Result) {
+func validateProductOwnershipAndFulfillment(tree cosmosfs.Tree, b cosmosfs.BlueprintNode, serviceRefs map[string]bool, res *Result) {
 	rel := relPath(tree.Path, b.Path)
-	offeredBy := strings.TrimSpace(b.Metadata.OfferedBy)
-	if offeredBy == "" {
-		res.addTyped("PRODUCT_OFFERED_BY_MISSING", "error", "Product Blueprint "+b.Metadata.ID+" benoetigt offered_by", rel, b.Metadata.Type, b.Metadata.ID, "Setze offered_by auf die kanonische Domain, die dieses Produkt anbietet.")
-	} else if !domains[canonical(offeredBy)] {
-		res.addTyped("PRODUCT_OFFERED_BY_UNRESOLVED", "error", "Product Blueprint "+b.Metadata.ID+" offered_by verweist auf unbekannte Domain: "+offeredBy, rel, b.Metadata.Type, b.Metadata.ID, "Lege die Domain an oder korrigiere offered_by.")
-	}
-
 	services := b.Metadata.Fulfillment.RequiredServices
 	if len(services) == 0 {
 		services = legacyFulfillmentServices(b.Metadata.RequiredServices)
@@ -225,21 +201,12 @@ func validateProductOwnershipAndFulfillment(tree cosmosfs.Tree, b cosmosfs.Bluep
 		entryPath := rel + ":fulfillment.required_services[" + fmt.Sprint(i) + "]"
 		ref := strings.TrimSpace(svc.ServiceRef)
 		if ref == "" {
-			res.addTyped("FULFILLMENT_SERVICE_REF_MISSING", "error", "Product Blueprint "+b.Metadata.ID+" enthaelt required service ohne service_ref", entryPath, b.Metadata.Type, b.Metadata.ID, "Setze service_ref in der Form <domain>/<service>.")
+			res.addTyped("FULFILLMENT_SERVICE_REF_MISSING", "error", "Product Blueprint "+b.Metadata.ID+" enthaelt required service ohne service_ref", entryPath, b.Metadata.Type, b.Metadata.ID, "Setze service_ref auf einen vorhandenen Service.")
 			continue
 		}
-		domain, service, ok := splitServiceRef(ref)
-		if !ok || !domains[domain] {
-			severity := requiredSeverity(svc.Required)
-			res.addTyped("FULFILLMENT_SERVICE_DOMAIN_UNRESOLVED", severity, "Product Blueprint "+b.Metadata.ID+" referenziert Service in unbekannter Domain: "+ref, entryPath, b.Metadata.Type, b.Metadata.ID, "Lege die Domain an oder korrigiere service_ref.")
-			continue
-		}
-		if !serviceRefs[domain+"/"+service] {
+		if !serviceRefs[ref] {
 			severity := requiredSeverity(svc.Required)
 			res.addTyped("FULFILLMENT_SERVICE_UNRESOLVED", severity, "Product Blueprint "+b.Metadata.ID+" referenziert unbekannten Service: "+ref, entryPath, b.Metadata.Type, b.Metadata.ID, "Erstelle den Service oder korrigiere service_ref.")
-		}
-		if selfServiceReference(b.Metadata, domain, service) {
-			res.addTyped("PRODUCT_SELF_SERVICE_REFERENCE", "error", "Product Blueprint "+b.Metadata.ID+" darf sich nicht selbst als Service referenzieren: "+ref, entryPath, b.Metadata.Type, b.Metadata.ID, "Referenziere eine eigenstaendige Service-Faehigkeit statt des Produkts selbst.")
 		}
 	}
 }
@@ -257,43 +224,6 @@ func requiredSeverity(required bool) string {
 		return "error"
 	}
 	return "warning"
-}
-
-func selfServiceReference(bp model.Blueprint, domain, service string) bool {
-	owningDomain := canonical(firstNonEmpty(bp.OwningDomain, bp.OfferedBy))
-	if owningDomain == "" || owningDomain != domain {
-		return false
-	}
-	return strings.EqualFold(service, bp.ID) || strings.EqualFold(service, strings.TrimSpace(bp.Name))
-}
-
-func splitServiceRef(ref string) (string, string, bool) {
-	parts := strings.SplitN(strings.TrimSpace(ref), "/", 2)
-	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
-		return "", "", false
-	}
-	return canonical(parts[0]), strings.TrimSpace(parts[1]), true
-}
-
-func canonical(v string) string {
-	v = strings.TrimSpace(v)
-	if v == "" {
-		return ""
-	}
-	parts := strings.Split(v, ".")
-	for i := range parts {
-		parts[i] = strings.ToLower(strings.TrimSpace(parts[i]))
-	}
-	return strings.Join(parts, ".")
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if strings.TrimSpace(v) != "" {
-			return v
-		}
-	}
-	return ""
 }
 
 func validateCatalogArtifacts(root string, res *Result) error {

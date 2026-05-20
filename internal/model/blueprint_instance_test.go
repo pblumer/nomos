@@ -138,9 +138,6 @@ fulfillment:
 	if err := yaml.Unmarshal(raw, &bp); err != nil {
 		t.Fatalf("unmarshal blueprint: %v", err)
 	}
-	if bp.OfferedBy != "cloud.blumer.identity" || bp.OwningDomain != "cloud.blumer.identity" {
-		t.Fatalf("expected ownership fields: %#v", bp)
-	}
 	if len(bp.Fulfillment.RequiredServices) != 1 || bp.Fulfillment.RequiredServices[0].Role != "primary" || !bp.Fulfillment.RequiredServices[0].Required {
 		t.Fatalf("expected fulfillment services: %#v", bp.Fulfillment)
 	}
@@ -166,7 +163,7 @@ supported_products:
 	if err := yaml.Unmarshal(raw, &svc); err != nil {
 		t.Fatalf("unmarshal service: %v", err)
 	}
-	if svc.OwnedBy != "cloud.blumer.identity" || len(svc.OperatedBy) != 1 || len(svc.Capabilities) != 1 || len(svc.SupportedProducts) != 1 {
-		t.Fatalf("expected service ownership metadata: %#v", svc)
+	if len(svc.Capabilities) != 1 || len(svc.SupportedProducts) != 1 {
+		t.Fatalf("expected service metadata: %#v", svc)
 	}
 }

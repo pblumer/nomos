@@ -139,70 +139,61 @@ func TestAPIProcessParticipant_MethodNotAllowed(t *testing.T) {
 	}
 }
 
-// ── Legacy service capabilities ───────────────────────────────────────────────
+// ── Service capabilities ──────────────────────────────────────────────────────
 
-func TestAPILegacyServiceCapabilityAdd(t *testing.T) {
+func TestAPIServiceCapabilityAdd(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	rr := postJSON(h, "/api/v1/services/identity.blumer.cloud/user-account/capabilities",
+	rr := postJSON(h, "/api/v1/services/user-account/capabilities",
 		`{"id":"cap-new","name":"New Capability","description":"test"}`)
 	if rr.Code != 200 && rr.Code != 201 {
 		t.Fatalf("POST capability: %d %s", rr.Code, rr.Body.String())
 	}
 }
 
-func TestAPILegacyServiceCapabilityMethodNotAllowed(t *testing.T) {
+func TestAPIServiceCapabilityMethodNotAllowed(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	rr := get(h, "/api/v1/services/identity.blumer.cloud/user-account/capabilities")
+	rr := get(h, "/api/v1/services/user-account/capabilities")
 	if rr.Code != 405 {
 		t.Fatalf("expected 405, got %d", rr.Code)
 	}
 }
 
-func TestAPILegacyServiceCapabilityUpdate(t *testing.T) {
+func TestAPIServiceCapabilityUpdate(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	// First add a capability
-	postJSON(h, "/api/v1/services/identity.blumer.cloud/user-account/capabilities",
+	postJSON(h, "/api/v1/services/user-account/capabilities",
 		`{"id":"cap-upd","name":"Update Me"}`)
 
-	rr := putJSONCov(h, "/api/v1/services/identity.blumer.cloud/user-account/capabilities/cap-upd",
+	rr := putJSONCov(h, "/api/v1/services/user-account/capabilities/cap-upd",
 		map[string]any{"name": "Updated Capability"})
 	if rr.Code != 200 && rr.Code != 404 {
 		t.Fatalf("PUT capability: %d %s", rr.Code, rr.Body.String())
 	}
 }
 
-// ── Domain routes: PUT (rename) ───────────────────────────────────────────────
+// ── Service routes: PUT (rename) ───────────────────────────────────────────────
 
-func TestAPIDomainRename(t *testing.T) {
+func TestAPIServiceRename(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	// Renaming to invalid name triggers error path but covers the handler
-	rr := putJSONCov(h, "/api/v1/domains/identity.blumer.cloud",
+	rr := putJSONCov(h, "/api/v1/services/user-account",
 		map[string]any{"name": ""})
 	if rr.Code == 0 {
 		t.Fatal("expected some response")
 	}
 }
 
-func TestAPIDomainAddChild(t *testing.T) {
+func TestAPIServiceGet(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	rr := postJSON(h, "/api/v1/domains/blumer.cloud",
-		`{"segment":"test"}`)
-	if rr.Code != 200 && rr.Code != 201 && rr.Code != 409 {
-		t.Fatalf("POST domain child: %d %s", rr.Code, rr.Body.String())
-	}
-}
-
-func TestAPIDomainGet(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-	rr := get(h, "/api/v1/domains/identity.blumer.cloud")
+	rr := get(h, "/api/v1/services/user-account")
 	if rr.Code != 200 {
-		t.Fatalf("GET domain: %d %s", rr.Code, rr.Body.String())
+		t.Fatalf("GET service: %d %s", rr.Code, rr.Body.String())
 	}
 }
 
-func TestAPIDomainMethodNotAllowed(t *testing.T) {
+func TestAPIServiceMethodNotAllowed(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	rr := rawReq(h, http.MethodPatch, "/api/v1/domains/identity.blumer.cloud", "", "")
+	rr := rawReq(h, http.MethodPatch, "/api/v1/services/user-account", "", "")
 	if rr.Code != 405 {
 		t.Fatalf("expected 405, got %d", rr.Code)
 	}
@@ -211,27 +202,27 @@ func TestAPIDomainMethodNotAllowed(t *testing.T) {
 // ── Decision definition and DMN routes ───────────────────────────────────────
 
 func TestAPIDecisionDefinitions(t *testing.T) {
-	p, domain, decID := createCosmosWithDecision(t)
+	p, decID := createCosmosWithDecision(t)
 	h := NewHandler(p)
-	rr := get(h, fmt.Sprintf("/api/v1/domains/%s/decisions/%s/definitions", domain, decID))
+	rr := get(h, fmt.Sprintf("/api/v1/decisions/%s/definitions", decID))
 	if rr.Code != 200 && rr.Code != 404 {
 		t.Fatalf("GET decision definitions: %d %s", rr.Code, rr.Body.String())
 	}
 }
 
 func TestAPIDecisionDefinitionsMethodNotAllowed(t *testing.T) {
-	p, domain, decID := createCosmosWithDecision(t)
+	p, decID := createCosmosWithDecision(t)
 	h := NewHandler(p)
-	rr := rawReq(h, http.MethodPost, fmt.Sprintf("/api/v1/domains/%s/decisions/%s/definitions", domain, decID), "", "")
+	rr := rawReq(h, http.MethodPost, fmt.Sprintf("/api/v1/decisions/%s/definitions", decID), "", "")
 	if rr.Code != 405 {
 		t.Fatalf("expected 405, got %d", rr.Code)
 	}
 }
 
 func TestAPIDecisionDMNGet(t *testing.T) {
-	p, domain, decID := createCosmosWithDecision(t)
+	p, decID := createCosmosWithDecision(t)
 	h := NewHandler(p)
-	rr := get(h, fmt.Sprintf("/api/v1/domains/%s/decisions/%s/dmn", domain, decID))
+	rr := get(h, fmt.Sprintf("/api/v1/decisions/%s/dmn", decID))
 	// 200 if DMN exists, 404 if not
 	if rr.Code != 200 && rr.Code != 404 {
 		t.Fatalf("GET DMN: %d %s", rr.Code, rr.Body.String())
@@ -239,9 +230,9 @@ func TestAPIDecisionDMNGet(t *testing.T) {
 }
 
 func TestAPIDecisionEvaluate(t *testing.T) {
-	p, domain, decID := createCosmosWithDecision(t)
+	p, decID := createCosmosWithDecision(t)
 	h := NewHandler(p)
-	rr := postJSON(h, fmt.Sprintf("/api/v1/domains/%s/decisions/%s/evaluate", domain, decID),
+	rr := postJSON(h, fmt.Sprintf("/api/v1/decisions/%s/evaluate", decID),
 		`{"inputs":{}}`)
 	// 200 if DMN exists with decision table, or error if no DMN
 	if rr.Code == 0 {
@@ -250,9 +241,9 @@ func TestAPIDecisionEvaluate(t *testing.T) {
 }
 
 func TestAPIDecisionEvaluate_MethodNotAllowed(t *testing.T) {
-	p, domain, decID := createCosmosWithDecision(t)
+	p, decID := createCosmosWithDecision(t)
 	h := NewHandler(p)
-	rr := get(h, fmt.Sprintf("/api/v1/domains/%s/decisions/%s/evaluate", domain, decID))
+	rr := get(h, fmt.Sprintf("/api/v1/decisions/%s/evaluate", decID))
 	if rr.Code != 405 {
 		t.Fatalf("expected 405 for GET evaluate, got %d", rr.Code)
 	}

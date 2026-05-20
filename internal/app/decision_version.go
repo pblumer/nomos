@@ -134,8 +134,8 @@ func metadataChanged(a, b model.Decision) bool {
 // The HEAD version is always included even when the versions/ directory does
 // not exist yet — legacy decisions created before snapshotting still get a
 // usable list with a single entry.
-func ListDecisionVersions(path, domainCanonical, id string) (DecisionVersionsDTO, error) {
-	n, err := findDecisionNode(path, domainCanonical, id)
+func ListDecisionVersions(path, id string) (DecisionVersionsDTO, error) {
+	n, err := findDecisionNode(path, id)
 	if err != nil {
 		return DecisionVersionsDTO{}, err
 	}
@@ -148,7 +148,6 @@ func ListDecisionVersions(path, domainCanonical, id string) (DecisionVersionsDTO
 	}
 	sort.Slice(items, func(i, j int) bool { return semverLess(items[i].Version, items[j].Version) })
 	return DecisionVersionsDTO{
-		Domain:     domainCanonical,
 		DecisionID: id,
 		Current:    n.Metadata.Version,
 		Items:      items,
@@ -207,8 +206,8 @@ func readVersionSnapshots(n cosmosfs.DecisionNode) ([]DecisionVersionDTO, error)
 // GetDecisionVersion returns the decision metadata as stored at the given version.
 // Falls back to the HEAD record when the request targets the current version
 // of a decision created before snapshotting existed.
-func GetDecisionVersion(path, domainCanonical, id, version string) (DecisionDTO, error) {
-	n, err := findDecisionNode(path, domainCanonical, id)
+func GetDecisionVersion(path, id, version string) (DecisionDTO, error) {
+	n, err := findDecisionNode(path, id)
 	if err != nil {
 		return DecisionDTO{}, err
 	}
@@ -229,8 +228,8 @@ func GetDecisionVersion(path, domainCanonical, id, version string) (DecisionDTO,
 }
 
 // GetDecisionVersionDMN serves the DMN XML for a specific historical version.
-func GetDecisionVersionDMN(path, domainCanonical, id, version string) (string, error) {
-	n, err := findDecisionNode(path, domainCanonical, id)
+func GetDecisionVersionDMN(path, id, version string) (string, error) {
+	n, err := findDecisionNode(path, id)
 	if err != nil {
 		return "", err
 	}
@@ -250,8 +249,8 @@ func GetDecisionVersionDMN(path, domainCanonical, id, version string) (string, e
 // GetDecisionVersionDefinitions parses the DMN file backing the given version
 // and returns the full DMN 1.5 DRG. Used by the Cosmos Explorer to render a
 // trace's decision table against the rules that were active at evaluation time.
-func GetDecisionVersionDefinitions(path, domainCanonical, id, version string) (*model.DMNDefinitions, error) {
-	xml, err := GetDecisionVersionDMN(path, domainCanonical, id, version)
+func GetDecisionVersionDefinitions(path, id, version string) (*model.DMNDefinitions, error) {
+	xml, err := GetDecisionVersionDMN(path, id, version)
 	if err != nil {
 		return nil, err
 	}

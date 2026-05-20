@@ -13,7 +13,7 @@ import (
 
 func TestProcessArtifactCreateTasksMappingsAndValidation(t *testing.T) {
 	p := createAppTestCosmos(t)
-	product, err := CreateProductOffering(p, "identity.blumer.cloud", CreateProductOfferingRequest{ID: "PROD-PROC-001", Name: "Process Product", Summary: "User-facing summary"})
+	product, err := CreateProductOffering(p, CreateProductOfferingRequest{ID: "PROD-PROC-001", Name: "Process Product", Summary: "User-facing summary"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestProcessArtifactCreateTasksMappingsAndValidation(t *testing.T) {
 
 func TestNewProcessStartsWithBlankBPMN(t *testing.T) {
 	p := createAppTestCosmos(t)
-	product, err := CreateProductOffering(p, "identity.blumer.cloud", CreateProductOfferingRequest{ID: "PROD-PROC-STD", Name: "Standard Process Product"})
+	product, err := CreateProductOffering(p, CreateProductOfferingRequest{ID: "PROD-PROC-STD", Name: "Standard Process Product"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestNewProcessStartsWithBlankBPMN(t *testing.T) {
 
 func TestProcessInvalidBPMNAndUnknownMapping(t *testing.T) {
 	p := createAppTestCosmos(t)
-	product, err := CreateProductOffering(p, "identity.blumer.cloud", CreateProductOfferingRequest{ID: "PROD-PROC-002", Name: "Old Product"})
+	product, err := CreateProductOffering(p, CreateProductOfferingRequest{ID: "PROD-PROC-002", Name: "Old Product"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestProcessInvalidBPMNAndUnknownMapping(t *testing.T) {
 
 func TestUpdateProcessBPMNMirrorsLaneServiceBindings(t *testing.T) {
 	p := createAppTestCosmos(t)
-	product, err := CreateProductOffering(p, "identity.blumer.cloud", CreateProductOfferingRequest{ID: "PROD-LANE-001", Name: "Lane Product"})
+	product, err := CreateProductOffering(p, CreateProductOfferingRequest{ID: "PROD-LANE-001", Name: "Lane Product"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func TestBackwardCompatibleProductWithoutProcesses(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	bp := model.Blueprint{ID: "PROD-OLD-001", Type: "product_blueprint", Name: "Legacy Product", Version: "0.1.0", Status: "draft", Owner: "Team", OfferedBy: "identity.blumer.cloud", Summary: "Legacy"}
+	bp := model.Blueprint{ID: "PROD-OLD-001", Type: "product_blueprint", Name: "Legacy Product", Version: "0.1.0", Status: "draft", Owner: "Team", Summary: "Legacy"}
 	if err := fsx.WriteYAML(filepath.Join(dir, "legacy.yaml"), bp); err != nil {
 		t.Fatal(err)
 	}

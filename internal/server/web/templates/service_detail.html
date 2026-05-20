@@ -2,9 +2,9 @@
 <section class="page-header">
   <div>
     <h2>{{.ServiceDTO.Name}}</h2>
-    <p>Service in <a href="/domains/{{.ServiceDTO.Domain}}">{{.ServiceDTO.Domain}}</a></p>
+    <p>Service</p>
   </div>
-  <a class="button button-secondary" href="/api/v1/domains/{{.ServiceDTO.Domain}}/services/{{.ServiceDTO.Name}}">API JSON</a>
+  <a class="button button-secondary" href="/api/v1/services/{{.ServiceDTO.Name}}">API JSON</a>
 </section>
 
 <section class="card">
@@ -13,8 +13,6 @@
     <dt>Owner</dt><dd>{{.ServiceDTO.Owner}}</dd>
     <dt>Status</dt><dd><span class="badge">{{.ServiceDTO.Status}}</span></dd>
     <dt>Path</dt><dd><code>{{.ServiceDTO.Path}}</code></dd>
-    {{if .ServiceDTO.OwnedBy}}<dt>Owned by</dt><dd>{{.ServiceDTO.OwnedBy}}</dd>{{end}}
-    {{if .ServiceDTO.OperatedBy}}<dt>Operated by</dt><dd>{{range .ServiceDTO.OperatedBy}}{{.}} {{end}}</dd>{{end}}
   </dl>
 </section>
 
