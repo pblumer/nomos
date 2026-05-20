@@ -39,6 +39,8 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/v1/cosmos", h.apiCosmos)
 	mux.HandleFunc("/api/v1/repositories", h.apiRepositories)
 	mux.HandleFunc("/api/v1/repositories/", h.apiRepositoryRoutes)
+	mux.HandleFunc("/api/v1/mounts", h.apiMounts)
+	mux.HandleFunc("/api/v1/mounts/", h.apiMountRoutes)
 	mux.HandleFunc("/api/v1/domains", h.apiDomains)
 	mux.HandleFunc("/api/v1/domains/", h.apiDomainRoutes)
 	mux.HandleFunc("/api/v1/services/refs", h.apiServiceRefs)
@@ -156,6 +158,54 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// apiMounts lists or adds server mounts (ADR-0022 §5).
+func (h *handler) apiMounts(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/mounts" {
+		http.NotFound(w, r)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		dto, err := app.ListMounts(h.cosmosPath)
+		h.writeOrErr(w, dto, err)
+	case http.MethodPost:
+		var body struct {
+			Endpoint string `json:"endpoint"`
+			Label    string `json:"label"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+			return
+		}
+		dto, err := app.AddMount(h.cosmosPath, body.Endpoint, body.Label)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, dto)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+// apiMountRoutes removes a server mount by id (ADR-0022 §5).
+func (h *handler) apiMountRoutes(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimPrefix(r.URL.Path, "/api/v1/mounts/")
+	if id == "" || strings.Contains(id, "/") {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodDelete {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	if err := app.RemoveMount(h.cosmosPath, id); err != nil {
+		h.apiErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 func (h *handler) writeOrErr(w http.ResponseWriter, dto any, err error) {
 	if err != nil {

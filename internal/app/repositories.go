@@ -49,37 +49,72 @@ func GetRepository(path, id string) (RepositoryDTO, error) {
 // (ADR-0015 default port 7373).
 const LocalServerEndpoint = "localhost:7373"
 
-// BuildExplorerTree wraps the namespace tree under the local server and its
-// repositories for the Cosmos Explorer (ADR-0022 §1/§6). The plain namespace
-// tree (BuildNamespaceTree) is left unchanged for the namespace/domain views.
-// The server and repository levels are always shown.
+// BuildExplorerTree builds the Cosmos Explorer tree by aggregating over the
+// mounted servers (ADR-0022 §1/§4/§6): the local server plus configured remote
+// servers. Each server exposes its repositories, and each repository's content
+// is the namespace tree. The plain namespace tree (BuildNamespaceTree) is left
+// unchanged for the namespace/domain views. Server and repository levels are
+// always shown; an unreachable remote server degrades to a status badge instead
+// of breaking the whole tree.
 func BuildExplorerTree(path string) (NamespaceTreeDTO, error) {
-	ns, err := BuildNamespaceTree(path)
+	mounts, err := ListMounts(path)
 	if err != nil {
 		return NamespaceTreeDTO{}, err
 	}
-	repos, err := ListRepositories(path)
-	if err != nil {
-		return NamespaceTreeDTO{}, err
+	cosmos, _ := GetCosmos(path)
+	root := NamespaceTreeNodeDTO{Label: fallback(cosmos.Name, "Local Cosmos"), Kind: "cosmos", CanOpenDetails: true}
+	for _, m := range mounts.Mounts {
+		if m.Local {
+			root.Children = append(root.Children, localServerNode(path, m))
+		} else {
+			root.Children = append(root.Children, remoteServerNode(m))
+		}
 	}
-	content := ns.Root.Children
-	server := NamespaceTreeNodeDTO{
-		Label:          LocalServerEndpoint,
+	return NamespaceTreeDTO{Root: root}, nil
+}
+
+func serverNode(m MountDTO, repoCount int, status string) NamespaceTreeNodeDTO {
+	return NamespaceTreeNodeDTO{
+		Label:          m.Endpoint,
 		Kind:           "server",
 		CanOpenDetails: true,
-		Server:         &ServerDTO{Endpoint: LocalServerEndpoint, Local: true, Status: "online", RepositoryCount: len(repos.Repositories)},
+		Server:         &ServerDTO{Endpoint: m.Endpoint, Label: m.Label, Local: m.Local, Status: status, RepositoryCount: repoCount},
 	}
-	for i := range repos.Repositories {
-		r := repos.Repositories[i]
-		server.Children = append(server.Children, NamespaceTreeNodeDTO{
-			Label:          r.Name,
-			Kind:           "repository",
-			CanOpenDetails: true,
-			Repository:     &r,
-			Children:       content,
-		})
+}
+
+func repositoryNode(r RepositoryDTO, content []NamespaceTreeNodeDTO) NamespaceTreeNodeDTO {
+	rc := r
+	return NamespaceTreeNodeDTO{
+		Label:          r.Name,
+		Kind:           "repository",
+		CanOpenDetails: true,
+		Repository:     &rc,
+		Children:       content,
 	}
-	root := ns.Root
-	root.Children = []NamespaceTreeNodeDTO{server}
-	return NamespaceTreeDTO{Root: root}, nil
+}
+
+func localServerNode(path string, m MountDTO) NamespaceTreeNodeDTO {
+	repos, _ := ListRepositories(path)
+	ns, _ := BuildNamespaceTree(path)
+	server := serverNode(m, len(repos.Repositories), "online")
+	for _, r := range repos.Repositories {
+		server.Children = append(server.Children, repositoryNode(r, ns.Root.Children))
+	}
+	return server
+}
+
+func remoteServerNode(m MountDTO) NamespaceTreeNodeDTO {
+	repos, err := fetchRemoteRepositories(m.Endpoint)
+	if err != nil {
+		return serverNode(m, 0, "unreachable")
+	}
+	server := serverNode(m, len(repos.Repositories), "online")
+	for _, r := range repos.Repositories {
+		var content []NamespaceTreeNodeDTO
+		if ns, nerr := fetchRemoteNamespaces(m.Endpoint, r.ID); nerr == nil {
+			content = ns.Root.Children
+		}
+		server.Children = append(server.Children, repositoryNode(r, content))
+	}
+	return server
 }

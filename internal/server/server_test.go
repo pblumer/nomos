@@ -258,6 +258,38 @@ func TestRepositoriesAPIReturnsLocalDefault(t *testing.T) {
 	}
 }
 
+func TestMountsAPICRUD(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	if rr := get(h, "/api/v1/mounts"); rr.Code != 200 {
+		t.Fatalf("list status=%d", rr.Code)
+	} else {
+		hasAll(t, rr.Body.String(), `"local":true`, "localhost:7373")
+	}
+	if rr := postJSON(h, "/api/v1/mounts", `{"endpoint":"nomos.blumer.cloud:7373","label":"Prod"}`); rr.Code != 201 {
+		t.Fatalf("add status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if rr := postJSON(h, "/api/v1/mounts", `{"endpoint":"nomos.blumer.cloud:7373"}`); rr.Code != 409 {
+		t.Fatalf("duplicate status=%d, want 409", rr.Code)
+	}
+	if rr := get(h, "/api/v1/mounts"); !strings.Contains(rr.Body.String(), "nomos.blumer.cloud:7373") {
+		t.Fatalf("listed mounts missing remote: %s", rr.Body.String())
+	}
+	del := func(path string) int {
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, path, nil))
+		return rr.Code
+	}
+	if code := del("/api/v1/mounts/nomos-blumer-cloud-7373"); code != 204 {
+		t.Fatalf("delete status=%d, want 204", code)
+	}
+	if code := del("/api/v1/mounts/local"); code != 400 {
+		t.Fatalf("delete local status=%d, want 400", code)
+	}
+	if code := del("/api/v1/mounts/does-not-exist"); code != 404 {
+		t.Fatalf("delete missing status=%d, want 404", code)
+	}
+}
+
 func TestCosmosExplorerRendersServerAndRepository(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	rr := get(h, "/cosmos")

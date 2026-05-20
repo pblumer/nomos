@@ -28,6 +28,8 @@ const (
 	CodeProductMoveInvalidTarget  = "PRODUCT_MOVE_INVALID_TARGET"
 	CodeProductMoveWriteFailed    = "PRODUCT_MOVE_WRITE_FAILED"
 	CodeRepositoryNotFound        = "REPOSITORY_NOT_FOUND"
+	CodeMountNotFound             = "MOUNT_NOT_FOUND"
+	CodeMountExists               = "MOUNT_EXISTS"
 )
 
 type AppError struct {

@@ -17,6 +17,7 @@ var openAPISpec = map[string]any{
 		{"name": "System", "description": "Health and service metadata"},
 		{"name": "Cosmos", "description": "Cosmos repository summary"},
 		{"name": "Repositories", "description": "Server-managed git-first repositories"},
+		{"name": "Mounts", "description": "Server mounts shown in the Cosmos Explorer"},
 		{"name": "Domains", "description": "Domain and service namespace operations"},
 		{"name": "Validation", "description": "Validation and graph outputs"},
 		{"name": "Catalog", "description": "Blueprint and instance catalog operations"},
@@ -31,6 +32,13 @@ var openAPISpec = map[string]any{
 		"/api/v1/repositories/{repo}/namespaces":       pathItem("Repositories", "Get repository namespace tree", "Repository-scoped namespace tree.", []map[string]any{pathParam("repo", "Repository id.")}, schemaRef("NamespaceTree")),
 		"/api/v1/repositories/{repo}/domains":          pathItem("Repositories", "List repository domains", "Repository-scoped domain list.", []map[string]any{pathParam("repo", "Repository id.")}, schemaRef("DomainsResponse")),
 		"/api/v1/repositories/{repo}/domains/{domain}": pathItem("Repositories", "Get repository domain", "Repository-scoped domain detail.", []map[string]any{pathParam("repo", "Repository id."), pathParam("domain", "Canonical domain name.")}, schemaRef("Domain")),
+		"/api/v1/mounts": map[string]any{
+			"get":  operation("Mounts", "List mounts", "Returns the implicit local server mount followed by configured remote mounts (ADR-0022).", nil, schemaRef("MountsResponse")),
+			"post": operationWithRequest("Mounts", "Add mount", "Registers a remote server mount by endpoint (host:7373).", nil, jsonRequestBody(object(map[string]any{"endpoint": stringSchema("Remote server endpoint, e.g. nomos.blumer.cloud:7373."), "label": stringSchema("Optional display label.")})), map[string]any{"201": response("Created mount.", schemaRef("Mount")), "400": errorResponse(), "409": errorResponse()}),
+		},
+		"/api/v1/mounts/{id}": map[string]any{
+			"delete": operation("Mounts", "Remove mount", "Unmounts a remote server by id. The local mount cannot be removed.", []map[string]any{pathParam("id", "Mount id.")}, schemaRef("DeletedResponse")),
+		},
 		"/api/v1/domains": map[string]any{
 			"get":  operation("Domains", "List domains", "Returns all known domains.", nil, schemaRef("DomainsResponse")),
 			"post": operationWithRequest("Domains", "Create domain", "Creates a domain in the local Cosmos.", nil, formRequestBody(map[string]any{"dns": stringSchema("Canonical DNS name."), "owner": stringSchema("Domain owner."), "force": map[string]any{"type": "boolean"}}), map[string]any{"201": response("Created domain.", schemaRef("Domain")), "400": errorResponse(), "409": errorResponse()}),
@@ -188,6 +196,8 @@ func schemas() map[string]any {
 		"Cosmos":                     object(map[string]any{"path": stringSchema("Filesystem path."), "id": stringSchema("Cosmos id."), "name": stringSchema("Cosmos name."), "version": stringSchema("Cosmos version."), "status": stringSchema("Cosmos status."), "owner": stringSchema("Owner."), "domainCount": map[string]any{"type": "integer"}, "serviceCount": map[string]any{"type": "integer"}}),
 		"Repository":                 object(map[string]any{"id": stringSchema("Repository id, unique per server."), "name": stringSchema("Display name."), "kind": stringSchema("filesystem, github, or gitbucket."), "location": stringSchema("Filesystem path or remote URL."), "default_branch": stringSchema("Default git branch."), "status": stringSchema("clean, dirty, unreachable, or unknown."), "head": stringSchema("Short HEAD commit hash.")}),
 		"RepositoriesResponse":       object(map[string]any{"repositories": arrayOf(schemaRef("Repository"))}),
+		"Mount":                      object(map[string]any{"id": stringSchema("Mount id."), "endpoint": stringSchema("Server endpoint host:port."), "label": stringSchema("Display label."), "local": map[string]any{"type": "boolean", "description": "True for the implicit local server mount."}}),
+		"MountsResponse":             object(map[string]any{"mounts": arrayOf(schemaRef("Mount"))}),
 		"Namespace":                  object(map[string]any{"canonical": stringSchema("Canonical name."), "parts": arrayOf(map[string]any{"type": "string"}), "treeParts": arrayOf(map[string]any{"type": "string"}), "treePath": stringSchema("Tree path."), "displayPath": stringSchema("Display path."), "leaf": stringSchema("Leaf name.")}),
 		"Domain":                     object(map[string]any{"name": stringSchema("Domain name."), "canonical": stringSchema("Canonical domain."), "namespace": schemaRef("Namespace"), "displayName": stringSchema("Display name."), "owner": stringSchema("Owner."), "status": stringSchema("Status."), "path": stringSchema("Filesystem path."), "serviceCount": map[string]any{"type": "integer"}, "services": arrayOf(schemaRef("Service"))}),
 		"MoveProductOfferingRequest": object(map[string]any{"target_domain": stringSchema("Canonical target domain."), "update_owning_domain": map[string]any{"type": "boolean", "description": "Also set owning_domain to the target domain."}}),
