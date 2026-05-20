@@ -2,16 +2,18 @@
 
 The Cosmos Explorer renders `engine: form-js` view artifacts with
 [`@bpmn-io/form-js`](https://github.com/bpmn-io/form-js), vendored here like
-`bpmn-js`/`dmn-js`. Until the bundle is present, the Explorer falls back to
-showing the form schema as JSON.
+`bpmn-js`/`dmn-js`. Until the viewer bundle is present, the Explorer falls back
+to showing the form schema as JSON.
 
 ## Expected files
 
-Place these two files in this directory (names matter — they are referenced by
-`internal/server/web/templates/cosmos.html` in `loadFormJs()`):
+Place these four files in this directory (names matter — they are referenced by
+`internal/server/web/templates/cosmos.html`):
 
 - `form-viewer.umd.js` — the UMD build of the form-js **viewer**
-- `form-js.css` — the form-js stylesheet
+- `form-js.css` — the viewer stylesheet
+- `form-editor.umd.js` — the UMD build of the form-js **editor**
+- `form-js-editor.css` — the editor stylesheet
 
 For in-place editing (ADR-0024 step 1), also add the **editor** build:
 
@@ -31,30 +33,28 @@ and supports both `createFormEditor({container, schema})` and
 
 ## How to vendor
 
-From an environment with npm/CDN access, e.g.:
+From an environment with npm/CDN access (all four files come from the same
+`@bpmn-io/form-js` umbrella package):
 
 ```sh
-# pin a version, then copy the UMD viewer build + CSS into this folder
-npm pack @bpmn-io/form-js-viewer@1   # or @bpmn-io/form-js
-# extract and copy:
-#   dist/<umd build>.js  -> form-viewer.umd.js
-#   dist/assets/form-js.css (or dist/*.css) -> form-js.css
-```
+cd internal/server/web/static/vendor/form-js
 
-Or download directly:
-
-```sh
-curl -L -o form-viewer.umd.js "https://unpkg.com/@bpmn-io/form-js-viewer@1/dist/form-viewer.umd.js"
+curl -L -o form-viewer.umd.js "https://unpkg.com/@bpmn-io/form-js@1/dist/form-viewer.umd.js"
 curl -L -o form-js.css        "https://unpkg.com/@bpmn-io/form-js@1/dist/assets/form-js.css"
+curl -L -o form-editor.umd.js "https://unpkg.com/@bpmn-io/form-js@1/dist/form-editor.umd.js"
+curl -L -o form-js-editor.css "https://unpkg.com/@bpmn-io/form-js@1/dist/assets/form-js-editor.css"
 ```
+
+Then `make build` (the embed picks up the files at build time).
 
 ## Notes
 
-- The loader probes a few global names
-  (`@bpmn-io/form-js-viewer`, `@bpmn-io/form-js`, `FormViewer`, `FormJS`) and
-  supports both the `createForm({container, schema, data})` and
-  `new Form({container}).importSchema(schema, data)` APIs. If your build exposes
-  a different global, adjust `loadFormJs()` in `cosmos.html`.
-- The editor (`@bpmn-io/form-js-editor`) can be vendored later as a second file
-  to enable in-place form editing; the viewer is enough for rendering.
+- **Viewer** global: `window.FormViewer`; exports `createForm` + `Form`.
+  The loader calls `createForm({container, schema, data})`.
+- **Editor** global: `window.FormEditor`; exports `createFormEditor` + `FormEditor`.
+  The loader calls `createFormEditor({container, schema})`, then `editor.getSchema()`
+  on save.
+- The editor (`form-editor.umd.js`) is only loaded on demand when the user clicks
+  "Schema bearbeiten" in the user-interface detail panel — the viewer is always
+  loaded for rendering.
 - Keep the version pinned; bump deliberately (see ADR-0024 `engine_version`).
