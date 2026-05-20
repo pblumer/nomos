@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	mcphttp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/nomos/nomos/internal/app"
@@ -174,12 +175,13 @@ func (h *handler) apiMounts(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Endpoint string `json:"endpoint"`
 			Label    string `json:"label"`
+			Token    string `json:"token"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
 			return
 		}
-		dto, err := app.AddMount(h.cosmosPath, body.Endpoint, body.Label)
+		dto, err := app.AddMount(h.cosmosPath, body.Endpoint, body.Label, body.Token)
 		if err != nil {
 			h.apiErr(w, err)
 			return
@@ -190,9 +192,21 @@ func (h *handler) apiMounts(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// apiMountRoutes removes a server mount by id (ADR-0022 §5).
+// apiMountRoutes removes a server mount by id (ADR-0022 §5) or proxies a request
+// to a remote mounted server (ADR-0023). Proxy paths are
+// /api/v1/mounts/{id}/r/<remote-path>; the local server forwards the request to
+// http://{endpoint}/<remote-path> with the mount token as X-API-Key.
 func (h *handler) apiMountRoutes(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/api/v1/mounts/")
+	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/mounts/")
+	if i := strings.Index(rest, "/r/"); i >= 0 {
+		h.proxyMount(w, r, rest[:i], rest[i+len("/r/"):])
+		return
+	}
+	if id, ok := strings.CutSuffix(rest, "/r"); ok {
+		h.proxyMount(w, r, id, "")
+		return
+	}
+	id := rest
 	if id == "" || strings.Contains(id, "/") {
 		http.NotFound(w, r)
 		return
@@ -206,6 +220,54 @@ func (h *handler) apiMountRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+var mountProxyClient = &http.Client{Timeout: 10 * time.Second}
+
+func isMutating(method string) bool {
+	switch method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+		return true
+	}
+	return false
+}
+
+func (h *handler) proxyMount(w http.ResponseWriter, r *http.Request, mountID, remotePath string) {
+	endpoint, token, err := app.MountTarget(h.cosmosPath, mountID)
+	if err != nil {
+		h.apiErr(w, err)
+		return
+	}
+	if isMutating(r.Method) && token == "" {
+		h.apiErr(w, app.Error(app.CodeMountNotAuthenticated, "mount has no token; writes to this server are not allowed", http.StatusForbidden, nil))
+		return
+	}
+	target := "http://" + endpoint + "/" + remotePath
+	if r.URL.RawQuery != "" {
+		target += "?" + r.URL.RawQuery
+	}
+	req, err := http.NewRequestWithContext(r.Context(), r.Method, target, r.Body)
+	if err != nil {
+		h.apiErr(w, app.Error(app.CodeInternalError, err.Error(), http.StatusBadGateway, err))
+		return
+	}
+	if ct := r.Header.Get("Content-Type"); ct != "" {
+		req.Header.Set("Content-Type", ct)
+	}
+	if token != "" {
+		req.Header.Set("X-API-Key", token)
+	}
+	resp, err := mountProxyClient.Do(req)
+	if err != nil {
+		h.apiErr(w, app.Error(app.CodeInternalError, "remote server unreachable: "+err.Error(), http.StatusBadGateway, err))
+		return
+	}
+	defer resp.Body.Close()
+	if ct := resp.Header.Get("Content-Type"); ct != "" {
+		w.Header().Set("Content-Type", ct)
+	}
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
 }
 func (h *handler) writeOrErr(w http.ResponseWriter, dto any, err error) {
 	if err != nil {

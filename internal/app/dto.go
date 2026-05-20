@@ -36,6 +36,7 @@ type ServerDTO struct {
 	Endpoint        string `json:"endpoint"`
 	Label           string `json:"label,omitempty"`
 	Local           bool   `json:"local"`
+	Authenticated   bool   `json:"authenticated"`
 	Status          string `json:"status,omitempty"`
 	RepositoryCount int    `json:"repositoryCount"`
 }

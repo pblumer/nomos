@@ -29,7 +29,24 @@ type Mount struct {
 	ID       string `yaml:"id" json:"id"`
 	Endpoint string `yaml:"endpoint" json:"endpoint"`
 	Label    string `yaml:"label,omitempty" json:"label,omitempty"`
-	Local    bool   `yaml:"-" json:"local"`
+	// Token is the remote server's API key, sent as X-API-Key when proxying
+	// writes (ADR-0023). It is never serialized to API responses.
+	Token string `yaml:"token,omitempty" json:"-"`
+	Local bool   `yaml:"-" json:"local"`
+}
+
+// Find returns the persisted mount with the given id.
+func (s *Store) Find(id string) (Mount, error) {
+	mf, err := s.load()
+	if err != nil {
+		return Mount{}, err
+	}
+	for _, m := range mf.Mounts {
+		if m.ID == id {
+			return m, nil
+		}
+	}
+	return Mount{}, fmt.Errorf("%w: %s", ErrNotFound, id)
 }
 
 // Resolver yields the configured server mounts. Implementations may read a

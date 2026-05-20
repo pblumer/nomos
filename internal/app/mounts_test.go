@@ -17,7 +17,7 @@ func TestListAndAddMounts(t *testing.T) {
 		t.Fatalf("expected only local mount, got %+v", mounts.Mounts)
 	}
 
-	if _, err := AddMount(p, "nomos.blumer.cloud:7373", "Prod"); err != nil {
+	if _, err := AddMount(p, "nomos.blumer.cloud:7373", "Prod", ""); err != nil {
 		t.Fatal(err)
 	}
 	mounts, _ = ListMounts(p)
@@ -41,7 +41,7 @@ func TestBuildExplorerTreeAggregatesRemoteMount(t *testing.T) {
 	defer remote.Close()
 	endpoint := strings.TrimPrefix(remote.URL, "http://")
 
-	if _, err := AddMount(p, endpoint, "Remote"); err != nil {
+	if _, err := AddMount(p, endpoint, "Remote", ""); err != nil {
 		t.Fatal(err)
 	}
 	tree, err := BuildExplorerTree(p)
@@ -62,7 +62,7 @@ func TestBuildExplorerTreeAggregatesRemoteMount(t *testing.T) {
 
 func TestBuildExplorerTreeDegradesUnreachableMount(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if _, err := AddMount(p, "127.0.0.1:9", "Down"); err != nil {
+	if _, err := AddMount(p, "127.0.0.1:9", "Down", ""); err != nil {
 		t.Fatal(err)
 	}
 	tree, err := BuildExplorerTree(p)

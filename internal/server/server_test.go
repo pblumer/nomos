@@ -290,6 +290,59 @@ func TestMountsAPICRUD(t *testing.T) {
 	}
 }
 
+func TestMountProxyForwardsTokenAndBlocksUnauthenticated(t *testing.T) {
+	var gotKey, gotMethod string
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotKey = r.Header.Get("X-API-Key")
+		gotMethod = r.Method
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	defer remote.Close()
+	endpoint := strings.TrimPrefix(remote.URL, "http://")
+
+	h := NewHandler(createTestCosmos(t))
+	if rr := postJSON(h, "/api/v1/mounts", `{"endpoint":"`+endpoint+`","token":"secret"}`); rr.Code != 201 {
+		t.Fatalf("add authenticated mount status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	var list struct {
+		Mounts []struct {
+			ID            string `json:"id"`
+			Local         bool   `json:"local"`
+			Authenticated bool   `json:"authenticated"`
+		} `json:"mounts"`
+	}
+	if err := json.Unmarshal(get(h, "/api/v1/mounts").Body.Bytes(), &list); err != nil {
+		t.Fatal(err)
+	}
+	var id string
+	for _, m := range list.Mounts {
+		if !m.Local {
+			id = m.ID
+			if !m.Authenticated {
+				t.Fatal("expected mount to report authenticated")
+			}
+		}
+	}
+	if id == "" {
+		t.Fatal("remote mount id not found")
+	}
+	if rr := postJSON(h, "/api/v1/mounts/"+id+"/r/api/v1/domains", `{"dns":"x.example"}`); rr.Code != 201 {
+		t.Fatalf("proxy POST status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if gotKey != "secret" || gotMethod != "POST" {
+		t.Fatalf("proxy did not forward correctly: key=%q method=%q", gotKey, gotMethod)
+	}
+
+	if rr := postJSON(h, "/api/v1/mounts", `{"endpoint":"127.0.0.1:9"}`); rr.Code != 201 {
+		t.Fatalf("add unauthenticated mount status=%d", rr.Code)
+	}
+	if rr := postJSON(h, "/api/v1/mounts/127-0-0-1-9/r/api/v1/domains", `{}`); rr.Code != 403 {
+		t.Fatalf("write to unauthenticated mount status=%d, want 403", rr.Code)
+	}
+}
+
 func TestCosmosExplorerRendersServerAndRepository(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	rr := get(h, "/cosmos")
