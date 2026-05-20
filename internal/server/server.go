@@ -373,7 +373,8 @@ func (h *handler) apiFolderRoutes(w http.ResponseWriter, r *http.Request) {
 		dto, err := app.RenameFolder(h.cosmosPath, rest, body.Label)
 		h.writeOrErr(w, dto, err)
 	case http.MethodDelete:
-		if err := app.DeleteFolder(h.cosmosPath, rest); err != nil {
+		recursive := r.URL.Query().Get("recursive") == "true" || r.URL.Query().Get("force") == "true"
+		if err := app.DeleteFolder(h.cosmosPath, rest, recursive); err != nil {
 			h.apiErr(w, err)
 			return
 		}
