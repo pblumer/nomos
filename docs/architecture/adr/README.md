@@ -34,6 +34,7 @@ ADRs record significant architectural and technology decisions. Each ADR capture
 | [ADR-0024](ADR-0024-DRAFT-declarative-view-artifacts.md) | Deklarative View-/Form-Artefakte und lokaler Renderer | Proposed |
 | [ADR-0025](ADR-0025-DRAFT-server-discovery-ping.md) | Server-Discovery via PING (1-Hop-Peer-Gossip) | Proposed |
 | [ADR-0026](ADR-0026-DRAFT-domains-as-derived-naming-and-folders.md) | Domänen als abgeleitetes Naming, Ordner als Nomos-Namensräume | Proposed |
+| [ADR-0027](ADR-0027-DRAFT-folder-namespace-model.md) | Ordner-Modell als Namensraum in Nomos | Proposed |
 
 ## Superseded / legacy stubs
 
