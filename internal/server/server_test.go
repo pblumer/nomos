@@ -334,6 +334,12 @@ func TestMountProxyForwardsTokenAndBlocksUnauthenticated(t *testing.T) {
 	if gotKey != "secret" || gotMethod != "POST" {
 		t.Fatalf("proxy did not forward correctly: key=%q method=%q", gotKey, gotMethod)
 	}
+	if rr := get(h, "/api/v1/mounts/"+id+"/r/api/v1/cosmos"); rr.Code != 201 {
+		t.Fatalf("proxy GET status=%d", rr.Code)
+	}
+	if gotMethod != "GET" {
+		t.Fatalf("read not forwarded as GET: %q", gotMethod)
+	}
 
 	if rr := postJSON(h, "/api/v1/mounts", `{"endpoint":"127.0.0.1:9"}`); rr.Code != 201 {
 		t.Fatalf("add unauthenticated mount status=%d", rr.Code)
