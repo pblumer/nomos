@@ -356,7 +356,10 @@ Startet einen HTTP-Server.
 
 **Environment:**
 - `NOMOS_DOMAIN` – Öffentliche Domäne, unter der der lokale Server im Cosmos
-  Explorer erscheint (z. B. `nomos.blumer.cloud`). Ohne diese Variable wird der
+  Explorer erscheint (z. B. `nomos.blumer.cloud`). **Optional:** Ist die Variable
+  nicht gesetzt, wird die Domäne automatisch aus dem `Host`-Header der Anfrage
+  erkannt (also der Domäne, über die du den Server im Browser aufrufst). Lässt
+  sich die Domäne weder per Variable noch per Host verifizieren, wird der
   Maschinen-Hostname verwendet – in einem Container ist das die Container-ID
   (z. B. `56afaec69c76`). Eine echte DNS-Domäne wird in der DNS-Hierarchie
   einsortiert (cloud → blumer → nomos) statt unter `local` – **aber nur, wenn

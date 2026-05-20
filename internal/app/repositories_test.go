@@ -81,6 +81,39 @@ func TestBuildExplorerTreePlacesLocalServerUnderDomain(t *testing.T) {
 	}
 }
 
+func TestBuildExplorerTreeAutoDetectsDomainFromHost(t *testing.T) {
+	// No NOMOS_DOMAIN: the public domain is taken from the request Host header
+	// (with port) and honored once ownership is provable.
+	t.Setenv("NOMOS_DOMAIN", "")
+	stubDomainOwnership(t, "nomos.blumer.cloud")
+	tree, err := BuildExplorerTreeForHost(createAppTestCosmos(t), "nomos.blumer.cloud:443")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cloud := findTreeNode(tree.Root, "dns", "cloud")
+	if cloud == nil || findTreeNode(*cloud, "dns", "blumer") == nil {
+		t.Fatal("Host header should auto-place the verified domain in the DNS hierarchy")
+	}
+	if findTreeNode(tree.Root, "dns", "local") != nil {
+		t.Fatal("server should not also appear under 'local'")
+	}
+}
+
+func TestBuildExplorerTreeIgnoresUnverifiedHost(t *testing.T) {
+	t.Setenv("NOMOS_DOMAIN", "")
+	stubDomainOwnership(t, "") // host header not provable
+	tree, err := BuildExplorerTreeForHost(createAppTestCosmos(t), "nomos.blumer.cloud")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if findTreeNode(tree.Root, "dns", "cloud") != nil {
+		t.Fatal("an unverified Host header must not be promoted")
+	}
+	if findTreeNode(tree.Root, "dns", "local") == nil {
+		t.Fatal("expected fallback to the 'local' branch")
+	}
+}
+
 func TestBuildExplorerTreeVerifiesViaParentZone(t *testing.T) {
 	t.Setenv("NOMOS_DOMAIN", "nomos.blumer.cloud")
 	// Only the registrable parent zone carries the record.

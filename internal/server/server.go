@@ -1984,7 +1984,7 @@ func (h *handler) cosmosPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	doc, _ := app.DoctorCosmos(h.cosmosPath)
-	ns, _ := app.BuildExplorerTree(h.cosmosPath)
+	ns, _ := app.BuildExplorerTreeForHost(h.cosmosPath, r.Host)
 	bp, _ := app.ListBlueprints(h.cosmosPath)
 	domains, _ := app.ListDomains(h.cosmosPath)
 	h.page(w, "cosmos", map[string]any{

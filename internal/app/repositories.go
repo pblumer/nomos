@@ -60,7 +60,14 @@ const LocalServerEndpoint = "localhost:7373"
 // a repository level is inserted (Variant 3). Unreachable remote servers degrade
 // to an "offline" marker.
 func BuildExplorerTree(path string) (NamespaceTreeDTO, error) {
-	mounts, err := ListMounts(path)
+	return BuildExplorerTreeForHost(path, "")
+}
+
+// BuildExplorerTreeForHost is BuildExplorerTree with an optional request Host
+// header used to auto-detect the local server's public domain when NOMOS_DOMAIN
+// is unset (see localDisplayEndpoint).
+func BuildExplorerTreeForHost(path, hostHint string) (NamespaceTreeDTO, error) {
+	mounts, err := ListMountsForHost(path, hostHint)
 	if err != nil {
 		return NamespaceTreeDTO{}, err
 	}
