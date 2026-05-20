@@ -11,10 +11,12 @@ services:
     environment:
       COSMOS_PATH: /cosmos/data
       NOMOS_LISTEN: 0.0.0.0:7373
-      # Public domain shown in the Cosmos Explorer instead of the container
-      # hostname. Only honored once ownership is proven via a TXT record, either
-      # on the domain itself (_nomos.nomos.blumer.cloud = "nomos-domain=nomos.blumer.cloud")
-      # or on a parent zone (_nomos.blumer.cloud = "nomos-domain=blumer.cloud").
+      # Optional: public domain shown in the Cosmos Explorer instead of the
+      # container hostname. When unset, the domain is auto-detected from the
+      # request Host header. Either way it is only honored once ownership is
+      # proven via a TXT record, on the domain itself
+      # (_nomos.nomos.blumer.cloud = "nomos-domain=nomos.blumer.cloud") or on a
+      # parent zone (_nomos.blumer.cloud = "nomos-domain=blumer.cloud").
       # Otherwise it falls back to the hostname under "local".
       NOMOS_DOMAIN: nomos.blumer.cloud
     restart: unless-stopped
