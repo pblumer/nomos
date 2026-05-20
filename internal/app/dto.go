@@ -28,6 +28,17 @@ type RepositoriesDTO struct {
 	Repositories []RepositoryDTO `json:"repositories"`
 }
 
+// ServerDTO describes a Nomos server mounted in the Cosmos Explorer tree
+// (ADR-0022 §1). The server answers on its endpoint (port 7373) and manages the
+// repositories beneath it.
+type ServerDTO struct {
+	Endpoint        string `json:"endpoint"`
+	Label           string `json:"label,omitempty"`
+	Local           bool   `json:"local"`
+	Status          string `json:"status,omitempty"`
+	RepositoryCount int    `json:"repositoryCount"`
+}
+
 type NamespaceDTO struct {
 	Canonical       string   `json:"canonical"`
 	CanonicalName   string   `json:"canonicalName"`
@@ -231,6 +242,8 @@ type NamespaceTreeNodeDTO struct {
 	TreeTarget           string                     `json:"treeTarget,omitempty"`
 	MethodName           string                     `json:"methodName,omitempty"`
 	Decision             *DecisionDTO               `json:"decision,omitempty"`
+	Server               *ServerDTO                 `json:"server,omitempty"`
+	Repository           *RepositoryDTO             `json:"repository,omitempty"`
 	Capability           *ServiceCapabilityDTO      `json:"capability,omitempty"`
 	DataObject           *ServiceDataObjectDTO      `json:"dataObject,omitempty"`
 	UserInterface        *ServiceUserInterfaceDTO   `json:"userInterface,omitempty"`

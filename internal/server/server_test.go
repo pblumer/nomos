@@ -258,6 +258,15 @@ func TestRepositoriesAPIReturnsLocalDefault(t *testing.T) {
 	}
 }
 
+func TestCosmosExplorerRendersServerAndRepository(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	rr := get(h, "/cosmos")
+	if rr.Code != 200 {
+		t.Fatalf("status=%d", rr.Code)
+	}
+	hasAll(t, rr.Body.String(), `data-kind="server"`, "localhost:7373", `data-kind="repository"`, "Namespaces")
+}
+
 func TestRepositoryScopedReadsMatchAliases(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	for _, p := range [][2]string{

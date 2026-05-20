@@ -44,3 +44,42 @@ func GetRepository(path, id string) (RepositoryDTO, error) {
 	}
 	return RepositoryDTO{}, Error(CodeRepositoryNotFound, "Repository not found: "+id, http.StatusNotFound, nil)
 }
+
+// LocalServerEndpoint is the conventional endpoint of the local Nomos server
+// (ADR-0015 default port 7373).
+const LocalServerEndpoint = "localhost:7373"
+
+// BuildExplorerTree wraps the namespace tree under the local server and its
+// repositories for the Cosmos Explorer (ADR-0022 §1/§6). The plain namespace
+// tree (BuildNamespaceTree) is left unchanged for the namespace/domain views.
+// The server and repository levels are always shown.
+func BuildExplorerTree(path string) (NamespaceTreeDTO, error) {
+	ns, err := BuildNamespaceTree(path)
+	if err != nil {
+		return NamespaceTreeDTO{}, err
+	}
+	repos, err := ListRepositories(path)
+	if err != nil {
+		return NamespaceTreeDTO{}, err
+	}
+	content := ns.Root.Children
+	server := NamespaceTreeNodeDTO{
+		Label:          LocalServerEndpoint,
+		Kind:           "server",
+		CanOpenDetails: true,
+		Server:         &ServerDTO{Endpoint: LocalServerEndpoint, Local: true, Status: "online", RepositoryCount: len(repos.Repositories)},
+	}
+	for i := range repos.Repositories {
+		r := repos.Repositories[i]
+		server.Children = append(server.Children, NamespaceTreeNodeDTO{
+			Label:          r.Name,
+			Kind:           "repository",
+			CanOpenDetails: true,
+			Repository:     &r,
+			Children:       content,
+		})
+	}
+	root := ns.Root
+	root.Children = []NamespaceTreeNodeDTO{server}
+	return NamespaceTreeDTO{Root: root}, nil
+}
