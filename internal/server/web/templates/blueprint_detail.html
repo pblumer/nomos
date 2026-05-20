@@ -103,9 +103,8 @@
   </div>
   <div class="bp-actions">
     <a class="btn btn-secondary" href="/api/v1/blueprints/{{.Blueprint.ID}}"><span class="mi" style="font-family:'Material Symbols Outlined'">code</span> API JSON</a>
-    {{if .Blueprint.OfferedBy}}<a class="btn btn-secondary" href="/cosmos?selected=product:{{.Blueprint.ID}}"><span class="mi" style="font-family:'Material Symbols Outlined'">account_tree</span> Im Cosmos öffnen</a>{{end}}
+    {{if eq .Blueprint.Type "product_blueprint"}}<a class="btn btn-secondary" href="/cosmos?selected=product:{{.Blueprint.ID}}"><span class="mi" style="font-family:'Material Symbols Outlined'">account_tree</span> Im Cosmos öffnen</a>{{end}}
     {{if eq .Blueprint.Type "product_blueprint"}}
-    <a class="btn btn-secondary" href="#move-product" onclick="document.getElementById('move-product').open=true"><span class="mi" style="font-family:'Material Symbols Outlined'">drive_file_move</span> Produkt verschieben</a>
     <button class="btn btn-primary" id="btn-add-svc"><span class="mi" style="font-family:'Material Symbols Outlined'">add_circle</span> Service hinzufügen</button>
     {{end}}
   </div>
@@ -124,8 +123,6 @@
         <dt>Status</dt><dd><span class="badge badge-{{.Blueprint.Status}}">{{if .Blueprint.Status}}{{.Blueprint.Status}}{{else}}draft{{end}}</span></dd>
         <dt>Owner</dt><dd>{{if .Blueprint.Owner}}{{.Blueprint.Owner}}{{else}}<span style="color:#94a3b8">—</span>{{end}}</dd>
         {{if .Blueprint.Summary}}<dt>Zusammenfassung</dt><dd>{{.Blueprint.Summary}}</dd>{{end}}
-        {{if .Blueprint.OfferedBy}}<dt>Angeboten von</dt><dd><code>{{.Blueprint.OfferedBy}}</code></dd><dt>Fachlicher Ort</dt><dd>{{if .Blueprint.PrimaryHome}}{{.Blueprint.PrimaryHome}}{{else}}{{.Blueprint.OfferedBy}} / Products / {{.Blueprint.Name}}{{end}}<br><a href="/cosmos?selected=product:{{.Blueprint.ID}}">In Domäne öffnen</a></dd>{{end}}
-        {{if .Blueprint.OwningDomain}}<dt>Verantwortliche Domäne</dt><dd><code>{{.Blueprint.OwningDomain}}</code></dd>{{end}}
         <dt>Datei</dt><dd><code>{{.Blueprint.Path}}</code></dd>
         {{if .Blueprint.NamespaceServiceRef}}<dt>Namespace-Service</dt><dd><code>{{.Blueprint.NamespaceServiceRef}}</code></dd>{{end}}
       </dl>
@@ -208,7 +205,7 @@
       <h3><span class="mi">account_tree</span> Erfüllende Services
         <span style="font-size:.75rem;background:#eef2ff;color:#4338ca;padding:1px 8px;border-radius:8px;font-weight:600;margin-left:.3rem">{{len .Blueprint.Fulfillment.RequiredServices}}</span>
       </h3>
-      <p class="section-intro">Diese Services werden benötigt, um das Produkt bereitzustellen. Jede Karte zeigt Rolle, Pflichtstatus und ob der Service in derselben oder in einer anderen Domäne liegt.</p>
+      <p class="section-intro">Diese Services werden benötigt, um das Produkt bereitzustellen. Jede Karte zeigt Rolle und Pflichtstatus.</p>
       <div class="svc-list">
         {{range .Blueprint.Fulfillment.RequiredServices}}
         <div class="svc-card fulfillment-card">
@@ -218,21 +215,20 @@
             <div class="svc-card-sub">Rolle: <strong>{{.Role}}</strong> · {{if .Required}}Pflichtservice{{else}}Optional{{end}}{{if .Description}} · {{.Description}}{{end}}</div>
             <div class="svc-card-stats">
               <span class="stat-chip {{if eq .ResolutionStatus "resolved"}}ok{{else}}warn{{end}}">{{if eq .ResolutionStatus "resolved"}}auflösbar{{else}}{{.ResolutionStatus}}{{end}}</span>
-              {{if .ResolvedDomain}}<span class="stat-chip">{{.ResolvedDomain}} / {{.ResolvedService}}</span>{{end}}
-              <span class="stat-chip {{if .CrossDomain}}warn{{else if eq .ResolutionStatus "resolved"}}ok{{end}}">{{if .CrossDomain}}domänenübergreifend{{else}}{{.FulfillmentType}}{{end}}</span>
+              {{if .ResolvedService}}<span class="stat-chip">{{.ResolvedService}}</span>{{end}}
+              {{if .FulfillmentType}}<span class="stat-chip {{if eq .ResolutionStatus "resolved"}}ok{{end}}">{{.FulfillmentType}}</span>{{end}}
               {{if .SLA}}<span class="stat-chip ok">SLA {{if .SLA.Target}}{{.SLA.Target}}{{else}}{{.SLA.Name}}{{end}}</span>{{end}}
               {{if .OLA}}<span class="stat-chip ok">OLA {{if .OLA.Target}}{{.OLA.Target}}{{else}}{{.OLA.Name}}{{end}}</span>{{end}}
             </div>
-            {{if .CrossDomain}}<div class="svc-card-sub">Hinweis: Das Produkt wird von {{$.Blueprint.OfferedBy}} angeboten und nutzt einen Service der Domäne {{.ResolvedDomain}}.</div>{{end}}
           </div>
         </div>
         {{else}}<div class="svc-empty">Noch keine erfüllenden Services definiert.</div>{{end}}
       </div>
       <form method="post" action="/products/fulfillment" class="bp-form">
         <input type="hidden" name="product_id" value="{{.Blueprint.ID}}">
-        <div class="help-box">Service-Referenz im Format <code>domain/service</code> eintragen, zum Beispiel <code>identity.blumer.cloud/user-account</code>.</div>
+        <div class="help-box">Service-Referenz eintragen, zum Beispiel <code>user-account</code>.</div>
         <div class="bp-form-grid">
-          <label>Service-Referenz<input name="service_ref" placeholder="identity.blumer.cloud/user-account" required></label>
+          <label>Service-Referenz<input name="service_ref" placeholder="user-account" required></label>
           <label>Rolle<select name="role"><option>primary</option><option>supporting</option><option>optional</option><option>dependency</option></select></label>
         </div>
         <label>Beschreibung<input name="description" placeholder="Warum wird dieser Service benötigt?"></label>
@@ -240,23 +236,6 @@
         <button class="btn btn-primary" type="submit">Fulfillment Service hinzufügen</button>
       </form>
     </div>
-    <div class="bp-card">
-      <details id="move-product">
-        <summary><span class="mi">drive_file_move</span> Produkt verschieben</summary>
-        <p class="section-intro" style="margin:.7rem 0 .85rem">Ändert <code>offered_by</code> auf die Zieldomäne. Der Catalog Index bleibt unverändert.</p>
-        <form method="post" action="/products/move" class="bp-form" style="margin-top:0">
-          <input type="hidden" name="product_id" value="{{.Blueprint.ID}}">
-          <label>Zieldomäne
-            <select name="target_domain" required>
-              {{range .Domains}}<option value="{{.Canonical}}" {{if eq .Canonical $.Blueprint.OfferedBy}}disabled{{end}}>{{.Canonical}}{{if .Namespace.DisplayPath}} — {{.Namespace.DisplayPath}}{{end}}{{if eq .Canonical $.Blueprint.OfferedBy}} (aktuell){{end}}</option>{{end}}
-            </select>
-          </label>
-          <label class="check"><input type="checkbox" name="update_owning_domain" {{if eq .Blueprint.OwningDomain .Blueprint.OfferedBy}}checked{{end}}> Owning domain ebenfalls auf die Zieldomäne setzen</label>
-          <button class="btn btn-primary" type="submit">Verschieben</button>
-        </form>
-      </details>
-    </div>
-
     <div class="bp-card">
       <h3><span class="mi">settings</span> Verknüpfte Service Blueprints
         <span style="font-size:.75rem;background:#eef2ff;color:#4338ca;padding:1px 8px;border-radius:8px;font-weight:600;margin-left:.3rem">{{len .ServiceBlueprints}}</span>
