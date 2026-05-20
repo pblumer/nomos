@@ -38,6 +38,7 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/docs", h.swaggerUI)
 	mux.HandleFunc("/api/v1/cosmos", h.apiCosmos)
 	mux.HandleFunc("/api/v1/repositories", h.apiRepositories)
+	mux.HandleFunc("/api/v1/repositories/", h.apiRepositoryRoutes)
 	mux.HandleFunc("/api/v1/domains", h.apiDomains)
 	mux.HandleFunc("/api/v1/domains/", h.apiDomainRoutes)
 	mux.HandleFunc("/api/v1/services/refs", h.apiServiceRefs)
@@ -103,6 +104,60 @@ func (h *handler) apiRepositories(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dto, err := app.ListRepositories(h.cosmosPath)
+	if err != nil {
+		h.apiErr(w, err)
+		return
+	}
+	writeJSON(w, 200, dto)
+}
+
+// apiRepositoryRoutes serves repository-scoped reads (ADR-0022 §2). It resolves
+// {repo} to its workspace and delegates to the same app read functions the
+// non-scoped aliases use, so /api/v1/repositories/default/cosmos and
+// /api/v1/cosmos return identical payloads.
+func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/repositories/")
+	parts := strings.Split(rest, "/")
+	repoID := parts[0]
+	if repoID == "" {
+		http.NotFound(w, r)
+		return
+	}
+	repoDTO, err := app.GetRepository(h.cosmosPath, repoID)
+	if err != nil {
+		h.apiErr(w, err)
+		return
+	}
+	loc := repoDTO.Location
+	switch resource := strings.Join(parts[1:], "/"); {
+	case resource == "":
+		writeJSON(w, 200, repoDTO)
+	case resource == "cosmos":
+		dto, err := app.GetCosmos(loc)
+		h.writeOrErr(w, dto, err)
+	case resource == "namespaces":
+		dto, err := app.BuildNamespaceTree(loc)
+		h.writeOrErr(w, dto, err)
+	case resource == "domains":
+		dto, err := app.ListDomains(loc)
+		h.writeOrErr(w, dto, err)
+	case strings.HasPrefix(resource, "domains/"):
+		domain := strings.TrimPrefix(resource, "domains/")
+		if domain == "" || strings.Contains(domain, "/") {
+			http.NotFound(w, r)
+			return
+		}
+		dto, err := app.GetDomain(loc, domain)
+		h.writeOrErr(w, dto, err)
+	default:
+		http.NotFound(w, r)
+	}
+}
+func (h *handler) writeOrErr(w http.ResponseWriter, dto any, err error) {
 	if err != nil {
 		h.apiErr(w, err)
 		return

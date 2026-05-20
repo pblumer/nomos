@@ -23,9 +23,14 @@ var openAPISpec = map[string]any{
 		{"name": "Verification", "description": "Domain verification operations"},
 	},
 	"paths": map[string]any{
-		"/health":              pathItem("System", "Health check", "Returns Nomos service status and version.", nil, schemaRef("HealthResponse")),
-		"/api/v1/cosmos":       pathItem("Cosmos", "Get Cosmos", "Returns the current Cosmos metadata and aggregate counts.", nil, schemaRef("Cosmos")),
-		"/api/v1/repositories": pathItem("Repositories", "List repositories", "Returns the git-first repositories managed by this server (ADR-0022). The local server returns its single default repository.", nil, schemaRef("RepositoriesResponse")),
+		"/health":                                      pathItem("System", "Health check", "Returns Nomos service status and version.", nil, schemaRef("HealthResponse")),
+		"/api/v1/cosmos":                               pathItem("Cosmos", "Get Cosmos", "Returns the current Cosmos metadata and aggregate counts.", nil, schemaRef("Cosmos")),
+		"/api/v1/repositories":                         pathItem("Repositories", "List repositories", "Returns the git-first repositories managed by this server (ADR-0022). The local server returns its single default repository.", nil, schemaRef("RepositoriesResponse")),
+		"/api/v1/repositories/{repo}":                  pathItem("Repositories", "Get repository", "Returns metadata for one repository.", []map[string]any{pathParam("repo", "Repository id.")}, schemaRef("Repository")),
+		"/api/v1/repositories/{repo}/cosmos":           pathItem("Repositories", "Get repository Cosmos", "Repository-scoped Cosmos summary; equivalent to /api/v1/cosmos for the default repository.", []map[string]any{pathParam("repo", "Repository id.")}, schemaRef("Cosmos")),
+		"/api/v1/repositories/{repo}/namespaces":       pathItem("Repositories", "Get repository namespace tree", "Repository-scoped namespace tree.", []map[string]any{pathParam("repo", "Repository id.")}, schemaRef("NamespaceTree")),
+		"/api/v1/repositories/{repo}/domains":          pathItem("Repositories", "List repository domains", "Repository-scoped domain list.", []map[string]any{pathParam("repo", "Repository id.")}, schemaRef("DomainsResponse")),
+		"/api/v1/repositories/{repo}/domains/{domain}": pathItem("Repositories", "Get repository domain", "Repository-scoped domain detail.", []map[string]any{pathParam("repo", "Repository id."), pathParam("domain", "Canonical domain name.")}, schemaRef("Domain")),
 		"/api/v1/domains": map[string]any{
 			"get":  operation("Domains", "List domains", "Returns all known domains.", nil, schemaRef("DomainsResponse")),
 			"post": operationWithRequest("Domains", "Create domain", "Creates a domain in the local Cosmos.", nil, formRequestBody(map[string]any{"dns": stringSchema("Canonical DNS name."), "owner": stringSchema("Domain owner."), "force": map[string]any{"type": "boolean"}}), map[string]any{"201": response("Created domain.", schemaRef("Domain")), "400": errorResponse(), "409": errorResponse()}),

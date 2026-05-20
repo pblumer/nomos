@@ -258,6 +258,37 @@ func TestRepositoriesAPIReturnsLocalDefault(t *testing.T) {
 	}
 }
 
+func TestRepositoryScopedReadsMatchAliases(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+	for _, p := range [][2]string{
+		{"/api/v1/cosmos", "/api/v1/repositories/default/cosmos"},
+		{"/api/v1/namespaces", "/api/v1/repositories/default/namespaces"},
+		{"/api/v1/domains", "/api/v1/repositories/default/domains"},
+	} {
+		alias := get(h, p[0])
+		scoped := get(h, p[1])
+		if alias.Code != 200 || scoped.Code != 200 {
+			t.Fatalf("%s=%d %s=%d", p[0], alias.Code, p[1], scoped.Code)
+		}
+		if alias.Body.String() != scoped.Body.String() {
+			t.Fatalf("payload mismatch:\n%s\n%s", p[0], p[1])
+		}
+	}
+	if meta := get(h, "/api/v1/repositories/default"); meta.Code != 200 {
+		t.Fatalf("repo metadata status=%d", meta.Code)
+	} else {
+		hasAll(t, meta.Body.String(), `"id":"default"`, "filesystem")
+	}
+	if dom := get(h, "/api/v1/repositories/default/domains/identity.blumer.cloud"); dom.Code != 200 {
+		t.Fatalf("scoped domain detail status=%d", dom.Code)
+	} else {
+		hasAll(t, dom.Body.String(), "user-account")
+	}
+	if rr := get(h, "/api/v1/repositories/nope/cosmos"); rr.Code != 404 {
+		t.Fatalf("unknown repo status=%d, want 404", rr.Code)
+	}
+}
+
 func TestRESTDetailRoutesAndErrors(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	if rr := get(h, "/api/v1/domains/identity.blumer.cloud"); rr.Code != 200 {
