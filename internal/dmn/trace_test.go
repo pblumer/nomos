@@ -9,7 +9,6 @@ import (
 
 func sampleTraceInput() TraceBuildInput {
 	return TraceBuildInput{
-		Domain:          "ch.blumer.governance",
 		DecisionID:      "DEC-001",
 		DecisionName:    "Provisioning Eligibility",
 		DecisionVersion: "0.1.0",

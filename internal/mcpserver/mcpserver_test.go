@@ -20,14 +20,11 @@ func makeTestCosmos(t *testing.T) string {
 			t.Fatal(err)
 		}
 	}
-	domainDir := filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud")
-	must(os.MkdirAll(filepath.Join(domainDir, "services", "user-account"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.ServicesDir(p), "user-account"), 0o755))
 	must(os.WriteFile(storage.CosmosFile(p),
 		[]byte("id: cosmos-test\nname: Test Cosmos\nversion: 0.1.0\nstatus: draft\nowner: Test Team\n"), 0o644))
-	must(os.WriteFile(filepath.Join(domainDir, "domain.yaml"),
-		[]byte("name: identity.blumer.cloud\nowner: Identity Team\nstatus: draft\n"), 0o644))
-	must(os.WriteFile(filepath.Join(domainDir, "services", "user-account", "service.yaml"),
-		[]byte("name: user-account\nowner: Identity Team\nowned_by: identity.blumer.cloud\nstatus: draft\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.ServicesDir(p), "user-account", "service.yaml"),
+		[]byte("name: user-account\nowner: Identity Team\nstatus: draft\n"), 0o644))
 	return p
 }
 
@@ -49,39 +46,9 @@ func TestToolCosmosInfo(t *testing.T) {
 	}
 }
 
-func TestToolListDomains(t *testing.T) {
-	p := makeTestCosmos(t)
-	res, err := callTool(toolListDomains(p), emptyIn{})
-	if err != nil {
-		t.Fatalf("toolListDomains: %v", err)
-	}
-	if res == nil {
-		t.Error("expected result")
-	}
-}
-
-func TestToolGetDomain(t *testing.T) {
-	p := makeTestCosmos(t)
-	res, err := callTool(toolGetDomain(p), getDomainIn{Domain: "identity.blumer.cloud"})
-	if err != nil {
-		t.Fatalf("toolGetDomain: %v", err)
-	}
-	if res == nil {
-		t.Error("expected result")
-	}
-}
-
-func TestToolGetDomain_NotFound(t *testing.T) {
-	p := makeTestCosmos(t)
-	_, err := callTool(toolGetDomain(p), getDomainIn{Domain: "ghost.example.com"})
-	if err == nil {
-		t.Error("expected error for unknown domain")
-	}
-}
-
 func TestToolListServices(t *testing.T) {
 	p := makeTestCosmos(t)
-	res, err := callTool(toolListServices(p), listServicesIn{Domain: "identity.blumer.cloud"})
+	res, err := callTool(toolListServices(p), emptyIn{})
 	if err != nil {
 		t.Fatalf("toolListServices: %v", err)
 	}
@@ -92,7 +59,7 @@ func TestToolListServices(t *testing.T) {
 
 func TestToolGetService(t *testing.T) {
 	p := makeTestCosmos(t)
-	res, err := callTool(toolGetService(p), getServiceIn{Domain: "identity.blumer.cloud", Service: "user-account"})
+	res, err := callTool(toolGetService(p), getServiceIn{Service: "user-account"})
 	if err != nil {
 		t.Fatalf("toolGetService: %v", err)
 	}
@@ -103,7 +70,7 @@ func TestToolGetService(t *testing.T) {
 
 func TestToolGetService_NotFound(t *testing.T) {
 	p := makeTestCosmos(t)
-	_, err := callTool(toolGetService(p), getServiceIn{Domain: "identity.blumer.cloud", Service: "ghost-svc"})
+	_, err := callTool(toolGetService(p), getServiceIn{Service: "ghost-svc"})
 	if err == nil {
 		t.Error("expected error for unknown service")
 	}
@@ -122,7 +89,7 @@ func TestToolValidate(t *testing.T) {
 
 func TestToolListDecisions(t *testing.T) {
 	p := makeTestCosmos(t)
-	res, err := callTool(toolListDecisions(p), listDecisionsIn{Domain: "identity.blumer.cloud"})
+	res, err := callTool(toolListDecisions(p), emptyIn{})
 	if err != nil {
 		t.Fatalf("toolListDecisions: %v", err)
 	}
@@ -144,31 +111,11 @@ func TestToolListBlueprints(t *testing.T) {
 
 // ── write tools ───────────────────────────────────────────────────────────────
 
-func TestToolDomainAdd(t *testing.T) {
-	p := makeTestCosmos(t)
-	res, err := callTool(toolDomainAdd(p), domainAddIn{DNS: "payments.acme.com", Owner: "Payments Team"})
-	if err != nil {
-		t.Fatalf("toolDomainAdd: %v", err)
-	}
-	if res == nil {
-		t.Error("expected result")
-	}
-}
-
-func TestToolDomainAdd_MissingDNS(t *testing.T) {
-	p := makeTestCosmos(t)
-	_, err := callTool(toolDomainAdd(p), domainAddIn{DNS: ""})
-	if err == nil {
-		t.Error("expected error for missing dns")
-	}
-}
-
 func TestToolServiceAdd(t *testing.T) {
 	p := makeTestCosmos(t)
 	res, err := callTool(toolServiceAdd(p), serviceAddIn{
-		Domain: "identity.blumer.cloud",
-		Name:   "new-service",
-		Owner:  "Team",
+		Name:  "new-service",
+		Owner: "Team",
 	})
 	if err != nil {
 		t.Fatalf("toolServiceAdd: %v", err)
@@ -180,18 +127,17 @@ func TestToolServiceAdd(t *testing.T) {
 
 func TestToolServiceAdd_MissingFields(t *testing.T) {
 	p := makeTestCosmos(t)
-	_, err := callTool(toolServiceAdd(p), serviceAddIn{Domain: "", Name: ""})
+	_, err := callTool(toolServiceAdd(p), serviceAddIn{Name: ""})
 	if err == nil {
-		t.Error("expected error for missing domain/name")
+		t.Error("expected error for missing name")
 	}
 }
 
 func TestToolProductCreate(t *testing.T) {
 	p := makeTestCosmos(t)
 	res, err := callTool(toolProductCreate(p), productCreateIn{
-		Domain: "identity.blumer.cloud",
-		Name:   "My Product",
-		Owner:  "Team",
+		Name:  "My Product",
+		Owner: "Team",
 	})
 	if err != nil {
 		t.Fatalf("toolProductCreate: %v", err)
@@ -203,18 +149,17 @@ func TestToolProductCreate(t *testing.T) {
 
 func TestToolProductCreate_MissingFields(t *testing.T) {
 	p := makeTestCosmos(t)
-	_, err := callTool(toolProductCreate(p), productCreateIn{Domain: "", Name: ""})
+	_, err := callTool(toolProductCreate(p), productCreateIn{Name: ""})
 	if err == nil {
-		t.Error("expected error for missing domain/name")
+		t.Error("expected error for missing name")
 	}
 }
 
 func TestToolDecisionCreate(t *testing.T) {
 	p := makeTestCosmos(t)
 	res, err := callTool(toolDecisionCreate(p), decisionCreateIn{
-		Domain: "identity.blumer.cloud",
-		Name:   "DNS Check",
-		Owner:  "Team",
+		Name:  "DNS Check",
+		Owner: "Team",
 	})
 	if err != nil {
 		t.Fatalf("toolDecisionCreate: %v", err)
@@ -226,9 +171,9 @@ func TestToolDecisionCreate(t *testing.T) {
 
 func TestToolDecisionCreate_MissingFields(t *testing.T) {
 	p := makeTestCosmos(t)
-	_, err := callTool(toolDecisionCreate(p), decisionCreateIn{Domain: "", Name: ""})
+	_, err := callTool(toolDecisionCreate(p), decisionCreateIn{Name: ""})
 	if err == nil {
-		t.Error("expected error for missing domain/name")
+		t.Error("expected error for missing name")
 	}
 }
 
@@ -320,10 +265,9 @@ func TestToolProcessCreate(t *testing.T) {
 	p := makeTestCosmos(t)
 	// Create product first so process can reference it.
 	prodRes, err := callTool(toolProductCreate(p), productCreateIn{
-		Domain: "identity.blumer.cloud",
-		ID:     "PB-PROC-TEST-001",
-		Name:   "Process Product",
-		Owner:  "Team",
+		ID:    "PB-PROC-TEST-001",
+		Name:  "Process Product",
+		Owner: "Team",
 	})
 	if err != nil {
 		t.Fatalf("toolProductCreate: %v", err)
@@ -356,10 +300,9 @@ func TestToolProcessCreate_MissingFields(t *testing.T) {
 func TestToolProcessStepAdd(t *testing.T) {
 	p := makeTestCosmos(t)
 	if _, err := callTool(toolProductCreate(p), productCreateIn{
-		Domain: "identity.blumer.cloud",
-		ID:     "PB-STEP-TEST-001",
-		Name:   "Step Product",
-		Owner:  "Team",
+		ID:    "PB-STEP-TEST-001",
+		Name:  "Step Product",
+		Owner: "Team",
 	}); err != nil {
 		t.Fatalf("toolProductCreate: %v", err)
 	}
@@ -402,10 +345,9 @@ func TestToolProcessStepAdd_MissingFields(t *testing.T) {
 func TestToolProcessStepAdd_BusinessRuleWithDecision(t *testing.T) {
 	p := makeTestCosmos(t)
 	if _, err := callTool(toolProductCreate(p), productCreateIn{
-		Domain: "identity.blumer.cloud",
-		ID:     "PB-BRT-TEST-001",
-		Name:   "BRT Product",
-		Owner:  "Team",
+		ID:    "PB-BRT-TEST-001",
+		Name:  "BRT Product",
+		Owner: "Team",
 	}); err != nil {
 		t.Fatalf("toolProductCreate: %v", err)
 	}

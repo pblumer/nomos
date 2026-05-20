@@ -3,15 +3,14 @@ package app
 import "github.com/nomos/nomos/internal/model"
 
 type CosmosDTO struct {
-	Path               string `json:"path"`
-	ID                 string `json:"id"`
-	Name               string `json:"name"`
-	Version            string `json:"version"`
-	Status             string `json:"status"`
-	Owner              string `json:"owner"`
-	DomainCount        int    `json:"domainCount"`
-	VirtualDomainCount int    `json:"virtualDomainCount"`
-	ServiceCount       int    `json:"serviceCount"`
+	Path          string `json:"path"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Version       string `json:"version"`
+	Status        string `json:"status"`
+	Owner         string `json:"owner"`
+	ServiceCount  int    `json:"serviceCount"`
+	DecisionCount int    `json:"decisionCount"`
 }
 
 type RepositoryDTO struct {
@@ -184,11 +183,9 @@ type ViewBindingDTO struct {
 }
 
 type ServiceDTO struct {
+	ID                string                    `json:"id,omitempty"`
 	Name              string                    `json:"name"`
-	Domain            string                    `json:"domain"`
 	Owner             string                    `json:"owner"`
-	OwnedBy           string                    `json:"owned_by,omitempty"`
-	OperatedBy        []string                  `json:"operated_by,omitempty"`
 	Capabilities      []string                  `json:"capabilities,omitempty"`
 	CapabilityDefs    []ServiceCapabilityDTO    `json:"capability_defs,omitempty"`
 	DataObjects       []string                  `json:"data_objects,omitempty"`
@@ -205,7 +202,6 @@ type DomainsDTO struct {
 	Domains []DomainDTO `json:"domains"`
 }
 type ServicesDTO struct {
-	Domain   string       `json:"domain"`
 	Services []ServiceDTO `json:"services"`
 }
 
@@ -353,7 +349,6 @@ type ProductSummaryDTO struct {
 }
 
 type ServiceRefDTO struct {
-	Domain     string `json:"domain"`
 	Service    string `json:"service"`
 	ServiceRef string `json:"service_ref"`
 }
@@ -575,7 +570,6 @@ type DoctorDTO struct {
 type VerificationEvidenceDTO struct {
 	ID        string `json:"id"`
 	Type      string `json:"type"`
-	Domain    string `json:"domain"`
 	Record    string `json:"record"`
 	Status    string `json:"status"`
 	Timestamp string `json:"timestamp"`
@@ -796,9 +790,8 @@ type DecisionDTO struct {
 }
 
 type DecisionsDTO struct {
-	Domain string        `json:"domain"`
-	Items  []DecisionDTO `json:"items"`
-	Count  int           `json:"count"`
+	Items []DecisionDTO `json:"items"`
+	Count int           `json:"count"`
 }
 
 type CreateDecisionRequest struct {
@@ -841,7 +834,6 @@ type DecisionVersionDTO struct {
 
 // DecisionVersionsDTO is the response for listing a decision's version snapshots.
 type DecisionVersionsDTO struct {
-	Domain     string               `json:"domain"`
 	DecisionID string               `json:"decision_id"`
 	Current    string               `json:"current"`
 	Items      []DecisionVersionDTO `json:"items"`
@@ -850,7 +842,6 @@ type DecisionVersionsDTO struct {
 
 // DecisionScenariosDTO is the response for listing decision scenarios.
 type DecisionScenariosDTO struct {
-	Domain     string                   `json:"domain"`
 	DecisionID string                   `json:"decision_id"`
 	Count      int                      `json:"count"`
 	Items      []model.DecisionScenario `json:"items"`
@@ -858,7 +849,6 @@ type DecisionScenariosDTO struct {
 
 // DecisionTracesDTO is the response for listing decision traces.
 type DecisionTracesDTO struct {
-	Domain     string                `json:"domain"`
 	DecisionID string                `json:"decision_id"`
 	Count      int                   `json:"count"`
 	Items      []model.DecisionTrace `json:"items"`
@@ -874,7 +864,6 @@ type TraceVerifyEntryDTO struct {
 
 // DecisionTraceVerifyDTO is the response for the verify endpoint.
 type DecisionTraceVerifyDTO struct {
-	Domain     string                `json:"domain"`
 	DecisionID string                `json:"decision_id"`
 	Count      int                   `json:"count"`
 	OK         bool                  `json:"ok"`

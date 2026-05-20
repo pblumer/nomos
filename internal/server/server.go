@@ -44,16 +44,14 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/v1/mounts/", h.apiMountRoutes)
 	mux.HandleFunc("/api/v1/ping", h.apiPing)
 	mux.HandleFunc("/api/v1/discover", h.apiDiscover)
-	mux.HandleFunc("/api/v1/folders", h.apiFolders)
-	mux.HandleFunc("/api/v1/folders/", h.apiFolderRoutes)
 	mux.HandleFunc("/api/v1/index", h.apiIndex)
 	mux.HandleFunc("/api/v1/index/", h.apiIndexResolve)
-	mux.HandleFunc("/api/v1/domains", h.apiDomains)
-	mux.HandleFunc("/api/v1/domains/", h.apiDomainRoutes)
+	mux.HandleFunc("/api/v1/services", h.apiServices)
 	mux.HandleFunc("/api/v1/services/refs", h.apiServiceRefs)
-	mux.HandleFunc("/api/v1/services/", h.apiLegacyService)
+	mux.HandleFunc("/api/v1/services/", h.apiServiceRoutes)
+	mux.HandleFunc("/api/v1/decisions", h.apiDecisions)
+	mux.HandleFunc("/api/v1/decisions/", h.apiDecisionRoutes)
 	mux.HandleFunc("/api/v1/namespaces", h.apiNamespaces)
-	mux.HandleFunc("/api/v1/namespaces/", h.apiNamespaceRoutes)
 	mux.HandleFunc("/api/v1/graph", h.apiGraph)
 	mux.HandleFunc("/api/v1/validate", h.apiValidate)
 	mux.HandleFunc("/api/v1/blueprints", h.apiBlueprints)
@@ -63,18 +61,12 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/v1/instances", h.apiInstances)
 	mux.HandleFunc("/api/v1/instances/", h.apiInstanceRoutes)
 	mux.HandleFunc("/api/v1/product-instances/", h.apiProvisionServiceInstance)
-	mux.HandleFunc("/api/v1/verify/domain/", h.apiVerifyDomain)
 	mux.HandleFunc("/api/v1/servicegraphs", h.apiServicegraphs)
 	mux.HandleFunc("/api/v1/servicegraphs/", h.apiServicegraphRoutes)
 	mux.HandleFunc("/api/blueprints", h.apiBlueprints)
 	mux.HandleFunc("/api/blueprints/", h.apiBlueprintRoutes)
 	mux.HandleFunc("/api/instances", h.apiInstances)
 	mux.HandleFunc("/api/instances/", h.apiInstanceRoutes)
-	mux.HandleFunc("/domains/create", h.createTopLevelDomainPage)
-	mux.HandleFunc("/domains/create-top-level", h.createTopLevelDomainPage)
-	mux.HandleFunc("/domains/create-advanced", h.createTopLevelDomainPage)
-	mux.HandleFunc("/domains/create-child", h.createChildDomainPage)
-	mux.HandleFunc("/services/create", h.createServicePage)
 	mux.Handle("/mcp", mcphttp.NewStreamableHTTPHandler(func(_ *http.Request) *mcphttp.Server {
 		return mcpserver.New(cosmosPath)
 	}, nil))
@@ -161,17 +153,6 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 		h.writeOrErr(w, dto, err)
 	case resource == "namespaces":
 		dto, err := app.BuildNamespaceTree(loc)
-		h.writeOrErr(w, dto, err)
-	case resource == "domains":
-		dto, err := app.ListDomains(loc)
-		h.writeOrErr(w, dto, err)
-	case strings.HasPrefix(resource, "domains/"):
-		domain := strings.TrimPrefix(resource, "domains/")
-		if domain == "" || strings.Contains(domain, "/") {
-			http.NotFound(w, r)
-			return
-		}
-		dto, err := app.GetDomain(loc, domain)
 		h.writeOrErr(w, dto, err)
 	default:
 		http.NotFound(w, r)
@@ -308,82 +289,6 @@ func (h *handler) apiIndexResolve(w http.ResponseWriter, r *http.Request) {
 	h.writeOrErr(w, dto, err)
 }
 
-// apiFolders lists/creates namespace folders (ADR-0027).
-func (h *handler) apiFolders(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/api/v1/folders" {
-		http.NotFound(w, r)
-		return
-	}
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	var body struct {
-		Parent string `json:"parent"`
-		Label  string `json:"label"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
-		return
-	}
-	dto, err := app.CreateFolder(h.cosmosPath, body.Parent, body.Label)
-	if err != nil {
-		h.apiErr(w, err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, dto)
-}
-
-// apiFolderRoutes serves GET/DELETE /api/v1/folders/{canonical},
-// PUT (rename) and POST /api/v1/folders/{canonical}/move (ADR-0027).
-func (h *handler) apiFolderRoutes(w http.ResponseWriter, r *http.Request) {
-	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/folders/")
-	if rest == "" {
-		http.NotFound(w, r)
-		return
-	}
-	if canon, ok := strings.CutSuffix(rest, "/move"); ok {
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-		var body struct {
-			TargetParent string `json:"target_parent"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
-			return
-		}
-		dto, err := app.MoveFolder(h.cosmosPath, canon, body.TargetParent)
-		h.writeOrErr(w, dto, err)
-		return
-	}
-	switch r.Method {
-	case http.MethodGet:
-		dto, err := app.GetFolder(h.cosmosPath, rest)
-		h.writeOrErr(w, dto, err)
-	case http.MethodPut:
-		var body struct {
-			Label string `json:"label"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
-			return
-		}
-		dto, err := app.RenameFolder(h.cosmosPath, rest, body.Label)
-		h.writeOrErr(w, dto, err)
-	case http.MethodDelete:
-		recursive := r.URL.Query().Get("recursive") == "true" || r.URL.Query().Get("force") == "true"
-		if err := app.DeleteFolder(h.cosmosPath, rest, recursive); err != nil {
-			h.apiErr(w, err)
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
-}
-
 // apiPing answers the discovery PING with this server's identity and peers (ADR-0025).
 func (h *handler) apiPing(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/api/v1/ping" {
@@ -410,245 +315,39 @@ func (h *handler) writeOrErr(w http.ResponseWriter, dto any, err error) {
 	}
 	writeJSON(w, 200, dto)
 }
-func (h *handler) apiDomains(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/api/v1/domains" {
+
+// apiServices lists or creates services (flat model, no domains).
+func (h *handler) apiServices(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/services" {
 		http.NotFound(w, r)
 		return
 	}
-	if r.Method == http.MethodPost {
-		h.createDomain(w, r)
-		return
-	}
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	dto, err := app.ListDomains(h.cosmosPath)
-	if err != nil {
-		h.apiErr(w, err)
-		return
-	}
-	writeJSON(w, 200, dto)
-}
-func (h *handler) apiDomainRoutes(w http.ResponseWriter, r *http.Request) {
-	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/domains/")
-	parts := strings.Split(rest, "/")
-	if len(parts) == 1 && parts[0] != "" {
-		if r.Method == http.MethodDelete {
-			if err := app.DeleteDomain(h.cosmosPath, parts[0]); err != nil {
-				h.apiErr(w, err)
-				return
-			}
-			writeJSON(w, http.StatusOK, map[string]string{"deleted": parts[0]})
-			return
-		}
-		if r.Method == http.MethodPut {
-			var req struct {
-				Name string `json:"name"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
-				return
-			}
-			if err := app.RenameDomain(h.cosmosPath, parts[0], req.Name); err != nil {
-				h.apiErr(w, err)
-				return
-			}
-			writeJSON(w, http.StatusOK, map[string]string{"renamed": req.Name})
-			return
-		}
-		if r.Method == http.MethodPost {
-			var req struct {
-				Segment string `json:"segment"`
-			}
-			if ct := r.Header.Get("Content-Type"); strings.Contains(ct, "application/json") {
-				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-					writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
-					return
-				}
-			} else {
-				_ = r.ParseForm()
-				req.Segment = r.FormValue("segment")
-			}
-			_, err := app.AddChildDomain(h.cosmosPath, parts[0], req.Segment, r.FormValue("owner"), false)
-			if err != nil {
-				h.apiErr(w, err)
-				return
-			}
-			dto, _ := app.GetDomain(h.cosmosPath, req.Segment+"."+parts[0])
-			writeJSON(w, http.StatusCreated, dto)
-			return
-		}
-		if r.Method == http.MethodGet {
-			dto, err := app.GetDomain(h.cosmosPath, parts[0])
-			if err != nil {
-				h.apiErr(w, err)
-				return
-			}
-			writeJSON(w, 200, dto)
-			return
-		}
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	if len(parts) == 2 && parts[1] == "children" {
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-		var req struct {
-			Label             string `json:"label"`
-			Segment           string `json:"segment"`
-			Owner             string `json:"owner"`
-			Force             bool   `json:"force"`
-			MaterializeParent bool   `json:"materializeParent"`
-		}
-		if ct := r.Header.Get("Content-Type"); strings.Contains(ct, "application/json") {
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
-				return
-			}
-		} else {
-			_ = r.ParseForm()
-			req.Label = r.FormValue("label")
-			req.Segment = r.FormValue("segment")
-			req.Owner = r.FormValue("owner")
-			req.Force = r.FormValue("force") != ""
-		}
-		label := first(req.Label, req.Segment)
-		dto, err := app.AddChildDomain(h.cosmosPath, parts[0], label, req.Owner, req.Force)
+	switch r.Method {
+	case http.MethodGet:
+		dto, err := app.ListServices(h.cosmosPath)
+		h.writeOrErr(w, dto, err)
+	case http.MethodPost:
+		_ = r.ParseForm()
+		dto, err := app.AddService(h.cosmosPath, r.FormValue("name"), r.FormValue("owner"), r.FormValue("force") != "")
 		if err != nil {
 			h.apiErr(w, err)
 			return
 		}
 		writeJSON(w, http.StatusCreated, dto)
-		return
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
-	if len(parts) == 2 && parts[1] == "products" {
-		if r.Method == http.MethodPost {
-			var req app.CreateProductOfferingRequest
-			if ct := r.Header.Get("Content-Type"); strings.Contains(ct, "application/json") {
-				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-					writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
-					return
-				}
-			} else {
-				_ = r.ParseForm()
-				req.ID = r.FormValue("id")
-				req.Name = r.FormValue("name")
-				req.Version = r.FormValue("version")
-				req.Status = r.FormValue("status")
-				req.Summary = r.FormValue("summary")
-				req.Owner = r.FormValue("owner")
-				req.OwningDomain = r.FormValue("owning_domain")
-			}
-			dto, err := app.CreateProductOffering(h.cosmosPath, parts[0], req)
-			if err != nil {
-				h.apiErr(w, err)
-				return
-			}
-			writeJSON(w, http.StatusCreated, dto)
-			return
-		}
-		if r.Method != http.MethodGet {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-		products, err := app.ProductsOfferedBy(h.cosmosPath, parts[0])
-		if err != nil {
-			h.apiErr(w, err)
-			return
-		}
-		writeJSON(w, 200, map[string]any{"domain": parts[0], "products": products})
-		return
-	}
-	if len(parts) == 2 && parts[1] == "services" {
-		if r.Method == http.MethodPost {
-			h.createService(w, r, parts[0])
-			return
-		}
-		if r.Method == http.MethodDelete {
-			if err := app.DeleteDomain(h.cosmosPath, parts[0]); err != nil {
-				h.apiErr(w, err)
-				return
-			}
-			writeJSON(w, http.StatusOK, map[string]string{"deleted": parts[0]})
-			return
-		}
-		dto, err := app.ListServices(h.cosmosPath, parts[0])
-		if err != nil {
-			h.apiErr(w, err)
-			return
-		}
-		writeJSON(w, 200, dto)
-		return
-	}
-	if len(parts) == 3 && parts[1] == "services" && parts[2] != "" {
-		if r.Method == http.MethodDelete {
-			if err := app.DeleteService(h.cosmosPath, parts[0], parts[2]); err != nil {
-				h.apiErr(w, err)
-				return
-			}
-			writeJSON(w, http.StatusOK, map[string]string{"deleted": parts[0] + "/" + parts[2]})
-			return
-		}
-		if r.Method == http.MethodPut {
-			var req struct {
-				Name string `json:"name"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
-				return
-			}
-			if err := app.RenameService(h.cosmosPath, parts[0], parts[2], req.Name); err != nil {
-				h.apiErr(w, err)
-				return
-			}
-			writeJSON(w, http.StatusOK, map[string]string{"renamed": req.Name})
-			return
-		}
-		dto, err := app.GetService(h.cosmosPath, parts[0], parts[2])
-		if err != nil {
-			h.apiErr(w, err)
-			return
-		}
-		writeJSON(w, 200, dto)
-		return
-	}
-	// POST /api/v1/domains/{domain}/services/{service}/move
-	if len(parts) == 4 && parts[1] == "services" && parts[3] == "move" {
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-		var req struct {
-			TargetDomain string `json:"target_domain"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
-			return
-		}
-		dto, err := app.MoveService(h.cosmosPath, parts[0], parts[2], req.TargetDomain)
-		h.writeOrErr(w, dto, err)
-		return
-	}
-	// GET/POST /api/v1/domains/{domain}/decisions
-	if len(parts) == 2 && parts[1] == "decisions" {
-		h.apiDomainDecisions(w, r, parts[0])
-		return
-	}
-	// GET/PUT/DELETE /api/v1/domains/{domain}/decisions/{id}
-	// GET/PUT        /api/v1/domains/{domain}/decisions/{id}/dmn
-	if len(parts) >= 3 && parts[1] == "decisions" && parts[2] != "" {
-		h.apiDomainDecisionByID(w, r, parts[0], parts[2], parts[3:])
-		return
-	}
-	htmlNotFound(w, r)
 }
-func (h *handler) apiDomainDecisions(w http.ResponseWriter, r *http.Request, domain string) {
+
+// apiDecisions lists or creates decisions (flat model, no domains).
+func (h *handler) apiDecisions(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/decisions" {
+		http.NotFound(w, r)
+		return
+	}
 	switch r.Method {
 	case http.MethodGet:
-		dto, err := app.ListDecisions(h.cosmosPath, domain)
+		dto, err := app.ListDecisions(h.cosmosPath)
 		if err != nil {
 			h.apiErr(w, err)
 			return
@@ -660,7 +359,7 @@ func (h *handler) apiDomainDecisions(w http.ResponseWriter, r *http.Request, dom
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 			return
 		}
-		dto, err := app.CreateDecision(h.cosmosPath, domain, req)
+		dto, err := app.CreateDecision(h.cosmosPath, req)
 		if err != nil {
 			h.apiErr(w, err)
 			return
@@ -671,7 +370,18 @@ func (h *handler) apiDomainDecisions(w http.ResponseWriter, r *http.Request, dom
 	}
 }
 
-func (h *handler) apiDomainDecisionByID(w http.ResponseWriter, r *http.Request, domain, id string, tail []string) {
+// apiDecisionRoutes serves /api/v1/decisions/{id} and its sub-resources.
+func (h *handler) apiDecisionRoutes(w http.ResponseWriter, r *http.Request) {
+	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/decisions/")
+	parts := strings.Split(rest, "/")
+	if len(parts) == 0 || parts[0] == "" {
+		http.NotFound(w, r)
+		return
+	}
+	h.apiDecisionByID(w, r, parts[0], parts[1:])
+}
+
+func (h *handler) apiDecisionByID(w http.ResponseWriter, r *http.Request, id string, tail []string) {
 	if len(tail) == 1 && tail[0] == "evaluate" {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -682,7 +392,7 @@ func (h *handler) apiDomainDecisionByID(w http.ResponseWriter, r *http.Request, 
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 			return
 		}
-		result, trace, err := app.EvaluateDecisionWithTrace(h.cosmosPath, domain, id, req, evaluatorFromRequest(r))
+		result, trace, err := app.EvaluateDecisionWithTrace(h.cosmosPath, id, req, evaluatorFromRequest(r))
 		if err != nil {
 			// If evaluation succeeded but persisting the trace failed we still want to
 			// surface the result, since callers may treat the trace as best-effort.
@@ -702,32 +412,16 @@ func (h *handler) apiDomainDecisionByID(w http.ResponseWriter, r *http.Request, 
 		})
 		return
 	}
-	if len(tail) == 1 && tail[0] == "move" {
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-		var req struct {
-			TargetDomain string `json:"target_domain"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
-			return
-		}
-		dto, err := app.MoveDecision(h.cosmosPath, domain, id, req.TargetDomain)
-		h.writeOrErr(w, dto, err)
-		return
-	}
 	if len(tail) >= 1 && tail[0] == "traces" {
-		h.apiDomainDecisionTraces(w, r, domain, id, tail[1:])
+		h.apiDecisionTraces(w, r, id, tail[1:])
 		return
 	}
 	if len(tail) >= 1 && tail[0] == "versions" {
-		h.apiDomainDecisionVersions(w, r, domain, id, tail[1:])
+		h.apiDecisionVersions(w, r, id, tail[1:])
 		return
 	}
 	if len(tail) >= 1 && tail[0] == "scenarios" {
-		h.apiDomainDecisionScenarios(w, r, domain, id, tail[1:])
+		h.apiDecisionScenarios(w, r, id, tail[1:])
 		return
 	}
 	if len(tail) == 1 && tail[0] == "definitions" {
@@ -735,7 +429,7 @@ func (h *handler) apiDomainDecisionByID(w http.ResponseWriter, r *http.Request, 
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		defs, err := app.GetDecisionDefinitions(h.cosmosPath, domain, id)
+		defs, err := app.GetDecisionDefinitions(h.cosmosPath, id)
 		if err != nil {
 			h.apiErr(w, err)
 			return
@@ -746,7 +440,7 @@ func (h *handler) apiDomainDecisionByID(w http.ResponseWriter, r *http.Request, 
 	if len(tail) == 1 && tail[0] == "dmn" {
 		switch r.Method {
 		case http.MethodGet:
-			xml, err := app.GetDecisionDMN(h.cosmosPath, domain, id)
+			xml, err := app.GetDecisionDMN(h.cosmosPath, id)
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -759,7 +453,7 @@ func (h *handler) apiDomainDecisionByID(w http.ResponseWriter, r *http.Request, 
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 				return
 			}
-			dto, err := app.UpdateDecisionDMN(h.cosmosPath, domain, id, string(data))
+			dto, err := app.UpdateDecisionDMN(h.cosmosPath, id, string(data))
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -772,7 +466,7 @@ func (h *handler) apiDomainDecisionByID(w http.ResponseWriter, r *http.Request, 
 	}
 	switch r.Method {
 	case http.MethodGet:
-		dto, err := app.GetDecision(h.cosmosPath, domain, id)
+		dto, err := app.GetDecision(h.cosmosPath, id)
 		if err != nil {
 			h.apiErr(w, err)
 			return
@@ -784,14 +478,14 @@ func (h *handler) apiDomainDecisionByID(w http.ResponseWriter, r *http.Request, 
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 			return
 		}
-		dto, err := app.UpdateDecision(h.cosmosPath, domain, id, req)
+		dto, err := app.UpdateDecision(h.cosmosPath, id, req)
 		if err != nil {
 			h.apiErr(w, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, dto)
 	case http.MethodDelete:
-		if err := app.DeleteDecision(h.cosmosPath, domain, id); err != nil {
+		if err := app.DeleteDecision(h.cosmosPath, id); err != nil {
 			h.apiErr(w, err)
 			return
 		}
@@ -868,25 +562,6 @@ func (h *handler) apiProductRoutes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, 200, dto)
-		return
-	}
-	if len(parts) == 2 && parts[0] != "" && parts[1] == "move" {
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-		var req app.MoveProductOfferingRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
-			return
-		}
-		req.ProductID = parts[0]
-		dto, err := app.MoveProductOffering(h.cosmosPath, req)
-		if err != nil {
-			h.apiErr(w, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, dto)
 		return
 	}
 	if len(parts) == 2 && parts[0] != "" && parts[1] == "fulfillment-services" {
@@ -1119,44 +794,53 @@ func (h *handler) apiProcessRoutes(w http.ResponseWriter, r *http.Request) {
 	htmlNotFound(w, r)
 }
 
-func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
+// apiServiceRoutes serves /api/v1/services/{service} and its sub-resources in
+// the flat (no-domain) model.
+func (h *handler) apiServiceRoutes(w http.ResponseWriter, r *http.Request) {
 	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/services/")
+	if rest == "refs" {
+		h.apiServiceRefs(w, r)
+		return
+	}
 	parts := strings.Split(rest, "/")
+	if len(parts) == 0 || parts[0] == "" {
+		http.NotFound(w, r)
+		return
+	}
+	service := parts[0]
 
-	// POST /api/v1/services/{domain}/{service}/{endpoint}/{id}/move
-	if len(parts) == 5 && parts[4] == "move" {
+	// POST /api/v1/services/{service}/{kind}/{id}/move
+	if len(parts) == 4 && parts[3] == "move" {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		kind := map[string]string{"capabilities": "capability", "data-objects": "data-object", "user-interfaces": "user-interface", "methods": "method"}[parts[2]]
+		kind := map[string]string{"capabilities": "capability", "data-objects": "data-object", "user-interfaces": "user-interface", "methods": "method"}[parts[1]]
 		if kind == "" {
 			htmlNotFound(w, r)
 			return
 		}
 		var req struct {
-			TargetDomain  string `json:"target_domain"`
-			TargetService string `json:"target_service"`
+			ToService string `json:"to_service"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
 			return
 		}
-		dto, err := app.MoveServiceElement(h.cosmosPath, parts[0], parts[1], kind, parts[3], req.TargetDomain, req.TargetService)
+		dto, err := app.MoveServiceElement(h.cosmosPath, service, kind, parts[2], req.ToService)
 		h.writeOrErr(w, dto, err)
 		return
 	}
 
-	// POST /api/v1/services/{domain}/{service}/capabilities
-	if len(parts) == 3 && parts[2] == "capabilities" {
-		domain, service := parts[0], parts[1]
+	// POST /api/v1/services/{service}/capabilities
+	if len(parts) == 2 && parts[1] == "capabilities" {
 		if r.Method == http.MethodPost {
 			var cap model.ServiceCapability
 			if err := json.NewDecoder(r.Body).Decode(&cap); err != nil {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 				return
 			}
-			dto, err := app.AddServiceCapability(h.cosmosPath, domain, service, cap)
+			dto, err := app.AddServiceCapability(h.cosmosPath, service, cap)
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -1168,9 +852,9 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// PUT/DELETE /api/v1/services/{domain}/{service}/capabilities/{id}
-	if len(parts) == 4 && parts[2] == "capabilities" {
-		domain, service, capID := parts[0], parts[1], parts[3]
+	// PUT/DELETE /api/v1/services/{service}/capabilities/{id}
+	if len(parts) == 3 && parts[1] == "capabilities" {
+		capID := parts[2]
 		switch r.Method {
 		case http.MethodPut:
 			var patch model.ServiceCapability
@@ -1178,14 +862,14 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 				return
 			}
-			dto, err := app.UpdateServiceCapability(h.cosmosPath, domain, service, capID, patch)
+			dto, err := app.UpdateServiceCapability(h.cosmosPath, service, capID, patch)
 			if err != nil {
 				h.apiErr(w, err)
 				return
 			}
 			writeJSON(w, 200, dto)
 		case http.MethodDelete:
-			dto, err := app.RemoveServiceCapability(h.cosmosPath, domain, service, capID)
+			dto, err := app.RemoveServiceCapability(h.cosmosPath, service, capID)
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -1197,16 +881,15 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// POST /api/v1/services/{domain}/{service}/data-objects
-	if len(parts) == 3 && parts[2] == "data-objects" {
-		domain, service := parts[0], parts[1]
+	// POST /api/v1/services/{service}/data-objects
+	if len(parts) == 2 && parts[1] == "data-objects" {
 		if r.Method == http.MethodPost {
 			var obj model.ServiceDataObject
 			if err := json.NewDecoder(r.Body).Decode(&obj); err != nil {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 				return
 			}
-			dto, err := app.AddServiceDataObject(h.cosmosPath, domain, service, obj)
+			dto, err := app.AddServiceDataObject(h.cosmosPath, service, obj)
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -1218,9 +901,9 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// PUT/DELETE /api/v1/services/{domain}/{service}/data-objects/{id}
-	if len(parts) == 4 && parts[2] == "data-objects" {
-		domain, service, doID := parts[0], parts[1], parts[3]
+	// PUT/DELETE /api/v1/services/{service}/data-objects/{id}
+	if len(parts) == 3 && parts[1] == "data-objects" {
+		doID := parts[2]
 		switch r.Method {
 		case http.MethodPut:
 			var patch model.ServiceDataObject
@@ -1228,14 +911,14 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 				return
 			}
-			dto, err := app.UpdateServiceDataObject(h.cosmosPath, domain, service, doID, patch)
+			dto, err := app.UpdateServiceDataObject(h.cosmosPath, service, doID, patch)
 			if err != nil {
 				h.apiErr(w, err)
 				return
 			}
 			writeJSON(w, 200, dto)
 		case http.MethodDelete:
-			dto, err := app.RemoveServiceDataObject(h.cosmosPath, domain, service, doID)
+			dto, err := app.RemoveServiceDataObject(h.cosmosPath, service, doID)
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -1247,16 +930,15 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// POST /api/v1/services/{domain}/{service}/user-interfaces
-	if len(parts) == 3 && parts[2] == "user-interfaces" {
-		domain, service := parts[0], parts[1]
+	// POST /api/v1/services/{service}/user-interfaces
+	if len(parts) == 2 && parts[1] == "user-interfaces" {
 		if r.Method == http.MethodPost {
 			var ui model.ServiceUserInterface
 			if err := json.NewDecoder(r.Body).Decode(&ui); err != nil {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 				return
 			}
-			dto, err := app.AddServiceUserInterface(h.cosmosPath, domain, service, ui)
+			dto, err := app.AddServiceUserInterface(h.cosmosPath, service, ui)
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -1268,9 +950,9 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// PUT/DELETE /api/v1/services/{domain}/{service}/user-interfaces/{id}
-	if len(parts) == 4 && parts[2] == "user-interfaces" {
-		domain, service, uiID := parts[0], parts[1], parts[3]
+	// PUT/DELETE /api/v1/services/{service}/user-interfaces/{id}
+	if len(parts) == 3 && parts[1] == "user-interfaces" {
+		uiID := parts[2]
 		switch r.Method {
 		case http.MethodPut:
 			var patch model.ServiceUserInterface
@@ -1278,14 +960,14 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 				return
 			}
-			dto, err := app.UpdateServiceUserInterface(h.cosmosPath, domain, service, uiID, patch)
+			dto, err := app.UpdateServiceUserInterface(h.cosmosPath, service, uiID, patch)
 			if err != nil {
 				h.apiErr(w, err)
 				return
 			}
 			writeJSON(w, 200, dto)
 		case http.MethodDelete:
-			dto, err := app.RemoveServiceUserInterface(h.cosmosPath, domain, service, uiID)
+			dto, err := app.RemoveServiceUserInterface(h.cosmosPath, service, uiID)
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -1297,9 +979,8 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// GET/POST /api/v1/services/{domain}/{service}/methods
-	if len(parts) == 3 && parts[2] == "methods" {
-		domain, service := parts[0], parts[1]
+	// GET/POST /api/v1/services/{service}/methods
+	if len(parts) == 2 && parts[1] == "methods" {
 		if r.Method == http.MethodPost {
 			var req struct {
 				Method string `json:"method"`
@@ -1308,7 +989,7 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 				return
 			}
-			dto, err := app.AddServiceMethod(h.cosmosPath, domain, service, req.Method)
+			dto, err := app.AddServiceMethod(h.cosmosPath, service, req.Method)
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -1317,7 +998,7 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if r.Method == http.MethodGet {
-			dto, err := app.GetService(h.cosmosPath, domain, service)
+			dto, err := app.GetService(h.cosmosPath, service)
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -1329,12 +1010,12 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// GET/PUT/DELETE /api/v1/services/{domain}/{service}/methods/{method}
-	if len(parts) == 4 && parts[2] == "methods" {
-		domain, service, method := parts[0], parts[1], parts[3]
+	// GET/PUT/DELETE /api/v1/services/{service}/methods/{method}
+	if len(parts) == 3 && parts[1] == "methods" {
+		method := parts[2]
 		switch r.Method {
 		case http.MethodGet:
-			dto, err := app.GetServiceMethod(h.cosmosPath, domain, service, method)
+			dto, err := app.GetServiceMethod(h.cosmosPath, service, method)
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -1363,14 +1044,14 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 				Security:   req.Security,
 				Payload:    req.Payload,
 			}
-			dto, err := app.UpdateMethod(h.cosmosPath, domain, service, method, patch)
+			dto, err := app.UpdateMethod(h.cosmosPath, service, method, patch)
 			if err != nil {
 				h.apiErr(w, err)
 				return
 			}
 			writeJSON(w, 200, dto)
 		case http.MethodDelete:
-			dto, err := app.RemoveServiceMethod(h.cosmosPath, domain, service, method)
+			dto, err := app.RemoveServiceMethod(h.cosmosPath, service, method)
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -1382,16 +1063,42 @@ func (h *handler) apiLegacyService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(parts) != 2 {
+	// GET/PUT/DELETE /api/v1/services/{service}
+	if len(parts) != 1 {
 		http.NotFound(w, r)
 		return
 	}
-	dto, err := app.GetService(h.cosmosPath, parts[0], parts[1])
-	if err != nil {
-		h.apiErr(w, err)
-		return
+	switch r.Method {
+	case http.MethodGet:
+		dto, err := app.GetService(h.cosmosPath, service)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, 200, dto)
+	case http.MethodPut:
+		var req struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+			return
+		}
+		if err := app.RenameService(h.cosmosPath, service, req.Name); err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		dto, err := app.GetService(h.cosmosPath, req.Name)
+		h.writeOrErr(w, dto, err)
+	case http.MethodDelete:
+		if err := app.DeleteService(h.cosmosPath, service); err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
-	writeJSON(w, 200, dto)
 }
 func (h *handler) apiNamespaces(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/api/v1/namespaces" {
@@ -1410,26 +1117,6 @@ func (h *handler) apiNamespaces(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, dto)
 }
 
-func (h *handler) apiNamespaceRoutes(w http.ResponseWriter, r *http.Request) {
-	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/namespaces/")
-	parts := strings.Split(rest, "/")
-	if len(parts) == 2 && parts[0] != "" && parts[1] == "domains" {
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-		_ = r.ParseForm()
-		label := first(r.FormValue("label"), r.FormValue("segment"))
-		dto, err := app.AddDomainInNamespace(h.cosmosPath, parts[0], label, r.FormValue("owner"), r.FormValue("force") != "")
-		if err != nil {
-			h.apiErr(w, err)
-			return
-		}
-		writeJSON(w, http.StatusCreated, dto)
-		return
-	}
-	http.NotFound(w, r)
-}
 func (h *handler) apiGraph(w http.ResponseWriter, r *http.Request) {
 	dto, err := app.BuildGraph(h.cosmosPath)
 	if err != nil {
@@ -1781,50 +1468,6 @@ func (h *handler) apiInstanceRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 	http.NotFound(w, r)
 }
-func (h *handler) apiVerifyDomain(w http.ResponseWriter, r *http.Request) {
-	domain := strings.TrimPrefix(r.URL.Path, "/api/v1/verify/domain/")
-	if domain == "" {
-		http.NotFound(w, r)
-		return
-	}
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	dto, err := app.VerifyDomain(r.Context(), h.cosmosPath, domain)
-	if err != nil {
-		h.apiErr(w, err)
-		return
-	}
-	writeJSON(w, 200, dto)
-}
-
-func (h *handler) createDomain(w http.ResponseWriter, r *http.Request) {
-	_ = r.ParseForm()
-	var (
-		dto app.DomainDTO
-		err error
-	)
-	if ns, label := r.FormValue("namespace"), first(r.FormValue("label"), r.FormValue("segment")); ns != "" || label != "" {
-		dto, err = app.AddDomainInNamespace(h.cosmosPath, ns, label, r.FormValue("owner"), r.FormValue("force") != "")
-	} else {
-		dto, err = app.AddDomain(h.cosmosPath, first(r.FormValue("dns"), r.FormValue("domain")), r.FormValue("owner"), r.FormValue("force") != "")
-	}
-	if err != nil {
-		h.apiErr(w, err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, dto)
-}
-func (h *handler) createService(w http.ResponseWriter, r *http.Request, domain string) {
-	_ = r.ParseForm()
-	dto, err := app.AddService(h.cosmosPath, domain, r.FormValue("name"), r.FormValue("owner"), r.FormValue("force") != "")
-	if err != nil {
-		h.apiErr(w, err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, dto)
-}
 func first(values ...string) string {
 	for _, v := range values {
 		if v != "" {
@@ -1844,10 +1487,6 @@ func (h *handler) routes(w http.ResponseWriter, r *http.Request) {
 		h.dashboard(w, r)
 	case r.URL.Path == "/cosmos":
 		h.cosmosPage(w, r)
-	case r.URL.Path == "/domains":
-		h.domainsPage(w, r)
-	case strings.HasPrefix(r.URL.Path, "/domains/"):
-		h.domainPage(w, r, strings.TrimPrefix(r.URL.Path, "/domains/"))
 	case r.URL.Path == "/services":
 		h.servicesPage(w, r)
 	case r.URL.Path == "/namespaces":
@@ -1873,9 +1512,9 @@ func (h *handler) routes(w http.ResponseWriter, r *http.Request) {
 	case r.URL.Path == "/api":
 		h.apiPage(w, r)
 	case strings.HasPrefix(r.URL.Path, "/services/"):
-		p := strings.Split(strings.TrimPrefix(r.URL.Path, "/services/"), "/")
-		if len(p) >= 2 {
-			h.serviceDetailPage(w, r, p[0], p[1])
+		name := strings.TrimPrefix(r.URL.Path, "/services/")
+		if name != "" && !strings.Contains(name, "/") {
+			h.serviceDetailPage(w, r, name)
 			return
 		}
 		h.errorPage(w, r, 404, "Not found", "Route not found")
@@ -1886,38 +1525,18 @@ func (h *handler) routes(w http.ResponseWriter, r *http.Request) {
 func (h *handler) formPost(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	switch r.URL.Path {
-	case "/domains":
-		_, err := app.AddDomain(h.cosmosPath, r.FormValue("dns"), r.FormValue("owner"), r.FormValue("force") != "")
-		if err != nil {
-			h.errorPage(w, r, statusOf(err), "Create domain failed", err.Error())
-			return
-		}
-		http.Redirect(w, r, "/domains?selected=domain:"+r.FormValue("dns"), 303)
 	case "/services":
-		_, err := app.AddService(h.cosmosPath, r.FormValue("domain"), r.FormValue("name"), r.FormValue("owner"), r.FormValue("force") != "")
+		_, err := app.AddService(h.cosmosPath, r.FormValue("name"), r.FormValue("owner"), r.FormValue("force") != "")
 		if err != nil {
 			h.errorPage(w, r, statusOf(err), "Create service failed", err.Error())
 			return
 		}
-		http.Redirect(w, r, "/services?domain="+r.FormValue("domain")+"&service="+r.FormValue("name"), 303)
+		http.Redirect(w, r, "/services?service="+r.FormValue("name"), 303)
 	case "/products/create":
-		domain := r.FormValue("domain")
 		req := app.CreateProductOfferingRequest{ID: r.FormValue("id"), Name: r.FormValue("name"), Version: r.FormValue("version"), Status: r.FormValue("status"), Summary: r.FormValue("summary"), Owner: r.FormValue("owner"), OwningDomain: r.FormValue("owning_domain")}
-		dto, err := app.CreateProductOffering(h.cosmosPath, domain, req)
+		dto, err := app.CreateProductOffering(h.cosmosPath, req)
 		if err != nil {
 			h.errorPage(w, r, statusOf(err), "Create product failed", err.Error())
-			return
-		}
-		if r.FormValue("return_to") == "cosmos" {
-			http.Redirect(w, r, "/cosmos?selected=product:"+dto.ID, 303)
-			return
-		}
-		http.Redirect(w, r, "/domains?selected=product:"+dto.ID, 303)
-	case "/products/move":
-		req := app.MoveProductOfferingRequest{ProductID: r.FormValue("product_id"), TargetDomain: r.FormValue("target_domain"), UpdateOwningDomain: r.FormValue("update_owning_domain") != ""}
-		dto, err := app.MoveProductOffering(h.cosmosPath, req)
-		if err != nil {
-			h.errorPage(w, r, statusOf(err), "Move product failed", err.Error())
 			return
 		}
 		http.Redirect(w, r, "/cosmos?selected=product:"+dto.ID, 303)
@@ -1958,13 +1577,6 @@ func (h *handler) formPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		http.Redirect(w, r, "/cosmos?selected=product:"+dto.ID+"&expand=fulfillment#fulfillment", 303)
-	case "/verify":
-		_, err := app.VerifyDomain(r.Context(), h.cosmosPath, r.FormValue("domain"))
-		if err != nil {
-			http.Redirect(w, r, "/verify", 303)
-			return
-		}
-		http.Redirect(w, r, "/verify", 303)
 	default:
 		h.errorPage(w, r, 404, "Not found", "Route not found")
 	}
@@ -1985,56 +1597,25 @@ func (h *handler) cosmosPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	doc, _ := app.DoctorCosmos(h.cosmosPath)
-	ns, _ := app.BuildExplorerTreeForHost(h.cosmosPath, r.Host)
+	ns, _ := app.BuildNamespaceTree(h.cosmosPath)
 	bp, _ := app.ListBlueprints(h.cosmosPath)
-	domains, _ := app.ListDomains(h.cosmosPath)
 	h.page(w, "cosmos", map[string]any{
 		"ActiveNav": "cosmos", "PageTitle": "Cosmos",
 		"Cosmos": co, "Doctor": doc,
-		"NamespaceTree": ns, "Blueprints": bp.Blueprints, "Domains": domains.Domains,
+		"NamespaceTree": ns, "Blueprints": bp.Blueprints,
 	})
 }
-func (h *handler) domainsPage(w http.ResponseWriter, r *http.Request) {
-	ex, err := buildDomainsExplorer(h.cosmosPath, r.URL.Query().Get("selected"))
-	if err != nil {
-		h.errorPage(w, r, statusOf(err), "Domains unavailable", err.Error())
-		return
-	}
-	h.page(w, "domains", map[string]any{"ActiveNav": "domains", "PageTitle": "Domains", "Explorer": ex})
-}
-func (h *handler) domainPage(w http.ResponseWriter, r *http.Request, domain string) {
-	d, err := app.GetDomain(h.cosmosPath, domain)
-	if err != nil {
-		h.errorPage(w, r, statusOf(err), "Domain not found", err.Error())
-		return
-	}
-	h.page(w, "domain_detail", map[string]any{"ActiveNav": "domains", "PageTitle": d.Canonical, "DomainDTO": d})
-}
 func (h *handler) servicesPage(w http.ResponseWriter, r *http.Request) {
-	domains, err := app.ListDomains(h.cosmosPath)
+	services, err := app.ListServices(h.cosmosPath)
 	if err != nil {
 		h.errorPage(w, r, statusOf(err), "Services unavailable", err.Error())
 		return
 	}
-	selected := first(r.URL.Query().Get("domain"))
-	if selected == "" && len(domains.Domains) > 0 {
-		selected = domains.Domains[0].Canonical
-		for _, d := range domains.Domains {
-			if d.ServiceCount > 0 {
-				selected = d.Canonical
-				break
-			}
-		}
-	}
-	var services app.ServicesDTO
-	if selected != "" {
-		services, _ = app.ListServices(h.cosmosPath, selected)
-	}
 	svc := r.URL.Query().Get("service")
-	h.page(w, "services", map[string]any{"ActiveNav": "services", "PageTitle": "Services", "Domains": domains.Domains, "SelectedDomain": selected, "Services": services.Services, "SelectedServiceName": svc})
+	h.page(w, "services", map[string]any{"ActiveNav": "services", "PageTitle": "Services", "Services": services.Services, "SelectedServiceName": svc})
 }
-func (h *handler) serviceDetailPage(w http.ResponseWriter, r *http.Request, domain, service string) {
-	s, err := app.GetService(h.cosmosPath, domain, service)
+func (h *handler) serviceDetailPage(w http.ResponseWriter, r *http.Request, service string) {
+	s, err := app.GetService(h.cosmosPath, service)
 	if err != nil {
 		h.errorPage(w, r, statusOf(err), "Service not found", err.Error())
 		return
@@ -2130,12 +1711,7 @@ func (h *handler) rulesPage(w http.ResponseWriter, r *http.Request) {
 	h.page(w, "rules", map[string]any{"ActiveNav": "rules", "PageTitle": "Rules", "RuleRows": ruleRows, "QualityCriteriaRows": qualityRows})
 }
 func (h *handler) verifyPage(w http.ResponseWriter, r *http.Request) {
-	ev, err := app.ListVerificationEvidence(h.cosmosPath)
-	if err != nil {
-		h.errorPage(w, r, statusOf(err), "Verification unavailable", err.Error())
-		return
-	}
-	h.page(w, "verify", map[string]any{"ActiveNav": "verify", "PageTitle": "Verification", "Verification": ev})
+	h.page(w, "verify", map[string]any{"ActiveNav": "verify", "PageTitle": "Verification", "Verification": nil})
 }
 func (h *handler) blueprintsPage(w http.ResponseWriter, r *http.Request) {
 	bp, err := app.ListBlueprints(h.cosmosPath)
@@ -2152,7 +1728,6 @@ func (h *handler) blueprintPage(w http.ResponseWriter, r *http.Request, id strin
 		return
 	}
 	allBps, _ := app.ListBlueprints(h.cosmosPath)
-	domains, _ := app.ListDomains(h.cosmosPath)
 	var serviceBps []app.BlueprintDTO
 	for _, ref := range bp.RequiredServiceBlueprints {
 		for _, b := range allBps.Blueprints {
@@ -2168,7 +1743,6 @@ func (h *handler) blueprintPage(w http.ResponseWriter, r *http.Request, id strin
 		"Blueprint":         bp,
 		"AllBlueprints":     allBps.Blueprints,
 		"ServiceBlueprints": serviceBps,
-		"Domains":           domains.Domains,
 	})
 }
 func (h *handler) instancesPage(w http.ResponseWriter, r *http.Request) {
@@ -2288,14 +1862,14 @@ func evaluatorFromRequest(r *http.Request) model.Evaluator {
 	}
 }
 
-func (h *handler) apiDomainDecisionTraces(w http.ResponseWriter, r *http.Request, domain, id string, tail []string) {
+func (h *handler) apiDecisionTraces(w http.ResponseWriter, r *http.Request, id string, tail []string) {
 	switch {
 	case len(tail) == 0:
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		dto, err := app.ListDecisionTraces(h.cosmosPath, domain, id)
+		dto, err := app.ListDecisionTraces(h.cosmosPath, id)
 		if err != nil {
 			h.apiErr(w, err)
 			return
@@ -2306,7 +1880,7 @@ func (h *handler) apiDomainDecisionTraces(w http.ResponseWriter, r *http.Request
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		dto, err := app.VerifyDecisionTraces(h.cosmosPath, domain, id)
+		dto, err := app.VerifyDecisionTraces(h.cosmosPath, id)
 		if err != nil {
 			h.apiErr(w, err)
 			return
@@ -2317,7 +1891,7 @@ func (h *handler) apiDomainDecisionTraces(w http.ResponseWriter, r *http.Request
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		tr, err := app.GetDecisionTrace(h.cosmosPath, domain, id, tail[0])
+		tr, err := app.GetDecisionTrace(h.cosmosPath, id, tail[0])
 		if err != nil {
 			h.apiErr(w, err)
 			return
@@ -2339,28 +1913,28 @@ func (h *handler) apiDomainDecisionTraces(w http.ResponseWriter, r *http.Request
 // The Cosmos Explorer uses the per-version DMN/definitions to render a trace's
 // decision table against the rules that produced its outputs — not the current
 // HEAD, which may have drifted.
-func (h *handler) apiDomainDecisionVersions(w http.ResponseWriter, r *http.Request, domain, id string, tail []string) {
+func (h *handler) apiDecisionVersions(w http.ResponseWriter, r *http.Request, id string, tail []string) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 	switch {
 	case len(tail) == 0:
-		dto, err := app.ListDecisionVersions(h.cosmosPath, domain, id)
+		dto, err := app.ListDecisionVersions(h.cosmosPath, id)
 		if err != nil {
 			h.apiErr(w, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, dto)
 	case len(tail) == 1:
-		dto, err := app.GetDecisionVersion(h.cosmosPath, domain, id, tail[0])
+		dto, err := app.GetDecisionVersion(h.cosmosPath, id, tail[0])
 		if err != nil {
 			h.apiErr(w, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, dto)
 	case len(tail) == 2 && tail[1] == "dmn":
-		xml, err := app.GetDecisionVersionDMN(h.cosmosPath, domain, id, tail[0])
+		xml, err := app.GetDecisionVersionDMN(h.cosmosPath, id, tail[0])
 		if err != nil {
 			h.apiErr(w, err)
 			return
@@ -2368,7 +1942,7 @@ func (h *handler) apiDomainDecisionVersions(w http.ResponseWriter, r *http.Reque
 		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
 		_, _ = w.Write([]byte(xml))
 	case len(tail) == 2 && tail[1] == "definitions":
-		defs, err := app.GetDecisionVersionDefinitions(h.cosmosPath, domain, id, tail[0])
+		defs, err := app.GetDecisionVersionDefinitions(h.cosmosPath, id, tail[0])
 		if err != nil {
 			h.apiErr(w, err)
 			return
@@ -2388,12 +1962,12 @@ func (h *handler) apiDomainDecisionVersions(w http.ResponseWriter, r *http.Reque
 //	GET    .../scenarios/{scenarioID}          → fetch one
 //	PUT    .../scenarios/{scenarioID}          → partial update
 //	DELETE .../scenarios/{scenarioID}          → remove
-func (h *handler) apiDomainDecisionScenarios(w http.ResponseWriter, r *http.Request, domain, id string, tail []string) {
+func (h *handler) apiDecisionScenarios(w http.ResponseWriter, r *http.Request, id string, tail []string) {
 	switch {
 	case len(tail) == 0:
 		switch r.Method {
 		case http.MethodGet:
-			dto, err := app.ListDecisionScenarios(h.cosmosPath, domain, id)
+			dto, err := app.ListDecisionScenarios(h.cosmosPath, id)
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -2405,7 +1979,7 @@ func (h *handler) apiDomainDecisionScenarios(w http.ResponseWriter, r *http.Requ
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 				return
 			}
-			s, err := app.CreateDecisionScenario(h.cosmosPath, domain, id, req)
+			s, err := app.CreateDecisionScenario(h.cosmosPath, id, req)
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -2432,7 +2006,7 @@ func (h *handler) apiDomainDecisionScenarios(w http.ResponseWriter, r *http.Requ
 		if body.Description == "" {
 			body.Description = r.URL.Query().Get("description")
 		}
-		s, err := app.CreateDecisionScenarioFromTrace(h.cosmosPath, domain, id, tail[1], body.Name, body.Description)
+		s, err := app.CreateDecisionScenarioFromTrace(h.cosmosPath, id, tail[1], body.Name, body.Description)
 		if err != nil {
 			h.apiErr(w, err)
 			return
@@ -2441,7 +2015,7 @@ func (h *handler) apiDomainDecisionScenarios(w http.ResponseWriter, r *http.Requ
 	case len(tail) == 1:
 		switch r.Method {
 		case http.MethodGet:
-			s, err := app.GetDecisionScenario(h.cosmosPath, domain, id, tail[0])
+			s, err := app.GetDecisionScenario(h.cosmosPath, id, tail[0])
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -2453,14 +2027,14 @@ func (h *handler) apiDomainDecisionScenarios(w http.ResponseWriter, r *http.Requ
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 				return
 			}
-			s, err := app.UpdateDecisionScenario(h.cosmosPath, domain, id, tail[0], req)
+			s, err := app.UpdateDecisionScenario(h.cosmosPath, id, tail[0], req)
 			if err != nil {
 				h.apiErr(w, err)
 				return
 			}
 			writeJSON(w, http.StatusOK, s)
 		case http.MethodDelete:
-			if err := app.DeleteDecisionScenario(h.cosmosPath, domain, id, tail[0]); err != nil {
+			if err := app.DeleteDecisionScenario(h.cosmosPath, id, tail[0]); err != nil {
 				h.apiErr(w, err)
 				return
 			}

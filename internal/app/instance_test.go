@@ -361,22 +361,11 @@ func TestProvisionServiceInstance_ProductNotFound(t *testing.T) {
 
 func TestListServices_Success(t *testing.T) {
 	p := createAppTestCosmos(t)
-	got, err := ListServices(p, "identity.blumer.cloud")
+	got, err := ListServices(p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got.Domain != "identity.blumer.cloud" {
-		t.Fatalf("unexpected domain: %s", got.Domain)
-	}
-	if len(got.Services) != 2 {
-		t.Fatalf("expected 2 services, got %d", len(got.Services))
-	}
-}
-
-func TestListServices_DomainNotFound(t *testing.T) {
-	p := createAppTestCosmos(t)
-	_, err := ListServices(p, "does-not-exist.example")
-	if err == nil {
-		t.Fatal("expected error for non-existent domain")
+	if len(got.Services) != 3 {
+		t.Fatalf("expected 3 services, got %d", len(got.Services))
 	}
 }

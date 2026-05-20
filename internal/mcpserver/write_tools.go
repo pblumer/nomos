@@ -14,18 +14,13 @@ import (
 // registerWriteTools adds all mutating MCP tools to srv.
 func registerWriteTools(srv *mcp.Server, cosmosPath string) {
 	mcp.AddTool(srv, &mcp.Tool{
-		Name:        "nomos_domain_add",
-		Description: "Create a new top-level domain in the cosmos. The dns parameter must be a valid DNS-style namespace (e.g. 'payments.acme.com').",
-	}, toolDomainAdd(cosmosPath))
-
-	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "nomos_service_add",
-		Description: "Create a new service inside an existing domain.",
+		Description: "Create a new service in the cosmos.",
 	}, toolServiceAdd(cosmosPath))
 
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "nomos_product_create",
-		Description: "Create a new product offering (product blueprint) in a domain.",
+		Description: "Create a new product offering (product blueprint).",
 	}, toolProductCreate(cosmosPath))
 
 	mcp.AddTool(srv, &mcp.Tool{
@@ -44,7 +39,7 @@ func registerWriteTools(srv *mcp.Server, cosmosPath string) {
 
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "nomos_decision_create",
-		Description: "Create a new decision table (DMN) inside a domain.",
+		Description: "Create a new decision table (DMN).",
 	}, toolDecisionCreate(cosmosPath))
 
 	mcp.AddTool(srv, &mcp.Tool{
@@ -53,52 +48,25 @@ func registerWriteTools(srv *mcp.Server, cosmosPath string) {
 	}, toolInstanceCreate(cosmosPath))
 }
 
-// ── domain_add ───────────────────────────────────────────────────────────────
-
-type domainAddIn struct {
-	DNS   string `json:"dns"             jsonschema:"DNS-style namespace, e.g. payments.acme.com"`
-	Owner string `json:"owner,omitempty" jsonschema:"owning team or person"`
-}
-
-func toolDomainAdd(path string) func(context.Context, *mcp.CallToolRequest, domainAddIn) (*mcp.CallToolResult, any, error) {
-	return func(ctx context.Context, _ *mcp.CallToolRequest, in domainAddIn) (*mcp.CallToolResult, any, error) {
-		if in.DNS == "" {
-			return nil, nil, fmt.Errorf("dns is required")
-		}
-		dto, err := app.AddDomain(path, in.DNS, in.Owner, false)
-		if err != nil {
-			return nil, nil, fmt.Errorf("domain_add %q: %w", in.DNS, err)
-		}
-		return textResult(map[string]any{
-			"canonical": dto.Canonical,
-			"name":      dto.DisplayName,
-			"owner":     dto.Owner,
-			"status":    dto.Status,
-			"git_path":  dto.GitPath,
-		})
-	}
-}
-
 // ── service_add ──────────────────────────────────────────────────────────────
 
 type serviceAddIn struct {
-	Domain string `json:"domain"          jsonschema:"canonical domain name"`
-	Name   string `json:"name"            jsonschema:"service name (kebab-case)"`
-	Owner  string `json:"owner,omitempty" jsonschema:"owning team or person"`
+	Name  string `json:"name"            jsonschema:"service name (kebab-case)"`
+	Owner string `json:"owner,omitempty" jsonschema:"owning team or person"`
 }
 
 func toolServiceAdd(path string) func(context.Context, *mcp.CallToolRequest, serviceAddIn) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in serviceAddIn) (*mcp.CallToolResult, any, error) {
-		if in.Domain == "" || in.Name == "" {
-			return nil, nil, fmt.Errorf("domain and name are required")
+		if in.Name == "" {
+			return nil, nil, fmt.Errorf("name is required")
 		}
-		dto, err := app.AddService(path, in.Domain, in.Name, in.Owner, false)
+		dto, err := app.AddService(path, in.Name, in.Owner, false)
 		if err != nil {
-			return nil, nil, fmt.Errorf("service_add %q in %q: %w", in.Name, in.Domain, err)
+			return nil, nil, fmt.Errorf("service_add %q: %w", in.Name, err)
 		}
 		return textResult(map[string]any{
+			"id":     dto.ID,
 			"name":   dto.Name,
-			"domain": dto.Domain,
 			"owner":  dto.Owner,
 			"status": dto.Status,
 			"path":   dto.Path,
@@ -109,7 +77,6 @@ func toolServiceAdd(path string) func(context.Context, *mcp.CallToolRequest, ser
 // ── product_create ───────────────────────────────────────────────────────────
 
 type productCreateIn struct {
-	Domain  string `json:"domain"            jsonschema:"canonical domain name"`
 	ID      string `json:"id,omitempty"      jsonschema:"optional product ID; leave empty to auto-generate per ADR-0020 (e.g. PRD_A7K3M2)"`
 	Name    string `json:"name"              jsonschema:"human-readable product name"`
 	Owner   string `json:"owner,omitempty"   jsonschema:"owning team or person"`
@@ -118,17 +85,16 @@ type productCreateIn struct {
 
 func toolProductCreate(path string) func(context.Context, *mcp.CallToolRequest, productCreateIn) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in productCreateIn) (*mcp.CallToolResult, any, error) {
-		if in.Domain == "" || in.Name == "" {
-			return nil, nil, fmt.Errorf("domain and name are required")
+		if in.Name == "" {
+			return nil, nil, fmt.Errorf("name is required")
 		}
-		dto, err := app.CreateProductOffering(path, in.Domain, app.CreateProductOfferingRequest{
-			ID:           in.ID,
-			Name:         in.Name,
-			Owner:        in.Owner,
-			Summary:      in.Summary,
-			OwningDomain: in.Domain,
-			Version:      "0.1.0",
-			Status:       "draft",
+		dto, err := app.CreateProductOffering(path, app.CreateProductOfferingRequest{
+			ID:      in.ID,
+			Name:    in.Name,
+			Owner:   in.Owner,
+			Summary: in.Summary,
+			Version: "0.1.0",
+			Status:  "draft",
 		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("product_create %q: %w", in.ID, err)
@@ -136,7 +102,6 @@ func toolProductCreate(path string) func(context.Context, *mcp.CallToolRequest, 
 		return textResult(map[string]any{
 			"id":      dto.ID,
 			"name":    dto.Name,
-			"domain":  dto.OwningDomain,
 			"status":  dto.Status,
 			"version": dto.Version,
 		})
@@ -255,7 +220,6 @@ func isBusinessRuleTaskType(t string) bool {
 // ── decision_create ──────────────────────────────────────────────────────────
 
 type decisionCreateIn struct {
-	Domain  string `json:"domain"            jsonschema:"canonical domain name"`
 	ID      string `json:"id,omitempty"      jsonschema:"optional decision ID; leave empty to auto-generate per ADR-0020 (e.g. DEC_T4R7W3)"`
 	Name    string `json:"name"              jsonschema:"human-readable decision name"`
 	Owner   string `json:"owner,omitempty"   jsonschema:"owning team or person"`
@@ -264,10 +228,10 @@ type decisionCreateIn struct {
 
 func toolDecisionCreate(path string) func(context.Context, *mcp.CallToolRequest, decisionCreateIn) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in decisionCreateIn) (*mcp.CallToolResult, any, error) {
-		if in.Domain == "" || in.Name == "" {
-			return nil, nil, fmt.Errorf("domain and name are required")
+		if in.Name == "" {
+			return nil, nil, fmt.Errorf("name is required")
 		}
-		dto, err := app.CreateDecision(path, in.Domain, app.CreateDecisionRequest{
+		dto, err := app.CreateDecision(path, app.CreateDecisionRequest{
 			ID:      in.ID,
 			Name:    in.Name,
 			Owner:   in.Owner,
@@ -276,12 +240,11 @@ func toolDecisionCreate(path string) func(context.Context, *mcp.CallToolRequest,
 			Status:  "draft",
 		})
 		if err != nil {
-			return nil, nil, fmt.Errorf("decision_create %q in %q: %w", in.ID, in.Domain, err)
+			return nil, nil, fmt.Errorf("decision_create %q: %w", in.ID, err)
 		}
 		return textResult(map[string]any{
 			"id":      dto.ID,
 			"name":    dto.Name,
-			"domain":  in.Domain,
 			"status":  dto.Status,
 			"has_dmn": dto.HasDMN,
 		})

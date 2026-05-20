@@ -19,12 +19,11 @@ func createDecisionTestCosmos(t *testing.T) string {
 	}
 	must(os.MkdirAll(filepath.Dir(storage.CosmosFile(p)), 0o755))
 	must(os.WriteFile(storage.CosmosFile(p), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: Test Team\n"), 0o644))
-	domainDir := filepath.Join(storage.DomainsDir(p), "governance.blumer.com")
-	must(os.MkdirAll(filepath.Join(domainDir, "decisions", "DEC-001"), 0o755))
-	must(os.WriteFile(filepath.Join(domainDir, "domain.yaml"), []byte("name: governance.blumer.com\nowner: Governance\nstatus: draft\n"), 0o644))
-	must(os.WriteFile(filepath.Join(domainDir, "decisions", "DEC-001", "decision.yaml"), []byte(
+	decDir := filepath.Join(storage.DecisionsDir(p), "DEC-001")
+	must(os.MkdirAll(decDir, 0o755))
+	must(os.WriteFile(filepath.Join(decDir, "decision.yaml"), []byte(
 		"id: DEC-001\ntype: decision\nname: Provisioning Eligibility\nversion: 0.1.0\nstatus: active\nowner: Governance Team\ndmn_file: decision.dmn\ninputs:\n  - name: employmentStatus\n    type: string\noutputs:\n  - name: canProvision\n    type: boolean\n"), 0o644))
-	must(os.WriteFile(filepath.Join(domainDir, "decisions", "DEC-001", "decision.dmn"), []byte(`<?xml version="1.0" encoding="UTF-8"?>
+	must(os.WriteFile(filepath.Join(decDir, "decision.dmn"), []byte(`<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="https://www.omg.org/spec/DMN/20240513/MODEL/" id="Definitions_1" name="Provisioning Eligibility">
   <inputData id="InputData_Status" name="employmentStatus">
     <variable id="Var_Status" name="employmentStatus" typeRef="string"/>
@@ -51,7 +50,7 @@ func createDecisionTestCosmos(t *testing.T) string {
 
 func TestGetDecisionDefinitions_ReturnsParsedDRG(t *testing.T) {
 	p := createDecisionTestCosmos(t)
-	defs, err := GetDecisionDefinitions(p, "governance.blumer.com", "DEC-001")
+	defs, err := GetDecisionDefinitions(p, "DEC-001")
 	if err != nil {
 		t.Fatalf("GetDecisionDefinitions: %v", err)
 	}
@@ -77,7 +76,7 @@ func TestGetDecisionDefinitions_ReturnsParsedDRG(t *testing.T) {
 
 func TestEvaluateDecision_AgainstDMNFile(t *testing.T) {
 	p := createDecisionTestCosmos(t)
-	res, err := EvaluateDecision(p, "governance.blumer.com", "DEC-001", EvaluateDecisionRequest{Inputs: map[string]any{"employmentStatus": "terminated"}})
+	res, err := EvaluateDecision(p, "DEC-001", EvaluateDecisionRequest{Inputs: map[string]any{"employmentStatus": "terminated"}})
 	if err != nil {
 		t.Fatalf("EvaluateDecision: %v", err)
 	}
@@ -119,7 +118,7 @@ func TestUpdateDecisionDMN_DerivesIOFromDecisionTable(t *testing.T) {
     </decisionTable>
   </decision>
 </definitions>`
-	dec, err := UpdateDecisionDMN(p, "governance.blumer.com", "DEC-001", dmnXML)
+	dec, err := UpdateDecisionDMN(p, "DEC-001", dmnXML)
 	if err != nil {
 		t.Fatalf("UpdateDecisionDMN: %v", err)
 	}
@@ -161,7 +160,7 @@ func TestUpdateDecisionDMN_NormalizesDescriptiveInputNames(t *testing.T) {
     </decisionTable>
   </decision>
 </definitions>`
-	dec, err := UpdateDecisionDMN(p, "governance.blumer.com", "DEC-001", dmnXML)
+	dec, err := UpdateDecisionDMN(p, "DEC-001", dmnXML)
 	if err != nil {
 		t.Fatalf("UpdateDecisionDMN: %v", err)
 	}
@@ -176,7 +175,7 @@ func TestUpdateDecisionDMN_NormalizesDescriptiveInputNames(t *testing.T) {
 	}
 	// Persisted DMN bytes carry the normalized variable names and the
 	// pill labels remain untouched.
-	raw, err := GetDecisionDMN(p, "governance.blumer.com", "DEC-001")
+	raw, err := GetDecisionDMN(p, "DEC-001")
 	if err != nil {
 		t.Fatalf("GetDecisionDMN: %v", err)
 	}
@@ -208,15 +207,14 @@ func TestGetDecision_ReDerivesInputTypeFromDMNColumn(t *testing.T) {
 	}
 	must(os.MkdirAll(filepath.Dir(storage.CosmosFile(p)), 0o755))
 	must(os.WriteFile(storage.CosmosFile(p), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: Test Team\n"), 0o644))
-	domainDir := filepath.Join(storage.DomainsDir(p), "blumer.com")
-	must(os.MkdirAll(filepath.Join(domainDir, "decisions", "DEC-002"), 0o755))
-	must(os.WriteFile(filepath.Join(domainDir, "domain.yaml"), []byte("name: blumer.com\nowner: Test\nstatus: draft\n"), 0o644))
+	decDir := filepath.Join(storage.DecisionsDir(p), "DEC-002")
+	must(os.MkdirAll(decDir, 0o755))
 	// Stale cache: decision.yaml records no input type at all.
-	must(os.WriteFile(filepath.Join(domainDir, "decisions", "DEC-002", "decision.yaml"), []byte(
+	must(os.WriteFile(filepath.Join(decDir, "decision.yaml"), []byte(
 		"id: DEC-002\ntype: decision\nname: Kreditpruefung\nversion: 0.1.0\nstatus: draft\nowner: Test\ndmn_file: decision.dmn\ninputs:\n  - name: value\noutputs:\n  - name: kredit_stufe\n    type: string\n"), 0o644))
 	// DMN: <inputData> variable has no typeRef (bpmn.io default); the
 	// decision-table column carries the authoritative typeRef="number".
-	must(os.WriteFile(filepath.Join(domainDir, "decisions", "DEC-002", "decision.dmn"), []byte(`<?xml version="1.0" encoding="UTF-8"?>
+	must(os.WriteFile(filepath.Join(decDir, "decision.dmn"), []byte(`<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="https://www.omg.org/spec/DMN/20240513/MODEL/" id="Definitions_2" name="Kreditpruefung">
   <inputData id="InputData_Value" name="value"><variable id="Var_Value" name="value"/></inputData>
   <decision id="Decision_1" name="Kreditpruefung">
@@ -230,7 +228,7 @@ func TestGetDecision_ReDerivesInputTypeFromDMNColumn(t *testing.T) {
   </decision>
 </definitions>`), 0o644))
 
-	dto, err := GetDecision(p, "blumer.com", "DEC-002")
+	dto, err := GetDecision(p, "DEC-002")
 	if err != nil {
 		t.Fatalf("GetDecision: %v", err)
 	}
@@ -255,12 +253,11 @@ func TestGetDecision_AlignsDescriptiveVariableNameToColumnExpression(t *testing.
 	}
 	must(os.MkdirAll(filepath.Dir(storage.CosmosFile(p)), 0o755))
 	must(os.WriteFile(storage.CosmosFile(p), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: Test Team\n"), 0o644))
-	domainDir := filepath.Join(storage.DomainsDir(p), "blumer.cloud")
-	must(os.MkdirAll(filepath.Join(domainDir, "decisions", "DEC-003"), 0o755))
-	must(os.WriteFile(filepath.Join(domainDir, "domain.yaml"), []byte("name: blumer.cloud\nowner: Test\nstatus: draft\n"), 0o644))
-	must(os.WriteFile(filepath.Join(domainDir, "decisions", "DEC-003", "decision.yaml"), []byte(
+	decDir := filepath.Join(storage.DecisionsDir(p), "DEC-003")
+	must(os.MkdirAll(decDir, 0o755))
+	must(os.WriteFile(filepath.Join(decDir, "decision.yaml"), []byte(
 		"id: DEC-003\ntype: decision\nname: Kreditpruefungsstufe evaluieren\nversion: 0.1.9\nstatus: draft\nowner: Test\ndmn_file: decision.dmn\n"), 0o644))
-	must(os.WriteFile(filepath.Join(domainDir, "decisions", "DEC-003", "decision.dmn"), []byte(`<?xml version="1.0" encoding="UTF-8"?>
+	must(os.WriteFile(filepath.Join(decDir, "decision.dmn"), []byte(`<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="https://www.omg.org/spec/DMN/20240513/MODEL/" id="Defs" name="Kreditpruefungsstufe evaluieren">
   <inputData id="ID_value" name="Value"><variable id="V_value" name="Value"/></inputData>
   <inputData id="ID_status" name="Customer Status"><variable id="V_status" name="Customer Status"/></inputData>
@@ -275,7 +272,7 @@ func TestGetDecision_AlignsDescriptiveVariableNameToColumnExpression(t *testing.
   </decision>
 </definitions>`), 0o644))
 
-	dto, err := GetDecision(p, "blumer.cloud", "DEC-003")
+	dto, err := GetDecision(p, "DEC-003")
 	if err != nil {
 		t.Fatalf("GetDecision: %v", err)
 	}
@@ -297,7 +294,7 @@ func TestGetDecision_AlignsDescriptiveVariableNameToColumnExpression(t *testing.
 
 func TestGetDecisionDMN_ReturnsRawXML(t *testing.T) {
 	p := createDecisionTestCosmos(t)
-	raw, err := GetDecisionDMN(p, "governance.blumer.com", "DEC-001")
+	raw, err := GetDecisionDMN(p, "DEC-001")
 	if err != nil {
 		t.Fatalf("GetDecisionDMN: %v", err)
 	}

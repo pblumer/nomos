@@ -32,13 +32,9 @@ func traceFileName(t model.DecisionTrace) string {
 	return ts + "__" + short + ".yaml"
 }
 
-// findDecisionNode locates a decision node by ID within a domain.
-func findDecisionNode(path, domainCanonical, id string) (cosmosfs.DecisionNode, error) {
-	d, err := findDomainNode(path, domainCanonical)
-	if err != nil {
-		return cosmosfs.DecisionNode{}, err
-	}
-	nodes, err := cosmosfs.ScanDecisions(d.Path)
+// findDecisionNode locates a decision node by ID.
+func findDecisionNode(path, id string) (cosmosfs.DecisionNode, error) {
+	nodes, err := cosmosfs.ScanDecisions(decisionsRoot(path))
 	if err != nil {
 		return cosmosfs.DecisionNode{}, err
 	}
@@ -99,8 +95,8 @@ func writeTrace(decisionDir string, t model.DecisionTrace) (string, error) {
 // EvaluateDecisionWithTrace evaluates a decision, writes a trace artifact, and returns both.
 // Behaviour: if writing the trace fails the evaluation result is still returned alongside the error
 // so callers can decide whether to surface it.
-func EvaluateDecisionWithTrace(path, domainCanonical, id string, req EvaluateDecisionRequest, evaluator model.Evaluator) (*dmn.Result, *model.DecisionTrace, error) {
-	n, err := findDecisionNode(path, domainCanonical, id)
+func EvaluateDecisionWithTrace(path, id string, req EvaluateDecisionRequest, evaluator model.Evaluator) (*dmn.Result, *model.DecisionTrace, error) {
+	n, err := findDecisionNode(path, id)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -129,7 +125,6 @@ func EvaluateDecisionWithTrace(path, domainCanonical, id string, req EvaluateDec
 
 	info := versionpkg.Get()
 	trace, err := dmn.BuildTrace(dmn.TraceBuildInput{
-		Domain:          domainCanonical,
 		DecisionID:      n.Metadata.ID,
 		DecisionName:    n.Metadata.Name,
 		DecisionVersion: n.Metadata.Version,
@@ -151,8 +146,8 @@ func EvaluateDecisionWithTrace(path, domainCanonical, id string, req EvaluateDec
 }
 
 // ListDecisionTraces returns all traces for a decision, oldest first.
-func ListDecisionTraces(path, domainCanonical, id string) (DecisionTracesDTO, error) {
-	n, err := findDecisionNode(path, domainCanonical, id)
+func ListDecisionTraces(path, id string) (DecisionTracesDTO, error) {
+	n, err := findDecisionNode(path, id)
 	if err != nil {
 		return DecisionTracesDTO{}, err
 	}
@@ -163,7 +158,6 @@ func ListDecisionTraces(path, domainCanonical, id string) (DecisionTracesDTO, er
 	items := make([]model.DecisionTrace, 0, len(traces))
 	items = append(items, traces...)
 	return DecisionTracesDTO{
-		Domain:     domainCanonical,
 		DecisionID: id,
 		Items:      items,
 		Count:      len(items),
@@ -171,8 +165,8 @@ func ListDecisionTraces(path, domainCanonical, id string) (DecisionTracesDTO, er
 }
 
 // GetDecisionTrace returns a single trace by its trace_id.
-func GetDecisionTrace(path, domainCanonical, id, traceID string) (model.DecisionTrace, error) {
-	n, err := findDecisionNode(path, domainCanonical, id)
+func GetDecisionTrace(path, id, traceID string) (model.DecisionTrace, error) {
+	n, err := findDecisionNode(path, id)
 	if err != nil {
 		return model.DecisionTrace{}, err
 	}
@@ -190,8 +184,8 @@ func GetDecisionTrace(path, domainCanonical, id, traceID string) (model.Decision
 
 // VerifyDecisionTraces recomputes each trace's hash and validates the parent chain.
 // Returns a per-trace status list and an overall ok flag.
-func VerifyDecisionTraces(path, domainCanonical, id string) (DecisionTraceVerifyDTO, error) {
-	n, err := findDecisionNode(path, domainCanonical, id)
+func VerifyDecisionTraces(path, id string) (DecisionTraceVerifyDTO, error) {
+	n, err := findDecisionNode(path, id)
 	if err != nil {
 		return DecisionTraceVerifyDTO{}, err
 	}
@@ -217,7 +211,6 @@ func VerifyDecisionTraces(path, domainCanonical, id string) (DecisionTraceVerify
 		prev = t.TraceID
 	}
 	return DecisionTraceVerifyDTO{
-		Domain:     domainCanonical,
 		DecisionID: id,
 		Count:      len(results),
 		OK:         overallOK,

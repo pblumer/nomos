@@ -38,15 +38,13 @@ func createTraceTestCosmos(t *testing.T) string {
 			t.Fatal(err)
 		}
 	}
-	dom := filepath.Join(storage.DomainsDir(p), "governance.blumer.com")
-	must(os.MkdirAll(filepath.Join(dom, "decisions", "DEC-001"), 0o755))
+	decDir := filepath.Join(storage.DecisionsDir(p), "DEC-001")
+	must(os.MkdirAll(decDir, 0o755))
 	must(os.WriteFile(storage.CosmosFile(p),
 		[]byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: Team\n"), 0o644))
-	must(os.WriteFile(filepath.Join(dom, "domain.yaml"),
-		[]byte("name: governance.blumer.com\nowner: Team\nstatus: draft\n"), 0o644))
-	must(os.WriteFile(filepath.Join(dom, "decisions", "DEC-001", "decision.yaml"),
+	must(os.WriteFile(filepath.Join(decDir, "decision.yaml"),
 		[]byte("id: DEC-001\ntype: decision\nname: Provisioning Eligibility\nversion: 0.1.0\nstatus: draft\nowner: Team\ndmn_file: decision.dmn\n"), 0o644))
-	must(os.WriteFile(filepath.Join(dom, "decisions", "DEC-001", "decision.dmn"),
+	must(os.WriteFile(filepath.Join(decDir, "decision.dmn"),
 		[]byte(traceTestDMN), 0o644))
 	return p
 }
@@ -54,7 +52,7 @@ func createTraceTestCosmos(t *testing.T) string {
 func TestEvaluateDecisionWithTrace_WritesArtifact(t *testing.T) {
 	p := createTraceTestCosmos(t)
 	req := EvaluateDecisionRequest{Inputs: map[string]any{"category": "premium"}}
-	res, trace, err := EvaluateDecisionWithTrace(p, "governance.blumer.com", "DEC-001", req, model.Evaluator{ID: "tester", IP: "127.0.0.1"})
+	res, trace, err := EvaluateDecisionWithTrace(p, "DEC-001", req, model.Evaluator{ID: "tester", IP: "127.0.0.1"})
 	if err != nil {
 		t.Fatalf("EvaluateDecisionWithTrace: %v", err)
 	}
@@ -72,7 +70,7 @@ func TestEvaluateDecisionWithTrace_WritesArtifact(t *testing.T) {
 	}
 
 	// Verify the trace file exists on disk.
-	tracesDir := filepath.Join(storage.DomainsDir(p), "governance.blumer.com", "decisions", "DEC-001", "traces")
+	tracesDir := filepath.Join(storage.DecisionsDir(p), "DEC-001", "traces")
 	ents, err := os.ReadDir(tracesDir)
 	if err != nil {
 		t.Fatalf("read traces dir: %v", err)
@@ -85,12 +83,12 @@ func TestEvaluateDecisionWithTrace_WritesArtifact(t *testing.T) {
 func TestEvaluateDecisionWithTrace_ChainsByParent(t *testing.T) {
 	p := createTraceTestCosmos(t)
 	req1 := EvaluateDecisionRequest{Inputs: map[string]any{"category": "premium"}}
-	_, t1, err := EvaluateDecisionWithTrace(p, "governance.blumer.com", "DEC-001", req1, model.Evaluator{ID: "a"})
+	_, t1, err := EvaluateDecisionWithTrace(p, "DEC-001", req1, model.Evaluator{ID: "a"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	req2 := EvaluateDecisionRequest{Inputs: map[string]any{"category": "basic"}}
-	_, t2, err := EvaluateDecisionWithTrace(p, "governance.blumer.com", "DEC-001", req2, model.Evaluator{ID: "b"})
+	_, t2, err := EvaluateDecisionWithTrace(p, "DEC-001", req2, model.Evaluator{ID: "b"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,19 +102,19 @@ func TestEvaluateDecisionWithTrace_ChainsByParent(t *testing.T) {
 
 func TestListAndGetDecisionTrace(t *testing.T) {
 	p := createTraceTestCosmos(t)
-	_, _, _ = EvaluateDecisionWithTrace(p, "governance.blumer.com", "DEC-001",
+	_, _, _ = EvaluateDecisionWithTrace(p, "DEC-001",
 		EvaluateDecisionRequest{Inputs: map[string]any{"category": "premium"}}, model.Evaluator{})
-	_, second, _ := EvaluateDecisionWithTrace(p, "governance.blumer.com", "DEC-001",
+	_, second, _ := EvaluateDecisionWithTrace(p, "DEC-001",
 		EvaluateDecisionRequest{Inputs: map[string]any{"category": "basic"}}, model.Evaluator{})
 
-	list, err := ListDecisionTraces(p, "governance.blumer.com", "DEC-001")
+	list, err := ListDecisionTraces(p, "DEC-001")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if list.Count != 2 || len(list.Items) != 2 {
 		t.Fatalf("want 2 traces, got %d", list.Count)
 	}
-	got, err := GetDecisionTrace(p, "governance.blumer.com", "DEC-001", second.TraceID)
+	got, err := GetDecisionTrace(p, "DEC-001", second.TraceID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,12 +125,12 @@ func TestListAndGetDecisionTrace(t *testing.T) {
 
 func TestVerifyDecisionTraces_DetectsTamper(t *testing.T) {
 	p := createTraceTestCosmos(t)
-	_, _, _ = EvaluateDecisionWithTrace(p, "governance.blumer.com", "DEC-001",
+	_, _, _ = EvaluateDecisionWithTrace(p, "DEC-001",
 		EvaluateDecisionRequest{Inputs: map[string]any{"category": "premium"}}, model.Evaluator{})
-	_, _, _ = EvaluateDecisionWithTrace(p, "governance.blumer.com", "DEC-001",
+	_, _, _ = EvaluateDecisionWithTrace(p, "DEC-001",
 		EvaluateDecisionRequest{Inputs: map[string]any{"category": "basic"}}, model.Evaluator{})
 
-	clean, err := VerifyDecisionTraces(p, "governance.blumer.com", "DEC-001")
+	clean, err := VerifyDecisionTraces(p, "DEC-001")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +139,7 @@ func TestVerifyDecisionTraces_DetectsTamper(t *testing.T) {
 	}
 
 	// Tamper with one file on disk.
-	tracesDir := filepath.Join(storage.DomainsDir(p), "governance.blumer.com", "decisions", "DEC-001", "traces")
+	tracesDir := filepath.Join(storage.DecisionsDir(p), "DEC-001", "traces")
 	ents, _ := os.ReadDir(tracesDir)
 	if len(ents) == 0 {
 		t.Fatal("no traces written")
@@ -155,7 +153,7 @@ func TestVerifyDecisionTraces_DetectsTamper(t *testing.T) {
 	if err := os.WriteFile(first, []byte(tampered), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	bad, err := VerifyDecisionTraces(p, "governance.blumer.com", "DEC-001")
+	bad, err := VerifyDecisionTraces(p, "DEC-001")
 	if err != nil {
 		t.Fatal(err)
 	}

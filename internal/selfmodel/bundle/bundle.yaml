@@ -6,19 +6,18 @@ source_locale: de
 supported_locales: [de]
 connector_schema_version: "1"
 manifest:
-  - domains/nomos/core/domain.yaml
-  - domains/nomos/core/services/git-repo-manager/service.yaml
-  - domains/nomos/core/services/validator-engine/service.yaml
-  - domains/nomos/core/services/rest-adapter/service.yaml
-  - domains/nomos/core/services/mcp-adapter/service.yaml
-  - domains/nomos/core/services/web-adapter/service.yaml
-  - domains/nomos/core/services/catalog-manager/service.yaml
-  - domains/nomos/core/services/uci-manager/service.yaml
+  - services/git-repo-manager/service.yaml
+  - services/validator-engine/service.yaml
+  - services/rest-adapter/service.yaml
+  - services/mcp-adapter/service.yaml
+  - services/web-adapter/service.yaml
+  - services/catalog-manager/service.yaml
+  - services/uci-manager/service.yaml
   - catalog/blueprints/products/nomos-core-engine.yaml
   - catalog/blueprints/processes/prc-cosmos-init.yaml
   - catalog/blueprints/processes/prc-domain-add.yaml
   - catalog/blueprints/processes/prc-service-erfassen.yaml
   - catalog/blueprints/processes/prc-blueprint-validieren.yaml
   - catalog/blueprints/processes/prc-instanz-verifizieren.yaml
-  - domains/nomos/core/decisions/dec-dns-format-check/dec-dns-format-check.yaml
-  - domains/nomos/core/decisions/dec-blueprint-compliance/dec-blueprint-compliance.yaml
+  - decisions/dec-dns-format-check/decision.yaml
+  - decisions/dec-blueprint-compliance/decision.yaml

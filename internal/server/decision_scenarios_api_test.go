@@ -41,15 +41,13 @@ func scenarioTestCosmos(t *testing.T) string {
 			t.Fatal(err)
 		}
 	}
-	dom := filepath.Join(storage.DomainsDir(p), "governance.blumer.com")
-	must(os.MkdirAll(filepath.Join(dom, "decisions", "DEC-001"), 0o755))
+	decDir := filepath.Join(storage.DecisionsDir(p), "DEC-001")
+	must(os.MkdirAll(decDir, 0o755))
 	must(os.WriteFile(storage.CosmosFile(p),
 		[]byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: Team\n"), 0o644))
-	must(os.WriteFile(filepath.Join(dom, "domain.yaml"),
-		[]byte("name: governance.blumer.com\nowner: Team\nstatus: draft\n"), 0o644))
-	must(os.WriteFile(filepath.Join(dom, "decisions", "DEC-001", "decision.yaml"),
+	must(os.WriteFile(filepath.Join(decDir, "decision.yaml"),
 		[]byte("id: DEC-001\ntype: decision\nname: Eligibility\nversion: 0.1.0\nstatus: draft\nowner: Team\ndmn_file: decision.dmn\n"), 0o644))
-	must(os.WriteFile(filepath.Join(dom, "decisions", "DEC-001", "decision.dmn"),
+	must(os.WriteFile(filepath.Join(decDir, "decision.dmn"),
 		[]byte(scenarioTestDMN), 0o644))
 	return p
 }
@@ -57,7 +55,7 @@ func scenarioTestCosmos(t *testing.T) string {
 func TestDecisionScenarios_FreeFormCreateAndList(t *testing.T) {
 	p := scenarioTestCosmos(t)
 	h := NewHandler(p)
-	base := "/api/v1/domains/governance.blumer.com/decisions/DEC-001/scenarios"
+	base := "/api/v1/decisions/DEC-001/scenarios"
 
 	// Empty list initially.
 	if rr := get(h, base); rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"count":0`) {
@@ -121,7 +119,7 @@ func TestDecisionScenarios_FromTraceShortcut(t *testing.T) {
 	// First produce a trace via /evaluate so the from-trace shortcut has
 	// something to consume.
 	ev := postJSONMethod(h, http.MethodPost,
-		"/api/v1/domains/governance.blumer.com/decisions/DEC-001/evaluate",
+		"/api/v1/decisions/DEC-001/evaluate",
 		`{"inputs":{"category":"premium"}}`)
 	if ev.Code != http.StatusOK {
 		t.Fatalf("evaluate: code=%d body=%s", ev.Code, ev.Body.String())
@@ -136,7 +134,7 @@ func TestDecisionScenarios_FromTraceShortcut(t *testing.T) {
 	}
 
 	// Promote it.
-	base := "/api/v1/domains/governance.blumer.com/decisions/DEC-001/scenarios"
+	base := "/api/v1/decisions/DEC-001/scenarios"
 	rr := postJSONMethod(h, http.MethodPost,
 		base+"/from-trace/"+evResp.Trace.TraceID,
 		`{"name":"Premium baseline","description":"first golden case"}`)
@@ -173,7 +171,7 @@ func TestDecisionScenarios_DispatchFromTraceViaBody(t *testing.T) {
 	p := scenarioTestCosmos(t)
 	h := NewHandler(p)
 	ev := postJSONMethod(h, http.MethodPost,
-		"/api/v1/domains/governance.blumer.com/decisions/DEC-001/evaluate",
+		"/api/v1/decisions/DEC-001/evaluate",
 		`{"inputs":{"category":"premium"}}`)
 	if ev.Code != http.StatusOK {
 		t.Fatalf("evaluate: code=%d body=%s", ev.Code, ev.Body.String())
@@ -185,7 +183,7 @@ func TestDecisionScenarios_DispatchFromTraceViaBody(t *testing.T) {
 	}
 	_ = json.Unmarshal(ev.Body.Bytes(), &evResp)
 
-	base := "/api/v1/domains/governance.blumer.com/decisions/DEC-001/scenarios"
+	base := "/api/v1/decisions/DEC-001/scenarios"
 	rr := postJSONMethod(h, http.MethodPost, base,
 		`{"name":"via-body","from_trace_id":"`+evResp.Trace.TraceID+`"}`)
 	if rr.Code != http.StatusCreated {
@@ -199,7 +197,7 @@ func TestDecisionScenarios_DispatchFromTraceViaBody(t *testing.T) {
 func TestDecisionScenarios_UnknownDecision(t *testing.T) {
 	p := scenarioTestCosmos(t)
 	h := NewHandler(p)
-	rr := get(h, "/api/v1/domains/governance.blumer.com/decisions/DEC-NOPE/scenarios")
+	rr := get(h, "/api/v1/decisions/DEC-NOPE/scenarios")
 	if rr.Code != http.StatusNotFound {
 		t.Errorf("unknown decision should 404 the scenarios listing: code=%d body=%s", rr.Code, rr.Body.String())
 	}

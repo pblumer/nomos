@@ -24,30 +24,6 @@ func TestRequiredSeverity(t *testing.T) {
 // splitServiceRef
 // ---------------------------------------------------------------------------
 
-func TestSplitServiceRef(t *testing.T) {
-	cases := []struct {
-		ref   string
-		ok    bool
-		wantD string
-		wantS string
-	}{
-		{"identity.blumer.cloud/user-account", true, "identity.blumer.cloud", "user-account"},
-		{"", false, "", ""},
-		{"noslash", false, "", ""},
-		{"/empty-domain", false, "", ""},
-		{"domain/", false, "", ""},
-	}
-	for _, c := range cases {
-		d, s, ok := splitServiceRef(c.ref)
-		if ok != c.ok {
-			t.Errorf("splitServiceRef(%q) ok=%v, want %v", c.ref, ok, c.ok)
-		}
-		if ok && (d != c.wantD || s != c.wantS) {
-			t.Errorf("splitServiceRef(%q) = (%q,%q), want (%q,%q)", c.ref, d, s, c.wantD, c.wantS)
-		}
-	}
-}
-
 // ---------------------------------------------------------------------------
 // validateBlueprint (unit — no disk I/O needed)
 // ---------------------------------------------------------------------------
@@ -180,9 +156,6 @@ func TestValidateCrossArtifactsBlueprintServiceRefMissing(t *testing.T) {
 	res := newResult()
 	tree := cosmosfs.Tree{
 		Path: "/test",
-		Domains: []cosmosfs.DomainNode{
-			{Name: "identity.blumer.cloud", Metadata: model.Domain{CanonicalName: "identity.blumer.cloud"}},
-		},
 		Blueprints: []cosmosfs.BlueprintNode{
 			{Path: "/test/bp.yaml", Metadata: model.Blueprint{
 				ID: "SB-X", Type: "service_blueprint",
@@ -200,9 +173,6 @@ func TestValidateCrossArtifactsBlueprintAttributeServiceRefMissing(t *testing.T)
 	res := newResult()
 	tree := cosmosfs.Tree{
 		Path: "/test",
-		Domains: []cosmosfs.DomainNode{
-			{Name: "identity.blumer.cloud", Metadata: model.Domain{CanonicalName: "identity.blumer.cloud"}},
-		},
 		Blueprints: []cosmosfs.BlueprintNode{
 			{Path: "/test/bp.yaml", Metadata: model.Blueprint{
 				ID: "SB-Y", Type: "service_blueprint",
@@ -225,7 +195,6 @@ func TestValidateCrossArtifactsBlueprintRequiredServiceRefMissing(t *testing.T) 
 		Blueprints: []cosmosfs.BlueprintNode{
 			{Path: "/test/bp.yaml", Metadata: model.Blueprint{
 				ID: "PB-Z", Type: "product_blueprint",
-				OfferedBy: "identity.blumer.cloud",
 				RequiredServices: []model.RequiredServiceRef{
 					{ServiceRef: "identity.blumer.cloud/ghost-svc"},
 				},
@@ -245,7 +214,6 @@ func TestValidateCrossArtifactsBlueprintRequiredServiceBlueprintRefMissing(t *te
 		Blueprints: []cosmosfs.BlueprintNode{
 			{Path: "/test/bp.yaml", Metadata: model.Blueprint{
 				ID: "PB-W", Type: "product_blueprint",
-				OfferedBy: "identity.blumer.cloud",
 				RequiredServices: []model.RequiredServiceRef{
 					{ServiceBlueprintRef: "SB-NONEXISTENT"},
 				},

@@ -45,11 +45,11 @@ func TestBuildExplorerTreePlacesLocalServerUnderLocal(t *testing.T) {
 		t.Fatalf("expected local server node, got %+v", server)
 	}
 	// Single repository → content hangs directly under the server (no repo level).
-	if findTreeNode(*server, "namespace-parent", "Namespaces") == nil {
+	if findTreeNode(*server, "service-parent", "Services") == nil {
 		t.Fatal("namespace tree should hang directly under the single-repo server")
 	}
 	if findTreeNode(*server, "service", "user-account") == nil {
-		t.Fatal("server content should include domain services")
+		t.Fatal("server content should include services")
 	}
 }
 

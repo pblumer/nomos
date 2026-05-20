@@ -33,57 +33,62 @@ func TestLoadTree_EmptyCosmos(t *testing.T) {
 	if tree.Cosmos.ID != "test-cosmos" {
 		t.Errorf("unexpected cosmos ID: %q", tree.Cosmos.ID)
 	}
-	if len(tree.Domains) != 0 {
-		t.Errorf("expected 0 domains, got %d", len(tree.Domains))
-	}
-}
-
-func TestLoadTree_WithDomain(t *testing.T) {
-	dir := makeCosmosDir(t)
-	domainDir := filepath.Join(storage.DomainsDir(dir), "identity.blumer.cloud")
-	must(t, os.MkdirAll(domainDir, 0o755))
-	must(t, os.WriteFile(filepath.Join(domainDir, "domain.yaml"), []byte("name: identity.blumer.cloud\nowner: Identity Team\nstatus: draft\n"), 0o644))
-
-	tree, err := cosmosfs.LoadTree(dir)
-	if err != nil {
-		t.Fatalf("LoadTree: %v", err)
-	}
-	if len(tree.Domains) != 1 {
-		t.Fatalf("expected 1 domain, got %d", len(tree.Domains))
+	if len(tree.Services) != 0 {
+		t.Errorf("expected 0 services, got %d", len(tree.Services))
 	}
 }
 
 func TestLoadTree_WithService(t *testing.T) {
 	dir := makeCosmosDir(t)
-	domainDir := filepath.Join(storage.DomainsDir(dir), "identity.blumer.cloud")
-	svcDir := filepath.Join(domainDir, "services", "user-account")
+	svcDir := filepath.Join(storage.ServicesDir(dir), "user-account")
 	must(t, os.MkdirAll(svcDir, 0o755))
-	must(t, os.WriteFile(filepath.Join(domainDir, "domain.yaml"), []byte("name: identity.blumer.cloud\nstatus: draft\n"), 0o644))
 	must(t, os.WriteFile(filepath.Join(svcDir, "service.yaml"), []byte("name: user-account\nstatus: draft\n"), 0o644))
 
 	tree, err := cosmosfs.LoadTree(dir)
 	if err != nil {
 		t.Fatalf("LoadTree: %v", err)
 	}
-	if len(tree.Domains) != 1 || len(tree.Domains[0].Services) != 1 {
-		t.Errorf("expected 1 domain with 1 service: %+v", tree.Domains)
+	if len(tree.Services) != 1 || tree.Services[0].Name != "user-account" {
+		t.Errorf("expected 1 service user-account: %+v", tree.Services)
+	}
+}
+
+// TestLoadTree_NestedFolders verifies that services and decisions may be
+// organized into arbitrary nested folders (folders are a free git-facing
+// organization layer; the scanner discovers artifacts wherever they live).
+func TestLoadTree_NestedFolders(t *testing.T) {
+	dir := makeCosmosDir(t)
+	svcDir := filepath.Join(storage.ServicesDir(dir), "platform", "identity", "user-account")
+	must(t, os.MkdirAll(filepath.Join(svcDir, "capabilities"), 0o755))
+	must(t, os.WriteFile(filepath.Join(svcDir, "service.yaml"), []byte("name: user-account\nstatus: draft\n"), 0o644))
+	decDir := filepath.Join(storage.DecisionsDir(dir), "compliance", "DEC-001")
+	must(t, os.MkdirAll(decDir, 0o755))
+	must(t, os.WriteFile(filepath.Join(decDir, "decision.yaml"), []byte("id: DEC-001\ntype: decision\nname: Nested\nstatus: draft\n"), 0o644))
+
+	tree, err := cosmosfs.LoadTree(dir)
+	if err != nil {
+		t.Fatalf("LoadTree: %v", err)
+	}
+	if len(tree.Services) != 1 || tree.Services[0].Name != "user-account" {
+		t.Errorf("expected nested service discovered: %+v", tree.Services)
+	}
+	if len(tree.Decisions) != 1 || tree.Decisions[0].Metadata.ID != "DEC-001" {
+		t.Errorf("expected nested decision discovered: %+v", tree.Decisions)
 	}
 }
 
 func TestLoadTree_WithDecision(t *testing.T) {
 	dir := makeCosmosDir(t)
-	domainDir := filepath.Join(storage.DomainsDir(dir), "identity.blumer.cloud")
-	decDir := filepath.Join(domainDir, "decisions", "DEC-001")
+	decDir := filepath.Join(storage.DecisionsDir(dir), "DEC-001")
 	must(t, os.MkdirAll(decDir, 0o755))
-	must(t, os.WriteFile(filepath.Join(domainDir, "domain.yaml"), []byte("name: identity.blumer.cloud\nstatus: draft\n"), 0o644))
 	must(t, os.WriteFile(filepath.Join(decDir, "decision.yaml"), []byte("id: DEC-001\ntype: decision\nname: Test Decision\nstatus: draft\n"), 0o644))
 
 	tree, err := cosmosfs.LoadTree(dir)
 	if err != nil {
 		t.Fatalf("LoadTree: %v", err)
 	}
-	if len(tree.Domains[0].Decisions) != 1 {
-		t.Errorf("expected 1 decision, got %d", len(tree.Domains[0].Decisions))
+	if len(tree.Decisions) != 1 {
+		t.Errorf("expected 1 decision, got %d", len(tree.Decisions))
 	}
 }
 

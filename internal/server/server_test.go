@@ -19,39 +19,24 @@ func createTestCosmos(t *testing.T) string {
 			t.Fatal(e)
 		}
 	}
-	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/services/user-account"), 0o755))
-	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "collaboration.blumer.cloud/services/mailbox"), 0o755))
-	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/services/rule-validation-api"), 0o755))
-	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "blumer.com/services"), 0o755))
-	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "identity.blumer.com/services/user-account"), 0o755))
-	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "governance.blumer.com/services/provisioning-rules"), 0o755))
-	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "blumer.cloud/services"), 0o755))
-	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "home.blumer.cloud/services/home-dashboard"), 0o755))
-	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "zytlog.blumer.cloud/services/zytlog-api"), 0o755))
-	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "beispiel.ch/services"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.ServicesDir(p), "user-account"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.ServicesDir(p), "mailbox"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.ServicesDir(p), "rule-validation-api"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.ServicesDir(p), "provisioning-rules"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.ServicesDir(p), "home-dashboard"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.ServicesDir(p), "zytlog-api"), 0o755))
 	must(os.MkdirAll(filepath.Join(storage.CatalogDir(p), "blueprints/products"), 0o755))
 	must(os.MkdirAll(filepath.Join(storage.CatalogDir(p), "blueprints/services"), 0o755))
 	must(os.MkdirAll(filepath.Join(storage.CatalogDir(p), "instances/products"), 0o755))
 	must(os.WriteFile(storage.CosmosFile(p), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: unknown\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud", "domain.yaml"), []byte("name: identity.blumer.cloud\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/domain.yaml"), []byte("name: platform.blumer.cloud\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "collaboration.blumer.cloud/domain.yaml"), []byte("name: collaboration.blumer.cloud\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "blumer.com/domain.yaml"), []byte("name: blumer.com\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.com/domain.yaml"), []byte("name: identity.blumer.com\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "governance.blumer.com/domain.yaml"), []byte("name: governance.blumer.com\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "blumer.cloud/domain.yaml"), []byte("name: blumer.cloud\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "home.blumer.cloud/domain.yaml"), []byte("name: home.blumer.cloud\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "zytlog.blumer.cloud/domain.yaml"), []byte("name: zytlog.blumer.cloud\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "beispiel.ch/domain.yaml"), []byte("name: beispiel.ch\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/services/user-account/service.yaml"), []byte("name: user-account\nowned_by: identity.blumer.cloud\ncapabilities:\n  - user-account-management\nsupported_products:\n  - PROD-ACC-MBX-001\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "collaboration.blumer.cloud/services/mailbox/service.yaml"), []byte("name: mailbox\nowned_by: collaboration.blumer.cloud\nsla:\n  name: Mailbox SLA\n  target: 8h\n  availability: business-hours\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/services/rule-validation-api/service.yaml"), []byte("name: rule-validation-api\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.com/services/user-account/service.yaml"), []byte("name: user-account\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "governance.blumer.com/services/provisioning-rules/service.yaml"), []byte("name: provisioning-rules\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "home.blumer.cloud/services/home-dashboard/service.yaml"), []byte("name: home-dashboard\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "zytlog.blumer.cloud/services/zytlog-api/service.yaml"), []byte("name: zytlog-api\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "blueprints/products/account.yaml"), []byte("id: PB-ACC-MBX-001\ntype: product_blueprint\nname: Benutzerkonto mit Mailbox\nversion: 0.1.0\nstatus: draft\nowner: Team\noffered_by: identity.blumer.cloud\nowning_domain: identity.blumer.cloud\nrequired_inputs:\n  - person_reference\nrequired_service_blueprints:\n  - SB-1\nrequired_services:\n  - service_ref: identity.blumer.cloud/user-account\n    service_blueprint_ref: SB-1\n    required: true\nfulfillment:\n  required_services:\n    - service_ref: identity.blumer.cloud/user-account\n      role: primary\n      required: true\n      description: Creates the account.\n      ola:\n        name: Identity Account OLA\n        target: 4h\n        availability: business-hours\n    - service_ref: collaboration.blumer.cloud/mailbox\n      role: supporting\n      required: true\n      description: Creates the mailbox.\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "blueprints/services/account-service.yaml"), []byte("id: SB-1\ntype: service_blueprint\nname: Account Service\nversion: 0.1.0\nstatus: draft\nowner: Team\nnamespace_service_ref: identity.blumer.cloud/user-account\ncapabilities:\n  - create_account\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.ServicesDir(p), "user-account/service.yaml"), []byte("name: user-account\ncapabilities:\n  - user-account-management\nsupported_products:\n  - PROD-ACC-MBX-001\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.ServicesDir(p), "mailbox/service.yaml"), []byte("name: mailbox\nsla:\n  name: Mailbox SLA\n  target: 8h\n  availability: business-hours\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.ServicesDir(p), "rule-validation-api/service.yaml"), []byte("name: rule-validation-api\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.ServicesDir(p), "provisioning-rules/service.yaml"), []byte("name: provisioning-rules\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.ServicesDir(p), "home-dashboard/service.yaml"), []byte("name: home-dashboard\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.ServicesDir(p), "zytlog-api/service.yaml"), []byte("name: zytlog-api\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "blueprints/products/account.yaml"), []byte("id: PB-ACC-MBX-001\ntype: product_blueprint\nname: Benutzerkonto mit Mailbox\nversion: 0.1.0\nstatus: draft\nowner: Team\nrequired_inputs:\n  - person_reference\nrequired_service_blueprints:\n  - SB-1\nrequired_services:\n  - service_ref: user-account\n    service_blueprint_ref: SB-1\n    required: true\nfulfillment:\n  required_services:\n    - service_ref: user-account\n      role: primary\n      required: true\n      description: Creates the account.\n      ola:\n        name: Identity Account OLA\n        target: 4h\n        availability: business-hours\n    - service_ref: mailbox\n      role: supporting\n      required: true\n      description: Creates the mailbox.\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "blueprints/services/account-service.yaml"), []byte("id: SB-1\ntype: service_blueprint\nname: Account Service\nversion: 0.1.0\nstatus: draft\nowner: Team\nnamespace_service_ref: user-account\ncapabilities:\n  - create_account\n"), 0o644))
 	must(os.WriteFile(filepath.Join(storage.CatalogDir(p), "instances/products/account-instance.yaml"), []byte("id: PI-ACC-MBX-EXAMPLE-001\ntype: product_instance\nname: Beispielinstanz Benutzerkonto mit Mailbox\nblueprint_ref: PB-ACC-MBX-001\nblueprint_version: 0.1.0\ncompliance_status: compliant\nfindings: []\n"), 0o644))
 	return p
 }
@@ -76,44 +61,21 @@ func TestWebShellPagesAndAPI(t *testing.T) { /* same as before */
 	} else {
 		hasAll(t, rr.Body.String(), "Nomos", "Governance Platform", "Governance Dashboard", "app-sidebar", "app-topbar", "metric-card", "Cosmos Overview")
 	}
-	if rr := get(h, "/domains"); rr.Code != 200 {
-		t.Fatal(rr.Code)
-	} else {
-		hasAll(t, rr.Body.String(), "Domains Explorer", "Namespaces are top-level zones", "identity.blumer.cloud", "user-account", "explorer-layout", "explorer-tree", "details-panel", "Domain count", "Service count")
-	}
-	if rr := get(h, "/domains?selected=domain:identity.blumer.cloud"); rr.Code != 200 {
-		t.Fatal(rr.Code)
-	} else {
-		hasAll(t, rr.Body.String(), "Domain Details", "identity.blumer.cloud", "Service count", "user-account")
-	}
-	if rr := get(h, "/domains?selected=service:identity.blumer.cloud/user-account"); rr.Code != 200 {
-		t.Fatal(rr.Code)
-	} else {
-		hasAll(t, rr.Body.String(), "Service Details", "user-account", "identity.blumer.cloud")
-	}
-	if rr := get(h, "/domains?selected=domain:does-not-exist.example"); rr.Code != 200 {
-		t.Fatal(rr.Code)
-	} else {
-		hasAll(t, rr.Body.String(), "Cosmos Summary", "Local Cosmos")
-	}
 	if rr := get(h, "/cosmos"); rr.Code != 200 {
 		t.Fatal(rr.Code)
 	} else {
 		body := rr.Body.String()
-		hasAll(t, body, "Namespaces", "com", "blumer")
-		if strings.Contains(body, ">Domains</span>") {
-			t.Fatalf("cosmos hierarchy should not render Domains as the main DNS label")
-		}
+		hasAll(t, body, "Namespaces")
 	}
-	if rr := get(h, "/domains/identity.blumer.cloud"); rr.Code != 200 {
+	if rr := get(h, "/services"); rr.Code != 200 {
 		t.Fatal(rr.Code)
 	} else {
-		hasAll(t, rr.Body.String(), "identity.blumer.cloud")
+		hasAll(t, rr.Body.String(), "Services", "user-account")
 	}
-	if rr := get(h, "/services/identity.blumer.cloud/user-account"); rr.Code != 200 {
+	if rr := get(h, "/services/user-account"); rr.Code != 200 {
 		t.Fatal(rr.Code)
 	} else {
-		hasAll(t, rr.Body.String(), "user-account", "identity.blumer.cloud", "Metadata")
+		hasAll(t, rr.Body.String(), "user-account", "Metadata")
 	}
 	if rr := get(h, "/graph"); rr.Code != 200 {
 		t.Fatal(rr.Code)
@@ -144,7 +106,7 @@ func TestWebShellPagesAndAPI(t *testing.T) { /* same as before */
 	if m["name"] != "Local Cosmos" {
 		t.Fatal(m)
 	}
-	if get(h, "/api/v1/domains").Code != 200 || get(h, "/api/v1/blueprints").Code != 200 || get(h, "/api/v1/instances").Code != 200 || get(h, "/api/v1/graph").Code != 200 || get(h, "/api/v1/validate").Code != 200 {
+	if get(h, "/api/v1/services").Code != 200 || get(h, "/api/v1/blueprints").Code != 200 || get(h, "/api/v1/instances").Code != 200 || get(h, "/api/v1/graph").Code != 200 || get(h, "/api/v1/validate").Code != 200 {
 		t.Fatal("api failed")
 	}
 	if get(h, "/does-not-exist").Code != 404 {
@@ -173,7 +135,7 @@ func TestOpenAPIAndSwaggerRoutes(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing paths: %#v", spec["paths"])
 	}
-	for _, path := range []string{"/health", "/api/v1/cosmos", "/api/v1/domains", "/api/v1/blueprints", "/api/v1/instances/{instance}/compliance"} {
+	for _, path := range []string{"/health", "/api/v1/cosmos", "/api/v1/services", "/api/v1/blueprints", "/api/v1/instances/{instance}/compliance"} {
 		if _, ok := paths[path]; !ok {
 			t.Fatalf("missing openapi path %s", path)
 		}
@@ -206,7 +168,7 @@ func TestMissingCosmosStyledError(t *testing.T) {
 
 func TestNamespaceTreeAPIAndContentTypes(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	jsonEndpoints := []string{"/api/v1/cosmos", "/api/v1/domains", "/api/v1/namespaces", "/api/v1/validate"}
+	jsonEndpoints := []string{"/api/v1/cosmos", "/api/v1/services", "/api/v1/namespaces", "/api/v1/validate"}
 	for _, endpoint := range jsonEndpoints {
 		rr := get(h, endpoint)
 		if rr.Code != 200 {
@@ -223,7 +185,7 @@ func TestNamespaceTreeAPIAndContentTypes(t *testing.T) {
 
 	rr := get(h, "/api/v1/namespaces")
 	body := rr.Body.String()
-	hasAll(t, body, "Namespaces", "com", "cloud", "blumer", "identity", "home", "identity.blumer.com", "identity.blumer.cloud", "treePath", "displayPath")
+	hasAll(t, body, "Services", "Decisions", "Products", "user-account", "mailbox")
 }
 
 func TestRepositoriesAPIReturnsLocalDefault(t *testing.T) {
@@ -349,22 +311,11 @@ func TestMountProxyForwardsTokenAndBlocksUnauthenticated(t *testing.T) {
 	}
 }
 
-func TestCosmosExplorerRendersServerAndRepository(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-	rr := get(h, "/cosmos")
-	if rr.Code != 200 {
-		t.Fatalf("status=%d", rr.Code)
-	}
-	hasAll(t, rr.Body.String(), `data-kind="server"`, `data-kind="repository"`, "Namespaces",
-		`data-action="mount-server"`, `data-action="unmount-server"`, `data-mount-id="local"`)
-}
-
 func TestRepositoryScopedReadsMatchAliases(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	for _, p := range [][2]string{
 		{"/api/v1/cosmos", "/api/v1/repositories/default/cosmos"},
 		{"/api/v1/namespaces", "/api/v1/repositories/default/namespaces"},
-		{"/api/v1/domains", "/api/v1/repositories/default/domains"},
 	} {
 		alias := get(h, p[0])
 		scoped := get(h, p[1])
@@ -380,11 +331,6 @@ func TestRepositoryScopedReadsMatchAliases(t *testing.T) {
 	} else {
 		hasAll(t, meta.Body.String(), `"id":"default"`, "filesystem")
 	}
-	if dom := get(h, "/api/v1/repositories/default/domains/identity.blumer.cloud"); dom.Code != 200 {
-		t.Fatalf("scoped domain detail status=%d", dom.Code)
-	} else {
-		hasAll(t, dom.Body.String(), "user-account")
-	}
 	if rr := get(h, "/api/v1/repositories/nope/cosmos"); rr.Code != 404 {
 		t.Fatalf("unknown repo status=%d, want 404", rr.Code)
 	}
@@ -392,25 +338,17 @@ func TestRepositoryScopedReadsMatchAliases(t *testing.T) {
 
 func TestRESTDetailRoutesAndErrors(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	if rr := get(h, "/api/v1/domains/identity.blumer.cloud"); rr.Code != 200 {
-		t.Fatalf("domain status=%d", rr.Code)
-	} else {
-		hasAll(t, rr.Body.String(), "cloud / blumer / identity", "user-account")
-	}
-	if rr := get(h, "/api/v1/domains/identity.blumer.cloud/services"); rr.Code != 200 {
+	if rr := get(h, "/api/v1/services"); rr.Code != 200 {
 		t.Fatalf("services status=%d", rr.Code)
 	} else {
 		hasAll(t, rr.Body.String(), "user-account")
 	}
-	if rr := get(h, "/api/v1/domains/identity.blumer.cloud/services/user-account"); rr.Code != 200 {
+	if rr := get(h, "/api/v1/services/user-account"); rr.Code != 200 {
 		t.Fatalf("service status=%d", rr.Code)
 	} else {
-		hasAll(t, rr.Body.String(), "identity.blumer.cloud", "user-account")
+		hasAll(t, rr.Body.String(), "user-account")
 	}
-	if rr := get(h, "/api/v1/domains/does-not-exist.example"); rr.Code != 404 || !strings.Contains(rr.Body.String(), "DOMAIN_NOT_FOUND") {
-		t.Fatalf("expected domain 404, got %d %s", rr.Code, rr.Body.String())
-	}
-	if rr := get(h, "/api/v1/domains/identity.blumer.cloud/services/does-not-exist"); rr.Code != 404 || !strings.Contains(rr.Body.String(), "SERVICE_NOT_FOUND") {
+	if rr := get(h, "/api/v1/services/does-not-exist"); rr.Code != 404 || !strings.Contains(rr.Body.String(), "SERVICE_NOT_FOUND") {
 		t.Fatalf("expected service 404, got %d %s", rr.Code, rr.Body.String())
 	}
 }
@@ -420,17 +358,17 @@ func TestBlueprintAndInstanceAPIRoutes(t *testing.T) {
 	if rr := get(h, "/api/v1/blueprints"); rr.Code != 200 {
 		t.Fatalf("blueprints status=%d", rr.Code)
 	} else {
-		hasAll(t, rr.Body.String(), "PB-ACC-MBX-001", "Benutzerkonto mit Mailbox", "offered_by", "fulfillment", "resolution_status", "identity.blumer.cloud/user-account")
+		hasAll(t, rr.Body.String(), "PB-ACC-MBX-001", "Benutzerkonto mit Mailbox", "fulfillment", "resolution_status", "user-account")
 	}
 	if rr := get(h, "/api/blueprints/PB-ACC-MBX-001"); rr.Code != 200 {
 		t.Fatalf("blueprint detail status=%d", rr.Code)
 	} else {
-		hasAll(t, rr.Body.String(), "product_blueprint", "offered_by", "fulfillment", "resolved", "identity.blumer.cloud/user-account")
+		hasAll(t, rr.Body.String(), "product_blueprint", "fulfillment", "user-account")
 	}
 	if rr := get(h, "/api/v1/blueprints/SB-1"); rr.Code != 200 {
 		t.Fatalf("service blueprint detail status=%d", rr.Code)
 	} else {
-		hasAll(t, rr.Body.String(), "service_blueprint", "namespace_service_ref", "identity.blumer.cloud/user-account")
+		hasAll(t, rr.Body.String(), "service_blueprint", "namespace_service_ref", "user-account")
 	}
 	if rr := get(h, "/api/v1/instances"); rr.Code != 200 {
 		t.Fatalf("instances status=%d", rr.Code)
@@ -449,12 +387,11 @@ func TestExtendedWebPages(t *testing.T) {
 	pages := map[string][]string{
 		"/cosmos":                           {"Cosmos"},
 		"/services":                         {"Services", "Create service"},
-		"/namespaces":                       {"Namespace Tree", "identity.blumer.cloud", "user-account"},
+		"/namespaces":                       {"Namespace Tree", "user-account"},
 		"/blueprints":                       {"Blueprints", "PB-ACC-MBX-001", "SB-1"},
-		"/blueprints/PB-ACC-MBX-001":        {"PB-ACC-MBX-001", "Required inputs", "identity.blumer.cloud/user-account"},
+		"/blueprints/PB-ACC-MBX-001":        {"PB-ACC-MBX-001", "Required inputs", "user-account"},
 		"/instances":                        {"Instances", "PI-ACC-MBX-EXAMPLE-001"},
 		"/instances/PI-ACC-MBX-EXAMPLE-001": {"Compliance", "compliant"},
-		"/verify":                           {"Verification", "Verify domain", "Evidence files"},
 		"/api":                              {"/health", "/api/v1/cosmos", "/api/v1/instances"},
 	}
 	for path, want := range pages {
@@ -468,7 +405,7 @@ func TestExtendedWebPages(t *testing.T) {
 
 func TestWebErrorPagesForMissingResources(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	paths := []string{"/domains/missing.example", "/services/identity.blumer.cloud/missing", "/blueprints/missing", "/instances/missing"}
+	paths := []string{"/services/missing-service", "/blueprints/missing", "/instances/missing"}
 	for _, path := range paths {
 		rr := get(h, path)
 		if rr.Code != 404 {
@@ -634,40 +571,16 @@ func mustMkdir(t *testing.T, path string) {
 	}
 }
 
-func TestCreateDomainAndService(t *testing.T) {
+func TestCreateService(t *testing.T) {
 	p := createTestCosmos(t)
 	h := NewHandler(p)
-	if rr := postForm(h, "/api/v1/domains", "dns=example.com&owner=Web"); rr.Code != http.StatusCreated {
-		t.Fatalf("domain create status=%d body=%s", rr.Code, rr.Body.String())
-	}
-	if rr := postForm(h, "/api/v1/domains", "dns=bad"); rr.Code != http.StatusBadRequest {
-		t.Fatalf("invalid domain status=%d", rr.Code)
-	}
-	if rr := postForm(h, "/api/v1/domains", "dns=example.com"); rr.Code != http.StatusConflict {
-		t.Fatalf("duplicate domain status=%d", rr.Code)
-	}
-	if rr := postForm(h, "/api/v1/domains", "dns=example.com&force=on&owner=Web"); rr.Code != http.StatusCreated {
-		t.Fatalf("force domain status=%d", rr.Code)
-	}
-	if rr := postForm(h, "/api/v1/domains", "namespace=net&label=example&owner=Web"); rr.Code != http.StatusCreated || !strings.Contains(rr.Body.String(), "example.net") {
-		t.Fatalf("namespace domain create status=%d body=%s", rr.Code, rr.Body.String())
-	}
-	if rr := postForm(h, "/api/v1/domains/blumer.com/children", "label=identity-api&owner=Web"); rr.Code != http.StatusCreated || !strings.Contains(rr.Body.String(), "identity-api.blumer.com") {
-		t.Fatalf("child domain create status=%d body=%s", rr.Code, rr.Body.String())
-	}
-	if rr := postJSON(h, "/api/v1/domains/identity-api.blumer.com/children", `{"label":"products","owner":"Web"}`); rr.Code != http.StatusCreated || !strings.Contains(rr.Body.String(), "products.identity-api.blumer.com") || !strings.Contains(rr.Body.String(), `"treePath":"/com/blumer/identity-api/products"`) || !strings.Contains(rr.Body.String(), `.nomos/domains/com/blumer/identity-api/products/domain.yaml`) {
-		t.Fatalf("json child domain create status=%d body=%s", rr.Code, rr.Body.String())
-	}
-	if rr := postForm(h, "/api/v1/namespaces/cloud/domains", "label=api-blumer&owner=Web"); rr.Code != http.StatusCreated || !strings.Contains(rr.Body.String(), "api-blumer.cloud") {
-		t.Fatalf("namespace route create status=%d body=%s", rr.Code, rr.Body.String())
-	}
-	if rr := postForm(h, "/api/v1/domains/example.com/services", "name=web-ui&owner=Web"); rr.Code != http.StatusCreated {
+	if rr := postForm(h, "/api/v1/services", "name=web-ui&owner=Web"); rr.Code != http.StatusCreated {
 		t.Fatalf("service create status=%d body=%s", rr.Code, rr.Body.String())
 	}
-	if rr := postForm(h, "/api/v1/domains/example.com/services", "name=web-ui"); rr.Code != http.StatusConflict {
+	if rr := postForm(h, "/api/v1/services", "name=web-ui"); rr.Code != http.StatusConflict {
 		t.Fatalf("duplicate service status=%d", rr.Code)
 	}
-	if rr := get(h, "/services?domain=example.com"); rr.Code != 200 || !strings.Contains(rr.Body.String(), "web-ui") {
+	if rr := get(h, "/services"); rr.Code != 200 || !strings.Contains(rr.Body.String(), "web-ui") {
 		t.Fatalf("service page status=%d body=%s", rr.Code, rr.Body.String())
 	}
 }
@@ -742,44 +655,27 @@ func TestAPIBlueprintsDELETE(t *testing.T) {
 	}
 }
 
-func TestAPIDomainAndServiceDELETE(t *testing.T) {
+func TestAPIServiceDELETE(t *testing.T) {
 	p := createTestCosmos(t)
 	h := NewHandler(p)
 
 	// Delete service
 	del := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/domains/identity.blumer.cloud/services/user-account", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/services/user-account", nil)
 	h.ServeHTTP(del, req)
-	if del.Code != http.StatusOK {
-		t.Fatalf("expected 200 on service delete, got %d: %s", del.Code, del.Body.String())
+	if del.Code != http.StatusNoContent {
+		t.Fatalf("expected 204 on service delete, got %d: %s", del.Code, del.Body.String())
 	}
-	if !strings.Contains(del.Body.String(), `"deleted":"identity.blumer.cloud/user-account"`) {
-		t.Fatalf("unexpected delete response: %s", del.Body.String())
-	}
-	if get(h, "/api/v1/domains/identity.blumer.cloud/services/user-account").Code != 404 {
+	if get(h, "/api/v1/services/user-account").Code != 404 {
 		t.Fatal("expected 404 after service delete")
 	}
 
-	// Delete domain
+	// Delete non-existent service
 	del2 := httptest.NewRecorder()
-	req2 := httptest.NewRequest(http.MethodDelete, "/api/v1/domains/platform.blumer.cloud", nil)
+	req2 := httptest.NewRequest(http.MethodDelete, "/api/v1/services/does-not-exist", nil)
 	h.ServeHTTP(del2, req2)
-	if del2.Code != http.StatusOK {
-		t.Fatalf("expected 200 on domain delete, got %d: %s", del2.Code, del.Body.String())
-	}
-	if !strings.Contains(del2.Body.String(), `"deleted":"platform.blumer.cloud"`) {
-		t.Fatalf("unexpected delete response: %s", del2.Body.String())
-	}
-	if get(h, "/api/v1/domains/platform.blumer.cloud").Code != 404 {
-		t.Fatal("expected 404 after domain delete")
-	}
-
-	// Delete non-existent domain
-	del3 := httptest.NewRecorder()
-	req3 := httptest.NewRequest(http.MethodDelete, "/api/v1/domains/does-not-exist.example", nil)
-	h.ServeHTTP(del3, req3)
-	if del3.Code != http.StatusNotFound {
-		t.Fatalf("expected 404 for non-existent domain, got %d", del3.Code)
+	if del2.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for non-existent service, got %d", del2.Code)
 	}
 }
 
@@ -911,51 +807,20 @@ func TestBlueprintAndInstanceWebPages(t *testing.T) {
 	hasAll(t, rr.Body.String(), "PI-ACC-MBX-EXAMPLE-001")
 }
 
-func TestLegacyServiceAPI(t *testing.T) {
+func TestFlatServiceAPI(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 
-	// valid legacy service lookup
-	rr := get(h, "/api/v1/services/identity.blumer.cloud/user-account")
+	// valid flat service lookup
+	rr := get(h, "/api/v1/services/user-account")
 	if rr.Code != 200 {
 		t.Fatalf("expected 200, got %d body=%s", rr.Code, rr.Body.String())
 	}
 	hasAll(t, rr.Body.String(), "user-account")
 
-	// not enough path segments → 404
-	rr = get(h, "/api/v1/services/identity.blumer.cloud")
-	if rr.Code != 404 {
-		t.Fatalf("expected 404 for bad path, got %d", rr.Code)
-	}
-
 	// non-existent service → 404
-	rr = get(h, "/api/v1/services/identity.blumer.cloud/no-such-service")
+	rr = get(h, "/api/v1/services/no-such-service")
 	if rr.Code != 404 {
 		t.Fatalf("expected 404 for missing service, got %d", rr.Code)
-	}
-}
-
-func TestVerifyDomainAPI(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-
-	// empty domain → 404
-	rr := postJSON(h, "/api/v1/verify/domain/", "")
-	if rr.Code != 404 {
-		t.Fatalf("expected 404 for empty domain, got %d", rr.Code)
-	}
-
-	// GET method → 405
-	rr2 := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/verify/domain/example.com", nil)
-	h.ServeHTTP(rr2, req)
-	if rr2.Code != 405 {
-		t.Fatalf("expected 405 for GET, got %d", rr2.Code)
-	}
-
-	// POST with real domain → triggers VerifyDomain (will likely error due to DNS in test env)
-	rr = postJSON(h, "/api/v1/verify/domain/identity.blumer.cloud", "")
-	// We expect either 200 (if DNS works) or a 4xx/5xx error — just ensure it was reached
-	if rr.Code == 404 {
-		t.Fatalf("handler should have been reached (not 404), got %d body=%s", rr.Code, rr.Body.String())
 	}
 }
 
@@ -978,29 +843,9 @@ func TestRequirementsAndRulesPages(t *testing.T) {
 func TestFormPostRoutes(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 
-	// POST /domains creates a domain and redirects
-	rr := httptest.NewRecorder()
-	body := strings.NewReader("dns=newtest.example.com&owner=Test+Team")
-	req := httptest.NewRequest(http.MethodPost, "/domains", body)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	h.ServeHTTP(rr, req)
-	if rr.Code != 303 {
-		t.Fatalf("POST /domains expected 303 redirect, got %d body=%s", rr.Code, rr.Body.String())
-	}
-
-	// POST /domains with invalid name → error page (non-303)
-	rr2 := httptest.NewRecorder()
-	body2 := strings.NewReader("dns=bad/name&owner=Team")
-	req2 := httptest.NewRequest(http.MethodPost, "/domains", body2)
-	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	h.ServeHTTP(rr2, req2)
-	if rr2.Code == 303 {
-		t.Fatalf("POST /domains with bad name should not redirect")
-	}
-
 	// POST /services → redirects
 	rr3 := httptest.NewRecorder()
-	body3 := strings.NewReader("domain=identity.blumer.cloud&name=new-service&owner=Team")
+	body3 := strings.NewReader("name=new-service&owner=Team")
 	req3 := httptest.NewRequest(http.MethodPost, "/services", body3)
 	req3.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	h.ServeHTTP(rr3, req3)
@@ -1008,21 +853,13 @@ func TestFormPostRoutes(t *testing.T) {
 		t.Fatalf("POST /services expected 303 redirect, got %d body=%s", rr3.Code, rr3.Body.String())
 	}
 
-	// POST /verify → redirects (DNS will fail but handler still redirects)
-	rr4 := httptest.NewRecorder()
-	body4 := strings.NewReader("domain=identity.blumer.cloud")
-	req4 := httptest.NewRequest(http.MethodPost, "/verify", body4)
-	req4.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	h.ServeHTTP(rr4, req4)
-	if rr4.Code != 303 {
-		t.Fatalf("POST /verify expected 303 redirect, got %d body=%s", rr4.Code, rr4.Body.String())
-	}
-
 	// POST unknown route → error page
 	rr5 := httptest.NewRecorder()
 	req5 := httptest.NewRequest(http.MethodPost, "/unknown-route", nil)
 	h.ServeHTTP(rr5, req5)
-	// formPost only handles /domains, /services, /verify; anything else → 404 error page
+	if rr5.Code == 303 {
+		t.Fatalf("POST /unknown-route should not redirect")
+	}
 }
 
 func TestHTMLNotFound(t *testing.T) {
@@ -1132,235 +969,6 @@ func TestAPIInstancesListAndCreate(t *testing.T) {
 	}
 }
 
-func TestNamespaceRoutesAPI(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-
-	// POST /api/v1/namespaces/{ns}/domains
-	rr := httptest.NewRecorder()
-	body := strings.NewReader("label=newlabel&owner=Team")
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/namespaces/cloud/domains", body)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	h.ServeHTTP(rr, req)
-	if rr.Code != http.StatusCreated {
-		t.Fatalf("POST namespace domain status=%d body=%s", rr.Code, rr.Body.String())
-	}
-
-	// method not allowed
-	rr2 := httptest.NewRecorder()
-	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/namespaces/cloud/domains", nil)
-	h.ServeHTTP(rr2, req2)
-	if rr2.Code != 405 {
-		t.Fatalf("expected 405, got %d", rr2.Code)
-	}
-
-	// bad path
-	rr3 := httptest.NewRecorder()
-	req3 := httptest.NewRequest(http.MethodPost, "/api/v1/namespaces/cloud/unknown", nil)
-	h.ServeHTTP(rr3, req3)
-	if rr3.Code != 404 {
-		t.Fatalf("expected 404 for unknown namespace sub-path, got %d", rr3.Code)
-	}
-}
-
-func TestDomainProductOfferingAPI(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-
-	list := get(h, "/api/v1/domains/identity.blumer.cloud/products")
-	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), "PB-ACC-MBX-001") {
-		t.Fatalf("expected domain products response, status=%d body=%s", list.Code, list.Body.String())
-	}
-
-	body := strings.NewReader(`{"id":"PROD-API-001","name":"API Product","summary":"Created through domain endpoint"}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/domains/identity.blumer.cloud/products", body)
-	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, req)
-	if rr.Code != http.StatusCreated {
-		t.Fatalf("create status=%d body=%s", rr.Code, rr.Body.String())
-	}
-	var created struct {
-		ID           string `json:"id"`
-		OfferedBy    string `json:"offered_by"`
-		OwningDomain string `json:"owning_domain"`
-	}
-	if err := json.Unmarshal(rr.Body.Bytes(), &created); err != nil {
-		t.Fatal(err)
-	}
-	if created.OfferedBy != "identity.blumer.cloud" || created.OwningDomain != "identity.blumer.cloud" {
-		t.Fatalf("expected domain ownership defaults: %+v", created)
-	}
-
-	dup := httptest.NewRecorder()
-	dupReq := httptest.NewRequest(http.MethodPost, "/api/v1/domains/identity.blumer.cloud/products", strings.NewReader(`{"id":"PROD-API-001","name":"Duplicate"}`))
-	dupReq.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(dup, dupReq)
-	if dup.Code != http.StatusConflict {
-		t.Fatalf("duplicate status=%d body=%s", dup.Code, dup.Body.String())
-	}
-
-	add := httptest.NewRecorder()
-	addReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PROD-API-001/fulfillment-services", strings.NewReader(`{"service_ref":"collaboration.blumer.cloud/mailbox","role":"supporting","required":true,"description":"Mailbox"}`))
-	addReq.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(add, addReq)
-	if add.Code != http.StatusOK || !strings.Contains(add.Body.String(), "resolved") || !strings.Contains(add.Body.String(), "collaboration.blumer.cloud/mailbox") {
-		t.Fatalf("add fulfillment status=%d body=%s", add.Code, add.Body.String())
-	}
-}
-
-func TestDomainsExplorerShowsProductWorkflow(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-	rr := get(h, "/domains?selected=domain:identity.blumer.cloud")
-	body := rr.Body.String()
-	for _, want := range []string{"Products / Offerings", "Create product", "PB-ACC-MBX-001"} {
-		if rr.Code != http.StatusOK || !strings.Contains(body, want) {
-			t.Fatalf("domain explorer missing %q status=%d body=%s", want, rr.Code, body)
-		}
-	}
-
-	product := get(h, "/domains?selected=product:PB-ACC-MBX-001")
-	for _, want := range []string{"Product Details", "Fulfillment Services", "identity.blumer.cloud/user-account", "resolved"} {
-		if product.Code != http.StatusOK || !strings.Contains(product.Body.String(), want) {
-			t.Fatalf("product detail missing %q status=%d", want, product.Code)
-		}
-	}
-
-	catalog := get(h, "/blueprints")
-	if catalog.Code != http.StatusOK || !strings.Contains(catalog.Body.String(), "Catalog Index") {
-		t.Fatalf("catalog index label missing status=%d", catalog.Code)
-	}
-}
-
-func TestCosmosExplorerProductOfferingWorkflowLabels(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-	rr := get(h, "/cosmos?selected=domain:identity.blumer.cloud")
-	body := rr.Body.String()
-	for _, want := range []string{"Products / Offerings", "Produkt hinzufügen", "Add fulfillment service", "Open in catalog index", "von ", "Owning domain", "Fulfillment Services", "Catalog Index", "1 prod · 1 svc", "PB-ACC-MBX-001"} {
-		if rr.Code != http.StatusOK || !strings.Contains(body, want) {
-			t.Fatalf("cosmos explorer missing %q status=%d", want, rr.Code)
-		}
-	}
-}
-
-func TestCosmosProductCreationAndFulfillmentForms(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-
-	create := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/domains/identity.blumer.cloud/products", strings.NewReader(`{"id":"PROD-COSMOS-001","name":"Cosmos Product","summary":"Created from Cosmos"}`))
-	req.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(create, req)
-	if create.Code != http.StatusCreated || !strings.Contains(create.Body.String(), `"offered_by":"identity.blumer.cloud"`) {
-		t.Fatalf("create product status=%d body=%s", create.Code, create.Body.String())
-	}
-
-	cosmos := get(h, "/cosmos?selected=product:PROD-COSMOS-001")
-	for _, want := range []string{"PROD-COSMOS-001", "Cosmos Product", "product", "identity.blumer.cloud"} {
-		if cosmos.Code != http.StatusOK || !strings.Contains(cosmos.Body.String(), want) {
-			t.Fatalf("created product not visible in cosmos tree/detail script, missing %q status=%d", want, cosmos.Code)
-		}
-	}
-
-	add := httptest.NewRecorder()
-	addReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PROD-COSMOS-001/fulfillment-services", strings.NewReader(`{"service_ref":"identity.blumer.cloud/user-account","role":"primary","required":true}`))
-	addReq.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(add, addReq)
-	if add.Code != http.StatusOK || !strings.Contains(add.Body.String(), "local") {
-		t.Fatalf("append local fulfillment status=%d body=%s", add.Code, add.Body.String())
-	}
-
-	cross := httptest.NewRecorder()
-	crossReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PROD-COSMOS-001/fulfillment-services", strings.NewReader(`{"service_ref":"collaboration.blumer.cloud/mailbox","role":"supporting","required":true}`))
-	crossReq.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(cross, crossReq)
-	if cross.Code != http.StatusOK || !strings.Contains(cross.Body.String(), "cross-domain") {
-		t.Fatalf("append cross-domain fulfillment status=%d body=%s", cross.Code, cross.Body.String())
-	}
-
-	dup := httptest.NewRecorder()
-	dupReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PROD-COSMOS-001/fulfillment-services", strings.NewReader(`{"service_ref":"collaboration.blumer.cloud/mailbox","role":"supporting","required":true}`))
-	dupReq.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(dup, dupReq)
-	if dup.Code != http.StatusConflict {
-		t.Fatalf("expected duplicate fulfillment conflict, got %d body=%s", dup.Code, dup.Body.String())
-	}
-}
-
-func TestCosmosFulfillmentFormRedirectRefreshesTree(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-
-	create := httptest.NewRecorder()
-	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/domains/identity.blumer.cloud/products", strings.NewReader(`{"id":"PROD-REFRESH-001","name":"Refresh Product","summary":"Created from Cosmos"}`))
-	createReq.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(create, createReq)
-	if create.Code != http.StatusCreated {
-		t.Fatalf("create product status=%d body=%s", create.Code, create.Body.String())
-	}
-
-	form := httptest.NewRecorder()
-	formReq := httptest.NewRequest(http.MethodPost, "/products/fulfillment", strings.NewReader("product_id=PROD-REFRESH-001&service_ref=collaboration.blumer.cloud%2Fmailbox&role=primary&required=on&return_to=cosmos"))
-	formReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	h.ServeHTTP(form, formReq)
-	wantLocation := "/cosmos?selected=product:PROD-REFRESH-001&expand=fulfillment#fulfillment"
-	if form.Code != http.StatusSeeOther || form.Header().Get("Location") != wantLocation {
-		t.Fatalf("fulfillment form redirect status=%d location=%q body=%s", form.Code, form.Header().Get("Location"), form.Body.String())
-	}
-
-	follow := get(h, wantLocation)
-	body := follow.Body.String()
-	for _, want := range []string{"Refresh Product", "Fulfillment Services", "collaboration.blumer.cloud/mailbox", "primary", "required", "resolved", "cross-domain", "data-tree-target", "service:collaboration.blumer.cloud/mailbox"} {
-		if follow.Code != http.StatusOK || !strings.Contains(body, want) {
-			t.Fatalf("refreshed cosmos tree missing %q status=%d", want, follow.Code)
-		}
-	}
-}
-
-func TestProductMoveEndpointAndWebForm(t *testing.T) {
-	p := createTestCosmos(t)
-	h := NewHandler(p)
-
-	move := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/products/PB-ACC-MBX-001/move", strings.NewReader(`{"target_domain":"collaboration.blumer.cloud","update_owning_domain":true}`))
-	req.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(move, req)
-	if move.Code != http.StatusOK || !strings.Contains(move.Body.String(), `"offered_by":"collaboration.blumer.cloud"`) || !strings.Contains(move.Body.String(), `"owning_domain":"collaboration.blumer.cloud"`) {
-		t.Fatalf("move status=%d body=%s", move.Code, move.Body.String())
-	}
-
-	missingProduct := httptest.NewRecorder()
-	missingReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/MISSING/move", strings.NewReader(`{"target_domain":"collaboration.blumer.cloud"}`))
-	missingReq.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(missingProduct, missingReq)
-	if missingProduct.Code != http.StatusNotFound || !strings.Contains(missingProduct.Body.String(), "PRODUCT_NOT_FOUND") {
-		t.Fatalf("missing product status=%d body=%s", missingProduct.Code, missingProduct.Body.String())
-	}
-
-	missingTarget := httptest.NewRecorder()
-	targetReq := httptest.NewRequest(http.MethodPost, "/api/v1/products/PB-ACC-MBX-001/move", strings.NewReader(`{"target_domain":"missing.blumer.cloud"}`))
-	targetReq.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(missingTarget, targetReq)
-	if missingTarget.Code != http.StatusNotFound || !strings.Contains(missingTarget.Body.String(), "TARGET_DOMAIN_NOT_FOUND") {
-		t.Fatalf("missing target status=%d body=%s", missingTarget.Code, missingTarget.Body.String())
-	}
-
-	form := httptest.NewRecorder()
-	formReq := httptest.NewRequest(http.MethodPost, "/products/move", strings.NewReader("product_id=PB-ACC-MBX-001&target_domain=identity.blumer.cloud&update_owning_domain=on"))
-	formReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	h.ServeHTTP(form, formReq)
-	if form.Code != http.StatusSeeOther || form.Header().Get("Location") != "/cosmos?selected=product:PB-ACC-MBX-001" {
-		t.Fatalf("form redirect status=%d location=%s body=%s", form.Code, form.Header().Get("Location"), form.Body.String())
-	}
-}
-
-func TestCosmosTemplateContainsProductMoveWorkflowHooks(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-	rr := get(h, "/cosmos?selected=product:PB-ACC-MBX-001")
-	body := rr.Body.String()
-	for _, want := range []string{"Produkt verschieben", "Fulfillment Services", "product-fulfillment-parent", "product-fulfillment-service", "identity.blumer.cloud/user-account", "collaboration.blumer.cloud/mailbox", "2 svc", "local", "cross-domain", "OLA", "SLA", "data-tree-target", "service:identity.blumer.cloud/user-account", "data-node-type=\"product\"", "data-node-type=\"domain\"", "data-product-id=\"PB-ACC-MBX-001\"", "ex-tree-resize-handle", "min-width:160px", "move-product-form", "dragstart", "dragover", "drop", "/api/v1/products/", "/move"} {
-		if rr.Code != http.StatusOK || !strings.Contains(body, want) {
-			t.Fatalf("cosmos move workflow missing %q status=%d", want, rr.Code)
-		}
-	}
-}
-
 func TestCosmosInlineScriptKeepsBusinessRuleDecisionTernaryComplete(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 	rr := get(h, "/cosmos")
@@ -1401,44 +1009,5 @@ func TestCosmosGeneratedBPMNLayoutUsesShapeBoundsForSequenceFlows(t *testing.T) 
 		if !strings.Contains(body, want) {
 			t.Fatalf("cosmos generated BPMN layout missing %q", want)
 		}
-	}
-}
-
-func TestOpenAPIContainsProductMoveEndpoint(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-	rr := get(h, "/openapi.json")
-	for _, want := range []string{"/api/v1/products/{product}/move", "MoveProductOfferingRequest", "target_domain", "update_owning_domain"} {
-		if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), want) {
-			t.Fatalf("openapi missing %q status=%d body=%s", want, rr.Code, rr.Body.String())
-		}
-	}
-}
-
-func TestFoldersAPICreateMoveDelete(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-	if rr := postJSON(h, "/api/v1/folders", `{"parent":"","label":"workspace"}`); rr.Code != 201 {
-		t.Fatalf("create folder status=%d body=%s", rr.Code, rr.Body.String())
-	}
-	if rr := postJSON(h, "/api/v1/folders", `{"parent":"workspace","label":"team-a"}`); rr.Code != 201 {
-		t.Fatalf("create child folder status=%d", rr.Code)
-	}
-	if rr := get(h, "/api/v1/folders/team-a.workspace"); rr.Code != 200 {
-		t.Fatalf("get folder status=%d", rr.Code)
-	} else {
-		hasAll(t, rr.Body.String(), "team-a.workspace")
-	}
-	if rr := postJSON(h, "/api/v1/folders", `{"parent":"","label":"Invalid Label"}`); rr.Code != 400 {
-		t.Fatalf("invalid label status=%d, want 400", rr.Code)
-	}
-	del := func(path string) int {
-		rr := httptest.NewRecorder()
-		h.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, path, nil))
-		return rr.Code
-	}
-	if code := del("/api/v1/folders/workspace"); code != 409 {
-		t.Fatalf("delete non-empty folder status=%d, want 409", code)
-	}
-	if code := del("/api/v1/folders/team-a.workspace"); code != 204 {
-		t.Fatalf("delete empty folder status=%d, want 204", code)
 	}
 }

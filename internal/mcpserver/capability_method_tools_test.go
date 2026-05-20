@@ -19,22 +19,20 @@ func newCosmosForTools(t *testing.T) string {
 			t.Fatal(err)
 		}
 	}
-	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/services/rule-validation-api"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.ServicesDir(p), "rule-validation-api"), 0o755))
 	must(os.WriteFile(storage.CosmosFile(p), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: Platform Team\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/domain.yaml"), []byte("name: platform.blumer.cloud\nowner: Platform Team\nstatus: draft\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "platform.blumer.cloud/services/rule-validation-api/service.yaml"), []byte("name: rule-validation-api\nowner: Platform Team\nowned_by: platform.blumer.cloud\nstatus: draft\n"), 0o644))
+	must(os.WriteFile(filepath.Join(storage.ServicesDir(p), "rule-validation-api/service.yaml"), []byte("name: rule-validation-api\nowner: Platform Team\nstatus: draft\n"), 0o644))
 	return p
 }
 
 func TestToolCapabilityAdd_WithMethodRefs(t *testing.T) {
 	p := newCosmosForTools(t)
-	if _, err := app.AddServiceMethod(p, "platform.blumer.cloud", "rule-validation-api", "validate"); err != nil {
+	if _, err := app.AddServiceMethod(p, "rule-validation-api", "validate"); err != nil {
 		t.Fatal(err)
 	}
 
 	add := toolCapabilityAdd(p)
 	if _, _, err := add(context.Background(), nil, capabilityAddIn{
-		Domain:     "platform.blumer.cloud",
 		Service:    "rule-validation-api",
 		Name:       "Rule validation",
 		ID:         "cap-rule-validation",
@@ -44,7 +42,7 @@ func TestToolCapabilityAdd_WithMethodRefs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	svc, err := app.GetService(p, "platform.blumer.cloud", "rule-validation-api")
+	svc, err := app.GetService(p, "rule-validation-api")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,12 +57,11 @@ func TestToolCapabilityAdd_WithMethodRefs(t *testing.T) {
 
 func TestToolCapabilityUpdate_OmittedMethodRefsArePreserved(t *testing.T) {
 	p := newCosmosForTools(t)
-	if _, err := app.AddServiceMethod(p, "platform.blumer.cloud", "rule-validation-api", "validate"); err != nil {
+	if _, err := app.AddServiceMethod(p, "rule-validation-api", "validate"); err != nil {
 		t.Fatal(err)
 	}
 	add := toolCapabilityAdd(p)
 	if _, _, err := add(context.Background(), nil, capabilityAddIn{
-		Domain:     "platform.blumer.cloud",
 		Service:    "rule-validation-api",
 		Name:       "Rule validation",
 		ID:         "cap-rule-validation",
@@ -77,7 +74,6 @@ func TestToolCapabilityUpdate_OmittedMethodRefsArePreserved(t *testing.T) {
 	newSummary := "Validates incoming rule documents."
 	update := toolCapabilityUpdate(p)
 	if _, _, err := update(context.Background(), nil, capabilityUpdateIn{
-		Domain:       "platform.blumer.cloud",
 		Service:      "rule-validation-api",
 		CapabilityID: "cap-rule-validation",
 		Summary:      &newSummary,
@@ -85,7 +81,7 @@ func TestToolCapabilityUpdate_OmittedMethodRefsArePreserved(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	svc, _ := app.GetService(p, "platform.blumer.cloud", "rule-validation-api")
+	svc, _ := app.GetService(p, "rule-validation-api")
 	cap := findCapability(svc.CapabilityDefs, "cap-rule-validation", "")
 	if cap.Summary != newSummary {
 		t.Fatalf("summary not updated: %q", cap.Summary)
@@ -97,12 +93,11 @@ func TestToolCapabilityUpdate_OmittedMethodRefsArePreserved(t *testing.T) {
 
 func TestToolCapabilityUpdate_EmptyMethodRefsClears(t *testing.T) {
 	p := newCosmosForTools(t)
-	if _, err := app.AddServiceMethod(p, "platform.blumer.cloud", "rule-validation-api", "validate"); err != nil {
+	if _, err := app.AddServiceMethod(p, "rule-validation-api", "validate"); err != nil {
 		t.Fatal(err)
 	}
 	add := toolCapabilityAdd(p)
 	if _, _, err := add(context.Background(), nil, capabilityAddIn{
-		Domain:     "platform.blumer.cloud",
 		Service:    "rule-validation-api",
 		Name:       "Rule validation",
 		ID:         "cap-rule-validation",
@@ -114,7 +109,6 @@ func TestToolCapabilityUpdate_EmptyMethodRefsClears(t *testing.T) {
 	empty := []string{}
 	update := toolCapabilityUpdate(p)
 	if _, _, err := update(context.Background(), nil, capabilityUpdateIn{
-		Domain:       "platform.blumer.cloud",
 		Service:      "rule-validation-api",
 		CapabilityID: "cap-rule-validation",
 		MethodRefs:   &empty,
@@ -122,7 +116,7 @@ func TestToolCapabilityUpdate_EmptyMethodRefsClears(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	svc, _ := app.GetService(p, "platform.blumer.cloud", "rule-validation-api")
+	svc, _ := app.GetService(p, "rule-validation-api")
 	cap := findCapability(svc.CapabilityDefs, "cap-rule-validation", "")
 	if len(cap.MethodRefs) != 0 {
 		t.Fatalf("expected empty method_refs, got %v", cap.MethodRefs)
@@ -131,12 +125,11 @@ func TestToolCapabilityUpdate_EmptyMethodRefsClears(t *testing.T) {
 
 func TestToolMethodDelete_CleansCapabilityRefs(t *testing.T) {
 	p := newCosmosForTools(t)
-	if _, err := app.AddServiceMethod(p, "platform.blumer.cloud", "rule-validation-api", "validate"); err != nil {
+	if _, err := app.AddServiceMethod(p, "rule-validation-api", "validate"); err != nil {
 		t.Fatal(err)
 	}
 	add := toolCapabilityAdd(p)
 	if _, _, err := add(context.Background(), nil, capabilityAddIn{
-		Domain:     "platform.blumer.cloud",
 		Service:    "rule-validation-api",
 		Name:       "Rule validation",
 		ID:         "cap-rule-validation",
@@ -147,14 +140,13 @@ func TestToolMethodDelete_CleansCapabilityRefs(t *testing.T) {
 
 	del := toolMethodDelete(p)
 	if _, _, err := del(context.Background(), nil, methodDeleteIn{
-		Domain:  "platform.blumer.cloud",
 		Service: "rule-validation-api",
 		Method:  "validate",
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	svc, _ := app.GetService(p, "platform.blumer.cloud", "rule-validation-api")
+	svc, _ := app.GetService(p, "rule-validation-api")
 	cap := findCapability(svc.CapabilityDefs, "cap-rule-validation", "")
 	if len(cap.MethodRefs) != 0 {
 		t.Fatalf("expected method_refs to be cleaned, got %v", cap.MethodRefs)

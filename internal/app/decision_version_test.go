@@ -53,19 +53,17 @@ func createVersionTestCosmos(t *testing.T) string {
 	}
 	must(os.MkdirAll(filepath.Dir(storage.CosmosFile(p)), 0o755))
 	must(os.WriteFile(storage.CosmosFile(p), []byte("id: cosmos-local\nname: Local Cosmos\nversion: 0.1.0\nstatus: draft\nowner: Team\n"), 0o644))
-	domainDir := filepath.Join(storage.DomainsDir(p), "blumer.cloud")
-	must(os.MkdirAll(domainDir, 0o755))
-	must(os.WriteFile(filepath.Join(domainDir, "domain.yaml"), []byte("name: blumer.cloud\nowner: Team\nstatus: draft\n"), 0o644))
+	must(os.MkdirAll(storage.DecisionsDir(p), 0o755))
 	return p
 }
 
 func TestCreateDecision_WritesInitialSnapshot(t *testing.T) {
 	p := createVersionTestCosmos(t)
-	_, err := CreateDecision(p, "blumer.cloud", CreateDecisionRequest{ID: "DEC-V1", Name: "DNS check"})
+	_, err := CreateDecision(p, CreateDecisionRequest{ID: "DEC-V1", Name: "DNS check"})
 	if err != nil {
 		t.Fatalf("CreateDecision: %v", err)
 	}
-	snap := filepath.Join(storage.DomainsDir(p), "blumer.cloud", "decisions", "DEC-V1", "versions", "v0.1.0", "decision.yaml")
+	snap := filepath.Join(storage.DecisionsDir(p), "DEC-V1", "versions", "v0.1.0", "decision.yaml")
 	if _, err := os.Stat(snap); err != nil {
 		t.Fatalf("expected initial snapshot at %s: %v", snap, err)
 	}
@@ -73,51 +71,51 @@ func TestCreateDecision_WritesInitialSnapshot(t *testing.T) {
 
 func TestUpdateDecisionDMN_BumpsAndSnapshots(t *testing.T) {
 	p := createVersionTestCosmos(t)
-	if _, err := CreateDecision(p, "blumer.cloud", CreateDecisionRequest{ID: "DEC-V1", Name: "DNS check"}); err != nil {
+	if _, err := CreateDecision(p, CreateDecisionRequest{ID: "DEC-V1", Name: "DNS check"}); err != nil {
 		t.Fatal(err)
 	}
 	// First DMN attach: bump 0.1.0 → 0.1.1, snapshot directory contains DMN.
-	dto1, err := UpdateDecisionDMN(p, "blumer.cloud", "DEC-V1", versionTestDMN)
+	dto1, err := UpdateDecisionDMN(p, "DEC-V1", versionTestDMN)
 	if err != nil {
 		t.Fatalf("UpdateDecisionDMN: %v", err)
 	}
 	if dto1.Version != "0.1.1" {
 		t.Fatalf("after first DMN attach: version = %q, want 0.1.1", dto1.Version)
 	}
-	if _, err := os.Stat(filepath.Join(storage.DomainsDir(p), "blumer.cloud", "decisions", "DEC-V1", "versions", "v0.1.1", "decision.dmn")); err != nil {
+	if _, err := os.Stat(filepath.Join(storage.DecisionsDir(p), "DEC-V1", "versions", "v0.1.1", "decision.dmn")); err != nil {
 		t.Fatalf("expected v0.1.1 snapshot DMN: %v", err)
 	}
 	// Saving the same XML again is a no-op — same bytes, same metadata.
-	dto2, err := UpdateDecisionDMN(p, "blumer.cloud", "DEC-V1", versionTestDMN)
+	dto2, err := UpdateDecisionDMN(p, "DEC-V1", versionTestDMN)
 	if err != nil {
 		t.Fatalf("idempotent UpdateDecisionDMN: %v", err)
 	}
 	if dto2.Version != "0.1.1" {
 		t.Fatalf("no-op save bumped version: %q", dto2.Version)
 	}
-	if _, err := os.Stat(filepath.Join(storage.DomainsDir(p), "blumer.cloud", "decisions", "DEC-V1", "versions", "v0.1.2")); err == nil {
+	if _, err := os.Stat(filepath.Join(storage.DecisionsDir(p), "DEC-V1", "versions", "v0.1.2")); err == nil {
 		t.Fatal("no-op save created a v0.1.2 snapshot")
 	}
 	// Real change: bump again.
-	dto3, err := UpdateDecisionDMN(p, "blumer.cloud", "DEC-V1", versionTestDMNUpdated)
+	dto3, err := UpdateDecisionDMN(p, "DEC-V1", versionTestDMNUpdated)
 	if err != nil {
 		t.Fatalf("UpdateDecisionDMN updated: %v", err)
 	}
 	if dto3.Version != "0.1.2" {
 		t.Fatalf("after material change: version = %q, want 0.1.2", dto3.Version)
 	}
-	if _, err := os.Stat(filepath.Join(storage.DomainsDir(p), "blumer.cloud", "decisions", "DEC-V1", "versions", "v0.1.2", "decision.dmn")); err != nil {
+	if _, err := os.Stat(filepath.Join(storage.DecisionsDir(p), "DEC-V1", "versions", "v0.1.2", "decision.dmn")); err != nil {
 		t.Fatalf("expected v0.1.2 snapshot DMN: %v", err)
 	}
 }
 
 func TestUpdateDecision_BumpsOnMetadataChange(t *testing.T) {
 	p := createVersionTestCosmos(t)
-	if _, err := CreateDecision(p, "blumer.cloud", CreateDecisionRequest{ID: "DEC-V1", Name: "DNS check", Owner: "alice"}); err != nil {
+	if _, err := CreateDecision(p, CreateDecisionRequest{ID: "DEC-V1", Name: "DNS check", Owner: "alice"}); err != nil {
 		t.Fatal(err)
 	}
 	// Status flip is a material change — auto-bump must fire.
-	dto, err := UpdateDecision(p, "blumer.cloud", "DEC-V1", UpdateDecisionRequest{Status: "active"})
+	dto, err := UpdateDecision(p, "DEC-V1", UpdateDecisionRequest{Status: "active"})
 	if err != nil {
 		t.Fatalf("UpdateDecision: %v", err)
 	}
@@ -125,7 +123,7 @@ func TestUpdateDecision_BumpsOnMetadataChange(t *testing.T) {
 		t.Fatalf("version = %q, want 0.1.1", dto.Version)
 	}
 	// No-op update returns current state unchanged.
-	dto, err = UpdateDecision(p, "blumer.cloud", "DEC-V1", UpdateDecisionRequest{})
+	dto, err = UpdateDecision(p, "DEC-V1", UpdateDecisionRequest{})
 	if err != nil {
 		t.Fatalf("UpdateDecision no-op: %v", err)
 	}
@@ -136,15 +134,15 @@ func TestUpdateDecision_BumpsOnMetadataChange(t *testing.T) {
 
 func TestTrace_ResolvesAgainstHistoricalVersion(t *testing.T) {
 	p := createVersionTestCosmos(t)
-	if _, err := CreateDecision(p, "blumer.cloud", CreateDecisionRequest{ID: "DEC-V1", Name: "DNS check"}); err != nil {
+	if _, err := CreateDecision(p, CreateDecisionRequest{ID: "DEC-V1", Name: "DNS check"}); err != nil {
 		t.Fatal(err)
 	}
-	dto1, err := UpdateDecisionDMN(p, "blumer.cloud", "DEC-V1", versionTestDMN)
+	dto1, err := UpdateDecisionDMN(p, "DEC-V1", versionTestDMN)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Evaluate against the first DMN version.
-	_, trace1, err := EvaluateDecisionWithTrace(p, "blumer.cloud", "DEC-V1",
+	_, trace1, err := EvaluateDecisionWithTrace(p, "DEC-V1",
 		EvaluateDecisionRequest{Inputs: map[string]any{"dns_name": "blumer.cloud"}},
 		model.Evaluator{ID: "test"})
 	if err != nil {
@@ -154,7 +152,7 @@ func TestTrace_ResolvesAgainstHistoricalVersion(t *testing.T) {
 		t.Fatalf("trace.decision_version = %q, want %q", trace1.DecisionVersion, dto1.Version)
 	}
 	// Mutate the DMN — HEAD now has 3 rules, but trace1 was recorded at 2 rules.
-	dto2, err := UpdateDecisionDMN(p, "blumer.cloud", "DEC-V1", versionTestDMNUpdated)
+	dto2, err := UpdateDecisionDMN(p, "DEC-V1", versionTestDMNUpdated)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +160,7 @@ func TestTrace_ResolvesAgainstHistoricalVersion(t *testing.T) {
 		t.Fatal("DMN change did not bump version")
 	}
 	// Historical defs must point at the original two-rule snapshot.
-	defsOld, err := GetDecisionVersionDefinitions(p, "blumer.cloud", "DEC-V1", trace1.DecisionVersion)
+	defsOld, err := GetDecisionVersionDefinitions(p, "DEC-V1", trace1.DecisionVersion)
 	if err != nil {
 		t.Fatalf("GetDecisionVersionDefinitions: %v", err)
 	}
@@ -173,7 +171,7 @@ func TestTrace_ResolvesAgainstHistoricalVersion(t *testing.T) {
 		t.Fatalf("historical version has %d rules, want 2 (HEAD has 3)", got)
 	}
 	// And current HEAD defs reflect the new state.
-	defsNew, err := GetDecisionDefinitions(p, "blumer.cloud", "DEC-V1")
+	defsNew, err := GetDecisionDefinitions(p, "DEC-V1")
 	if err != nil {
 		t.Fatalf("GetDecisionDefinitions: %v", err)
 	}
@@ -184,16 +182,16 @@ func TestTrace_ResolvesAgainstHistoricalVersion(t *testing.T) {
 
 func TestListDecisionVersions(t *testing.T) {
 	p := createVersionTestCosmos(t)
-	if _, err := CreateDecision(p, "blumer.cloud", CreateDecisionRequest{ID: "DEC-V1", Name: "DNS check"}); err != nil {
+	if _, err := CreateDecision(p, CreateDecisionRequest{ID: "DEC-V1", Name: "DNS check"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := UpdateDecisionDMN(p, "blumer.cloud", "DEC-V1", versionTestDMN); err != nil {
+	if _, err := UpdateDecisionDMN(p, "DEC-V1", versionTestDMN); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := UpdateDecisionDMN(p, "blumer.cloud", "DEC-V1", versionTestDMNUpdated); err != nil {
+	if _, err := UpdateDecisionDMN(p, "DEC-V1", versionTestDMNUpdated); err != nil {
 		t.Fatal(err)
 	}
-	list, err := ListDecisionVersions(p, "blumer.cloud", "DEC-V1")
+	list, err := ListDecisionVersions(p, "DEC-V1")
 	if err != nil {
 		t.Fatalf("ListDecisionVersions: %v", err)
 	}
@@ -231,7 +229,7 @@ func TestGetDecisionVersion_LegacyDecisionWithoutSnapshot(t *testing.T) {
 	// files by hand without a versions/ directory and verify the HEAD version
 	// still resolves through GetDecisionVersionDMN.
 	p := createVersionTestCosmos(t)
-	dir := filepath.Join(storage.DomainsDir(p), "blumer.cloud", "decisions", "DEC-LEG")
+	dir := filepath.Join(storage.DecisionsDir(p), "DEC-LEG")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -241,14 +239,14 @@ func TestGetDecisionVersion_LegacyDecisionWithoutSnapshot(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "decision.dmn"), []byte(versionTestDMN), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	xml, err := GetDecisionVersionDMN(p, "blumer.cloud", "DEC-LEG", "0.5.0")
+	xml, err := GetDecisionVersionDMN(p, "DEC-LEG", "0.5.0")
 	if err != nil {
 		t.Fatalf("HEAD fallback failed: %v", err)
 	}
 	if !strings.Contains(xml, "decisionTable") {
 		t.Fatalf("unexpected XML: %s", xml[:min(len(xml), 80)])
 	}
-	if _, err := GetDecisionVersionDMN(p, "blumer.cloud", "DEC-LEG", "0.4.0"); err == nil {
+	if _, err := GetDecisionVersionDMN(p, "DEC-LEG", "0.4.0"); err == nil {
 		t.Fatal("expected 404 for unknown historical version, got nil")
 	}
 }

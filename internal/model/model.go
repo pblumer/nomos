@@ -8,28 +8,7 @@ type Cosmos struct {
 	Status    string        `yaml:"status" json:"status"`
 	Owner     string        `yaml:"owner" json:"owner"`
 	Summary   string        `yaml:"summary" json:"summary"`
-	Domains   []string      `yaml:"domains" json:"domains"`
 	SelfModel *SelfModelRef `yaml:"self_model,omitempty" json:"self_model,omitempty"`
-}
-
-type Domain struct {
-	ID                   string   `yaml:"id" json:"id"`
-	Type                 string   `yaml:"type" json:"type"`
-	Name                 string   `yaml:"name" json:"name"`
-	Version              string   `yaml:"version" json:"version"`
-	Status               string   `yaml:"status" json:"status"`
-	Owner                string   `yaml:"owner" json:"owner"`
-	DNSName              string   `yaml:"dns_name" json:"dns_name"`
-	Namespace            string   `yaml:"namespace" json:"namespace"`
-	Label                string   `yaml:"label" json:"label"`
-	Labels               []string `yaml:"labels" json:"labels"`
-	CanonicalName        string   `yaml:"canonicalName" json:"canonicalName"`
-	TreePath             string   `yaml:"treePath" json:"treePath"`
-	ParentCanonical      string   `yaml:"parentCanonical" json:"parentCanonical"`
-	ParentTreePath       string   `yaml:"parentTreePath" json:"parentTreePath"`
-	MaterializedFromTree bool     `yaml:"materializedFromTree,omitempty" json:"materializedFromTree,omitempty"`
-	Summary              string   `yaml:"summary" json:"summary"`
-	Services             []string `yaml:"services" json:"services"`
 }
 
 type ServiceLevelInfo struct {
@@ -261,8 +240,6 @@ type Service struct {
 	Version           string                 `yaml:"version" json:"version"`
 	Status            string                 `yaml:"status" json:"status"`
 	Owner             string                 `yaml:"owner" json:"owner"`
-	OwnedBy           string                 `yaml:"owned_by,omitempty" json:"owned_by,omitempty"`
-	OperatedBy        []string               `yaml:"operated_by,omitempty" json:"operated_by,omitempty"`
 	Capabilities      []ServiceCapability    `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
 	DataObjects       []ServiceDataObject    `yaml:"data_objects,omitempty" json:"data_objects,omitempty"`
 	UserInterfaces    []ServiceUserInterface `yaml:"user_interfaces,omitempty" json:"user_interfaces,omitempty"`
@@ -307,8 +284,6 @@ type Blueprint struct {
 	Version                   string                 `yaml:"version" json:"version"`
 	Status                    string                 `yaml:"status" json:"status"`
 	Owner                     string                 `yaml:"owner" json:"owner"`
-	OfferedBy                 string                 `yaml:"offered_by,omitempty" json:"offered_by,omitempty"`
-	OwningDomain              string                 `yaml:"owning_domain,omitempty" json:"owning_domain,omitempty"`
 	Fulfillment               ProductFulfillment     `yaml:"fulfillment,omitempty" json:"fulfillment,omitempty"`
 	Summary                   string                 `yaml:"summary" json:"summary"`
 	Purpose                   string                 `yaml:"purpose,omitempty" json:"purpose,omitempty"`
@@ -625,7 +600,6 @@ type DecisionScenario struct {
 	ID              string         `yaml:"id" json:"id"`
 	Name            string         `yaml:"name" json:"name"`
 	Description     string         `yaml:"description,omitempty" json:"description,omitempty"`
-	Domain          string         `yaml:"domain" json:"domain"`
 	DecisionID      string         `yaml:"decision_id" json:"decision_id"`
 	Inputs          map[string]any `yaml:"inputs" json:"inputs"`
 	ExpectedOutputs map[string]any `yaml:"expected_outputs,omitempty" json:"expected_outputs,omitempty"`
@@ -642,7 +616,6 @@ type DecisionTrace struct {
 	TraceID         string         `yaml:"trace_id" json:"trace_id"`
 	ParentTraceID   string         `yaml:"parent_trace_id,omitempty" json:"parent_trace_id,omitempty"`
 	Timestamp       string         `yaml:"timestamp" json:"timestamp"`
-	Domain          string         `yaml:"domain" json:"domain"`
 	DecisionID      string         `yaml:"decision_id" json:"decision_id"`
 	DecisionName    string         `yaml:"decision_name,omitempty" json:"decision_name,omitempty"`
 	DecisionVersion string         `yaml:"decision_version" json:"decision_version"`

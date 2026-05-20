@@ -37,96 +37,35 @@ echo "==> Erstelle neuen Demo-Cosmos"
 "$NOMOS_BIN" cosmos init "$COSMOS_PATH" --git
 
 echo ""
-echo "==> Erstelle DNS-ähnliche Domänen"
-
-"$NOMOS_BIN" domain add blumer.com \
-  --path "$COSMOS_PATH" \
-  --owner "Blumer Web Team"
-
-"$NOMOS_BIN" domain add blumer.net \
-  --path "$COSMOS_PATH" \
-  --owner "Blumer Network Team"
-
-"$NOMOS_BIN" domain add identity.blumer.com \
-  --path "$COSMOS_PATH" \
-  --owner "Identity Team"
-
-"$NOMOS_BIN" domain add governance.blumer.com \
-  --path "$COSMOS_PATH" \
-  --owner "Governance Team"
-
-"$NOMOS_BIN" domain add blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Cloud Team"
-
-"$NOMOS_BIN" domain add home.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Home Team"
-
-"$NOMOS_BIN" domain add zytlog.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Zytlog Team"
-
-"$NOMOS_BIN" domain add beispiel.ch \
-  --path "$COSMOS_PATH" \
-  --owner "Swiss Example Team"
-
-echo ""
-
-"$NOMOS_BIN" domain add identity.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Identity Domain Team"
-
-"$NOMOS_BIN" domain add collaboration.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Collaboration Domain Team"
-
-"$NOMOS_BIN" domain add mailing.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Mailing Domain Team"
-
-echo "==> Erstelle Services"
+echo "==> Erstelle Services (flach, global eindeutige Namen)"
 
 "$NOMOS_BIN" service add user-account \
-  --domain identity.blumer.com \
   --path "$COSMOS_PATH" \
   --owner "Identity Team"
 
 "$NOMOS_BIN" service add provisioning-rules \
-  --domain governance.blumer.com \
   --path "$COSMOS_PATH" \
   --owner "Governance Team"
 
 "$NOMOS_BIN" service add home-dashboard \
-  --domain home.blumer.cloud \
   --path "$COSMOS_PATH" \
   --owner "Home Team"
 
 "$NOMOS_BIN" service add zytlog-api \
-  --domain zytlog.blumer.cloud \
   --path "$COSMOS_PATH" \
   --owner "Zytlog Team"
 
-
-"$NOMOS_BIN" service add user-account \
-  --domain identity.blumer.cloud \
-  --path "$COSMOS_PATH" \
-  --owner "Identity Domain Team"
-
 "$NOMOS_BIN" service add mailbox \
-  --domain collaboration.blumer.cloud \
   --path "$COSMOS_PATH" \
-  --owner "Collaboration Domain Team"
+  --owner "Collaboration Team"
 
 "$NOMOS_BIN" service add exchange \
-  --domain mailing.blumer.cloud \
   --path "$COSMOS_PATH" \
-  --owner "Mailing Domain Team"
+  --owner "Mailing Team"
 
 "$NOMOS_BIN" service add license-assignment \
-  --domain collaboration.blumer.cloud \
   --path "$COSMOS_PATH" \
-  --owner "Collaboration Domain Team"
+  --owner "Collaboration Team"
 
 echo ""
 echo "==> Kopiere Blueprint- und Instance-Beispielkatalog"
@@ -134,130 +73,141 @@ mkdir -p "$COSMOS_PATH/.nomos/catalog"
 cp -R examples/demo-cosmos/.nomos/catalog/blueprints "$COSMOS_PATH/.nomos/catalog/"
 cp -R examples/demo-cosmos/.nomos/catalog/instances "$COSMOS_PATH/.nomos/catalog/"
 
-echo "==> Ergänze Service-Ownership-Metadaten"
-cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/identity/services/user-account/service.yaml" <<'YAML'
+echo "==> Ergänze Service-Metadaten (flach)"
+cat > "$COSMOS_PATH/.nomos/services/user-account/service.yaml" <<'YAML'
 id: service-user-account
 type: service
 name: user-account
 version: 0.1.0
 status: draft
-owner: Identity Domain Team
-owned_by: identity.blumer.cloud
-operated_by:
-  - identity.blumer.cloud
+owner: Identity Team
 capabilities:
   - user-account-management
 supported_products:
   - PROD-ACC-MBX-001
   - PROD-CLOUD-MAILBOX-001
-summary: Domain-owned service capability for identity account management.
+summary: Service capability for identity account management.
 ola:
   name: Identity Account OLA
   target: 4h
   availability: business-hours
 YAML
-cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/collaboration/services/mailbox/service.yaml" <<'YAML'
+cat > "$COSMOS_PATH/.nomos/services/mailbox/service.yaml" <<'YAML'
 id: service-mailbox
 type: service
 name: mailbox
 version: 0.1.0
 status: draft
-owner: Collaboration Domain Team
-owned_by: collaboration.blumer.cloud
-operated_by:
-  - collaboration.blumer.cloud
+owner: Collaboration Team
 capabilities:
   - mailbox-provisioning
 supported_products:
   - PROD-ACC-MBX-001
   - PROD-CLOUD-MAILBOX-001
-summary: Domain-owned service capability for mailbox provisioning.
+summary: Service capability for mailbox provisioning.
 sla:
   name: Mailbox Provisioning SLA
   target: 8h
   availability: business-hours
 YAML
-cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/mailing/services/exchange/service.yaml" <<'YAML'
+cat > "$COSMOS_PATH/.nomos/services/exchange/service.yaml" <<'YAML'
 id: service-exchange
 type: service
 name: exchange
 version: 0.1.0
 status: draft
-owner: Mailing Domain Team
-owned_by: mailing.blumer.cloud
-operated_by:
-  - mailing.blumer.cloud
+owner: Mailing Team
 capabilities:
   - exchange-mailbox-provisioning
 supported_products:
   - PROD-ACC-MBX-001
-summary: Domain-owned service capability for Exchange mailbox provisioning.
+summary: Service capability for Exchange mailbox provisioning.
 sla:
   name: Exchange Mailbox SLA
   target: 8h
   availability: business-hours
 YAML
-cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/collaboration/services/license-assignment/service.yaml" <<'YAML'
+cat > "$COSMOS_PATH/.nomos/services/license-assignment/service.yaml" <<'YAML'
 id: service-license-assignment
 type: service
 name: license-assignment
 version: 0.1.0
 status: draft
-owner: Collaboration Domain Team
-owned_by: collaboration.blumer.cloud
-operated_by:
-  - collaboration.blumer.cloud
+owner: Collaboration Team
 capabilities:
   - license-assignment
 supported_products:
   - PROD-ACC-MBX-001
-summary: Domain-owned service capability for license assignment.
+summary: Service capability for license assignment.
 ola:
   name: License Assignment OLA
   target: 4h
   availability: business-hours
 YAML
 
-# Service alias used in the product process mapping example.
-"$NOMOS_BIN" domain add account.blumer.cloud --path "$COSMOS_PATH" --owner "Account Domain Team"
-"$NOMOS_BIN" service add license --domain account.blumer.cloud --path "$COSMOS_PATH" --owner "Account Domain Team"
-cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/account/services/license/service.yaml" <<'YAML'
+# Service used in the product process mapping example.
+"$NOMOS_BIN" service add license --path "$COSMOS_PATH" --owner "Account Team"
+cat > "$COSMOS_PATH/.nomos/services/license/service.yaml" <<'YAML'
 id: service-license
 type: service
 name: license
 version: 0.1.0
 status: draft
-owner: Account Domain Team
-owned_by: account.blumer.cloud
-operated_by:
-  - account.blumer.cloud
+owner: Account Team
 capabilities:
   - license-assignment
 supported_products:
   - PROD-ACC-MBX-001
-summary: Domain-owned service capability for account license assignment.
+summary: Service capability for account license assignment.
 ola:
   name: Account License OLA
   target: 2h
   availability: business-hours
 YAML
 
+echo "==> Normalisiere Produkt-Blueprints auf flache Service-Namen"
 python3 - <<'PYDEMO'
 from pathlib import Path
 import os
-product = Path(os.environ["COSMOS_PATH"]) / ".nomos/catalog/blueprints/products/benutzerkonto-mit-mailbox.yaml"
-text = product.read_text()
+import re
+
+base = Path(os.environ["COSMOS_PATH"]) / ".nomos/catalog/blueprints/products"
+
+# Map legacy <domain>/<service> refs to flat service names.
+ref_map = {
+    "identity.blumer.cloud/user-account": "user-account",
+    "identity.blumer.com/user-account": "user-account",
+    "mailing.blumer.cloud/exchange": "exchange",
+    "collaboration.blumer.cloud/mailbox": "mailbox",
+    "collaboration.blumer.cloud/license-assignment": "license-assignment",
+    "account.blumer.cloud/license": "license",
+}
+
+def flatten(text):
+    # Drop domain ownership fields.
+    text = re.sub(r"^offered_by:.*\n", "", text, flags=re.M)
+    text = re.sub(r"^owning_domain:.*\n", "", text, flags=re.M)
+    # Rewrite service_ref values to flat names.
+    for old, new in ref_map.items():
+        text = text.replace("service_ref: " + old, "service_ref: " + new)
+    return text
+
+# benutzerkonto-mit-mailbox: flatten then enrich with process + extra license service + metadata.
+product = base / "benutzerkonto-mit-mailbox.yaml"
+text = flatten(product.read_text())
+
 if "processes:" not in text:
     text = text.replace("rules:\n", "processes:\n  - PRC-ACC-MBX-001\nrules:\n")
-if "account.blumer.cloud/license" not in text:
-    old = """    - service_ref: mailing.blumer.cloud/exchange
+
+if "service_ref: license\n" not in text:
+    old = """    - service_ref: exchange
       role: primary
       required: true
       description: Provides the mailbox capability.
       sla_ref: SLA-MAILBOX-STANDARD
       ola_ref: OLA-MAILING-OPS-STANDARD
 """
-    new = old + """    - service_ref: account.blumer.cloud/license
+    new = old + """    - service_ref: license
       role: supporting
       required: true
       description: Assigns the required product license.
@@ -270,6 +220,7 @@ if "account.blumer.cloud/license" not in text:
         target: 2h
 """
     text = text.replace(old, new)
+
 if "purpose:" not in text:
     old = """summary: >
   Bereitstellung eines Benutzerkontos mit zugehoeriger Mailbox.
@@ -287,7 +238,12 @@ tags:
 """
     text = text.replace(old, new)
 product.write_text(text)
+
+# cloud-mailbox: flatten only.
+cloud = base / "cloud-mailbox.yaml"
+cloud.write_text(flatten(cloud.read_text()))
 PYDEMO
+
 mkdir -p "$COSMOS_PATH/.nomos/catalog/blueprints/processes"
 cat > "$COSMOS_PATH/.nomos/catalog/blueprints/processes/PRC-ACC-MBX-001.yaml" <<'YAML'
 id: PRC-ACC-MBX-001
@@ -309,19 +265,19 @@ task_mappings:
   - bpmn_element_id: Task_CreateUserAccount
     task_name: Create user account
     bpmn_element_type: bpmn:ServiceTask
-    service_ref: identity.blumer.cloud/user-account
+    service_ref: user-account
     role: primary
     required: true
   - bpmn_element_id: Task_AssignLicense
     task_name: Assign license
     bpmn_element_type: bpmn:ServiceTask
-    service_ref: account.blumer.cloud/license
+    service_ref: license
     role: supporting
     required: true
   - bpmn_element_id: Task_CreateMailbox
     task_name: Create mailbox
     bpmn_element_type: bpmn:ServiceTask
-    service_ref: mailing.blumer.cloud/exchange
+    service_ref: exchange
     role: primary
     required: true
 YAML
@@ -344,22 +300,18 @@ XML
 
 
 echo ""
-echo "==> Erstelle Commerce-Domain mit Services und Methoden"
-"$NOMOS_BIN" domain add commerce.blumer.cloud --path "$COSMOS_PATH" --owner "Commerce Team"
-"$NOMOS_BIN" service add checkout  --domain commerce.blumer.cloud --path "$COSMOS_PATH" --owner "Commerce Team"
-"$NOMOS_BIN" service add inventory --domain commerce.blumer.cloud --path "$COSMOS_PATH" --owner "Commerce Team"
-"$NOMOS_BIN" service add payment   --domain commerce.blumer.cloud --path "$COSMOS_PATH" --owner "Commerce Team"
+echo "==> Erstelle Commerce-Services mit Methoden (flach)"
+"$NOMOS_BIN" service add checkout  --path "$COSMOS_PATH" --owner "Commerce Team"
+"$NOMOS_BIN" service add inventory --path "$COSMOS_PATH" --owner "Commerce Team"
+"$NOMOS_BIN" service add payment   --path "$COSMOS_PATH" --owner "Commerce Team"
 
-cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/commerce/services/checkout/service.yaml" <<'YAML'
+cat > "$COSMOS_PATH/.nomos/services/checkout/service.yaml" <<'YAML'
 id: service-checkout
 type: service
 name: checkout
 version: 0.1.0
 status: draft
 owner: Commerce Team
-owned_by: commerce.blumer.cloud
-operated_by:
-  - commerce.blumer.cloud
 methods:
   - name: initiateOrder
   - name: confirmOrder
@@ -368,16 +320,13 @@ methods:
 summary: Handles order creation and lifecycle management.
 YAML
 
-cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/commerce/services/inventory/service.yaml" <<'YAML'
+cat > "$COSMOS_PATH/.nomos/services/inventory/service.yaml" <<'YAML'
 id: service-inventory
 type: service
 name: inventory
 version: 0.1.0
 status: draft
 owner: Commerce Team
-owned_by: commerce.blumer.cloud
-operated_by:
-  - commerce.blumer.cloud
 methods:
   - name: checkStock
   - name: reserveItems
@@ -386,16 +335,13 @@ methods:
 summary: Manages stock levels and item reservations.
 YAML
 
-cat > "$COSMOS_PATH/.nomos/domains/cloud/blumer/commerce/services/payment/service.yaml" <<'YAML'
+cat > "$COSMOS_PATH/.nomos/services/payment/service.yaml" <<'YAML'
 id: service-payment
 type: service
 name: payment
 version: 0.1.0
 status: draft
 owner: Commerce Team
-owned_by: commerce.blumer.cloud
-operated_by:
-  - commerce.blumer.cloud
 methods:
   - name: processPayment
   - name: refundPayment
@@ -404,13 +350,10 @@ methods:
 summary: Processes payments and refunds for orders.
 YAML
 
-echo "==> Decisions"
+echo "==> Decisions (flach)"
 
-# Place a DMN-backed decision under the governance domain. The Cosmos
-# Explorer renders it under com/blumer/governance/decisions/ and opens it
-# inside the dmn-js editor when clicked.
-mkdir -p "$COSMOS_PATH/.nomos/domains/com/blumer/governance/decisions/DEC-PROVISIONING-001"
-cat <<'YAML' > "$COSMOS_PATH/.nomos/domains/com/blumer/governance/decisions/DEC-PROVISIONING-001/decision.yaml"
+mkdir -p "$COSMOS_PATH/.nomos/decisions/DEC-PROVISIONING-001"
+cat <<'YAML' > "$COSMOS_PATH/.nomos/decisions/DEC-PROVISIONING-001/decision.yaml"
 id: DEC-PROVISIONING-001
 type: decision
 name: Provisioning Eligibility
@@ -434,7 +377,7 @@ outputs:
     description: True when account provisioning may proceed automatically.
 YAML
 
-cat <<'DMN' > "$COSMOS_PATH/.nomos/domains/com/blumer/governance/decisions/DEC-PROVISIONING-001/decision.dmn"
+cat <<'DMN' > "$COSMOS_PATH/.nomos/decisions/DEC-PROVISIONING-001/decision.dmn"
 <?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="https://www.omg.org/spec/DMN/20240513/MODEL/"
              xmlns:dmndi="https://www.omg.org/spec/DMN/20230324/DMNDI/"
@@ -549,8 +492,8 @@ echo "==> Cosmos Doctor"
 "$NOMOS_BIN" cosmos doctor --path "$COSMOS_PATH"
 
 echo ""
-echo "==> Domains"
-"$NOMOS_BIN" domain list --path "$COSMOS_PATH"
+echo "==> Services"
+"$NOMOS_BIN" service list --path "$COSMOS_PATH"
 
 echo ""
 echo "==> Validierung"

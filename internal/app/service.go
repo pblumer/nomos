@@ -1,10 +1,8 @@
 package app
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,7 +16,6 @@ import (
 	"github.com/nomos/nomos/internal/idgen"
 	"github.com/nomos/nomos/internal/idmigrate"
 	"github.com/nomos/nomos/internal/model"
-	"github.com/nomos/nomos/internal/namespace"
 	"github.com/nomos/nomos/internal/storage"
 	"github.com/nomos/nomos/internal/validate"
 )
@@ -28,79 +25,34 @@ func GetCosmos(path string) (CosmosDTO, error) {
 	if err != nil {
 		return CosmosDTO{}, err
 	}
-	serviceCount := 0
-	persisted := map[string]bool{}
-	virtual := map[string]bool{}
-	for _, d := range tree.Domains {
-		canonical := namespace.Canonical(d.Name)
-		persisted[canonical] = true
-		serviceCount += len(d.Services)
-		parts := namespace.Parts(canonical)
-		for len(parts) > 2 {
-			parts = parts[1:]
-			parent := strings.Join(parts, ".")
-			if !persisted[parent] {
-				virtual[parent] = true
-			}
-		}
-	}
-	for canonical := range persisted {
-		delete(virtual, canonical)
-	}
-	return CosmosDTO{Path: path, ID: tree.Cosmos.ID, Name: tree.Cosmos.Name, Version: tree.Cosmos.Version, Status: tree.Cosmos.Status, Owner: tree.Cosmos.Owner, DomainCount: len(tree.Domains), VirtualDomainCount: len(virtual), ServiceCount: serviceCount}, nil
+	return CosmosDTO{Path: path, ID: tree.Cosmos.ID, Name: tree.Cosmos.Name, Version: tree.Cosmos.Version, Status: tree.Cosmos.Status, Owner: tree.Cosmos.Owner, ServiceCount: len(tree.Services), DecisionCount: len(tree.Decisions)}, nil
 }
 
-func ListDomains(path string) (DomainsDTO, error) {
+func ListServices(path string) (ServicesDTO, error) {
 	tree, err := load(path)
-	if err != nil {
-		return DomainsDTO{}, err
-	}
-	out := DomainsDTO{Domains: []DomainDTO{}}
-	for _, d := range tree.Domains {
-		out.Domains = append(out.Domains, domainDTO(tree, d, false))
-	}
-	sort.Slice(out.Domains, func(i, j int) bool { return out.Domains[i].Canonical < out.Domains[j].Canonical })
-	return out, nil
-}
-
-func GetDomain(path, domainName string) (DomainDTO, error) {
-	tree, err := load(path)
-	if err != nil {
-		return DomainDTO{}, err
-	}
-	canonical := namespace.Canonical(domainName)
-	if strings.HasPrefix(canonical, "/") {
-		if converted, err := namespace.TreePathToCanonical(canonical); err == nil {
-			canonical = converted
-		}
-	}
-	for _, d := range tree.Domains {
-		if strings.EqualFold(d.Name, canonical) {
-			return domainDTO(tree, d, true), nil
-		}
-	}
-	return DomainDTO{}, Error(CodeDomainNotFound, "Domain not found: "+canonical, http.StatusNotFound, nil)
-}
-
-func ListServices(path, domainName string) (ServicesDTO, error) {
-	d, err := GetDomain(path, domainName)
 	if err != nil {
 		return ServicesDTO{}, err
 	}
-	return ServicesDTO{Domain: d.Canonical, Services: d.Services}, nil
+	out := ServicesDTO{Services: []ServiceDTO{}}
+	for _, s := range tree.Services {
+		out.Services = append(out.Services, serviceDTO(s))
+	}
+	sort.Slice(out.Services, func(i, j int) bool { return out.Services[i].Name < out.Services[j].Name })
+	return out, nil
 }
 
-func GetService(path, domainName, serviceName string) (ServiceDTO, error) {
-	d, err := GetDomain(path, domainName)
+func GetService(path, serviceName string) (ServiceDTO, error) {
+	tree, err := load(path)
 	if err != nil {
 		return ServiceDTO{}, err
 	}
-	for _, s := range d.Services {
-		if s.Name == serviceName {
-			return s, nil
+	resolved, _ := idmigrate.Resolve(path, serviceName)
+	for _, s := range tree.Services {
+		if s.Name == serviceName || s.Metadata.ID == serviceName || s.Metadata.ID == resolved {
+			return serviceDTO(s), nil
 		}
 	}
-	return ServiceDTO{}, Error(CodeServiceNotFound, "Service not found: "+d.Canonical+"/"+serviceName, http.StatusNotFound, nil)
+	return ServiceDTO{}, Error(CodeServiceNotFound, "Service not found: "+serviceName, http.StatusNotFound, nil)
 }
 
 func ValidateCosmos(path string) (ValidationResultDTO, error) {
@@ -123,12 +75,11 @@ func BuildGraph(path string) (GraphDTO, error) {
 	return GraphDTO{Format: "mermaid", Content: graph.Mermaid(tree)}, nil
 }
 
+// BuildNamespaceTree returns a flat cosmos tree grouping the top-level
+// Services, Decisions, and Products of the cosmos. Domains no longer exist;
+// the explorer renders these flat groups directly.
 func BuildNamespaceTree(path string) (NamespaceTreeDTO, error) {
 	cosmos, err := GetCosmos(path)
-	if err != nil {
-		return NamespaceTreeDTO{}, err
-	}
-	domains, err := ListDomains(path)
 	if err != nil {
 		return NamespaceTreeDTO{}, err
 	}
@@ -136,67 +87,37 @@ func BuildNamespaceTree(path string) (NamespaceTreeDTO, error) {
 	if err != nil {
 		return NamespaceTreeDTO{}, err
 	}
-	decIdx := buildDecisionIndex(tree)
 	root := NamespaceTreeNodeDTO{Label: fallback(cosmos.Name, "Local Cosmos"), Kind: "cosmos", CanOpenDetails: true}
-	namespaces := NamespaceTreeNodeDTO{Label: "Namespaces", Kind: "namespace-parent"}
-	for _, d := range domains.Domains {
-		full, err := GetDomain(path, d.Canonical)
-		if err != nil {
-			return NamespaceTreeDTO{}, err
-		}
-		insertDomain(&namespaces, full, decIdx)
+
+	servicesParent := NamespaceTreeNodeDTO{Label: "Services", Kind: "service-parent", CanAddService: true}
+	for _, sn := range tree.Services {
+		s := serviceDTO(sn)
+		sd := s
+		servicesParent.Children = append(servicesParent.Children, NamespaceTreeNodeDTO{Label: s.Name, Kind: "service", Canonical: s.Name, Service: &sd, Persisted: true, CanOpenDetails: true})
 	}
-	root.Children = append(root.Children, namespaces)
+	root.Children = append(root.Children, servicesParent)
+
+	decisionsParent := NamespaceTreeNodeDTO{Label: "Decisions", Kind: "decision-parent"}
+	for _, dn := range tree.Decisions {
+		dec := decisionDTO(dn)
+		dd := dec
+		decisionsParent.Children = append(decisionsParent.Children, NamespaceTreeNodeDTO{Label: firstNonEmpty(dec.Name, dec.ID), Kind: "decision", Canonical: dec.ID, Decision: &dd, Persisted: true, CanOpenDetails: true})
+	}
+	root.Children = append(root.Children, decisionsParent)
+
+	products := allProductSummaries(tree)
+	productsParent := NamespaceTreeNodeDTO{Label: "Products", Kind: "product-parent"}
+	for _, product := range products {
+		p := product
+		productsParent.Children = append(productsParent.Children, NamespaceTreeNodeDTO{Label: product.Name, Kind: "product", Canonical: product.ID, Product: &p, Persisted: true, CanOpenDetails: true})
+	}
+	root.Children = append(root.Children, productsParent)
+
 	sortTree(&root)
 	return NamespaceTreeDTO{Root: root}, nil
 }
 
-// decisionIndexEntry locates a decision globally: the decision DTO plus the
-// canonical name of the domain that owns it (which may differ from the domain
-// whose product references it).
-type decisionIndexEntry struct {
-	Decision        DecisionDTO
-	DomainCanonical string
-}
-
-func buildDecisionIndex(tree cosmosfs.Tree) map[string]decisionIndexEntry {
-	idx := make(map[string]decisionIndexEntry)
-	for _, d := range tree.Domains {
-		canonical := namespace.Canonical(d.Name)
-		for _, dec := range d.Decisions {
-			if dec.Metadata.ID == "" {
-				continue
-			}
-			if _, exists := idx[dec.Metadata.ID]; exists {
-				continue
-			}
-			idx[dec.Metadata.ID] = decisionIndexEntry{Decision: decisionDTO(dec), DomainCanonical: canonical}
-		}
-	}
-	return idx
-}
-
-func domainDTO(tree cosmosfs.Tree, d cosmosfs.DomainNode, includeServices bool) DomainDTO {
-	canonical := namespace.Canonical(d.Name)
-	v := namespace.View(canonical)
-	products := productSummariesOfferedBy(tree, canonical)
-	dto := DomainDTO{Name: canonical, Canonical: canonical, CanonicalName: canonical, Namespace: namespaceDTO(v), Label: v.Label, NamespaceName: v.Namespace, ParentCanonical: v.ParentCanonical, ParentTreePath: v.ParentTreePath, TreePath: v.TreePath, GitPath: v.GitPath, VerificationStatus: verificationStatus(fallback(d.Metadata.Status, "unknown")), DisplayName: v.Label, Owner: fallback(d.Metadata.Owner, "unknown"), Status: fallback(d.Metadata.Status, "unknown"), Path: d.Path, ServiceCount: len(d.Services), ProductCount: len(products), Persisted: true, Virtual: false, IsFolder: d.IsFolder}
-	if includeServices {
-		dto.Products = products
-		dto.Services = make([]ServiceDTO, 0, len(d.Services))
-		for _, s := range d.Services {
-			dto.Services = append(dto.Services, serviceDTO(canonical, s))
-		}
-		dto.Decisions = make([]DecisionDTO, 0, len(d.Decisions))
-		for _, dec := range d.Decisions {
-			dto.Decisions = append(dto.Decisions, decisionDTO(dec))
-		}
-	}
-	return dto
-}
-
-func serviceDTO(domain string, s cosmosfs.ServiceNode) ServiceDTO {
-	ownedBy := firstNonEmpty(s.Metadata.OwnedBy, domain, s.Metadata.Owner)
+func serviceDTO(s cosmosfs.ServiceNode) ServiceDTO {
 	methods := make([]MethodDefinitionDTO, 0, len(s.Metadata.Methods))
 	for _, m := range s.Metadata.Methods {
 		methods = append(methods, methodDTO(m))
@@ -229,15 +150,15 @@ func serviceDTO(domain string, s cosmosfs.ServiceNode) ServiceDTO {
 		}
 		uiDefs = append(uiDefs, ui)
 	}
-	return ServiceDTO{Name: s.Name, Domain: domain, Owner: fallback(s.Metadata.Owner, "unknown"), OwnedBy: ownedBy, OperatedBy: s.Metadata.OperatedBy, Capabilities: capNames, CapabilityDefs: capDefs, DataObjects: doNames, DataObjectDefs: doDefs, UserInterfaces: uiNames, UserInterfaceDefs: uiDefs, SupportedProducts: s.Metadata.SupportedProducts, Methods: methods, Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path}
+	return ServiceDTO{ID: s.Metadata.ID, Name: s.Name, Owner: fallback(s.Metadata.Owner, "unknown"), Capabilities: capNames, CapabilityDefs: capDefs, DataObjects: doNames, DataObjectDefs: doDefs, UserInterfaces: uiNames, UserInterfaceDefs: uiDefs, SupportedProducts: s.Metadata.SupportedProducts, Methods: methods, Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path}
 }
 
-func AddServiceMethod(path, domainName, serviceName, method string) (ServiceDTO, error) {
+func AddServiceMethod(path, serviceName, method string) (ServiceDTO, error) {
 	method = strings.TrimSpace(method)
 	if method == "" {
 		return ServiceDTO{}, Error(CodeInvalidInput, "method name is required", http.StatusBadRequest, nil)
 	}
-	svc, err := GetService(path, domainName, serviceName)
+	svc, err := GetService(path, serviceName)
 	if err != nil {
 		return ServiceDTO{}, err
 	}
@@ -255,11 +176,11 @@ func AddServiceMethod(path, domainName, serviceName, method string) (ServiceDTO,
 	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	return GetService(path, domainName, serviceName)
+	return GetService(path, serviceName)
 }
 
-func RemoveServiceMethod(path, domainName, serviceName, method string) (ServiceDTO, error) {
-	svc, err := GetService(path, domainName, serviceName)
+func RemoveServiceMethod(path, serviceName, method string) (ServiceDTO, error) {
+	svc, err := GetService(path, serviceName)
 	if err != nil {
 		return ServiceDTO{}, err
 	}
@@ -281,7 +202,7 @@ func RemoveServiceMethod(path, domainName, serviceName, method string) (ServiceD
 	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	return GetService(path, domainName, serviceName)
+	return GetService(path, serviceName)
 }
 
 func slugify(s string) string {
@@ -307,7 +228,7 @@ func slugify(s string) string {
 // AddServiceCapability appends a new capability to the service's service.yaml.
 // The ID is taken from the request or derived from the name. Returns the
 // updated ServiceDTO.
-func AddServiceCapability(path, domainName, serviceName string, cap model.ServiceCapability) (ServiceDTO, error) {
+func AddServiceCapability(path, serviceName string, cap model.ServiceCapability) (ServiceDTO, error) {
 	cap.Name = strings.TrimSpace(cap.Name)
 	cap.ID = strings.TrimSpace(cap.ID)
 	if cap.Name == "" {
@@ -316,7 +237,7 @@ func AddServiceCapability(path, domainName, serviceName string, cap model.Servic
 	if cap.ID == "" {
 		cap.ID = "cap-" + slugify(cap.Name)
 	}
-	svc, err := GetService(path, domainName, serviceName)
+	svc, err := GetService(path, serviceName)
 	if err != nil {
 		return ServiceDTO{}, err
 	}
@@ -334,11 +255,11 @@ func AddServiceCapability(path, domainName, serviceName string, cap model.Servic
 	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	return GetService(path, domainName, serviceName)
+	return GetService(path, serviceName)
 }
 
 // AddServiceDataObject appends a new data object to service.yaml.
-func AddServiceDataObject(path, domainName, serviceName string, obj model.ServiceDataObject) (ServiceDTO, error) {
+func AddServiceDataObject(path, serviceName string, obj model.ServiceDataObject) (ServiceDTO, error) {
 	obj.Name = strings.TrimSpace(obj.Name)
 	obj.ID = strings.TrimSpace(obj.ID)
 	if obj.Name == "" {
@@ -347,7 +268,7 @@ func AddServiceDataObject(path, domainName, serviceName string, obj model.Servic
 	if obj.ID == "" {
 		obj.ID = "do-" + slugify(obj.Name)
 	}
-	svc, err := GetService(path, domainName, serviceName)
+	svc, err := GetService(path, serviceName)
 	if err != nil {
 		return ServiceDTO{}, err
 	}
@@ -365,11 +286,11 @@ func AddServiceDataObject(path, domainName, serviceName string, obj model.Servic
 	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	return GetService(path, domainName, serviceName)
+	return GetService(path, serviceName)
 }
 
 // AddServiceUserInterface appends a new user interface to service.yaml.
-func AddServiceUserInterface(path, domainName, serviceName string, ui model.ServiceUserInterface) (ServiceDTO, error) {
+func AddServiceUserInterface(path, serviceName string, ui model.ServiceUserInterface) (ServiceDTO, error) {
 	ui.Name = strings.TrimSpace(ui.Name)
 	ui.ID = strings.TrimSpace(ui.ID)
 	if ui.Name == "" {
@@ -378,7 +299,7 @@ func AddServiceUserInterface(path, domainName, serviceName string, ui model.Serv
 	if ui.ID == "" {
 		ui.ID = "ui-" + slugify(ui.Name)
 	}
-	svc, err := GetService(path, domainName, serviceName)
+	svc, err := GetService(path, serviceName)
 	if err != nil {
 		return ServiceDTO{}, err
 	}
@@ -396,15 +317,15 @@ func AddServiceUserInterface(path, domainName, serviceName string, ui model.Serv
 	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	return GetService(path, domainName, serviceName)
+	return GetService(path, serviceName)
 }
 
 // UpdateServiceCapability performs a partial update of an existing capability
 // identified by capID. Pointer / slice fields in patch overwrite their
 // counterparts when non-nil; empty strings leave the existing value untouched.
 // MethodRefs and DataObjectRefs are always replaced (use empty slice to clear).
-func UpdateServiceCapability(path, domainName, serviceName, capID string, patch model.ServiceCapability) (ServiceDTO, error) {
-	svc, err := GetService(path, domainName, serviceName)
+func UpdateServiceCapability(path, serviceName, capID string, patch model.ServiceCapability) (ServiceDTO, error) {
+	svc, err := GetService(path, serviceName)
 	if err != nil {
 		return ServiceDTO{}, err
 	}
@@ -446,12 +367,12 @@ func UpdateServiceCapability(path, domainName, serviceName, capID string, patch 
 	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	return GetService(path, domainName, serviceName)
+	return GetService(path, serviceName)
 }
 
 // RemoveServiceCapability deletes the capability identified by capID.
-func RemoveServiceCapability(path, domainName, serviceName, capID string) (ServiceDTO, error) {
-	svc, err := GetService(path, domainName, serviceName)
+func RemoveServiceCapability(path, serviceName, capID string) (ServiceDTO, error) {
+	svc, err := GetService(path, serviceName)
 	if err != nil {
 		return ServiceDTO{}, err
 	}
@@ -476,12 +397,12 @@ func RemoveServiceCapability(path, domainName, serviceName, capID string) (Servi
 	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	return GetService(path, domainName, serviceName)
+	return GetService(path, serviceName)
 }
 
 // UpdateServiceDataObject performs a partial update of a data object identified by doID.
-func UpdateServiceDataObject(path, domainName, serviceName, doID string, patch model.ServiceDataObject) (ServiceDTO, error) {
-	svc, err := GetService(path, domainName, serviceName)
+func UpdateServiceDataObject(path, serviceName, doID string, patch model.ServiceDataObject) (ServiceDTO, error) {
+	svc, err := GetService(path, serviceName)
 	if err != nil {
 		return ServiceDTO{}, err
 	}
@@ -518,13 +439,13 @@ func UpdateServiceDataObject(path, domainName, serviceName, doID string, patch m
 	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	return GetService(path, domainName, serviceName)
+	return GetService(path, serviceName)
 }
 
 // RemoveServiceDataObject deletes the data object identified by doID and removes
 // any references to it from capability DataObjectRefs.
-func RemoveServiceDataObject(path, domainName, serviceName, doID string) (ServiceDTO, error) {
-	svc, err := GetService(path, domainName, serviceName)
+func RemoveServiceDataObject(path, serviceName, doID string) (ServiceDTO, error) {
+	svc, err := GetService(path, serviceName)
 	if err != nil {
 		return ServiceDTO{}, err
 	}
@@ -552,12 +473,12 @@ func RemoveServiceDataObject(path, domainName, serviceName, doID string) (Servic
 	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	return GetService(path, domainName, serviceName)
+	return GetService(path, serviceName)
 }
 
 // UpdateServiceUserInterface performs a partial update of a UI identified by uiID.
-func UpdateServiceUserInterface(path, domainName, serviceName, uiID string, patch model.ServiceUserInterface) (ServiceDTO, error) {
-	svc, err := GetService(path, domainName, serviceName)
+func UpdateServiceUserInterface(path, serviceName, uiID string, patch model.ServiceUserInterface) (ServiceDTO, error) {
+	svc, err := GetService(path, serviceName)
 	if err != nil {
 		return ServiceDTO{}, err
 	}
@@ -606,12 +527,12 @@ func UpdateServiceUserInterface(path, domainName, serviceName, uiID string, patc
 	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	return GetService(path, domainName, serviceName)
+	return GetService(path, serviceName)
 }
 
 // RemoveServiceUserInterface deletes the UI identified by uiID.
-func RemoveServiceUserInterface(path, domainName, serviceName, uiID string) (ServiceDTO, error) {
-	svc, err := GetService(path, domainName, serviceName)
+func RemoveServiceUserInterface(path, serviceName, uiID string) (ServiceDTO, error) {
+	svc, err := GetService(path, serviceName)
 	if err != nil {
 		return ServiceDTO{}, err
 	}
@@ -636,7 +557,7 @@ func RemoveServiceUserInterface(path, domainName, serviceName, uiID string) (Ser
 	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	return GetService(path, domainName, serviceName)
+	return GetService(path, serviceName)
 }
 
 func removeString(s []string, v string) []string {
@@ -651,13 +572,13 @@ func removeString(s []string, v string) []string {
 
 // UpdateMethodParameters replaces the parameter list of a named method on a service.
 // Deprecated: prefer UpdateMethod which updates all endpoint fields.
-func UpdateMethodParameters(path, domainName, serviceName, methodName string, params []model.MethodParameter) (MethodDefinitionDTO, error) {
-	return UpdateMethod(path, domainName, serviceName, methodName, model.MethodDefinition{Parameters: params})
+func UpdateMethodParameters(path, serviceName, methodName string, params []model.MethodParameter) (MethodDefinitionDTO, error) {
+	return UpdateMethod(path, serviceName, methodName, model.MethodDefinition{Parameters: params})
 }
 
 // UpdateMethod performs a partial update of a named method: only non-zero fields in patch are written.
-func UpdateMethod(path, domainName, serviceName, methodName string, patch model.MethodDefinition) (MethodDefinitionDTO, error) {
-	svc, err := GetService(path, domainName, serviceName)
+func UpdateMethod(path, serviceName, methodName string, patch model.MethodDefinition) (MethodDefinitionDTO, error) {
+	svc, err := GetService(path, serviceName)
 	if err != nil {
 		return MethodDefinitionDTO{}, err
 	}
@@ -700,7 +621,7 @@ func UpdateMethod(path, domainName, serviceName, methodName string, patch model.
 	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return MethodDefinitionDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	updated, err := GetService(path, domainName, serviceName)
+	updated, err := GetService(path, serviceName)
 	if err != nil {
 		return MethodDefinitionDTO{}, err
 	}
@@ -747,8 +668,8 @@ func methodDTO(m model.MethodDefinition) MethodDefinitionDTO {
 }
 
 // GetServiceMethod returns the definition of a single named method on a service.
-func GetServiceMethod(path, domainName, serviceName, methodName string) (MethodDefinitionDTO, error) {
-	svc, err := GetService(path, domainName, serviceName)
+func GetServiceMethod(path, serviceName, methodName string) (MethodDefinitionDTO, error) {
+	svc, err := GetService(path, serviceName)
 	if err != nil {
 		return MethodDefinitionDTO{}, err
 	}
@@ -760,11 +681,10 @@ func GetServiceMethod(path, domainName, serviceName, methodName string) (MethodD
 	return MethodDefinitionDTO{}, Error(CodeServiceNotFound, "method not found: "+methodName, http.StatusNotFound, nil)
 }
 
-func productSummariesOfferedBy(tree cosmosfs.Tree, domainCanonical string) []ProductSummaryDTO {
-	canonical := namespace.Canonical(domainCanonical)
+func allProductSummaries(tree cosmosfs.Tree) []ProductSummaryDTO {
 	out := []ProductSummaryDTO{}
 	for _, b := range tree.Blueprints {
-		if (b.Metadata.Type != "product_blueprint" && b.Metadata.Type != "product") || namespace.Canonical(b.Metadata.OfferedBy) != canonical {
+		if b.Metadata.Type != "product_blueprint" && b.Metadata.Type != "product" {
 			continue
 		}
 		out = append(out, productSummaryDTO(tree, b.Metadata, b.Path))
@@ -821,26 +741,7 @@ func productSummaryDTO(tree cosmosfs.Tree, bp model.Blueprint, sourcePath string
 			processGroups = append(processGroups, group)
 		}
 	}
-	return ProductSummaryDTO{ID: bp.ID, Name: bp.Name, Version: bp.Version, Status: bp.Status, OfferedBy: bp.OfferedBy, OwningDomain: firstNonEmpty(bp.OwningDomain, bp.OfferedBy), SourcePath: sourcePath, CatalogPath: sourcePath, FulfillmentRequiredServicesCount: len(fulfillment.RequiredServices), FulfillmentUnresolvedCount: unresolved, ProcessCount: processCount, UnmappedTaskCount: unmappedTaskCount, Fulfillment: fulfillment, Processes: processGroups}
-}
-
-func ProductsOfferedBy(path, domainCanonical string) ([]ProductSummaryDTO, error) {
-	tree, err := load(path)
-	if err != nil {
-		return nil, err
-	}
-	if !resolveDomain(tree, domainCanonical) {
-		return nil, Error(CodeDomainNotFound, "Domain not found: "+namespace.Canonical(domainCanonical), http.StatusNotFound, nil)
-	}
-	return productSummariesOfferedBy(tree, domainCanonical), nil
-}
-
-func ServicesOwnedBy(path, domainCanonical string) ([]ServiceDTO, error) {
-	d, err := GetDomain(path, domainCanonical)
-	if err != nil {
-		return nil, err
-	}
-	return d.Services, nil
+	return ProductSummaryDTO{ID: bp.ID, Name: bp.Name, Version: bp.Version, Status: bp.Status, SourcePath: sourcePath, CatalogPath: sourcePath, FulfillmentRequiredServicesCount: len(fulfillment.RequiredServices), FulfillmentUnresolvedCount: unresolved, ProcessCount: processCount, UnmappedTaskCount: unmappedTaskCount, Fulfillment: fulfillment, Processes: processGroups}
 }
 
 func AllServiceRefs(path string) (ServiceRefsDTO, error) {
@@ -849,11 +750,8 @@ func AllServiceRefs(path string) (ServiceRefsDTO, error) {
 		return ServiceRefsDTO{}, err
 	}
 	out := ServiceRefsDTO{Services: []ServiceRefDTO{}}
-	for _, d := range tree.Domains {
-		domain := namespace.Canonical(d.Name)
-		for _, s := range d.Services {
-			out.Services = append(out.Services, ServiceRefDTO{Domain: domain, Service: s.Name, ServiceRef: domain + "/" + s.Name})
-		}
+	for _, s := range tree.Services {
+		out.Services = append(out.Services, ServiceRefDTO{Service: s.Name, ServiceRef: s.Name})
 	}
 	sort.Slice(out.Services, func(i, j int) bool { return out.Services[i].ServiceRef < out.Services[j].ServiceRef })
 	return out, nil
@@ -871,208 +769,6 @@ func load(path string) (cosmosfs.Tree, error) {
 		status = http.StatusNotFound
 	}
 	return cosmosfs.Tree{}, Error(code, err.Error(), status, err)
-}
-
-func namespaceDTO(v namespace.NamespaceView) NamespaceDTO {
-	return NamespaceDTO{
-		Canonical:       v.Canonical,
-		CanonicalName:   v.CanonicalName,
-		Namespace:       v.Namespace,
-		Labels:          v.Labels,
-		Label:           v.Label,
-		ParentCanonical: v.ParentCanonical,
-		Parts:           v.Parts,
-		TreeParts:       v.TreeParts,
-		TreePath:        v.TreePath,
-		GitPath:         v.GitPath,
-		ParentTreePath:  v.ParentTreePath,
-		DisplayPath:     v.DisplayPath,
-		Leaf:            v.Leaf,
-	}
-}
-
-func verificationStatus(status string) string {
-	switch strings.ToLower(status) {
-	case "verified", "active", "ok", "compliant":
-		return "verified"
-	case "failed", "error", "blocking":
-		return "failed"
-	case "pending", "warning":
-		return "pending"
-	default:
-		return status
-	}
-}
-
-func insertDomain(root *NamespaceTreeNodeDTO, d DomainDTO, decIdx map[string]decisionIndexEntry) {
-	node := root
-	parts := d.Namespace.TreeParts
-	for i, label := range parts {
-		kind := "domain"
-		if i == 0 {
-			kind = "namespace"
-		}
-		idx := findTreeChild(node, label, kind)
-		if idx == -1 {
-			child := NamespaceTreeNodeDTO{Label: label, Kind: kind}
-			if kind == "namespace" {
-				child.DisplayPath = label
-				child.TreePath = "/" + label
-			} else {
-				child.Virtual = true
-				child.CanCreateChildDomain = true
-				child.CanMaterializeDomain = true
-				canonical, err := namespace.ComposeCanonical(parts[0], parts[1:i+1]...)
-				if err == nil {
-					child.Canonical = canonical
-					child.CanonicalName = canonical
-					v := namespace.View(canonical)
-					child.DisplayPath = v.DisplayPath
-					child.TreePath = v.TreePath
-					child.GitPath = v.GitPath
-				}
-			}
-			node.Children = append(node.Children, child)
-			idx = len(node.Children) - 1
-		}
-		if kind == "domain" && i == len(parts)-1 {
-			node.Children[idx].Persisted = true
-			node.Children[idx].Virtual = false
-			node.Children[idx].IsFolder = d.IsFolder
-			node.Children[idx].CanCreateChildDomain = true
-			node.Children[idx].CanAddService = true
-			node.Children[idx].CanOpenDetails = true
-			node.Children[idx].CanVerifyDomain = true
-			node.Children[idx].CanMaterializeDomain = false
-			node.Children[idx].Canonical = d.Canonical
-			node.Children[idx].CanonicalName = d.Canonical
-			node.Children[idx].DisplayPath = d.Namespace.DisplayPath
-			node.Children[idx].TreePath = d.Namespace.TreePath
-			node.Children[idx].GitPath = d.GitPath
-			dd := d
-			node.Children[idx].Domain = &dd
-		}
-		node = &node.Children[idx]
-	}
-	if len(d.Products) > 0 {
-		idx := findTreeChild(node, "Products", "product-parent")
-		if idx == -1 {
-			node.Children = append(node.Children, NamespaceTreeNodeDTO{Label: "Products", Kind: "product-parent", Canonical: d.Canonical, CanonicalName: d.Canonical, DisplayPath: d.Namespace.DisplayPath + " / Products", TreePath: d.Namespace.TreePath + "/products", GitPath: d.GitPath})
-			idx = len(node.Children) - 1
-		}
-		productParent := &node.Children[idx]
-		for _, product := range d.Products {
-			p := product
-			productNode := NamespaceTreeNodeDTO{Label: product.Name, Kind: "product", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true}
-			referencedDecisions := map[string]bool{}
-			if len(product.Processes) > 0 {
-				processesParent := NamespaceTreeNodeDTO{Label: "Processes", Kind: "product-process-parent", Canonical: product.ID + "/processes", CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: false, FulfillmentCount: len(product.Processes)}
-				for _, group := range product.Processes {
-					g := group
-					label := fmt.Sprintf("%s (%d)", g.ProcessName, len(g.Steps))
-					stepsParent := NamespaceTreeNodeDTO{Label: label, Kind: "process-steps-parent", Canonical: product.ID + "/" + g.ProcessID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true, FulfillmentCount: len(g.Steps), TreeTarget: g.ProcessID}
-					for _, step := range g.Steps {
-						s := step
-						stepLabel := fmt.Sprintf("%d · %s", step.StepNum, step.Name)
-						stepsParent.Children = append(stepsParent.Children, NamespaceTreeNodeDTO{Label: stepLabel, Kind: "process-step", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, ProcessStep: &s, Persisted: true, CanOpenDetails: true, TreeTarget: "service:" + step.ServiceRef})
-						if step.DecisionRef != "" {
-							referencedDecisions[step.DecisionRef] = true
-						}
-					}
-					processesParent.Children = append(processesParent.Children, stepsParent)
-				}
-				productNode.Children = append(productNode.Children, processesParent)
-			}
-			if len(referencedDecisions) > 0 {
-				refIDs := make([]string, 0, len(referencedDecisions))
-				for id := range referencedDecisions {
-					refIDs = append(refIDs, id)
-				}
-				sort.Strings(refIDs)
-				businessRulesParent := NamespaceTreeNodeDTO{Label: "Business Rules", Kind: "product-decision-parent", Canonical: product.ID + "/decisions", CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: false}
-				for _, refID := range refIDs {
-					entry, ok := decIdx[refID]
-					if !ok {
-						continue
-					}
-					dd := entry.Decision
-					businessRulesParent.Children = append(businessRulesParent.Children, NamespaceTreeNodeDTO{Label: entry.Decision.Name, Kind: "decision", Canonical: entry.DomainCanonical + "/decisions/" + entry.Decision.ID, CanonicalName: entry.DomainCanonical, Decision: &dd, Persisted: true, CanOpenDetails: true})
-				}
-				if len(businessRulesParent.Children) > 0 {
-					businessRulesParent.FulfillmentCount = len(businessRulesParent.Children)
-					productNode.Children = append(productNode.Children, businessRulesParent)
-				}
-			}
-			if len(product.Processes) == 0 && len(product.Fulfillment.RequiredServices) > 0 {
-				fulfillmentParent := NamespaceTreeNodeDTO{Label: "Fulfillment Services", Kind: "product-fulfillment-parent", Canonical: product.ID, CanonicalName: d.Canonical, Product: &p, Persisted: true, CanOpenDetails: true, FulfillmentCount: len(product.Fulfillment.RequiredServices)}
-				for _, svc := range product.Fulfillment.RequiredServices {
-					f := svc
-					label := firstNonEmpty(svc.ServiceRef, svc.ResolvedService)
-					fulfillmentParent.Children = append(fulfillmentParent.Children, NamespaceTreeNodeDTO{Label: label, Kind: "product-fulfillment-service", Canonical: svc.ServiceRef, CanonicalName: d.Canonical, Product: &p, Fulfillment: &f, Persisted: true, CanOpenDetails: true, TreeTarget: svc.TreeTarget})
-				}
-				productNode.Children = append(productNode.Children, fulfillmentParent)
-			}
-			productParent.Children = append(productParent.Children, productNode)
-		}
-	}
-	if len(d.Services) > 0 {
-		idx := findTreeChild(node, "Services", "service-parent")
-		if idx == -1 {
-			node.Children = append(node.Children, NamespaceTreeNodeDTO{Label: "Services", Kind: "service-parent", Canonical: d.Canonical, CanonicalName: d.Canonical, DisplayPath: d.Namespace.DisplayPath + " / Services", TreePath: d.Namespace.TreePath + "/services", GitPath: d.GitPath})
-			idx = len(node.Children) - 1
-		}
-		serviceParent := &node.Children[idx]
-		for _, svc := range d.Services {
-			s := svc
-			svcNode := NamespaceTreeNodeDTO{Label: svc.Name, Kind: "service", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, Persisted: true, CanOpenDetails: true}
-			capParent := NamespaceTreeNodeDTO{Label: "Capabilities", Kind: "capability-parent", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, FulfillmentCount: len(svc.CapabilityDefs), CanOpenDetails: true}
-			for _, cap := range svc.CapabilityDefs {
-				c := cap
-				capParent.Children = append(capParent.Children, NamespaceTreeNodeDTO{Label: c.Name, Kind: "capability", Canonical: d.Canonical + "/" + svc.Name + "/" + c.ID, CanonicalName: d.Canonical, Service: &s, Capability: &c, Persisted: true, CanOpenDetails: false})
-			}
-			svcNode.Children = append(svcNode.Children, capParent)
-			doParent := NamespaceTreeNodeDTO{Label: "Data Objects", Kind: "data-object-parent", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, FulfillmentCount: len(svc.DataObjectDefs), CanOpenDetails: true}
-			for _, dobj := range svc.DataObjectDefs {
-				o := dobj
-				doParent.Children = append(doParent.Children, NamespaceTreeNodeDTO{Label: o.Name, Kind: "data-object", Canonical: d.Canonical + "/" + svc.Name + "/" + o.ID, CanonicalName: d.Canonical, Service: &s, DataObject: &o, Persisted: true, CanOpenDetails: false})
-			}
-			svcNode.Children = append(svcNode.Children, doParent)
-			uiParent := NamespaceTreeNodeDTO{Label: "User Interfaces", Kind: "user-interface-parent", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, FulfillmentCount: len(svc.UserInterfaceDefs), CanOpenDetails: true}
-			for _, ui := range svc.UserInterfaceDefs {
-				u := ui
-				uiParent.Children = append(uiParent.Children, NamespaceTreeNodeDTO{Label: u.Name, Kind: "user-interface", Canonical: d.Canonical + "/" + svc.Name + "/" + u.ID, CanonicalName: d.Canonical, Service: &s, UserInterface: &u, Persisted: true, CanOpenDetails: false})
-			}
-			svcNode.Children = append(svcNode.Children, uiParent)
-			methodParent := NamespaceTreeNodeDTO{Label: "Methods", Kind: "service-method-parent", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, Service: &s, FulfillmentCount: len(svc.Methods), CanOpenDetails: false}
-			for _, method := range svc.Methods {
-				m := method
-				methodParent.Children = append(methodParent.Children, NamespaceTreeNodeDTO{Label: m.Name, Kind: "service-method", Canonical: d.Canonical + "/" + svc.Name, CanonicalName: d.Canonical, MethodName: m.Name, Service: &s, Persisted: true, CanOpenDetails: true})
-			}
-			svcNode.Children = append(svcNode.Children, methodParent)
-			serviceParent.Children = append(serviceParent.Children, svcNode)
-		}
-	}
-	if len(d.Decisions) > 0 {
-		idx := findTreeChild(node, "Decisions", "decision-parent")
-		if idx == -1 {
-			node.Children = append(node.Children, NamespaceTreeNodeDTO{Label: "Decisions", Kind: "decision-parent", Canonical: d.Canonical, CanonicalName: d.Canonical, DisplayPath: d.Namespace.DisplayPath + " / Decisions", TreePath: d.Namespace.TreePath + "/decisions", GitPath: d.GitPath})
-			idx = len(node.Children) - 1
-		}
-		decParent := &node.Children[idx]
-		for _, dec := range d.Decisions {
-			dd := dec
-			decParent.Children = append(decParent.Children, NamespaceTreeNodeDTO{Label: dec.Name, Kind: "decision", Canonical: d.Canonical + "/decisions/" + dec.ID, CanonicalName: d.Canonical, Decision: &dd, Persisted: true, CanOpenDetails: true})
-		}
-	}
-}
-
-func findTreeChild(node *NamespaceTreeNodeDTO, label, kind string) int {
-	for j := range node.Children {
-		if node.Children[j].Label == label && node.Children[j].Kind == kind {
-			return j
-		}
-	}
-	return -1
 }
 
 func sortTree(n *NamespaceTreeNodeDTO) {
@@ -1205,7 +901,7 @@ func blueprintDTO(tree cosmosfs.Tree, b cosmosfs.BlueprintNode) BlueprintDTO {
 			processSummary = ps
 		}
 	}
-	return BlueprintDTO{ID: b.Metadata.ID, Type: b.Metadata.Type, Name: b.Metadata.Name, Version: b.Metadata.Version, Status: b.Metadata.Status, Owner: b.Metadata.Owner, OfferedBy: b.Metadata.OfferedBy, OwningDomain: firstNonEmpty(b.Metadata.OwningDomain, b.Metadata.OfferedBy), Fulfillment: fulfillment, Summary: b.Metadata.Summary, Purpose: b.Metadata.Purpose, Description: b.Metadata.Description, Consumers: b.Metadata.Consumers, LifecycleStatus: b.Metadata.LifecycleStatus, Tags: b.Metadata.Tags, Processes: b.Metadata.Processes, ProcessSummary: processSummary, Path: b.Path, PrimaryHome: primaryProductHome(b.Metadata), PrimaryHomeDomain: namespace.Canonical(b.Metadata.OfferedBy), Variants: variants, Capabilities: b.Metadata.Capabilities, TargetSystems: b.Metadata.TargetSystems, RequiredInputs: b.Metadata.RequiredInputs, RequiredServiceBlueprints: b.Metadata.RequiredServiceBlueprints, RequiredServices: requiredServices, NamespaceServiceRef: b.Metadata.NamespaceServiceRef, Rules: b.Metadata.Rules, QualityCriteria: b.Metadata.QualityCriteria, EvidenceRequirements: b.Metadata.EvidenceRequirements, Requirements: requirements, RequirementsStatus: requirementsStatus(b.Metadata.Requirements), Attributes: attributes}
+	return BlueprintDTO{ID: b.Metadata.ID, Type: b.Metadata.Type, Name: b.Metadata.Name, Version: b.Metadata.Version, Status: b.Metadata.Status, Owner: b.Metadata.Owner, Fulfillment: fulfillment, Summary: b.Metadata.Summary, Purpose: b.Metadata.Purpose, Description: b.Metadata.Description, Consumers: b.Metadata.Consumers, LifecycleStatus: b.Metadata.LifecycleStatus, Tags: b.Metadata.Tags, Processes: b.Metadata.Processes, ProcessSummary: processSummary, Path: b.Path, Variants: variants, Capabilities: b.Metadata.Capabilities, TargetSystems: b.Metadata.TargetSystems, RequiredInputs: b.Metadata.RequiredInputs, RequiredServiceBlueprints: b.Metadata.RequiredServiceBlueprints, RequiredServices: requiredServices, NamespaceServiceRef: b.Metadata.NamespaceServiceRef, Rules: b.Metadata.Rules, QualityCriteria: b.Metadata.QualityCriteria, EvidenceRequirements: b.Metadata.EvidenceRequirements, Requirements: requirements, RequirementsStatus: requirementsStatus(b.Metadata.Requirements), Attributes: attributes}
 }
 
 func fulfillmentDTO(tree cosmosfs.Tree, bp model.Blueprint) ProductFulfillmentDTO {
@@ -1232,28 +928,17 @@ type ServiceResolution struct {
 }
 
 func productRequiredServiceDTO(bp model.Blueprint, serviceRef, role string, required bool, description, slaRef, olaRef string, sla, ola *model.ServiceLevelInfo, res ServiceResolution) ProductRequiredServiceDTO {
-	offeredBy := namespace.Canonical(bp.OfferedBy)
 	fulfillmentType := "unresolved"
-	crossDomain := false
 	if res.Status == "resolved" {
-		if offeredBy != "" && res.Domain != "" && res.Domain != offeredBy {
-			fulfillmentType = "cross-domain"
-			crossDomain = true
-		} else {
-			fulfillmentType = "local"
-		}
-	} else if res.Status == "unresolved_domain" {
-		fulfillmentType = "unresolved"
-	} else if res.Status == "unresolved_service" || res.Status == "missing" {
-		fulfillmentType = "unresolved"
+		fulfillmentType = "local"
 	}
 	slaDTO := serviceLevelDTO(firstServiceLevel(sla, res.SLA))
 	olaDTO := serviceLevelDTO(firstServiceLevel(ola, res.OLA))
 	treeTarget := ""
 	if res.Status == "resolved" {
-		treeTarget = "service:" + res.Domain + "/" + res.Service
+		treeTarget = "service:" + res.Service
 	}
-	return ProductRequiredServiceDTO{ServiceRef: serviceRef, Role: role, Required: required, Description: description, ResolutionStatus: res.Status, ResolvedDomain: res.Domain, ResolvedService: res.Service, FulfillmentType: fulfillmentType, CrossDomain: crossDomain, SLARef: slaRef, OLARef: olaRef, TreeTarget: treeTarget, SLA: slaDTO, OLA: olaDTO, ServiceLevelLabel: serviceLevelLabel(slaRef, olaRef, slaDTO, olaDTO)}
+	return ProductRequiredServiceDTO{ServiceRef: serviceRef, Role: role, Required: required, Description: description, ResolutionStatus: res.Status, ResolvedService: res.Service, FulfillmentType: fulfillmentType, SLARef: slaRef, OLARef: olaRef, TreeTarget: treeTarget, SLA: slaDTO, OLA: olaDTO, ServiceLevelLabel: serviceLevelLabel(slaRef, olaRef, slaDTO, olaDTO)}
 }
 
 func firstServiceLevel(values ...*model.ServiceLevelInfo) *model.ServiceLevelInfo {
@@ -1297,65 +982,19 @@ func compactServiceLevelLabel(kind string, info *ServiceLevelDTO) string {
 	return kind
 }
 
-func primaryProductHome(bp model.Blueprint) string {
-	if bp.Type != "product_blueprint" || strings.TrimSpace(bp.OfferedBy) == "" {
-		return ""
-	}
-	name := firstNonEmpty(strings.TrimSpace(bp.Name), strings.TrimSpace(bp.ID))
-	return namespace.Canonical(bp.OfferedBy) + " / Products / " + name
-}
-
-func normalizeServiceRef(serviceRef string) (string, string, string) {
-	serviceRef = strings.TrimSpace(serviceRef)
-	parts := strings.SplitN(serviceRef, "/", 2)
-	if len(parts) != 2 {
-		return serviceRef, "", ""
-	}
-	domain := namespace.Canonical(strings.TrimSpace(parts[0]))
-	service := strings.TrimSpace(parts[1])
-	return domain + "/" + service, domain, service
-}
-
-func resolveDomain(tree cosmosfs.Tree, canonical string) bool {
-	canonical = namespace.Canonical(strings.TrimSpace(canonical))
-	for _, d := range tree.Domains {
-		if namespace.Canonical(d.Name) == canonical {
-			return true
-		}
-	}
-	return false
-}
-
+// resolveService resolves a flat service reference (service name or stable
+// service ID) against the cosmos services.
 func resolveService(tree cosmosfs.Tree, serviceRef string) ServiceResolution {
 	ref := strings.TrimSpace(serviceRef)
 	if ref == "" {
 		return ServiceResolution{Status: "missing"}
 	}
-	// ID-based reference (ADR-0028): a ref without "/" is a stable service ID,
-	// resolved by scanning for the service regardless of its current address.
-	if !strings.Contains(ref, "/") {
-		for _, d := range tree.Domains {
-			for _, s := range d.Services {
-				if s.Metadata.ID == ref {
-					return ServiceResolution{Status: "resolved", Domain: namespace.Canonical(d.Name), Service: s.Name, SLA: s.Metadata.SLA, OLA: s.Metadata.OLA}
-				}
-			}
+	for _, s := range tree.Services {
+		if s.Name == ref || s.Metadata.ID == ref {
+			return ServiceResolution{Status: "resolved", Service: s.Name, SLA: s.Metadata.SLA, OLA: s.Metadata.OLA}
 		}
-		return ServiceResolution{Status: "unresolved_service", Service: ref}
 	}
-	_, domain, service := normalizeServiceRef(serviceRef)
-	for _, d := range tree.Domains {
-		if namespace.Canonical(d.Name) != domain {
-			continue
-		}
-		for _, s := range d.Services {
-			if s.Name == service {
-				return ServiceResolution{Status: "resolved", Domain: domain, Service: service, SLA: s.Metadata.SLA, OLA: s.Metadata.OLA}
-			}
-		}
-		return ServiceResolution{Status: "unresolved_service", Domain: domain, Service: service}
-	}
-	return ServiceResolution{Status: "unresolved_domain", Domain: domain, Service: service}
+	return ServiceResolution{Status: "unresolved_service", Service: ref}
 }
 
 // requirementsStatus derives the overall status from a set of requirements:
@@ -1420,129 +1059,85 @@ func DoctorCosmos(path string) (DoctorDTO, error) {
 	return DoctorDTO{Status: status, Checks: checks}, nil
 }
 
-func domainDirFromTreePath(workspace, treePath string) string {
-	return filepath.Join(storage.DomainsDir(workspace), filepath.FromSlash(strings.TrimPrefix(treePath, "/")))
+func validServiceName(name string) bool {
+	return name != "" && !strings.ContainsAny(name, `/\`) && name != "." && name != ".."
 }
 
-func AddDomain(path, dns, owner string, force bool) (DomainDTO, error) {
-	return addDomain(path, dns, owner, force, false)
-}
-
-func addDomain(path, dns, owner string, force bool, materializedFromTree bool) (DomainDTO, error) {
-	dns = namespace.Canonical(strings.TrimSpace(dns))
-	identity, err := namespace.Identity(dns)
-	if err != nil || strings.ContainsAny(dns, `/\`) {
-		return DomainDTO{}, Error(CodeInvalidNamespace, "Invalid domain name: "+dns, http.StatusBadRequest, err)
-	}
-	dns = identity.CanonicalName
-	if strings.TrimSpace(owner) == "" {
-		owner = "unknown"
-	}
-	ddir := domainDirFromTreePath(path, identity.TreePath)
-	domainFile := filepath.Join(ddir, "domain.yaml")
-	if _, err := os.Stat(domainFile); err == nil && !force {
-		return DomainDTO{}, Error(CodeInvalidNamespace, "Domain already exists: "+dns, http.StatusConflict, nil)
-	}
-	if err := os.MkdirAll(filepath.Join(ddir, "services"), 0o755); err != nil {
-		return DomainDTO{}, err
-	}
-	d := model.Domain{ID: dns, Type: "domain", Name: dns, Version: "0.1.0", Status: "draft", Owner: owner, DNSName: dns, Namespace: identity.Namespace, Label: identity.Label, Labels: identity.Labels, CanonicalName: dns, TreePath: identity.TreePath, ParentCanonical: identity.ParentCanonical, ParentTreePath: identity.ParentTreePath, MaterializedFromTree: materializedFromTree, Summary: "Nomos Domain " + dns + "."}
-	if err := fsx.WriteYAML(domainFile, d); err != nil {
-		return DomainDTO{}, err
-	}
-	if err := os.WriteFile(filepath.Join(ddir, "README.md"), []byte("# Domain\n"), 0o644); err != nil {
-		return DomainDTO{}, err
-	}
-	return GetDomain(path, dns)
-}
-
-func DeleteDomain(path, domainName string) error {
-	canonical := namespace.Canonical(strings.TrimSpace(domainName))
-	if canonical == "" || !strings.Contains(canonical, ".") || strings.ContainsAny(canonical, `/\`) {
-		return Error(CodeInvalidNamespace, "Invalid domain name: "+domainName, http.StatusBadRequest, nil)
-	}
-	d, err := GetDomain(path, canonical)
+func DeleteService(path, serviceName string) error {
+	svc, err := GetService(path, serviceName)
 	if err != nil {
 		return err
 	}
-	if err := os.RemoveAll(d.Path); err != nil {
-		return Error(CodeInternalError, "Failed to delete domain: "+err.Error(), http.StatusInternalServerError, err)
-	}
-	return nil
-}
-
-func DeleteService(path, domainName, serviceName string) error {
-	canonical := namespace.Canonical(strings.TrimSpace(domainName))
-	d, err := GetDomain(path, canonical)
-	if err != nil {
-		return err
-	}
-	if _, err := GetService(path, canonical, serviceName); err != nil {
-		return err
-	}
-	dir := filepath.Join(d.Path, "services", serviceName)
-	if err := os.RemoveAll(dir); err != nil {
+	if err := os.RemoveAll(svc.Path); err != nil {
 		return Error(CodeInternalError, "Failed to delete service: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	return nil
 }
 
-// MoveService relocates a service directory from one domain to another
-// (git-first). owned_by follows the target domain when it matched the source.
-func MoveService(path, fromDomain, serviceName, toDomain string) (ServiceDTO, error) {
-	fromCanon := namespace.Canonical(strings.TrimSpace(fromDomain))
-	toCanon := namespace.Canonical(strings.TrimSpace(toDomain))
-	if fromCanon == toCanon {
-		return ServiceDTO{}, Error(CodeInvalidInput, "source and target domain are the same", http.StatusBadRequest, nil)
-	}
-	from, err := GetDomain(path, fromCanon)
+func RenameService(path, oldName, newName string) error {
+	svc, err := GetService(path, oldName)
 	if err != nil {
-		return ServiceDTO{}, err
+		return err
 	}
-	to, err := GetDomain(path, toCanon)
-	if err != nil {
-		return ServiceDTO{}, err
+	if !validServiceName(newName) {
+		return Error(CodeInvalidNamespace, "Invalid service name: "+newName, http.StatusBadRequest, nil)
 	}
-	if _, err := GetService(path, fromCanon, serviceName); err != nil {
-		return ServiceDTO{}, err
+	// Rename in place, preserving whatever folder the service currently lives in
+	// (folders are a free organization layer; the ID is the stable reference).
+	newDir := filepath.Join(filepath.Dir(svc.Path), newName)
+	if _, err := os.Stat(newDir); err == nil {
+		return Error(CodeInvalidNamespace, "Service already exists: "+newName, http.StatusConflict, nil)
 	}
-	src := filepath.Join(from.Path, "services", serviceName)
-	dstParent := filepath.Join(to.Path, "services")
-	dst := filepath.Join(dstParent, serviceName)
-	if _, err := os.Stat(dst); err == nil {
-		return ServiceDTO{}, Error(CodeInvalidInput, "Service already exists in target domain: "+serviceName, http.StatusConflict, nil)
+	if err := os.Rename(svc.Path, newDir); err != nil {
+		return Error(CodeInternalError, "Failed to rename service: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	if err := os.MkdirAll(dstParent, 0o755); err != nil {
-		return ServiceDTO{}, Error(CodeInternalError, err.Error(), http.StatusInternalServerError, err)
+	var s model.Service
+	f := filepath.Join(newDir, "service.yaml")
+	if err := fsx.ReadYAML(f, &s); err != nil {
+		return Error(CodeInternalError, "read service.yaml: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	if err := os.Rename(src, dst); err != nil {
-		return ServiceDTO{}, Error(CodeInternalError, "move failed: "+err.Error(), http.StatusInternalServerError, err)
+	s.Name = newName
+	return fsx.WriteYAML(f, s)
+}
+
+func AddService(path, name, owner string, force bool) (ServiceDTO, error) {
+	name = strings.TrimSpace(name)
+	if !validServiceName(name) {
+		return ServiceDTO{}, Error(CodeInvalidNamespace, "Invalid service name: "+name, http.StatusBadRequest, nil)
 	}
-	// Update owned_by to the target domain when it pointed at the source domain.
-	yamlPath := filepath.Join(dst, "service.yaml")
-	var raw model.Service
-	if err := fsx.ReadYAML(yamlPath, &raw); err == nil {
-		if raw.OwnedBy == "" || raw.OwnedBy == fromCanon {
-			raw.OwnedBy = toCanon
-			_ = fsx.WriteYAML(yamlPath, raw)
+	if strings.TrimSpace(owner) == "" {
+		owner = "unknown"
+	}
+	sdir := filepath.Join(storage.ServicesDir(path), name)
+	if _, err := os.Stat(sdir); err == nil && !force {
+		return ServiceDTO{}, Error(CodeInvalidNamespace, "Service already exists: "+name, http.StatusConflict, nil)
+	}
+	for _, dir := range []string{"capabilities", "requirements", "rules", "processes", "skills", "findings", "evidence"} {
+		if err := os.MkdirAll(filepath.Join(sdir, dir), 0o755); err != nil {
+			return ServiceDTO{}, err
 		}
 	}
-	return GetService(path, toCanon, serviceName)
+	s := model.Service{ID: "service-" + name, Type: "service", Name: name, Version: "0.1.0", Status: "draft", Owner: owner, Summary: "Nomos Service " + name + "."}
+	if err := fsx.WriteYAML(filepath.Join(sdir, "service.yaml"), s); err != nil {
+		return ServiceDTO{}, err
+	}
+	if err := os.WriteFile(filepath.Join(sdir, "README.md"), []byte("# Service\n"), 0o644); err != nil {
+		return ServiceDTO{}, err
+	}
+	return GetService(path, name)
 }
 
 // MoveServiceElement relocates an embedded element (capability, data object,
 // user interface or method) from one service to another (git-first).
-func MoveServiceElement(path, fromDomain, fromService, kind, elementID, toDomain, toService string) (ServiceDTO, error) {
-	fromCanon := namespace.Canonical(strings.TrimSpace(fromDomain))
-	toCanon := namespace.Canonical(strings.TrimSpace(toDomain))
-	if fromCanon == toCanon && fromService == toService {
+func MoveServiceElement(path, fromService, kind, elementID, toService string) (ServiceDTO, error) {
+	if fromService == toService {
 		return ServiceDTO{}, Error(CodeInvalidInput, "source and target service are the same", http.StatusBadRequest, nil)
 	}
-	srcSvc, err := GetService(path, fromCanon, fromService)
+	srcSvc, err := GetService(path, fromService)
 	if err != nil {
 		return ServiceDTO{}, err
 	}
-	dstSvc, err := GetService(path, toCanon, toService)
+	dstSvc, err := GetService(path, toService)
 	if err != nil {
 		return ServiceDTO{}, err
 	}
@@ -1569,11 +1164,9 @@ func MoveServiceElement(path, fromDomain, fromService, kind, elementID, toDomain
 	if err := fsx.WriteYAML(dstPath, dst); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "write target service: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	return GetService(path, toCanon, toService)
+	return GetService(path, toService)
 }
 
-// moveEmbeddedElement moves one element of the given kind from src to dst,
-// matching capabilities/data objects/user interfaces by id and methods by name.
 func moveEmbeddedElement(src, dst *model.Service, kind, id string) (bool, error) {
 	switch kind {
 	case "capability":
@@ -1612,165 +1205,6 @@ func moveEmbeddedElement(src, dst *model.Service, kind, id string) (bool, error)
 		return false, Error(CodeInvalidInput, "unsupported element kind: "+kind, http.StatusBadRequest, nil)
 	}
 	return false, nil
-}
-
-func RenameDomain(path, oldName, newName string) error {
-	oldCanon := namespace.Canonical(strings.TrimSpace(oldName))
-	newIdentity, err := namespace.Identity(newName)
-	if err != nil || strings.ContainsAny(newName, `/\`) {
-		return Error(CodeInvalidNamespace, "Invalid domain name: "+newName, http.StatusBadRequest, err)
-	}
-	oldDomain, err := GetDomain(path, oldCanon)
-	if err != nil {
-		return err
-	}
-	newCanon := newIdentity.CanonicalName
-	newDir := domainDirFromTreePath(path, newIdentity.TreePath)
-	if err := os.MkdirAll(filepath.Dir(newDir), 0o755); err != nil {
-		return Error(CodeInternalError, "Failed to prepare target path: "+err.Error(), http.StatusInternalServerError, err)
-	}
-	if _, err := os.Stat(newDir); err == nil {
-		return Error(CodeInvalidNamespace, "Domain already exists: "+newCanon, http.StatusConflict, nil)
-	}
-	if err := os.Rename(oldDomain.Path, newDir); err != nil {
-		return Error(CodeInternalError, "Failed to rename domain: "+err.Error(), http.StatusInternalServerError, err)
-	}
-	var d model.Domain
-	f := filepath.Join(newDir, "domain.yaml")
-	if err := fsx.ReadYAML(f, &d); err != nil {
-		return Error(CodeInternalError, "read domain.yaml: "+err.Error(), http.StatusInternalServerError, err)
-	}
-	d.Name = newCanon
-	d.DNSName = newCanon
-	d.CanonicalName = newCanon
-	d.Namespace = newIdentity.Namespace
-	d.Label = newIdentity.Label
-	d.Labels = newIdentity.Labels
-	d.TreePath = newIdentity.TreePath
-	d.ParentCanonical = newIdentity.ParentCanonical
-	d.ParentTreePath = newIdentity.ParentTreePath
-	return fsx.WriteYAML(f, d)
-}
-
-func RenameService(path, domainName, oldName, newName string) error {
-	canonical := namespace.Canonical(strings.TrimSpace(domainName))
-	d, err := GetDomain(path, canonical)
-	if err != nil {
-		return err
-	}
-	if _, err := GetService(path, canonical, oldName); err != nil {
-		return err
-	}
-	if strings.TrimSpace(newName) == "" || strings.ContainsAny(newName, `/\\`) || newName == "." || newName == ".." {
-		return Error(CodeInvalidNamespace, "Invalid service name: "+newName, http.StatusBadRequest, nil)
-	}
-	oldDir := filepath.Join(d.Path, "services", oldName)
-	newDir := filepath.Join(d.Path, "services", newName)
-	if _, err := os.Stat(newDir); err == nil {
-		return Error(CodeInvalidNamespace, "Service already exists: "+newName, http.StatusConflict, nil)
-	}
-	if err := os.Rename(oldDir, newDir); err != nil {
-		return Error(CodeInternalError, "Failed to rename service: "+err.Error(), http.StatusInternalServerError, err)
-	}
-	var s model.Service
-	f := filepath.Join(newDir, "service.yaml")
-	if err := fsx.ReadYAML(f, &s); err != nil {
-		return Error(CodeInternalError, "read service.yaml: "+err.Error(), http.StatusInternalServerError, err)
-	}
-	s.Name = newName
-	return fsx.WriteYAML(f, s)
-}
-
-func AddService(path, domainName, name, owner string, force bool) (ServiceDTO, error) {
-	d, err := GetDomain(path, domainName)
-	if err != nil {
-		return ServiceDTO{}, err
-	}
-	name = strings.TrimSpace(name)
-	if name == "" || strings.ContainsAny(name, `/\\`) || name == "." || name == ".." {
-		return ServiceDTO{}, Error(CodeInvalidNamespace, "Invalid service name: "+name, http.StatusBadRequest, nil)
-	}
-	if strings.TrimSpace(owner) == "" {
-		owner = "unknown"
-	}
-	sdir := filepath.Join(d.Path, "services", name)
-	if _, err := os.Stat(sdir); err == nil && !force {
-		return ServiceDTO{}, Error(CodeInvalidNamespace, "Service already exists: "+d.Canonical+"/"+name, http.StatusConflict, nil)
-	}
-	for _, dir := range []string{"capabilities", "requirements", "rules", "processes", "skills", "findings", "evidence"} {
-		if err := os.MkdirAll(filepath.Join(sdir, dir), 0o755); err != nil {
-			return ServiceDTO{}, err
-		}
-	}
-	s := model.Service{ID: "service-" + name, Type: "service", Name: name, Version: "0.1.0", Status: "draft", Owner: owner, OwnedBy: d.Canonical, OperatedBy: []string{d.Canonical}, Summary: "Nomos Service " + name + "."}
-	if err := fsx.WriteYAML(filepath.Join(sdir, "service.yaml"), s); err != nil {
-		return ServiceDTO{}, err
-	}
-	if err := os.WriteFile(filepath.Join(sdir, "README.md"), []byte("# Service\n"), 0o644); err != nil {
-		return ServiceDTO{}, err
-	}
-	return GetService(path, d.Canonical, name)
-}
-
-func ListVerificationEvidence(path string) (VerificationDTO, error) {
-	root := storage.EvidenceDir(path)
-	out := VerificationDTO{Evidence: []VerificationEvidenceDTO{}}
-	ents, err := os.ReadDir(root)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return out, nil
-		}
-		return out, err
-	}
-	for _, e := range ents {
-		if e.IsDir() || !(strings.HasSuffix(e.Name(), ".yaml") || strings.HasSuffix(e.Name(), ".yml")) {
-			continue
-		}
-		var ev struct {
-			ID        string `yaml:"id"`
-			Type      string `yaml:"type"`
-			Domain    string `yaml:"domain"`
-			Record    string `yaml:"record"`
-			Status    string `yaml:"status"`
-			Timestamp string `yaml:"timestamp"`
-		}
-		full := filepath.Join(root, e.Name())
-		if err := fsx.ReadYAML(full, &ev); err != nil {
-			return out, err
-		}
-		out.Evidence = append(out.Evidence, VerificationEvidenceDTO{ID: ev.ID, Type: ev.Type, Domain: ev.Domain, Record: ev.Record, Status: ev.Status, Timestamp: ev.Timestamp, Path: full})
-	}
-	out.Count = len(out.Evidence)
-	return out, nil
-}
-
-func VerifyDomain(ctx context.Context, path, dns string) (VerificationEvidenceDTO, error) {
-	dns = namespace.Canonical(strings.TrimSpace(dns))
-	if dns == "" || !strings.Contains(dns, ".") {
-		return VerificationEvidenceDTO{}, Error(CodeInvalidNamespace, "Invalid domain name: "+dns, http.StatusBadRequest, nil)
-	}
-	rec := "_nomos." + dns
-	txt, lookupErr := net.DefaultResolver.LookupTXT(ctx, rec)
-	status := "failed"
-	exp := "nomos-domain=" + dns
-	for _, t := range txt {
-		if strings.Contains(t, exp) {
-			status = "verified"
-		}
-	}
-	if err := os.MkdirAll(storage.EvidenceDir(path), 0o755); err != nil {
-		return VerificationEvidenceDTO{}, err
-	}
-	now := time.Now().UTC()
-	ev := VerificationEvidenceDTO{ID: "evidence-" + now.Format("20060102-150405"), Type: "evidence", Domain: dns, Record: rec, Status: status, Timestamp: now.Format(time.RFC3339), Path: filepath.Join(storage.EvidenceDir(path), strings.ReplaceAll(dns, ".", "-")+"-dns.yaml")}
-	content := fmt.Sprintf("id: %s\ntype: evidence\nevidence_type: dns_verification\ndomain: %s\nrecord: %s\nstatus: %s\ntimestamp: %q\n", ev.ID, ev.Domain, ev.Record, ev.Status, ev.Timestamp)
-	if err := os.WriteFile(ev.Path, []byte(content), 0o644); err != nil {
-		return ev, err
-	}
-	if lookupErr != nil || status != "verified" {
-		return ev, Error(CodeValidationFailed, "DNS verification failed", http.StatusBadRequest, lookupErr)
-	}
-	return ev, nil
 }
 
 func CreateBlueprint(path string, bp model.Blueprint) error {
@@ -1816,15 +1250,7 @@ func CreateBlueprint(path string, bp model.Blueprint) error {
 	return nil
 }
 
-func CreateProductOffering(path, domainCanonical string, req CreateProductOfferingRequest) (BlueprintDTO, error) {
-	canonical := namespace.Canonical(strings.TrimSpace(domainCanonical))
-	tree, err := load(path)
-	if err != nil {
-		return BlueprintDTO{}, err
-	}
-	if !resolveDomain(tree, canonical) {
-		return BlueprintDTO{}, Error(CodeDomainNotFound, "Domain not found: "+canonical, http.StatusNotFound, nil)
-	}
+func CreateProductOffering(path string, req CreateProductOfferingRequest) (BlueprintDTO, error) {
 	id := strings.TrimSpace(req.ID)
 	if id == "" {
 		generated, err := idgen.NewForType("product_blueprint")
@@ -1835,9 +1261,8 @@ func CreateProductOffering(path, domainCanonical string, req CreateProductOfferi
 	}
 	version := firstNonEmpty(strings.TrimSpace(req.Version), "0.1.0")
 	status := firstNonEmpty(strings.TrimSpace(req.Status), "draft")
-	owner := firstNonEmpty(strings.TrimSpace(req.Owner), canonical)
-	owning := firstNonEmpty(strings.TrimSpace(req.OwningDomain), canonical)
-	bp := model.Blueprint{ID: id, Type: "product_blueprint", Name: strings.TrimSpace(req.Name), Version: version, Status: status, Owner: owner, OfferedBy: canonical, OwningDomain: namespace.Canonical(owning), Summary: strings.TrimSpace(req.Summary), Description: strings.TrimSpace(req.Description), Tags: req.Tags, Fulfillment: model.ProductFulfillment{RequiredServices: []model.ProductRequiredService{}}}
+	owner := firstNonEmpty(strings.TrimSpace(req.Owner), "unknown")
+	bp := model.Blueprint{ID: id, Type: "product_blueprint", Name: strings.TrimSpace(req.Name), Version: version, Status: status, Owner: owner, Summary: strings.TrimSpace(req.Summary), Description: strings.TrimSpace(req.Description), Tags: req.Tags, Fulfillment: model.ProductFulfillment{RequiredServices: []model.ProductRequiredService{}}}
 	if bp.Name == "" {
 		bp.Name = id
 	}
@@ -1845,90 +1270,6 @@ func CreateProductOffering(path, domainCanonical string, req CreateProductOfferi
 		return BlueprintDTO{}, err
 	}
 	return GetBlueprint(path, id)
-}
-
-func normalizeDomainInput(value string) string {
-	v := strings.TrimSpace(value)
-	v = strings.Trim(v, `"'`)
-	return namespace.Canonical(strings.TrimSpace(v))
-}
-
-func validCanonicalDomain(value string) bool {
-	if value == "" || strings.ContainsAny(value, `/\\`) || strings.ContainsAny(value, ` "'`) {
-		return false
-	}
-	parts := strings.Split(value, ".")
-	if len(parts) < 2 {
-		return false
-	}
-	for _, part := range parts {
-		if part == "" || strings.HasPrefix(part, "-") || strings.HasSuffix(part, "-") {
-			return false
-		}
-		for _, r := range part {
-			if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '-' {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func MoveProductOffering(path string, req MoveProductOfferingRequest) (BlueprintDTO, error) {
-	productID := strings.TrimSpace(firstNonEmpty(req.ProductID, ""))
-	if productID == "" {
-		return BlueprintDTO{}, Error(CodeInvalidInput, "Product ID is required", http.StatusBadRequest, nil)
-	}
-	rawTarget := strings.TrimSpace(req.TargetDomain)
-	if rawTarget == "" {
-		return BlueprintDTO{}, Error(CodeProductMoveInvalidTarget, "Bitte eine Zieldomäne wählen.", http.StatusBadRequest, nil)
-	}
-	targetDomain := normalizeDomainInput(rawTarget)
-	if !validCanonicalDomain(targetDomain) {
-		return BlueprintDTO{}, Error(CodeProductMoveInvalidTarget, "Die gewählte Zieldomäne ist keine gültige kanonische Domäne.", http.StatusBadRequest, nil)
-	}
-	tree, err := load(path)
-	if err != nil {
-		return BlueprintDTO{}, err
-	}
-	if !resolveDomain(tree, targetDomain) {
-		return BlueprintDTO{}, Error(CodeTargetDomainNotFound, "Die gewählte Zieldomäne existiert nicht.", http.StatusNotFound, nil)
-	}
-	var product *cosmosfs.BlueprintNode
-	for i := range tree.Blueprints {
-		b := &tree.Blueprints[i]
-		if b.Metadata.ID == productID && b.Metadata.Type == "product_blueprint" {
-			product = b
-			break
-		}
-	}
-	if product == nil {
-		return BlueprintDTO{}, Error(CodeProductNotFound, "Product not found: "+productID, http.StatusNotFound, nil)
-	}
-	oldOfferedBy := namespace.Canonical(strings.TrimSpace(product.Metadata.OfferedBy))
-	if oldOfferedBy == "" {
-		return BlueprintDTO{}, Error(CodeProductMoveInvalidTarget, "Product has no current offered_by domain", http.StatusBadRequest, nil)
-	}
-	if oldOfferedBy == targetDomain {
-		return BlueprintDTO{}, Error(CodeProductMoveNoop, "Bitte eine andere Zieldomäne wählen.", http.StatusConflict, nil)
-	}
-
-	var raw model.Blueprint
-	if err := fsx.ReadYAML(product.Path, &raw); err != nil {
-		return BlueprintDTO{}, Error(CodeProductMoveWriteFailed, "Failed to read product: "+err.Error(), http.StatusInternalServerError, err)
-	}
-	if raw.Type != "product_blueprint" {
-		return BlueprintDTO{}, Error(CodeProductNotFound, "Product not found: "+productID, http.StatusNotFound, nil)
-	}
-	raw.OfferedBy = targetDomain
-	oldOwning := namespace.Canonical(strings.TrimSpace(raw.OwningDomain))
-	if oldOwning == "" || oldOwning == oldOfferedBy || req.UpdateOwningDomain {
-		raw.OwningDomain = targetDomain
-	}
-	if err := fsx.WriteYAML(product.Path, raw); err != nil {
-		return BlueprintDTO{}, Error(CodeProductMoveWriteFailed, "Failed to write product: "+err.Error(), http.StatusInternalServerError, err)
-	}
-	return GetBlueprint(path, productID)
 }
 
 func AddProductFulfillmentService(path, productID string, req AddFulfillmentServiceRequest) (BlueprintDTO, error) {
@@ -1947,9 +1288,9 @@ func AddProductFulfillmentService(path, productID string, req AddFulfillmentServ
 	if err := fsx.ReadYAML(product.Path, &raw); err != nil {
 		return BlueprintDTO{}, Error(CodeInternalError, "Failed to read product: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	normalized, _, _ := normalizeServiceRef(serviceRef)
+	normalized := strings.TrimSpace(serviceRef)
 	for _, existing := range raw.Fulfillment.RequiredServices {
-		existingNormalized, _, _ := normalizeServiceRef(existing.ServiceRef)
+		existingNormalized := strings.TrimSpace(existing.ServiceRef)
 		if strings.EqualFold(existingNormalized, normalized) || strings.EqualFold(strings.TrimSpace(existing.ServiceRef), serviceRef) {
 			return BlueprintDTO{}, Error(CodeInvalidInput, "Fulfillment service already exists for product: "+normalized, http.StatusConflict, nil)
 		}
@@ -1985,12 +1326,12 @@ func UpdateProductFulfillmentService(path, productID string, index int, req Upda
 	if index >= len(raw.Fulfillment.RequiredServices) {
 		return BlueprintDTO{}, Error(CodeInvalidInput, "fulfillment index not found", http.StatusNotFound, nil)
 	}
-	normalized, _, _ := normalizeServiceRef(serviceRef)
+	normalized := strings.TrimSpace(serviceRef)
 	for i, existing := range raw.Fulfillment.RequiredServices {
 		if i == index {
 			continue
 		}
-		existingNormalized, _, _ := normalizeServiceRef(existing.ServiceRef)
+		existingNormalized := strings.TrimSpace(existing.ServiceRef)
 		if strings.EqualFold(existingNormalized, normalized) || strings.EqualFold(strings.TrimSpace(existing.ServiceRef), serviceRef) {
 			return BlueprintDTO{}, Error(CodeInvalidInput, "Fulfillment service already exists for product: "+normalized, http.StatusConflict, nil)
 		}

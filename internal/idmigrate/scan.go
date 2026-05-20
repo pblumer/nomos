@@ -27,7 +27,8 @@ type Candidate struct {
 func Scan(workspace string) ([]Candidate, error) {
 	roots := []string{
 		storage.CatalogDirForRead(workspace),
-		storage.DomainsDirForRead(workspace),
+		storage.ServicesDir(workspace),
+		storage.DecisionsDir(workspace),
 	}
 	var candidates []Candidate
 	seen := map[string]bool{}

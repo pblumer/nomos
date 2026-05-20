@@ -16,11 +16,9 @@ func TestServiceUserInterfaceCarriesEngineSchemaBinding(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/services/user-account"), 0o755))
+	must(os.MkdirAll(filepath.Join(storage.ServicesDir(p), "user-account"), 0o755))
 	must(os.WriteFile(storage.CosmosFile(p), []byte("id: c\nname: C\nversion: 0.1.0\nstatus: draft\nowner: t\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/domain.yaml"), []byte("name: identity.blumer.cloud\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "identity.blumer.cloud/services/user-account/service.yaml"), []byte(`name: user-account
-owned_by: identity.blumer.cloud
+	must(os.WriteFile(filepath.Join(storage.ServicesDir(p), "user-account/service.yaml"), []byte(`name: user-account
 user_interfaces:
   - id: UI-CAPTURE
     name: Benutzerkonto erfassen
@@ -37,7 +35,7 @@ user_interfaces:
       submit: identity.blumer.cloud/user-account#createAccount
 `), 0o644))
 
-	svc, err := GetService(p, "identity.blumer.cloud", "user-account")
+	svc, err := GetService(p, "user-account")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +53,7 @@ user_interfaces:
 		t.Fatalf("binding not carried: %+v", ui.Binding)
 	}
 
-	updated, err := UpdateServiceUserInterface(p, "identity.blumer.cloud", "user-account", "UI-CAPTURE", model.ServiceUserInterface{
+	updated, err := UpdateServiceUserInterface(p, "user-account", "UI-CAPTURE", model.ServiceUserInterface{
 		Engine: "form-js",
 		Schema: map[string]any{"type": "default", "components": []any{map[string]any{"type": "textfield", "key": "surname"}}},
 	})

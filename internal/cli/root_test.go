@@ -115,12 +115,12 @@ func TestCosmosInitCreatesExpectedStructure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("init failed: %v", err)
 	}
-	for _, rel := range []string{filepath.Join(".nomos", "cosmos.yaml"), "README.md", filepath.Join(".nomos", "domains"), filepath.Join(".nomos", "catalog"), filepath.Join(".nomos", "cache"), filepath.Join(".nomos", "index"), filepath.Join(".nomos", "evidence"), ".gitignore"} {
+	for _, rel := range []string{filepath.Join(".nomos", "cosmos.yaml"), "README.md", filepath.Join(".nomos", "services"), filepath.Join(".nomos", "decisions"), filepath.Join(".nomos", "catalog"), filepath.Join(".nomos", "cache"), filepath.Join(".nomos", "index"), filepath.Join(".nomos", "evidence"), ".gitignore"} {
 		if _, err := os.Stat(filepath.Join(p, rel)); err != nil {
 			t.Fatalf("missing %s: %v", rel, err)
 		}
 	}
-	for _, rel := range []string{"cosmos.yaml", "domains", "catalog"} {
+	for _, rel := range []string{"cosmos.yaml", "services", "catalog"} {
 		if _, err := os.Stat(filepath.Join(p, rel)); !os.IsNotExist(err) {
 			t.Fatalf("root-level %s should not exist", rel)
 		}
@@ -204,72 +204,18 @@ func TestCosmosDoctorFailsWhenCosmosYamlMissing(t *testing.T) {
 	}
 }
 
-func TestDomainAddCreatesDomainArtifact(t *testing.T) {
-	p := t.TempDir()
-	_, _, _ = executeCommand(t, "cosmos", "init", p)
-	_, _, err := executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p, "--owner", "Identity Team")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, rel := range []string{filepath.Join(".nomos", "domains", "cloud", "blumer", "identity", "domain.yaml"), filepath.Join(".nomos", "domains", "cloud", "blumer", "identity", "README.md")} {
-		if _, err := os.Stat(filepath.Join(p, rel)); err != nil {
-			t.Fatalf("missing %s", rel)
-		}
-	}
-	if _, err := os.Stat(filepath.Join(p, "domains", "identity.blumer.cloud")); !os.IsNotExist(err) {
-		t.Fatalf("root-level domain directory should not exist")
-	}
-	var d model.Domain
-	if err := fsx.ReadYAML(filepath.Join(storage.DomainsDir(p), "cloud", "blumer", "identity", "domain.yaml"), &d); err != nil {
-		t.Fatal(err)
-	}
-	if d.Type != "domain" || d.Name != "identity.blumer.cloud" || d.Owner != "Identity Team" || d.DNSName != "identity.blumer.cloud" {
-		t.Fatalf("unexpected domain: %+v", d)
-	}
-}
-
-func TestDomainAddRejectsInvalidDNSName(t *testing.T) {
-	p := t.TempDir()
-	_, _, err := executeCommand(t, "domain", "add", "invalid", "--path", p)
-	if err == nil {
-		t.Fatal("expected error")
-	}
-}
-
-func TestDomainListSupportsPathFlag(t *testing.T) {
-	p := t.TempDir()
-	_, _, _ = executeCommand(t, "cosmos", "init", p)
-	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p)
-	out, _, err := executeCommand(t, "domain", "list", "--path", p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out, "identity.blumer.cloud") {
-		t.Fatalf("unexpected out: %s", out)
-	}
-}
-
 func TestServiceAddCreatesServiceArtifact(t *testing.T) {
 	p := t.TempDir()
 	_, _, _ = executeCommand(t, "cosmos", "init", p)
-	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p)
-	_, _, err := executeCommand(t, "service", "add", "user-account", "--domain", "identity.blumer.cloud", "--path", p, "--owner", "Identity Team")
+	_, _, err := executeCommand(t, "service", "add", "user-account", "--path", p, "--owner", "Identity Team")
 	if err != nil {
 		t.Fatal(err)
 	}
-	base := filepath.Join(".nomos", "domains", "cloud", "blumer", "identity", "services", "user-account")
+	base := filepath.Join(".nomos", "services", "user-account")
 	for _, rel := range []string{base + "/service.yaml", base + "/README.md", base + "/capabilities", base + "/requirements", base + "/rules", base + "/processes", base + "/skills", base + "/findings", base + "/evidence"} {
 		if _, err := os.Stat(filepath.Join(p, rel)); err != nil {
 			t.Fatalf("missing %s", rel)
 		}
-	}
-}
-
-func TestServiceAddRequiresDomainFlag(t *testing.T) {
-	p := t.TempDir()
-	_, _, err := executeCommand(t, "service", "add", "user-account", "--path", p)
-	if err == nil {
-		t.Fatal("expected err")
 	}
 }
 
@@ -334,19 +280,17 @@ func TestGraphSupportsPathFlag(t *testing.T) {
 	}
 }
 
-func TestGraphIncludesCosmosDomainsAndServices(t *testing.T) {
+func TestGraphIncludesCosmosAndServices(t *testing.T) {
 	p := t.TempDir()
 	_, _, _ = executeCommand(t, "cosmos", "init", p)
-	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p, "--owner", "Identity Team")
-	_, _, _ = executeCommand(t, "domain", "add", "platform.blumer.cloud", "--path", p, "--owner", "Platform Team")
-	_, _, _ = executeCommand(t, "service", "add", "user-account", "--domain", "identity.blumer.cloud", "--path", p, "--owner", "Identity Team")
-	_, _, _ = executeCommand(t, "service", "add", "privileged-account", "--domain", "identity.blumer.cloud", "--path", p, "--owner", "Identity Team")
-	_, _, _ = executeCommand(t, "service", "add", "rule-validation-api", "--domain", "platform.blumer.cloud", "--path", p, "--owner", "Platform Team")
+	_, _, _ = executeCommand(t, "service", "add", "user-account", "--path", p, "--owner", "Identity Team")
+	_, _, _ = executeCommand(t, "service", "add", "privileged-account", "--path", p, "--owner", "Identity Team")
+	_, _, _ = executeCommand(t, "service", "add", "rule-validation-api", "--path", p, "--owner", "Platform Team")
 	out, _, err := executeCommand(t, "graph", "--path", p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, s := range []string{"graph TD", "Cosmos:", "Domain: identity.blumer.cloud", "Domain: platform.blumer.cloud", "Service: user-account", "Service: privileged-account", "Service: rule-validation-api", "cosmos", "-->"} {
+	for _, s := range []string{"graph TD", "Cosmos:", "Service: user-account", "Service: privileged-account", "Service: rule-validation-api", "cosmos", "-->"} {
 		if !strings.Contains(out, s) {
 			t.Fatalf("missing %q in output:\n%s", s, out)
 		}
@@ -356,8 +300,7 @@ func TestGraphIncludesCosmosDomainsAndServices(t *testing.T) {
 func TestGraphIncludesProductBlueprintRequiredServices(t *testing.T) {
 	p := t.TempDir()
 	_, _, _ = executeCommand(t, "cosmos", "init", p)
-	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p)
-	_, _, _ = executeCommand(t, "service", "add", "user-account", "--domain", "identity.blumer.cloud", "--path", p)
+	_, _, _ = executeCommand(t, "service", "add", "user-account", "--path", p)
 	mustWriteCLI(t, filepath.Join(storage.CatalogDir(p), "blueprints", "products", "account.yaml"), `id: PB-ACC-MBX-001
 type: product_blueprint
 name: Benutzerkonto mit Mailbox
@@ -387,10 +330,8 @@ required_services:
 func TestGraphOutputIsDeterministic(t *testing.T) {
 	p := t.TempDir()
 	_, _, _ = executeCommand(t, "cosmos", "init", p)
-	_, _, _ = executeCommand(t, "domain", "add", "platform.blumer.cloud", "--path", p)
-	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p)
-	_, _, _ = executeCommand(t, "service", "add", "z-service", "--domain", "identity.blumer.cloud", "--path", p)
-	_, _, _ = executeCommand(t, "service", "add", "a-service", "--domain", "identity.blumer.cloud", "--path", p)
+	_, _, _ = executeCommand(t, "service", "add", "z-service", "--path", p)
+	_, _, _ = executeCommand(t, "service", "add", "a-service", "--path", p)
 	out1, _, err := executeCommand(t, "graph", "--path", p)
 	if err != nil {
 		t.Fatal(err)
@@ -401,9 +342,6 @@ func TestGraphOutputIsDeterministic(t *testing.T) {
 	}
 	if out1 != out2 {
 		t.Fatalf("graph output differs between runs\n1:\n%s\n2:\n%s", out1, out2)
-	}
-	if strings.Index(out1, "Domain: identity.blumer.cloud") > strings.Index(out1, "Domain: platform.blumer.cloud") {
-		t.Fatalf("domains are not sorted:\n%s", out1)
 	}
 	if strings.Index(out1, "Service: a-service") > strings.Index(out1, "Service: z-service") {
 		t.Fatalf("services are not sorted:\n%s", out1)
@@ -421,7 +359,7 @@ func TestGraphFailsWhenCosmosYAMLMissing(t *testing.T) {
 	}
 }
 
-func TestGraphHandlesCosmosWithoutDomains(t *testing.T) {
+func TestGraphHandlesCosmosWithoutServices(t *testing.T) {
 	p := t.TempDir()
 	_, _, _ = executeCommand(t, "cosmos", "init", p, "--without-self")
 	out, _, err := executeCommand(t, "graph", "--path", p)
@@ -431,67 +369,35 @@ func TestGraphHandlesCosmosWithoutDomains(t *testing.T) {
 	if !strings.Contains(out, "graph TD") || !strings.Contains(out, "Cosmos:") {
 		t.Fatalf("unexpected output: %s", out)
 	}
-	if strings.Contains(out, "Domain:") || strings.Contains(out, "Service:") {
-		t.Fatalf("unexpected domain/service in output: %s", out)
-	}
-}
-
-func TestGraphHandlesDomainWithoutServices(t *testing.T) {
-	p := t.TempDir()
-	_, _, _ = executeCommand(t, "cosmos", "init", p, "--without-self")
-	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p)
-	out, _, err := executeCommand(t, "graph", "--path", p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out, "Domain: identity.blumer.cloud") || !strings.Contains(out, "-->") {
-		t.Fatalf("unexpected output: %s", out)
-	}
 	if strings.Contains(out, "Service:") {
-		t.Fatalf("unexpected service output: %s", out)
+		t.Fatalf("unexpected service in output: %s", out)
 	}
 }
 
-func TestCosmosInfoReportsFilesystemDomainCount(t *testing.T) {
+func TestCosmosInfoReportsFilesystemServiceCount(t *testing.T) {
 	p := t.TempDir()
 	_, _, _ = executeCommand(t, "cosmos", "init", p, "--without-self")
-	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p)
-	_, _, _ = executeCommand(t, "domain", "add", "platform.blumer.cloud", "--path", p)
-	_, _, _ = executeCommand(t, "domain", "add", "governance.blumer.cloud", "--path", p)
+	_, _, _ = executeCommand(t, "service", "add", "user-account", "--path", p)
+	_, _, _ = executeCommand(t, "service", "add", "rule-validation-api", "--path", p)
+	_, _, _ = executeCommand(t, "service", "add", "audit-log", "--path", p)
 	out, _, err := executeCommand(t, "cosmos", "info", "--path", p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "domains=3") {
-		t.Fatalf("expected domains=3, got: %s", out)
+	if !strings.Contains(out, "services=3") {
+		t.Fatalf("expected services=3, got: %s", out)
 	}
 }
 
-func TestCosmosInfoReportsZeroWhenNoDomains(t *testing.T) {
+func TestCosmosInfoReportsZeroWhenNoServices(t *testing.T) {
 	p := t.TempDir()
 	_, _, _ = executeCommand(t, "cosmos", "init", p, "--without-self")
 	out, _, err := executeCommand(t, "cosmos", "info", "--path", p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "domains=0") {
-		t.Fatalf("expected domains=0, got: %s", out)
-	}
-}
-
-func TestCosmosInfoIgnoresIncompleteDomainDirectories(t *testing.T) {
-	p := t.TempDir()
-	_, _, _ = executeCommand(t, "cosmos", "init", p, "--without-self")
-	if err := os.MkdirAll(filepath.Join(storage.DomainsDir(p), "incomplete.example.com"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p)
-	out, _, err := executeCommand(t, "cosmos", "info", "--path", p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out, "domains=1") {
-		t.Fatalf("expected domains=1, got: %s", out)
+	if !strings.Contains(out, "services=0") {
+		t.Fatalf("expected services=0, got: %s", out)
 	}
 }
 
@@ -525,7 +431,7 @@ func TestServeCommandRegistersPathFlag(t *testing.T) {
 
 func TestRootCommandContainsExpectedSubcommands(t *testing.T) {
 	root := newRoot()
-	want := []string{"version", "cosmos", "domain", "service", "validate", "graph", "verify", "serve"}
+	want := []string{"version", "cosmos", "service", "validate", "graph", "serve"}
 	for _, w := range want {
 		if _, _, err := root.Find([]string{w}); err != nil {
 			t.Fatalf("missing subcommand %s", w)
@@ -537,10 +443,8 @@ func createParityCosmos(t *testing.T) string {
 	t.Helper()
 	p := t.TempDir()
 	_, _, _ = executeCommand(t, "cosmos", "init", p, "--without-self")
-	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p, "--owner", "Identity Team")
-	_, _, _ = executeCommand(t, "domain", "add", "platform.blumer.cloud", "--path", p, "--owner", "Platform Team")
-	_, _, _ = executeCommand(t, "service", "add", "user-account", "--domain", "identity.blumer.cloud", "--path", p, "--owner", "Identity Team")
-	_, _, _ = executeCommand(t, "service", "add", "rule-validation-api", "--domain", "platform.blumer.cloud", "--path", p, "--owner", "Platform Team")
+	_, _, _ = executeCommand(t, "service", "add", "user-account", "--path", p, "--owner", "Identity Team")
+	_, _, _ = executeCommand(t, "service", "add", "rule-validation-api", "--path", p, "--owner", "Platform Team")
 	return p
 }
 
@@ -558,49 +462,37 @@ func TestCLIRESTJSONParity(t *testing.T) {
 	if err := json.Unmarshal(getCLIHTTP(t, h, "/api/v1/cosmos").Body.Bytes(), &c2); err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{"id", "name", "version", "status", "owner", "domainCount", "serviceCount"} {
+	for _, key := range []string{"id", "name", "version", "status", "owner", "serviceCount", "decisionCount"} {
 		if c1[key] != c2[key] {
 			t.Fatalf("cosmos %s mismatch: %v != %v", key, c1[key], c2[key])
 		}
 	}
 
-	cliDomains, _, err := executeCommand(t, "domain", "list", "--path", p, "--format", "json")
+	cliServices, _, err := executeCommand(t, "service", "list", "--path", p, "--format", "json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var d1, d2 map[string][]map[string]any
-	if err := json.Unmarshal([]byte(cliDomains), &d1); err != nil {
+	var sl1, sl2 struct {
+		Services []map[string]any `json:"services"`
+	}
+	if err := json.Unmarshal([]byte(cliServices), &sl1); err != nil {
 		t.Fatal(err)
 	}
-	if err := json.Unmarshal(getCLIHTTP(t, h, "/api/v1/domains").Body.Bytes(), &d2); err != nil {
+	if err := json.Unmarshal(getCLIHTTP(t, h, "/api/v1/services").Body.Bytes(), &sl2); err != nil {
 		t.Fatal(err)
 	}
-	if d1["domains"][0]["canonical"] != d2["domains"][0]["canonical"] {
-		t.Fatalf("domains mismatch: %v %v", d1, d2)
-	}
-	if d1["domains"][0]["namespace"].(map[string]any)["displayPath"] != "cloud / blumer / identity" {
-		t.Fatalf("missing namespace metadata: %v", d1)
+	if len(sl1.Services) == 0 || sl1.Services[0]["name"] != sl2.Services[0]["name"] {
+		t.Fatalf("services mismatch: %v %v", sl1, sl2)
 	}
 
-	cliDomain, _, err := executeCommand(t, "domain", "get", "identity.blumer.cloud", "--path", p, "--format", "json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var gd1, gd2 map[string]any
-	_ = json.Unmarshal([]byte(cliDomain), &gd1)
-	_ = json.Unmarshal(getCLIHTTP(t, h, "/api/v1/domains/identity.blumer.cloud").Body.Bytes(), &gd2)
-	if gd1["canonical"] != gd2["canonical"] || gd1["serviceCount"] != gd2["serviceCount"] {
-		t.Fatalf("domain mismatch: %v %v", gd1, gd2)
-	}
-
-	cliService, _, err := executeCommand(t, "service", "get", "user-account", "--domain", "identity.blumer.cloud", "--path", p, "--format", "json")
+	cliService, _, err := executeCommand(t, "service", "get", "user-account", "--path", p, "--format", "json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var s1, s2 map[string]any
 	_ = json.Unmarshal([]byte(cliService), &s1)
-	_ = json.Unmarshal(getCLIHTTP(t, h, "/api/v1/domains/identity.blumer.cloud/services/user-account").Body.Bytes(), &s2)
-	if s1["name"] != s2["name"] || s1["domain"] != s2["domain"] {
+	_ = json.Unmarshal(getCLIHTTP(t, h, "/api/v1/services/user-account").Body.Bytes(), &s2)
+	if s1["name"] != s2["name"] {
 		t.Fatalf("service mismatch: %v %v", s1, s2)
 	}
 
@@ -630,15 +522,11 @@ func getCLIHTTP(t *testing.T, h http.Handler, path string) *httptest.ResponseRec
 
 func TestCLIJSONErrorsAndInvalidFormats(t *testing.T) {
 	p := createParityCosmos(t)
-	out, errOut, err := executeCommand(t, "domain", "get", "does-not-exist.example", "--path", p, "--format", "json")
-	if err == nil || !strings.Contains(out+errOut+err.Error(), "DOMAIN_NOT_FOUND") {
-		t.Fatalf("expected DOMAIN_NOT_FOUND, got out=%s errOut=%s err=%v", out, errOut, err)
-	}
-	out, errOut, err = executeCommand(t, "service", "get", "does-not-exist", "--domain", "identity.blumer.cloud", "--path", p, "--format", "json")
+	out, errOut, err := executeCommand(t, "service", "get", "does-not-exist", "--path", p, "--format", "json")
 	if err == nil || !strings.Contains(out+errOut+err.Error(), "SERVICE_NOT_FOUND") {
 		t.Fatalf("expected SERVICE_NOT_FOUND, got out=%s errOut=%s err=%v", out, errOut, err)
 	}
-	for _, args := range [][]string{{"cosmos", "info", "--path", p, "--format", "xml"}, {"domain", "list", "--path", p, "--format", "xml"}, {"validate", "--path", p, "--format", "xml"}} {
+	for _, args := range [][]string{{"cosmos", "info", "--path", p, "--format", "xml"}, {"service", "list", "--path", p, "--format", "xml"}, {"validate", "--path", p, "--format", "xml"}} {
 		_, _, err := executeCommand(t, args...)
 		if err == nil || !strings.Contains(err.Error(), "INVALID_FORMAT") {
 			t.Fatalf("expected invalid format for %v, got %v", args, err)
@@ -649,10 +537,9 @@ func TestCLIJSONErrorsAndInvalidFormats(t *testing.T) {
 func TestServiceListCommand(t *testing.T) {
 	p := t.TempDir()
 	_, _, _ = executeCommand(t, "cosmos", "init", p)
-	_, _, _ = executeCommand(t, "domain", "add", "collaboration.blumer.cloud", "--path", p)
-	_, _, _ = executeCommand(t, "service", "add", "mailbox", "--domain", "collaboration.blumer.cloud", "--path", p)
-	_, _, _ = executeCommand(t, "service", "add", "license-assignment", "--domain", "collaboration.blumer.cloud", "--path", p)
-	out, _, err := executeCommand(t, "service", "list", "--domain", "collaboration.blumer.cloud", "--path", p)
+	_, _, _ = executeCommand(t, "service", "add", "mailbox", "--path", p)
+	_, _, _ = executeCommand(t, "service", "add", "license-assignment", "--path", p)
+	out, _, err := executeCommand(t, "service", "list", "--path", p)
 	if err != nil {
 		t.Fatalf("service list failed: %v", err)
 	}
@@ -780,34 +667,13 @@ func TestBlueprintDeleteCLI(t *testing.T) {
 	}
 }
 
-func TestDomainDeleteCLI(t *testing.T) {
-	p := t.TempDir()
-	_, _, _ = executeCommand(t, "cosmos", "init", p)
-	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p, "--owner", "Identity Team")
-	_, _, _ = executeCommand(t, "service", "add", "user-account", "--domain", "identity.blumer.cloud", "--path", p)
-
-	out, _, err := executeCommand(t, "domain", "delete", "identity.blumer.cloud", "--path", p)
-	if err != nil {
-		t.Fatalf("domain delete failed: %v", err)
-	}
-	if !strings.Contains(out, "identity.blumer.cloud") {
-		t.Fatalf("expected deleted domain in output: %s", out)
-	}
-
-	_, _, err = executeCommand(t, "domain", "get", "identity.blumer.cloud", "--path", p)
-	if err == nil {
-		t.Fatal("expected error after delete")
-	}
-}
-
 func TestServiceDeleteCLI(t *testing.T) {
 	p := t.TempDir()
 	_, _, _ = executeCommand(t, "cosmos", "init", p)
-	_, _, _ = executeCommand(t, "domain", "add", "identity.blumer.cloud", "--path", p)
-	_, _, _ = executeCommand(t, "service", "add", "user-account", "--domain", "identity.blumer.cloud", "--path", p)
-	_, _, _ = executeCommand(t, "service", "add", "privileged-account", "--domain", "identity.blumer.cloud", "--path", p)
+	_, _, _ = executeCommand(t, "service", "add", "user-account", "--path", p)
+	_, _, _ = executeCommand(t, "service", "add", "privileged-account", "--path", p)
 
-	out, _, err := executeCommand(t, "service", "delete", "user-account", "--domain", "identity.blumer.cloud", "--path", p)
+	out, _, err := executeCommand(t, "service", "delete", "user-account", "--path", p)
 	if err != nil {
 		t.Fatalf("service delete failed: %v", err)
 	}
@@ -815,13 +681,13 @@ func TestServiceDeleteCLI(t *testing.T) {
 		t.Fatalf("expected deleted service in output: %s", out)
 	}
 
-	_, _, err = executeCommand(t, "service", "get", "user-account", "--domain", "identity.blumer.cloud", "--path", p)
+	_, _, err = executeCommand(t, "service", "get", "user-account", "--path", p)
 	if err == nil {
 		t.Fatal("expected error after delete")
 	}
 
 	// Remaining service still exists
-	out, _, err = executeCommand(t, "service", "get", "privileged-account", "--domain", "identity.blumer.cloud", "--path", p)
+	out, _, err = executeCommand(t, "service", "get", "privileged-account", "--path", p)
 	if err != nil {
 		t.Fatalf("remaining service should still exist: %v", err)
 	}
@@ -1058,75 +924,16 @@ func TestFirstNonEmpty(t *testing.T) {
 	}
 }
 
-func TestLoadCosmosTree(t *testing.T) {
-	p := t.TempDir()
-	must := func(err error) {
-		t.Helper()
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	must(os.MkdirAll(filepath.Dir(storage.CosmosFile(p)), 0o755))
-	must(os.WriteFile(storage.CosmosFile(p), []byte("id: cosmos-test\nname: Test Cosmos\nversion: 0.1.0\nstatus: draft\nowner: Team\n"), 0o644))
-	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "example.com", "services", "api"), 0o755))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "example.com", "domain.yaml"), []byte("name: example.com\n"), 0o644))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "example.com", "services", "api", "service.yaml"), []byte("name: api\n"), 0o644))
-
-	tree, err := loadCosmosTree(p)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if tree.Cosmos.Name != "Test Cosmos" {
-		t.Fatalf("expected Test Cosmos, got %q", tree.Cosmos.Name)
-	}
-	if len(tree.Domains) != 1 || tree.Domains[0].Name != "example.com" {
-		t.Fatalf("expected one domain example.com, got %+v", tree.Domains)
-	}
-	if len(tree.Domains[0].Services) != 1 || tree.Domains[0].Services[0].Name != "api" {
-		t.Fatalf("expected one service api, got %+v", tree.Domains[0].Services)
-	}
-}
-
-func TestScanDomains_MissingRoot(t *testing.T) {
-	p := t.TempDir()
-	domains, err := scanDomains(p)
-	if err != nil {
-		t.Fatalf("unexpected error for missing domains dir: %v", err)
-	}
-	if len(domains) != 0 {
-		t.Fatalf("expected empty domains, got %+v", domains)
-	}
-}
-
-func TestScanServices_MissingDir(t *testing.T) {
-	p := t.TempDir()
-	services, err := scanServices(p)
-	if err != nil {
-		t.Fatalf("unexpected error for missing services dir: %v", err)
-	}
-	if len(services) != 0 {
-		t.Fatalf("expected empty services, got %+v", services)
-	}
-}
-
 func TestPrintNamespaceNode(t *testing.T) {
 	p := t.TempDir()
-	must := func(e error) {
-		t.Helper()
-		if e != nil {
-			t.Fatal(e)
-		}
-	}
-	must(os.MkdirAll(filepath.Dir(storage.CosmosFile(p)), 0o755))
-	must(os.WriteFile(storage.CosmosFile(p), []byte("id: cosmos-test\nname: Test\nversion: 0.1.0\nstatus: draft\nowner: Team\n"), 0o644))
-	must(os.MkdirAll(filepath.Join(storage.DomainsDir(p), "example.com", "services"), 0o755))
-	must(os.WriteFile(filepath.Join(storage.DomainsDir(p), "example.com", "domain.yaml"), []byte("name: example.com\n"), 0o644))
+	_, _, _ = executeCommand(t, "cosmos", "init", p, "--without-self")
+	_, _, _ = executeCommand(t, "service", "add", "user-account", "--path", p)
 
 	out, _, err := executeCommand(t, "namespace", "tree", "--path", p)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(out, "com") {
-		t.Fatalf("expected namespace output to contain 'com', got: %s", out)
+	if !strings.Contains(out, "user-account") {
+		t.Fatalf("expected namespace output to contain 'user-account', got: %s", out)
 	}
 }

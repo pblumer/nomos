@@ -76,7 +76,7 @@ func TestExtractBPMNStartEvents(t *testing.T) {
 
 func TestProcessTriggersRoundTripAndValidation(t *testing.T) {
 	p := createAppTestCosmos(t)
-	product, err := CreateProductOffering(p, "identity.blumer.cloud", CreateProductOfferingRequest{ID: "PROD-TRG-001", Name: "Trigger Product"})
+	product, err := CreateProductOffering(p, CreateProductOfferingRequest{ID: "PROD-TRG-001", Name: "Trigger Product"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func TestProcessTriggersRoundTripAndValidation(t *testing.T) {
 
 func TestTypedStartUnconfiguredFinding(t *testing.T) {
 	p := createAppTestCosmos(t)
-	product, err := CreateProductOffering(p, "identity.blumer.cloud", CreateProductOfferingRequest{ID: "PROD-TRG-002", Name: "Trigger Product 2"})
+	product, err := CreateProductOffering(p, CreateProductOfferingRequest{ID: "PROD-TRG-002", Name: "Trigger Product 2"})
 	if err != nil {
 		t.Fatal(err)
 	}

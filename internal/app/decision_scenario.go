@@ -96,8 +96,8 @@ type UpdateDecisionScenarioRequest struct {
 }
 
 // ListDecisionScenarios returns all scenarios for a decision, oldest first.
-func ListDecisionScenarios(path, domainCanonical, id string) (DecisionScenariosDTO, error) {
-	n, err := findDecisionNode(path, domainCanonical, id)
+func ListDecisionScenarios(path, id string) (DecisionScenariosDTO, error) {
+	n, err := findDecisionNode(path, id)
 	if err != nil {
 		return DecisionScenariosDTO{}, err
 	}
@@ -108,7 +108,6 @@ func ListDecisionScenarios(path, domainCanonical, id string) (DecisionScenariosD
 	items := make([]model.DecisionScenario, 0, len(scenarios))
 	items = append(items, scenarios...)
 	return DecisionScenariosDTO{
-		Domain:     domainCanonical,
 		DecisionID: id,
 		Count:      len(items),
 		Items:      items,
@@ -116,8 +115,8 @@ func ListDecisionScenarios(path, domainCanonical, id string) (DecisionScenariosD
 }
 
 // GetDecisionScenario returns a single scenario by its ID.
-func GetDecisionScenario(path, domainCanonical, id, scenarioID string) (model.DecisionScenario, error) {
-	n, err := findDecisionNode(path, domainCanonical, id)
+func GetDecisionScenario(path, id, scenarioID string) (model.DecisionScenario, error) {
+	n, err := findDecisionNode(path, id)
 	if err != nil {
 		return model.DecisionScenario{}, err
 	}
@@ -136,9 +135,9 @@ func GetDecisionScenario(path, domainCanonical, id, scenarioID string) (model.De
 // CreateDecisionScenario persists a new scenario for a decision. The free-form
 // path expects Name + Inputs; if FromTraceID is set it instead delegates to
 // CreateDecisionScenarioFromTrace so callers can use one endpoint for both.
-func CreateDecisionScenario(path, domainCanonical, id string, req CreateDecisionScenarioRequest) (model.DecisionScenario, error) {
+func CreateDecisionScenario(path, id string, req CreateDecisionScenarioRequest) (model.DecisionScenario, error) {
 	if req.FromTraceID != "" {
-		return CreateDecisionScenarioFromTrace(path, domainCanonical, id, req.FromTraceID, req.Name, req.Description)
+		return CreateDecisionScenarioFromTrace(path, id, req.FromTraceID, req.Name, req.Description)
 	}
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
@@ -147,7 +146,7 @@ func CreateDecisionScenario(path, domainCanonical, id string, req CreateDecision
 	if req.Inputs == nil {
 		return model.DecisionScenario{}, Error(CodeInvalidInput, "Scenario inputs required", http.StatusBadRequest, nil)
 	}
-	n, err := findDecisionNode(path, domainCanonical, id)
+	n, err := findDecisionNode(path, id)
 	if err != nil {
 		return model.DecisionScenario{}, err
 	}
@@ -161,7 +160,6 @@ func CreateDecisionScenario(path, domainCanonical, id string, req CreateDecision
 		ID:              sid,
 		Name:            name,
 		Description:     strings.TrimSpace(req.Description),
-		Domain:          domainCanonical,
 		DecisionID:      n.Metadata.ID,
 		Inputs:          req.Inputs,
 		ExpectedOutputs: req.ExpectedOutputs,
@@ -176,16 +174,16 @@ func CreateDecisionScenario(path, domainCanonical, id string, req CreateDecision
 // CreateDecisionScenarioFromTrace promotes an existing trace into a saved
 // scenario: inputs are copied verbatim and the trace's outputs become the
 // scenario's expected_outputs baseline.
-func CreateDecisionScenarioFromTrace(path, domainCanonical, id, traceID, name, description string) (model.DecisionScenario, error) {
+func CreateDecisionScenarioFromTrace(path, id, traceID, name, description string) (model.DecisionScenario, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return model.DecisionScenario{}, Error(CodeInvalidInput, "Scenario name required", http.StatusBadRequest, nil)
 	}
-	tr, err := GetDecisionTrace(path, domainCanonical, id, traceID)
+	tr, err := GetDecisionTrace(path, id, traceID)
 	if err != nil {
 		return model.DecisionScenario{}, err
 	}
-	n, err := findDecisionNode(path, domainCanonical, id)
+	n, err := findDecisionNode(path, id)
 	if err != nil {
 		return model.DecisionScenario{}, err
 	}
@@ -199,7 +197,6 @@ func CreateDecisionScenarioFromTrace(path, domainCanonical, id, traceID, name, d
 		ID:              sid,
 		Name:            name,
 		Description:     strings.TrimSpace(description),
-		Domain:          domainCanonical,
 		DecisionID:      n.Metadata.ID,
 		Inputs:          copyAnyMap(tr.Inputs),
 		ExpectedOutputs: copyAnyMap(tr.Outputs),
@@ -214,12 +211,12 @@ func CreateDecisionScenarioFromTrace(path, domainCanonical, id, traceID, name, d
 
 // UpdateDecisionScenario applies a partial update. Pointer fields are only
 // written when non-nil; ClearExpected wipes the expected_outputs baseline.
-func UpdateDecisionScenario(path, domainCanonical, id, scenarioID string, req UpdateDecisionScenarioRequest) (model.DecisionScenario, error) {
-	n, err := findDecisionNode(path, domainCanonical, id)
+func UpdateDecisionScenario(path, id, scenarioID string, req UpdateDecisionScenarioRequest) (model.DecisionScenario, error) {
+	n, err := findDecisionNode(path, id)
 	if err != nil {
 		return model.DecisionScenario{}, err
 	}
-	existing, err := GetDecisionScenario(path, domainCanonical, id, scenarioID)
+	existing, err := GetDecisionScenario(path, id, scenarioID)
 	if err != nil {
 		return model.DecisionScenario{}, err
 	}
@@ -249,8 +246,8 @@ func UpdateDecisionScenario(path, domainCanonical, id, scenarioID string, req Up
 }
 
 // DeleteDecisionScenario removes the scenario YAML.
-func DeleteDecisionScenario(path, domainCanonical, id, scenarioID string) error {
-	n, err := findDecisionNode(path, domainCanonical, id)
+func DeleteDecisionScenario(path, id, scenarioID string) error {
+	n, err := findDecisionNode(path, id)
 	if err != nil {
 		return err
 	}

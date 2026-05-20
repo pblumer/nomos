@@ -40,70 +40,70 @@ func formPostReq(h http.Handler, path, body string) *httptest.ResponseRecorder {
 }
 
 // createCosmosWithDecision creates a cosmos that has a decision with DMN.
-func createCosmosWithDecision(t *testing.T) (string, string, string) {
+func createCosmosWithDecision(t *testing.T) (string, string) {
 	t.Helper()
 	p := createTestCosmos(t)
 	h := NewHandler(p)
 	// Create decision
-	rr := postJSON(h, "/api/v1/domains/identity.blumer.cloud/decisions",
+	rr := postJSON(h, "/api/v1/decisions",
 		`{"id":"DEC-CVG-001","name":"Coverage Test Decision","status":"draft","version":"0.1.0"}`)
 	if rr.Code != 200 && rr.Code != 201 {
 		t.Fatalf("create decision: %d %s", rr.Code, rr.Body.String())
 	}
-	return p, "identity.blumer.cloud", "DEC-CVG-001"
+	return p, "DEC-CVG-001"
 }
 
 // ── Decision traces ───────────────────────────────────────────────────────────
 
 func TestAPIDecisionTracesList(t *testing.T) {
-	p, domain, decID := createCosmosWithDecision(t)
+	p, decID := createCosmosWithDecision(t)
 	h := NewHandler(p)
-	rr := get(h, fmt.Sprintf("/api/v1/domains/%s/decisions/%s/traces", domain, decID))
+	rr := get(h, fmt.Sprintf("/api/v1/decisions/%s/traces", decID))
 	if rr.Code != 200 {
 		t.Fatalf("GET traces: %d %s", rr.Code, rr.Body.String())
 	}
 }
 
 func TestAPIDecisionTracesMethodNotAllowed(t *testing.T) {
-	p, domain, decID := createCosmosWithDecision(t)
+	p, decID := createCosmosWithDecision(t)
 	h := NewHandler(p)
-	rr := rawReq(h, http.MethodPost, fmt.Sprintf("/api/v1/domains/%s/decisions/%s/traces", domain, decID), "", "")
+	rr := rawReq(h, http.MethodPost, fmt.Sprintf("/api/v1/decisions/%s/traces", decID), "", "")
 	if rr.Code != 405 {
 		t.Fatalf("expected 405, got %d", rr.Code)
 	}
 }
 
 func TestAPIDecisionTracesVerify(t *testing.T) {
-	p, domain, decID := createCosmosWithDecision(t)
+	p, decID := createCosmosWithDecision(t)
 	h := NewHandler(p)
-	rr := get(h, fmt.Sprintf("/api/v1/domains/%s/decisions/%s/traces/verify", domain, decID))
+	rr := get(h, fmt.Sprintf("/api/v1/decisions/%s/traces/verify", decID))
 	if rr.Code != 200 {
 		t.Fatalf("GET traces/verify: %d %s", rr.Code, rr.Body.String())
 	}
 }
 
 func TestAPIDecisionTracesVerifyPost(t *testing.T) {
-	p, domain, decID := createCosmosWithDecision(t)
+	p, decID := createCosmosWithDecision(t)
 	h := NewHandler(p)
-	rr := postJSON(h, fmt.Sprintf("/api/v1/domains/%s/decisions/%s/traces/verify", domain, decID), `{}`)
+	rr := postJSON(h, fmt.Sprintf("/api/v1/decisions/%s/traces/verify", decID), `{}`)
 	if rr.Code != 200 {
 		t.Fatalf("POST traces/verify: %d %s", rr.Code, rr.Body.String())
 	}
 }
 
 func TestAPIDecisionTracesMethodNotAllowedVerify(t *testing.T) {
-	p, domain, decID := createCosmosWithDecision(t)
+	p, decID := createCosmosWithDecision(t)
 	h := NewHandler(p)
-	rr := rawReq(h, http.MethodDelete, fmt.Sprintf("/api/v1/domains/%s/decisions/%s/traces/verify", domain, decID), "", "")
+	rr := rawReq(h, http.MethodDelete, fmt.Sprintf("/api/v1/decisions/%s/traces/verify", decID), "", "")
 	if rr.Code != 405 {
 		t.Fatalf("expected 405, got %d", rr.Code)
 	}
 }
 
 func TestAPIDecisionTracesUnknownID(t *testing.T) {
-	p, domain, decID := createCosmosWithDecision(t)
+	p, decID := createCosmosWithDecision(t)
 	h := NewHandler(p)
-	rr := get(h, fmt.Sprintf("/api/v1/domains/%s/decisions/%s/traces/TRACE-GHOST-001", domain, decID))
+	rr := get(h, fmt.Sprintf("/api/v1/decisions/%s/traces/TRACE-GHOST-001", decID))
 	// trace not found → 404 or 422
 	if rr.Code == 200 {
 		t.Logf("GET trace by ID: %d", rr.Code)
@@ -111,19 +111,19 @@ func TestAPIDecisionTracesUnknownID(t *testing.T) {
 }
 
 func TestAPIDecisionTracesNotAllowedByID(t *testing.T) {
-	p, domain, decID := createCosmosWithDecision(t)
+	p, decID := createCosmosWithDecision(t)
 	h := NewHandler(p)
-	rr := postJSON(h, fmt.Sprintf("/api/v1/domains/%s/decisions/%s/traces/TRACE-001", domain, decID), `{}`)
+	rr := postJSON(h, fmt.Sprintf("/api/v1/decisions/%s/traces/TRACE-001", decID), `{}`)
 	if rr.Code != 405 {
 		t.Fatalf("expected 405 for POST trace by ID, got %d", rr.Code)
 	}
 }
 
 func TestAPIDecisionTracesNotFound(t *testing.T) {
-	p, domain, decID := createCosmosWithDecision(t)
+	p, decID := createCosmosWithDecision(t)
 	h := NewHandler(p)
 	// Deep path that hits htmlNotFound in traces
-	rr := get(h, fmt.Sprintf("/api/v1/domains/%s/decisions/%s/traces/a/b/c", domain, decID))
+	rr := get(h, fmt.Sprintf("/api/v1/decisions/%s/traces/a/b/c", decID))
 	if rr.Code != 404 {
 		t.Fatalf("expected 404, got %d", rr.Code)
 	}
@@ -132,27 +132,27 @@ func TestAPIDecisionTracesNotFound(t *testing.T) {
 // ── Decision versions ─────────────────────────────────────────────────────────
 
 func TestAPIDecisionVersionsList(t *testing.T) {
-	p, domain, decID := createCosmosWithDecision(t)
+	p, decID := createCosmosWithDecision(t)
 	h := NewHandler(p)
-	rr := get(h, fmt.Sprintf("/api/v1/domains/%s/decisions/%s/versions", domain, decID))
+	rr := get(h, fmt.Sprintf("/api/v1/decisions/%s/versions", decID))
 	if rr.Code != 200 {
 		t.Fatalf("GET versions: %d %s", rr.Code, rr.Body.String())
 	}
 }
 
 func TestAPIDecisionVersionsMethodNotAllowed(t *testing.T) {
-	p, domain, decID := createCosmosWithDecision(t)
+	p, decID := createCosmosWithDecision(t)
 	h := NewHandler(p)
-	rr := postJSON(h, fmt.Sprintf("/api/v1/domains/%s/decisions/%s/versions", domain, decID), `{}`)
+	rr := postJSON(h, fmt.Sprintf("/api/v1/decisions/%s/versions", decID), `{}`)
 	if rr.Code != 405 {
 		t.Fatalf("expected 405, got %d", rr.Code)
 	}
 }
 
 func TestAPIDecisionVersionByID(t *testing.T) {
-	p, domain, decID := createCosmosWithDecision(t)
+	p, decID := createCosmosWithDecision(t)
 	h := NewHandler(p)
-	rr := get(h, fmt.Sprintf("/api/v1/domains/%s/decisions/%s/versions/0.1.0", domain, decID))
+	rr := get(h, fmt.Sprintf("/api/v1/decisions/%s/versions/0.1.0", decID))
 	// May be 404 if no snapshot exists yet — that's acceptable
 	if rr.Code != 200 && rr.Code != 404 && rr.Code != 422 {
 		t.Fatalf("GET version by id: %d %s", rr.Code, rr.Body.String())
@@ -160,10 +160,10 @@ func TestAPIDecisionVersionByID(t *testing.T) {
 }
 
 func TestAPIDecisionVersionsNotFound(t *testing.T) {
-	p, domain, decID := createCosmosWithDecision(t)
+	p, decID := createCosmosWithDecision(t)
 	h := NewHandler(p)
 	// Deep path that hits the default htmlNotFound case
-	rr := get(h, fmt.Sprintf("/api/v1/domains/%s/decisions/%s/versions/0.1.0/dmn/extra", domain, decID))
+	rr := get(h, fmt.Sprintf("/api/v1/decisions/%s/versions/0.1.0/dmn/extra", decID))
 	if rr.Code != 404 {
 		t.Fatalf("expected 404, got %d", rr.Code)
 	}
@@ -192,14 +192,6 @@ func TestHTMLPages(t *testing.T) {
 	}
 }
 
-func TestHTMLDomainsPage(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-	rr := get(h, "/domains")
-	if rr.Code != 200 {
-		t.Fatalf("GET /domains: %d %s", rr.Code, rr.Body.String())
-	}
-}
-
 // ── OpenAPI + Swagger ─────────────────────────────────────────────────────────
 
 func TestOpenAPIEndpoints(t *testing.T) {
@@ -223,27 +215,9 @@ func TestOpenAPIEndpoints(t *testing.T) {
 
 // ── formPost routes ───────────────────────────────────────────────────────────
 
-func TestFormPostDomain(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-	rr := formPostReq(h, "/domains", "dns=newdomain.blumer.cloud&owner=TestTeam")
-	// Redirect on success, error page on failure
-	if rr.Code != 303 && rr.Code != 200 {
-		t.Fatalf("POST /forms/domains: %d %s", rr.Code, rr.Body.String())
-	}
-}
-
-func TestFormPostDomainError(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-	// Invalid domain (empty) → errorPage (200 HTML)
-	rr := formPostReq(h, "/domains", "dns=&owner=")
-	if rr.Code == 0 {
-		t.Fatal("expected some response")
-	}
-}
-
 func TestFormPostService(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	rr := formPostReq(h, "/services", "domain=identity.blumer.cloud&name=new-svc&owner=Team")
+	rr := formPostReq(h, "/services", "name=new-svc&owner=Team")
 	if rr.Code != 303 && rr.Code != 200 {
 		t.Fatalf("POST /forms/services: %d %s", rr.Code, rr.Body.String())
 	}
@@ -364,36 +338,6 @@ func TestAPIBlueprintValidateEndpoint(t *testing.T) {
 	}
 }
 
-// ── apiDomainRoutes deeper paths ──────────────────────────────────────────────
-
-func TestAPIDomainRouteNotFound(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-	// Deep unknown path in domain routes
-	rr := get(h, "/api/v1/domains/identity.blumer.cloud/unknown-sub-route")
-	if rr.Code != 404 && rr.Code != 405 {
-		t.Fatalf("expected 404 for unknown domain sub-route, got %d", rr.Code)
-	}
-}
-
-// ── app-layer tests: VerifyDomain ─────────────────────────────────────────────
-
-func TestAPIVerifyDomainEndpoint(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-	rr := postJSON(h, "/api/v1/verify/domain/identity.blumer.cloud", `{}`)
-	// DNS verification will fail in test env but the endpoint must be reachable
-	if rr.Code == 0 {
-		t.Fatal("expected some response from verify domain endpoint")
-	}
-}
-
-func TestAPIVerifyDomainMethodNotAllowed(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-	rr := get(h, "/api/v1/verify/domain/identity.blumer.cloud")
-	if rr.Code != 405 {
-		t.Fatalf("expected 405 for GET verify domain, got %d", rr.Code)
-	}
-}
-
 // ── product routes ────────────────────────────────────────────────────────────
 
 func TestAPIProductRoutes(t *testing.T) {
@@ -414,30 +358,6 @@ func TestAPIProductDefinitionsRoute(t *testing.T) {
 }
 
 // ── form post: fulfillment and verify ────────────────────────────────────────
-
-func TestFormPostVerify(t *testing.T) {
-	h := NewHandler(createTestCosmos(t))
-	rr := formPostReq(h, "/verify", "domain=identity.blumer.cloud")
-	// Redirect on success
-	if rr.Code != 303 && rr.Code != 200 {
-		t.Fatalf("POST /forms/verify: %d %s", rr.Code, rr.Body.String())
-	}
-}
-
-func TestFormPostProductMove(t *testing.T) {
-	p := createTestCosmos(t)
-	// First create a product to move
-	h := NewHandler(p)
-	rr := postJSON(h, "/api/v1/blueprints", `{"id":"PB-MOVE-001","type":"product_blueprint","name":"Move Product","status":"draft","owner":"Team","version":"0.1.0","required_service_blueprints":[]}`)
-	if rr.Code != 200 && rr.Code != 201 {
-		t.Fatalf("create product: %d", rr.Code)
-	}
-	// Attempt move (may fail if domain doesn't exist, we just hit the code path)
-	rr = formPostReq(h, "/products/move", "product_id=PB-MOVE-001&target_domain=identity.blumer.cloud")
-	if rr.Code == 0 {
-		t.Fatal("expected some response")
-	}
-}
 
 // ── formPost fulfillment ──────────────────────────────────────────────────────
 
@@ -508,22 +428,22 @@ func TestAuthMiddleware(t *testing.T) {
 	t.Logf("auth with invalid key: %d", rr2.Code)
 }
 
-// ── apiDomainDecisions method not allowed ────────────────────────────────────
+// ── apiDecisions method not allowed ──────────────────────────────────────────
 
-func TestAPIDomainDecisionsMethodNotAllowed(t *testing.T) {
+func TestAPIDecisionsMethodNotAllowed(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	rr := rawReq(h, http.MethodPut, "/api/v1/domains/identity.blumer.cloud/decisions", `{}`, "application/json")
+	rr := rawReq(h, http.MethodPut, "/api/v1/decisions", `{}`, "application/json")
 	if rr.Code != 405 {
 		t.Fatalf("expected 405 for PUT decisions, got %d", rr.Code)
 	}
 }
 
-// ── legacy service API ────────────────────────────────────────────────────────
+// ── flat service API ──────────────────────────────────────────────────────────
 
-func TestAPILegacyServiceRoute(t *testing.T) {
+func TestAPIFlatServiceRoute(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	rr := get(h, "/api/v1/services/identity.blumer.cloud/user-account")
+	rr := get(h, "/api/v1/services/user-account")
 	if rr.Code != 200 && rr.Code != 404 {
-		t.Fatalf("GET legacy service: %d %s", rr.Code, rr.Body.String())
+		t.Fatalf("GET flat service: %d %s", rr.Code, rr.Body.String())
 	}
 }

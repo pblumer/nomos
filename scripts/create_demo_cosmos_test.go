@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesDNSLikeDemo(t *testing.T) {
+func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesFlatDemo(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")
 	}
@@ -32,18 +32,17 @@ func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesDNSLikeDemo(t *te
 		t.Fatalf("create demo cosmos: %v\n%s", err, out)
 	}
 	for _, rel := range []string{
-		filepath.Join(".nomos", "domains", "com", "blumer", "domain.yaml"),
-		filepath.Join(".nomos", "domains", "net", "blumer", "domain.yaml"),
-		filepath.Join(".nomos", "domains", "com", "blumer", "identity", "services", "user-account", "service.yaml"),
-		filepath.Join(".nomos", "domains", "cloud", "blumer", "identity", "domain.yaml"),
-		filepath.Join(".nomos", "domains", "cloud", "blumer", "identity", "services", "user-account", "service.yaml"),
-		filepath.Join(".nomos", "domains", "cloud", "blumer", "collaboration", "services", "mailbox", "service.yaml"),
-		filepath.Join(".nomos", "domains", "cloud", "blumer", "mailing", "services", "exchange", "service.yaml"),
-		filepath.Join(".nomos", "domains", "cloud", "blumer", "collaboration", "services", "license-assignment", "service.yaml"),
-		filepath.Join(".nomos", "domains", "com", "blumer", "governance", "services", "provisioning-rules", "service.yaml"),
-		filepath.Join(".nomos", "domains", "cloud", "blumer", "home", "services", "home-dashboard", "service.yaml"),
-		filepath.Join(".nomos", "domains", "cloud", "blumer", "zytlog", "services", "zytlog-api", "service.yaml"),
-		filepath.Join(".nomos", "domains", "ch", "beispiel", "domain.yaml"),
+		filepath.Join(".nomos", "services", "user-account", "service.yaml"),
+		filepath.Join(".nomos", "services", "mailbox", "service.yaml"),
+		filepath.Join(".nomos", "services", "exchange", "service.yaml"),
+		filepath.Join(".nomos", "services", "license-assignment", "service.yaml"),
+		filepath.Join(".nomos", "services", "license", "service.yaml"),
+		filepath.Join(".nomos", "services", "provisioning-rules", "service.yaml"),
+		filepath.Join(".nomos", "services", "home-dashboard", "service.yaml"),
+		filepath.Join(".nomos", "services", "zytlog-api", "service.yaml"),
+		filepath.Join(".nomos", "services", "checkout", "service.yaml"),
+		filepath.Join(".nomos", "services", "inventory", "service.yaml"),
+		filepath.Join(".nomos", "services", "payment", "service.yaml"),
 		filepath.Join(".nomos", "catalog", "blueprints", "products", "benutzerkonto-mit-mailbox.yaml"),
 		filepath.Join(".nomos", "catalog", "blueprints", "products", "cloud-mailbox.yaml"),
 	} {
@@ -55,22 +54,22 @@ func TestCreateDemoCosmosScriptRespectsExplicitTargetAndCreatesDNSLikeDemo(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"id: PROD-ACC-MBX-001", "offered_by: identity.blumer.cloud", "fulfillment:", "identity.blumer.cloud/user-account", "mailing.blumer.cloud/exchange", "sla_ref: SLA-IDENTITY-ACCOUNT-STANDARD", "ola_ref: OLA-IDENTITY-OPS-STANDARD", "sla_ref: SLA-MAILBOX-STANDARD", "ola_ref: OLA-MAILING-OPS-STANDARD"} {
+	for _, want := range []string{"id: PROD-ACC-MBX-001", "fulfillment:", "service_ref: user-account", "service_ref: exchange", "sla_ref: SLA-IDENTITY-ACCOUNT-STANDARD", "ola_ref: OLA-IDENTITY-OPS-STANDARD", "sla_ref: SLA-MAILBOX-STANDARD", "ola_ref: OLA-MAILING-OPS-STANDARD"} {
 		if !strings.Contains(string(product), want) {
 			t.Fatalf("demo product blueprint missing %q", want)
 		}
 	}
-	crossDomainProduct, err := os.ReadFile(filepath.Join(target, ".nomos", "catalog", "blueprints", "products", "cloud-mailbox.yaml"))
+	cloudProduct, err := os.ReadFile(filepath.Join(target, ".nomos", "catalog", "blueprints", "products", "cloud-mailbox.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"id: PROD-CLOUD-MAILBOX-001", "offered_by: blumer.net", "identity.blumer.cloud/user-account", "mailing.blumer.cloud/exchange", "ola:", "sla:"} {
-		if !strings.Contains(string(crossDomainProduct), want) {
-			t.Fatalf("demo cross-domain product missing %q", want)
+	for _, want := range []string{"id: PROD-CLOUD-MAILBOX-001", "service_ref: user-account", "service_ref: exchange", "ola:", "sla:"} {
+		if !strings.Contains(string(cloudProduct), want) {
+			t.Fatalf("demo cloud product missing %q", want)
 		}
 	}
 
-	mailboxService, err := os.ReadFile(filepath.Join(target, ".nomos", "domains", "cloud", "blumer", "collaboration", "services", "mailbox", "service.yaml"))
+	mailboxService, err := os.ReadFile(filepath.Join(target, ".nomos", "services", "mailbox", "service.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}

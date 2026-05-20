@@ -8,26 +8,17 @@ import (
 
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/model"
-	"github.com/nomos/nomos/internal/namespace"
 	"github.com/nomos/nomos/internal/storage"
 )
 
 type Tree struct {
 	Path          string
 	Cosmos        model.Cosmos
-	Domains       []DomainNode
+	Services      []ServiceNode
+	Decisions     []DecisionNode
 	Blueprints    []BlueprintNode
 	Instances     []InstanceNode
 	Servicegraphs []ServicegraphNode
-}
-type DomainNode struct {
-	Path      string
-	Name      string
-	Metadata  model.Domain
-	Services  []ServiceNode
-	Decisions []DecisionNode
-	IsFolder  bool   // node materialized by folder.yaml, not a maintained domain (ADR-0027)
-	Label     string // optional human label from folder.yaml
 }
 
 type DecisionNode struct {
@@ -60,84 +51,16 @@ func LoadTree(path string) (Tree, error) {
 		return Tree{}, err
 	}
 	tree := Tree{Path: path, Cosmos: co}
-	domainRoot := storage.DomainsDirForRead(path)
-	if _, err := os.Stat(domainRoot); err != nil {
-		if !os.IsNotExist(err) {
-			return Tree{}, err
-		}
-	} else {
-		err := filepath.WalkDir(domainRoot, func(current string, de os.DirEntry, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if !de.IsDir() {
-				return nil
-			}
-			if de.Name() == "services" {
-				return filepath.SkipDir
-			}
-			domainYAML := filepath.Join(current, "domain.yaml")
-			_, domainErr := os.Stat(domainYAML)
-			hasDomain := domainErr == nil
-			folderYAML := storage.FolderFile(current)
-			_, folderErr := os.Stat(folderYAML)
-			hasFolder := folderErr == nil
-			// A directory is a tree node if it is a maintained domain (domain.yaml)
-			// or a folder namespace (folder.yaml, ADR-0027).
-			if !hasDomain && !hasFolder {
-				return nil
-			}
-			var d model.Domain
-			if hasDomain {
-				if err := fsx.ReadYAML(domainYAML, &d); err != nil {
-					return err
-				}
-			}
-			var folderLabel string
-			isFolder := !hasDomain && hasFolder
-			if hasFolder {
-				var f model.Folder
-				if err := fsx.ReadYAML(folderYAML, &f); err == nil {
-					folderLabel = f.Label
-				}
-			}
-			// Derive canonical from directory path (e.g. domains/nomos/core → core.nomos).
-			// This ensures multi-level domains match offered_by references without requiring
-			// the YAML name field to hold the full canonical.
-			pathDerived := ""
-			if rel, err := filepath.Rel(domainRoot, current); err == nil {
-				treePath := "/" + filepath.ToSlash(rel)
-				pathDerived, _ = namespace.TreePathToCanonical(treePath)
-			}
-			dn := DomainNode{Path: current, Metadata: d, Name: firstNonEmpty(d.CanonicalName, pathDerived, d.DNSName, d.Name, filepath.Base(current)), IsFolder: isFolder, Label: folderLabel}
-			sents, err := os.ReadDir(filepath.Join(current, "services"))
-			if err != nil && !os.IsNotExist(err) {
-				return err
-			}
-			for _, se := range sents {
-				if !se.IsDir() {
-					continue
-				}
-				sdir := filepath.Join(current, "services", se.Name())
-				if _, err := os.Stat(filepath.Join(sdir, "service.yaml")); err != nil {
-					continue
-				}
-				var s model.Service
-				if err := fsx.ReadYAML(filepath.Join(sdir, "service.yaml"), &s); err != nil {
-					return err
-				}
-				dn.Services = append(dn.Services, ServiceNode{Path: sdir, Metadata: s, Name: firstNonEmpty(s.Name, se.Name())})
-			}
-			sort.Slice(dn.Services, func(i, j int) bool { return dn.Services[i].Name < dn.Services[j].Name })
-			dn.Decisions, _ = scanDecisions(current)
-			tree.Domains = append(tree.Domains, dn)
-			return nil
-		})
-		if err != nil {
-			return Tree{}, err
-		}
+	services, err := scanServices(path)
+	if err != nil {
+		return Tree{}, err
 	}
-	sort.Slice(tree.Domains, func(i, j int) bool { return tree.Domains[i].Name < tree.Domains[j].Name })
+	tree.Services = services
+	decisions, err := scanDecisions(storage.DecisionsDir(path))
+	if err != nil {
+		return Tree{}, err
+	}
+	tree.Decisions = decisions
 	blueprints, err := scanBlueprints(path)
 	if err != nil {
 		return Tree{}, err
@@ -264,33 +187,71 @@ func scanServicegraphs(path string) ([]ServicegraphNode, error) {
 	return nodes, nil
 }
 
-// ScanDecisions reads all Decision artifacts from a domain directory.
-func ScanDecisions(domainDir string) ([]DecisionNode, error) {
-	return scanDecisions(domainDir)
-}
-
-func scanDecisions(domainDir string) ([]DecisionNode, error) {
-	root := filepath.Join(domainDir, "decisions")
-	var nodes []DecisionNode
-	ents, err := os.ReadDir(root)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nodes, nil
+// scanServices walks the services root recursively so that artifacts may be
+// freely organized into nested folders (ADR: folders are a human/git-facing
+// organization layer; identity is the stable service ID resolved via the index,
+// the directory path is only the derived address). Any directory that holds a
+// service.yaml is a service node; descent stops there so a service's own
+// subdirectories (capabilities/, etc.) are never mistaken for nested services.
+func scanServices(path string) ([]ServiceNode, error) {
+	root := storage.ServicesDir(path)
+	var nodes []ServiceNode
+	err := filepath.WalkDir(root, func(dir string, de os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			if os.IsNotExist(walkErr) {
+				return filepath.SkipAll
+			}
+			return walkErr
 		}
+		if !de.IsDir() {
+			return nil
+		}
+		yamlFile := filepath.Join(dir, "service.yaml")
+		if _, err := os.Stat(yamlFile); err != nil {
+			return nil
+		}
+		var s model.Service
+		if err := fsx.ReadYAML(yamlFile, &s); err != nil {
+			return err
+		}
+		nodes = append(nodes, ServiceNode{Path: dir, Metadata: s, Name: firstNonEmpty(s.Name, filepath.Base(dir))})
+		return filepath.SkipDir
+	})
+	if err != nil {
 		return nil, err
 	}
-	for _, e := range ents {
-		if !e.IsDir() {
-			continue
+	sort.Slice(nodes, func(i, j int) bool { return nodes[i].Name < nodes[j].Name })
+	return nodes, nil
+}
+
+// ScanDecisions reads all Decision artifacts under the given decisions root.
+func ScanDecisions(root string) ([]DecisionNode, error) {
+	return scanDecisions(root)
+}
+
+// scanDecisions walks the decisions root recursively (free folder nesting).
+// A directory holding a decision.yaml is a decision node; descent stops there so
+// per-version snapshot directories (versions/<v>/decision.yaml) are not picked
+// up as separate decisions.
+func scanDecisions(root string) ([]DecisionNode, error) {
+	var nodes []DecisionNode
+	err := filepath.WalkDir(root, func(dir string, de os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			if os.IsNotExist(walkErr) {
+				return filepath.SkipAll
+			}
+			return walkErr
 		}
-		dir := filepath.Join(root, e.Name())
+		if !de.IsDir() {
+			return nil
+		}
 		yamlFile := filepath.Join(dir, "decision.yaml")
 		if _, err := os.Stat(yamlFile); err != nil {
-			continue
+			return nil
 		}
 		var d model.Decision
 		if err := fsx.ReadYAML(yamlFile, &d); err != nil {
-			return nil, err
+			return err
 		}
 		dn := DecisionNode{Path: dir, Metadata: d}
 		dmnFile := filepath.Join(dir, "decision.dmn")
@@ -298,6 +259,10 @@ func scanDecisions(domainDir string) ([]DecisionNode, error) {
 			dn.DMNPath = dmnFile
 		}
 		nodes = append(nodes, dn)
+		return filepath.SkipDir
+	})
+	if err != nil {
+		return nil, err
 	}
 	sort.Slice(nodes, func(i, j int) bool { return nodes[i].Metadata.ID < nodes[j].Metadata.ID })
 	return nodes, nil
