@@ -39,8 +39,10 @@ var openAPISpec = map[string]any{
 		"/api/v1/mounts/{id}": map[string]any{
 			"delete": operation("Mounts", "Remove mount", "Unmounts a remote server by id. The local mount cannot be removed.", []map[string]any{pathParam("id", "Mount id.")}, schemaRef("DeletedResponse")),
 		},
-		"/api/v1/ping":     pathItem("Mounts", "Ping", "Returns this server's identity and the endpoints of its configured mounts (peers), without tokens (ADR-0025).", nil, schemaRef("Ping")),
-		"/api/v1/discover": pathItem("Mounts", "Discover servers", "1-hop peer-gossip discovery (ADR-0025): pings the configured mounts and returns their advertised peers that are not yet mounted as candidates.", nil, schemaRef("Discovery")),
+		"/api/v1/index":      pathItem("Cosmos", "ID index", "Returns the ID→address index of artifacts (ADR-0028).", nil, schemaRef("IndexResponse")),
+		"/api/v1/index/{id}": pathItem("Cosmos", "Resolve ID", "Resolves a stable artifact ID to its current address (ADR-0028).", []map[string]any{pathParam("id", "Artifact id.")}, schemaRef("IndexEntry")),
+		"/api/v1/ping":       pathItem("Mounts", "Ping", "Returns this server's identity and the endpoints of its configured mounts (peers), without tokens (ADR-0025).", nil, schemaRef("Ping")),
+		"/api/v1/discover":   pathItem("Mounts", "Discover servers", "1-hop peer-gossip discovery (ADR-0025): pings the configured mounts and returns their advertised peers that are not yet mounted as candidates.", nil, schemaRef("Discovery")),
 		"/api/v1/mounts/{id}/r/{path}": map[string]any{
 			"get": operation("Mounts", "Proxy to mounted server", "Forwards the request to http://{endpoint}/{path} on the mounted server, attaching the mount token as X-API-Key (ADR-0023). Reads are open; mutating methods require a token (403 MOUNT_NOT_AUTHENTICATED otherwise). All HTTP methods are proxied.", []map[string]any{pathParam("id", "Mount id."), pathParam("path", "Remote API path, e.g. api/v1/domains.")}, map[string]any{"type": "object", "additionalProperties": true}),
 		},
@@ -208,6 +210,8 @@ func schemas() map[string]any {
 		"Ping":                       object(map[string]any{"server": schemaRef("PingServer"), "peers": arrayOf(schemaRef("PingPeer"))}),
 		"DiscoveredServer":           object(map[string]any{"endpoint": stringSchema("Candidate endpoint host:port."), "label": stringSchema("Label."), "name": stringSchema("Server name if reachable."), "reachable": map[string]any{"type": "boolean"}, "mounted": map[string]any{"type": "boolean"}, "via": stringSchema("Endpoint of the mount that advertised this candidate.")}),
 		"Discovery":                  object(map[string]any{"servers": arrayOf(schemaRef("DiscoveredServer"))}),
+		"IndexEntry":                 object(map[string]any{"id": stringSchema("Stable artifact id."), "kind": stringSchema("Artifact kind."), "name": stringSchema("Name."), "address": stringSchema("Current derived address."), "domain": stringSchema("Owning domain address."), "path": stringSchema("Filesystem path.")}),
+		"IndexResponse":              object(map[string]any{"entries": arrayOf(schemaRef("IndexEntry"))}),
 		"Namespace":                  object(map[string]any{"canonical": stringSchema("Canonical name."), "parts": arrayOf(map[string]any{"type": "string"}), "treeParts": arrayOf(map[string]any{"type": "string"}), "treePath": stringSchema("Tree path."), "displayPath": stringSchema("Display path."), "leaf": stringSchema("Leaf name.")}),
 		"Domain":                     object(map[string]any{"name": stringSchema("Domain name."), "canonical": stringSchema("Canonical domain."), "namespace": schemaRef("Namespace"), "displayName": stringSchema("Display name."), "owner": stringSchema("Owner."), "status": stringSchema("Status."), "path": stringSchema("Filesystem path."), "serviceCount": map[string]any{"type": "integer"}, "services": arrayOf(schemaRef("Service"))}),
 		"MoveProductOfferingRequest": object(map[string]any{"target_domain": stringSchema("Canonical target domain."), "update_owning_domain": map[string]any{"type": "boolean", "description": "Also set owning_domain to the target domain."}}),

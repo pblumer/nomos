@@ -46,6 +46,8 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/v1/discover", h.apiDiscover)
 	mux.HandleFunc("/api/v1/folders", h.apiFolders)
 	mux.HandleFunc("/api/v1/folders/", h.apiFolderRoutes)
+	mux.HandleFunc("/api/v1/index", h.apiIndex)
+	mux.HandleFunc("/api/v1/index/", h.apiIndexResolve)
 	mux.HandleFunc("/api/v1/domains", h.apiDomains)
 	mux.HandleFunc("/api/v1/domains/", h.apiDomainRoutes)
 	mux.HandleFunc("/api/v1/services/refs", h.apiServiceRefs)
@@ -272,6 +274,27 @@ func (h *handler) proxyMount(w http.ResponseWriter, r *http.Request, mountID, re
 	}
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
+}
+
+// apiIndex returns the ID→address index (ADR-0028).
+func (h *handler) apiIndex(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/index" {
+		http.NotFound(w, r)
+		return
+	}
+	dto, err := app.BuildIDIndex(h.cosmosPath)
+	h.writeOrErr(w, dto, err)
+}
+
+// apiIndexResolve resolves a single ID to its current address (ADR-0028).
+func (h *handler) apiIndexResolve(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimPrefix(r.URL.Path, "/api/v1/index/")
+	if id == "" || strings.Contains(id, "/") {
+		http.NotFound(w, r)
+		return
+	}
+	dto, err := app.ResolveID(h.cosmosPath, id)
+	h.writeOrErr(w, dto, err)
 }
 
 // apiFolders lists/creates namespace folders (ADR-0027).
