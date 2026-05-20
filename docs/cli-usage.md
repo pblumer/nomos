@@ -359,7 +359,12 @@ Startet einen HTTP-Server.
   Explorer erscheint (z. B. `nomos.blumer.cloud`). Ohne diese Variable wird der
   Maschinen-Hostname verwendet – in einem Container ist das die Container-ID
   (z. B. `56afaec69c76`). Eine echte DNS-Domäne wird in der DNS-Hierarchie
-  einsortiert (cloud → blumer → nomos) statt unter `local`.
+  einsortiert (cloud → blumer → nomos) statt unter `local` – **aber nur, wenn
+  der Besitz nachgewiesen ist**: Es muss ein TXT-Record
+  `_nomos.<domain>` mit dem Inhalt `nomos-domain=<domain>` existieren (derselbe
+  Nachweis wie bei `nomos verify domain`). Ist die Domäne (noch) nicht
+  verifizierbar, fällt die Anzeige auf den Hostnamen unter `local` zurück. Der
+  DNS-Check wird kurz gecacht (5 min) und ist selbstheilend.
 
 **Endpoints:**
 - `GET /health` → `{ "status": "ok", "service": "nomos", "version": "..." }`

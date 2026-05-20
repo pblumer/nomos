@@ -1,6 +1,10 @@
 package app
 
-import "testing"
+import (
+	"context"
+	"errors"
+	"testing"
+)
 
 func TestListRepositoriesReturnsLocalDefault(t *testing.T) {
 	p := createAppTestCosmos(t)
@@ -51,6 +55,7 @@ func TestBuildExplorerTreePlacesLocalServerUnderLocal(t *testing.T) {
 
 func TestBuildExplorerTreePlacesLocalServerUnderDomain(t *testing.T) {
 	t.Setenv("NOMOS_DOMAIN", "nomos.blumer.cloud")
+	stubDomainOwnership(t, "nomos.blumer.cloud", true)
 	tree, err := BuildExplorerTree(createAppTestCosmos(t))
 	if err != nil {
 		t.Fatal(err)
@@ -74,6 +79,45 @@ func TestBuildExplorerTreePlacesLocalServerUnderDomain(t *testing.T) {
 	if server.Label != "nomos" {
 		t.Errorf("server label = %q, want nomos", server.Label)
 	}
+}
+
+func TestBuildExplorerTreeIgnoresUnverifiedDomain(t *testing.T) {
+	t.Setenv("NOMOS_DOMAIN", "nomos.blumer.cloud")
+	stubDomainOwnership(t, "nomos.blumer.cloud", false)
+	tree, err := BuildExplorerTree(createAppTestCosmos(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Unverified domain must not be promoted into the DNS hierarchy; the server
+	// falls back under the synthetic "local" branch.
+	if findTreeNode(tree.Root, "dns", "cloud") != nil {
+		t.Fatal("unverified domain should not appear in the DNS hierarchy")
+	}
+	if findTreeNode(tree.Root, "dns", "local") == nil {
+		t.Fatal("expected fallback to the 'local' branch for an unverified domain")
+	}
+}
+
+// stubDomainOwnership overrides the TXT resolver and resets the verification
+// cache so a domain reports the given ownership result for one test.
+func stubDomainOwnership(t *testing.T, domain string, verified bool) {
+	t.Helper()
+	prev := lookupTXT
+	lookupTXT = func(_ context.Context, name string) ([]string, error) {
+		if verified && name == "_nomos."+domain {
+			return []string{"nomos-domain=" + domain}, nil
+		}
+		return nil, errors.New("no record")
+	}
+	domainVerifyMu.Lock()
+	domainVerifyCache = map[string]domainVerifyResult{}
+	domainVerifyMu.Unlock()
+	t.Cleanup(func() {
+		lookupTXT = prev
+		domainVerifyMu.Lock()
+		domainVerifyCache = map[string]domainVerifyResult{}
+		domainVerifyMu.Unlock()
+	})
 }
 
 func TestListRepositoriesNameFallsBackWithoutCosmos(t *testing.T) {

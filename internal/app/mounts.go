@@ -1,13 +1,16 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/nomos/nomos/internal/mount"
@@ -34,17 +37,75 @@ type MountsDTO struct {
 // it to the public hostname behind the TLS proxy); otherwise the machine
 // hostname is used, falling back to LocalServerEndpoint when unavailable.
 // A container hostname (e.g. a Docker container ID like "56afaec69c76") is thus
-// overridable without rebuilding the image. Internal resolution still keys the
-// local mount by mount.LocalID.
+// overridable without rebuilding the image.
+//
+// A real DNS domain is only honored once it is provably owned via its _nomos
+// TXT record (same proof as VerifyDomain), so a server cannot claim a domain it
+// does not control; until then it falls back to the hostname. Bare names and
+// IPs need no proof. Internal resolution still keys the local mount by
+// mount.LocalID.
 func localDisplayEndpoint() string {
 	if d := strings.TrimSpace(os.Getenv("NOMOS_DOMAIN")); d != "" {
-		return d
+		host := hostOnly(d)
+		if net.ParseIP(host) != nil || !strings.Contains(host, ".") || domainOwnershipVerified(host) {
+			return d
+		}
 	}
 	h, err := os.Hostname()
 	if err != nil || strings.TrimSpace(h) == "" {
 		return LocalServerEndpoint
 	}
 	return h + ":7373"
+}
+
+// lookupTXT resolves TXT records; overridable in tests.
+var lookupTXT = net.DefaultResolver.LookupTXT
+
+const domainVerifyTTL = 5 * time.Minute
+
+type domainVerifyResult struct {
+	verified bool
+	checked  time.Time
+}
+
+var (
+	domainVerifyMu    sync.Mutex
+	domainVerifyCache = map[string]domainVerifyResult{}
+)
+
+// domainOwnershipVerified reports whether host is provably owned via its
+// _nomos.<host> TXT record (content "nomos-domain=<host>"). The DNS lookup is
+// cached for domainVerifyTTL and bounded by a short timeout so it stays out of
+// the Explorer's hot path (Option 1: verified live, self-healing).
+func domainOwnershipVerified(host string) bool {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return false
+	}
+	domainVerifyMu.Lock()
+	if r, ok := domainVerifyCache[host]; ok && time.Since(r.checked) < domainVerifyTTL {
+		domainVerifyMu.Unlock()
+		return r.verified
+	}
+	domainVerifyMu.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	verified := false
+	if txt, err := lookupTXT(ctx, "_nomos."+host); err == nil {
+		exp := "nomos-domain=" + host
+		for _, t := range txt {
+			if strings.Contains(t, exp) {
+				verified = true
+				break
+			}
+		}
+	}
+
+	domainVerifyMu.Lock()
+	domainVerifyCache[host] = domainVerifyResult{verified: verified, checked: time.Now()}
+	domainVerifyMu.Unlock()
+	return verified
 }
 
 func localMountDTO() MountDTO {
