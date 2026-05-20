@@ -1327,13 +1327,23 @@ func resolveDomain(tree cosmosfs.Tree, canonical string) bool {
 }
 
 func resolveService(tree cosmosfs.Tree, serviceRef string) ServiceResolution {
-	_, domain, service := normalizeServiceRef(serviceRef)
-	if strings.TrimSpace(serviceRef) == "" {
+	ref := strings.TrimSpace(serviceRef)
+	if ref == "" {
 		return ServiceResolution{Status: "missing"}
 	}
-	if domain == "" || service == "" {
-		return ServiceResolution{Status: "unresolved_domain"}
+	// ID-based reference (ADR-0028): a ref without "/" is a stable service ID,
+	// resolved by scanning for the service regardless of its current address.
+	if !strings.Contains(ref, "/") {
+		for _, d := range tree.Domains {
+			for _, s := range d.Services {
+				if s.Metadata.ID == ref {
+					return ServiceResolution{Status: "resolved", Domain: namespace.Canonical(d.Name), Service: s.Name, SLA: s.Metadata.SLA, OLA: s.Metadata.OLA}
+				}
+			}
+		}
+		return ServiceResolution{Status: "unresolved_service", Service: ref}
 	}
+	_, domain, service := normalizeServiceRef(serviceRef)
 	for _, d := range tree.Domains {
 		if namespace.Canonical(d.Name) != domain {
 			continue

@@ -24,27 +24,27 @@ processes:
   - prc-instanz-verifizieren
 fulfillment:
   required_services:
-    - service_ref: core.nomos/validator-engine
+    - service_ref: service-validator-engine
       role: primary
       required: true
       description: Strukturelle und referentielle Validierung aller Cosmos-Artefakte.
-    - service_ref: core.nomos/rest-adapter
+    - service_ref: service-rest-adapter
       role: primary
       required: true
       description: HTTP REST-API für alle Operationen.
-    - service_ref: core.nomos/mcp-adapter
+    - service_ref: service-mcp-adapter
       role: supporting
       required: false
       description: MCP-Server für KI-Agenten-Integration.
-    - service_ref: core.nomos/web-adapter
+    - service_ref: service-web-adapter
       role: supporting
       required: false
       description: Eingebettete Web-UI.
-    - service_ref: core.nomos/git-repo-manager
+    - service_ref: service-git-repo-manager
       role: supporting
       required: true
       description: Git-basierter Workspace als Quelle der Wahrheit.
-    - service_ref: core.nomos/catalog-manager
+    - service_ref: service-catalog-manager
       role: supporting
       required: true
       description: Blueprint- und Instance-Katalog.
