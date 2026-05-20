@@ -34,9 +34,21 @@ func RepositoriesFile(workspace string) string {
 	return filepath.Join(NomosDir(workspace), "repositories.yaml")
 }
 
+// ReposDirEnv lets an operator point new local filesystem repositories at a
+// predefined, writable base directory instead of the default
+// <workspace>/.nomos/repos. Only the operator sets this; API clients never
+// supply a path, and repository ids are validated, so this cannot be abused
+// for path traversal.
+const ReposDirEnv = "NOMOS_REPOS_DIR"
+
 // ReposDir is the base directory under which new local filesystem repositories
-// are created.
-func ReposDir(workspace string) string { return filepath.Join(NomosDir(workspace), "repos") }
+// are created. It honors the NOMOS_REPOS_DIR override when set.
+func ReposDir(workspace string) string {
+	if dir := os.Getenv(ReposDirEnv); dir != "" {
+		return dir
+	}
+	return filepath.Join(NomosDir(workspace), "repos")
+}
 
 func SelfModelDir(workspace string) string {
 	return filepath.Join(DomainsDir(workspace), "nomos", "core")
