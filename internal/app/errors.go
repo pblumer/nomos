@@ -31,6 +31,7 @@ const (
 	CodeMountNotFound             = "MOUNT_NOT_FOUND"
 	CodeMountExists               = "MOUNT_EXISTS"
 	CodeMountNotAuthenticated     = "MOUNT_NOT_AUTHENTICATED"
+	CodeTypeNotFound              = "TYPE_NOT_FOUND"
 )
 
 type AppError struct {

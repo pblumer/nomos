@@ -94,6 +94,20 @@ func (m *repoMirror) children(absDir, relDir string) []NamespaceTreeNodeDTO {
 				out = append(out, m.decisionNode(dn, rel))
 				continue
 			}
+			if abs == m.typesDir {
+				out = append(out, NamespaceTreeNodeDTO{
+					Label:          firstNonEmpty(readFolderMeta(abs).Label, name),
+					Kind:           "types-folder",
+					IsFolder:       true,
+					GitPath:        rel,
+					TreePath:       rel,
+					DisplayPath:    rel,
+					Persisted:      true,
+					CanOpenDetails: true,
+					Children:       m.children(abs, rel),
+				})
+				continue
+			}
 			meta := readFolderMeta(abs)
 			out = append(out, NamespaceTreeNodeDTO{
 				Label:          firstNonEmpty(meta.Label, name),

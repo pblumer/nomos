@@ -60,6 +60,21 @@ func SaveTypeDef(loc string, def model.TypeDef) (model.TypeDef, error) {
 	return def, nil
 }
 
+// DeleteTypeDef removes a type definition file from .nomos/types.
+func DeleteTypeDef(loc, id string) error {
+	id = strings.TrimSpace(id)
+	if !typeIDPattern.MatchString(id) {
+		return Error(CodeInvalidInput, "type id must be a lowercase slug (a-z, 0-9, -, _)", http.StatusBadRequest, nil)
+	}
+	if err := os.Remove(filepath.Join(storage.TypesDir(loc), id+".yaml")); err != nil {
+		if os.IsNotExist(err) {
+			return Error(CodeTypeNotFound, "type definition not found: "+id, http.StatusNotFound, err)
+		}
+		return Error(CodeInternalError, "failed to delete type definition: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return nil
+}
+
 // readTypeDef parses a type definition file; ok is false when the file is
 // missing or not valid YAML.
 func readTypeDef(path string) (model.TypeDef, bool) {
