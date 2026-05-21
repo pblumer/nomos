@@ -121,6 +121,32 @@ func TestCreateRepoFolderAndMove(t *testing.T) {
 	}
 }
 
+func TestAddServiceInFolder(t *testing.T) {
+	p := createAppTestCosmos(t)
+	if err := CreateRepoFolder(p, ".nomos/services/team-a"); err != nil {
+		t.Fatal(err)
+	}
+	// Created inside the chosen subfolder of the services root.
+	if _, err := AddServiceIn(p, ".nomos/services/team-a", "billing", "Fin", false); err != nil {
+		t.Fatalf("AddServiceIn: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(p, ".nomos", "services", "team-a", "billing", "service.yaml")); err != nil {
+		t.Fatalf("service not created in folder: %v", err)
+	}
+	// Still discoverable as a service leaf at its mirrored location.
+	nodes := BuildRepoTree(p)
+	nomos := findChild(nodes, "folder", ".nomos")
+	services := findChild(nomos.Children, "folder", "services")
+	teamA := findChild(services.Children, "folder", "team-a")
+	if findChild(teamA.Children, "service", "billing") == nil {
+		t.Fatal("created service not discoverable in mirror")
+	}
+	// A folder outside the services root is rejected.
+	if _, err := AddServiceIn(p, ".nomos/catalog", "oops", "X", false); err == nil {
+		t.Fatal("expected rejection for folder outside services root")
+	}
+}
+
 func findChild(nodes []NamespaceTreeNodeDTO, kind, label string) *NamespaceTreeNodeDTO {
 	for i := range nodes {
 		if nodes[i].Kind == kind && nodes[i].Label == label {

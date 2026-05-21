@@ -69,7 +69,11 @@ func CreateDecision(path string, req CreateDecisionRequest) (DecisionDTO, error)
 	if id == "" {
 		id = nextDecisionID(decisionsRoot(path))
 	}
-	dir := filepath.Join(decisionsRoot(path), id)
+	base, err := resolveArtifactDir(path, decisionsRoot(path), req.Folder)
+	if err != nil {
+		return DecisionDTO{}, err
+	}
+	dir := filepath.Join(base, id)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return DecisionDTO{}, err
 	}

@@ -365,7 +365,7 @@ func (h *handler) apiServices(w http.ResponseWriter, r *http.Request) {
 		h.writeOrErr(w, dto, err)
 	case http.MethodPost:
 		_ = r.ParseForm()
-		dto, err := app.AddService(h.cosmosPath, r.FormValue("name"), r.FormValue("owner"), r.FormValue("force") != "")
+		dto, err := app.AddServiceIn(h.cosmosPath, r.FormValue("dir"), r.FormValue("name"), r.FormValue("owner"), r.FormValue("force") != "")
 		if err != nil {
 			h.apiErr(w, err)
 			return
@@ -1186,7 +1186,7 @@ func (h *handler) apiBlueprints(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 			return
 		}
-		if err := app.CreateBlueprint(h.cosmosPath, bp); err != nil {
+		if err := app.CreateBlueprintIn(h.cosmosPath, r.URL.Query().Get("dir"), bp); err != nil {
 			h.apiErr(w, err)
 			return
 		}

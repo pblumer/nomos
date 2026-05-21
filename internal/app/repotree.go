@@ -153,6 +153,29 @@ func safeRepoPath(loc, rel string) (string, error) {
 	return filepath.Join(loc, filepath.FromSlash(rel)), nil
 }
 
+// resolveArtifactDir validates that the workspace-relative folder lies within
+// the artifact root (e.g. .nomos/services) and returns the absolute creation
+// directory. An empty folder means the root itself. This lets predefined
+// artifacts be created inside a freely-organized subfolder of their root while
+// staying discoverable by the root-scoped scanners.
+func resolveArtifactDir(workspace, root, folderRel string) (string, error) {
+	rootClean := filepath.Clean(root)
+	if strings.TrimSpace(folderRel) == "" {
+		return rootClean, nil
+	}
+	abs, err := safeRepoPath(workspace, folderRel)
+	if err != nil {
+		return "", err
+	}
+	if abs != rootClean && !strings.HasPrefix(abs, rootClean+string(filepath.Separator)) {
+		return "", Error(CodeInvalidInput, "target folder is outside the artifact root", http.StatusBadRequest, nil)
+	}
+	if fi, err := os.Stat(abs); err != nil || !fi.IsDir() {
+		return "", Error(CodeInvalidInput, "target folder does not exist: "+folderRel, http.StatusBadRequest, err)
+	}
+	return abs, nil
+}
+
 // CreateRepoFolder creates a directory at the given repository-relative path,
 // mirroring the create-folder gesture in the Explorer tree onto the filesystem.
 func CreateRepoFolder(loc, rel string) error {

@@ -1101,6 +1101,13 @@ func RenameService(path, oldName, newName string) error {
 }
 
 func AddService(path, name, owner string, force bool) (ServiceDTO, error) {
+	return AddServiceIn(path, "", name, owner, force)
+}
+
+// AddServiceIn creates a service inside folderRel, a workspace-relative folder
+// within the services root (empty → the root itself). Folders are a free
+// organization layer; the service stays discoverable via the recursive scanner.
+func AddServiceIn(path, folderRel, name, owner string, force bool) (ServiceDTO, error) {
 	name = strings.TrimSpace(name)
 	if !validServiceName(name) {
 		return ServiceDTO{}, Error(CodeInvalidNamespace, "Invalid service name: "+name, http.StatusBadRequest, nil)
@@ -1108,7 +1115,11 @@ func AddService(path, name, owner string, force bool) (ServiceDTO, error) {
 	if strings.TrimSpace(owner) == "" {
 		owner = "unknown"
 	}
-	sdir := filepath.Join(storage.ServicesDir(path), name)
+	base, err := resolveArtifactDir(path, storage.ServicesDir(path), folderRel)
+	if err != nil {
+		return ServiceDTO{}, err
+	}
+	sdir := filepath.Join(base, name)
 	if _, err := os.Stat(sdir); err == nil && !force {
 		return ServiceDTO{}, Error(CodeInvalidNamespace, "Service already exists: "+name, http.StatusConflict, nil)
 	}
@@ -1208,6 +1219,13 @@ func moveEmbeddedElement(src, dst *model.Service, kind, id string) (bool, error)
 }
 
 func CreateBlueprint(path string, bp model.Blueprint) error {
+	return CreateBlueprintIn(path, "", bp)
+}
+
+// CreateBlueprintIn writes a blueprint into folderRel, a workspace-relative
+// folder within the catalog root (empty → the conventional products/services
+// subdirectory chosen by blueprint type).
+func CreateBlueprintIn(path, folderRel string, bp model.Blueprint) error {
 	if _, err := os.Stat(storage.CosmosFile(path)); err != nil {
 		return Error(CodeCosmosMissing, ".nomos/cosmos.yaml not found", http.StatusNotFound, err)
 	}
@@ -1232,13 +1250,20 @@ func CreateBlueprint(path string, bp model.Blueprint) error {
 		}
 	}
 
-	var subdir string
-	if bp.Type == "product_blueprint" {
-		subdir = "products"
+	var dir string
+	if strings.TrimSpace(folderRel) != "" {
+		resolved, err := resolveArtifactDir(path, filepath.Join(storage.CatalogDir(path), "blueprints"), folderRel)
+		if err != nil {
+			return err
+		}
+		dir = resolved
 	} else {
-		subdir = "services"
+		subdir := "services"
+		if bp.Type == "product_blueprint" {
+			subdir = "products"
+		}
+		dir = filepath.Join(storage.CatalogDir(path), "blueprints", subdir)
 	}
-	dir := filepath.Join(storage.CatalogDir(path), "blueprints", subdir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return Error(CodeInternalError, "Failed to create blueprint directory: "+err.Error(), http.StatusInternalServerError, err)
 	}
