@@ -90,6 +90,30 @@ function loadCodeMirror() {
   return cmLoader;
 }
 
+// Like fetch(), but reports the /api/v1 request+response to the Cosmos REST
+// inspector when present (window.__nomosRecordApiCall). On pages without the
+// inspector it behaves exactly like a plain fetch.
+async function trackedFetch(url, init) {
+  const record = window.__nomosRecordApiCall;
+  if (!record) return fetch(url, init);
+  const method = ((init && init.method) || 'GET').toUpperCase();
+  const reqBody = init && init.body;
+  const started = performance.now();
+  let res;
+  try {
+    res = await fetch(url, init);
+  } catch (err) {
+    record({ method, url, reqBody, error: err.message, durationMs: performance.now() - started });
+    throw err;
+  }
+  let text = '';
+  try {
+    text = await res.clone().text();
+  } catch (_) {}
+  record({ method, url, reqBody, status: res.status, ok: res.ok, body: text, durationMs: performance.now() - started });
+  return res;
+}
+
 function setupSourceEditor(root) {
   if (root.dataset.sourceReady) return;
   root.dataset.sourceReady = '1';
@@ -112,7 +136,7 @@ function setupSourceEditor(root) {
     status.className = 'editor-status' + (kind ? ' editor-status-' + kind : '');
   };
 
-  fetch(`/api/v1/source?path=${encodeURIComponent(path)}`)
+  trackedFetch(`/api/v1/source?path=${encodeURIComponent(path)}`)
     .then((r) => r.json().then((b) => ({ ok: r.ok, body: b })))
     .then(({ ok, body }) => {
       if (!ok) throw new Error(body.error || 'load failed');
@@ -133,7 +157,7 @@ function setupSourceEditor(root) {
       if (!editor) return;
       setStatus('Saving…', '');
       if (findings) findings.innerHTML = '';
-      fetch(`/api/v1/source?path=${encodeURIComponent(path)}`, {
+      trackedFetch(`/api/v1/source?path=${encodeURIComponent(path)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: editor.getValue() }),
@@ -168,7 +192,7 @@ function setupSourceEditor(root) {
         previewBtn.textContent = 'Preview';
         return;
       }
-      fetch('/api/v1/render/markdown', {
+      trackedFetch('/api/v1/render/markdown', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: editor.getValue() }),
