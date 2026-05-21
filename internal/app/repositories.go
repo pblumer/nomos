@@ -207,7 +207,7 @@ func findChildByLabel(n *NamespaceTreeNodeDTO, label string) int {
 // CreateRepository creates a new local filesystem repository on this server and
 // records it in the server's repository config (ADR-0022 §2).
 func CreateRepository(path, name string) (RepositoryDTO, error) {
-	r, err := repo.NewLocalRegistry(path).CreateFilesystem("", name)
+	r, err := repo.NewLocalRegistry(path).CreateFilesystem(name)
 	if err != nil {
 		return RepositoryDTO{}, Error(CodeInvalidInput, err.Error(), http.StatusBadRequest, err)
 	}

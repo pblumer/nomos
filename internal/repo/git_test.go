@@ -16,7 +16,7 @@ func newRepoWithFile(t *testing.T) string {
 	t.Helper()
 	t.Setenv(storage.ReposDirEnv, t.TempDir()) // keep repos out of the real ~/.nomos-repos
 	ws := t.TempDir()
-	r, err := NewLocalRegistry(ws).CreateFilesystem("acme", "Acme")
+	r, err := NewLocalRegistry(ws).CreateFilesystem("Acme")
 	if err != nil {
 		t.Fatalf("CreateFilesystem: %v", err)
 	}
@@ -131,17 +131,17 @@ func TestDeleteRemovesRepositoryAndDirectory(t *testing.T) {
 	t.Setenv(storage.ReposDirEnv, t.TempDir())
 	ws := t.TempDir()
 	reg := NewLocalRegistry(ws)
-	r, err := reg.CreateFilesystem("acme", "Acme")
+	r, err := reg.CreateFilesystem("Acme")
 	if err != nil {
 		t.Fatalf("CreateFilesystem: %v", err)
 	}
-	if err := reg.Delete("acme"); err != nil {
+	if err := reg.Delete(r.ID); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
 	if _, err := os.Stat(r.Location); !os.IsNotExist(err) {
 		t.Errorf("expected repository directory removed, stat err = %v", err)
 	}
-	if containsID(NewLocalRegistry(ws).List(), "acme") {
+	if containsID(NewLocalRegistry(ws).List(), r.ID) {
 		t.Error("deleted repository still listed")
 	}
 }
@@ -161,10 +161,11 @@ func TestRenameUpdatesDisplayName(t *testing.T) {
 	t.Setenv(storage.ReposDirEnv, t.TempDir())
 	ws := t.TempDir()
 	reg := NewLocalRegistry(ws)
-	if _, err := reg.CreateFilesystem("acme", "Acme"); err != nil {
+	created, err := reg.CreateFilesystem("Acme")
+	if err != nil {
 		t.Fatalf("CreateFilesystem: %v", err)
 	}
-	r, err := reg.Rename("acme", "Acme Corp")
+	r, err := reg.Rename(created.ID, "Acme Corp")
 	if err != nil {
 		t.Fatalf("Rename: %v", err)
 	}
@@ -172,7 +173,7 @@ func TestRenameUpdatesDisplayName(t *testing.T) {
 		t.Errorf("Name = %q, want Acme Corp", r.Name)
 	}
 	for _, e := range NewLocalRegistry(ws).List() {
-		if e.ID == "acme" && e.Name != "Acme Corp" {
+		if e.ID == created.ID && e.Name != "Acme Corp" {
 			t.Errorf("persisted name = %q, want Acme Corp", e.Name)
 		}
 	}

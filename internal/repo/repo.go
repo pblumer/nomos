@@ -10,9 +10,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 
+	"github.com/nomos/nomos/internal/idgen"
 	"github.com/nomos/nomos/internal/storage"
 	"gopkg.in/yaml.v3"
 )
@@ -39,8 +39,6 @@ type Repository struct {
 
 // LocalDefaultID is the identifier of the local server's default repository.
 const LocalDefaultID = "default"
-
-var repoID = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 
 // Registry enumerates and mutates the repositories a server manages.
 type Registry struct {
@@ -101,25 +99,16 @@ func (r *Registry) List() []Repository {
 }
 
 // CreateFilesystem creates a new local git-first repository workspace and
-// records it in the config. The id is derived from the name when not given.
-func (r *Registry) CreateFilesystem(id, name string) (Repository, error) {
-	if id == "" {
-		id = slug(name)
-	}
-	if !repoID.MatchString(id) {
-		return Repository{}, fmt.Errorf("invalid repository id: %q", id)
-	}
-	if id == LocalDefaultID {
-		return Repository{}, fmt.Errorf("id %q is reserved", LocalDefaultID)
-	}
+// records it in the config. The id is system-generated (ADR-0020, REP_ prefix);
+// callers supply only the display name.
+func (r *Registry) CreateFilesystem(name string) (Repository, error) {
 	cfg, err := r.load()
 	if err != nil {
 		return Repository{}, err
 	}
-	for _, e := range cfg.Repositories {
-		if e.ID == id {
-			return Repository{}, fmt.Errorf("repository %q already exists", id)
-		}
+	id, err := r.newRepoID(cfg)
+	if err != nil {
+		return Repository{}, err
 	}
 	loc := filepath.Join(storage.ReposDir(r.workspace), id)
 	if _, err := os.Stat(loc); err == nil {
@@ -128,11 +117,13 @@ func (r *Registry) CreateFilesystem(id, name string) (Repository, error) {
 	if err := os.MkdirAll(filepath.Join(storage.NomosDir(loc), "domains"), 0o755); err != nil {
 		return Repository{}, err
 	}
-	displayName := name
+	displayName := strings.TrimSpace(name)
 	if displayName == "" {
 		displayName = id
 	}
-	cosmosYAML := fmt.Sprintf("id: %s\nname: %s\nversion: 0.1.0\nstatus: draft\nowner: unknown\n", id, displayName)
+	// The repository's cosmos artifact carries the repo-local opaque cosmos id
+	// (ADR-0020 §Cosmos-Identität), not the topology-level REP_ id.
+	cosmosYAML := fmt.Sprintf("id: %s\nname: %s\nversion: 0.1.0\nstatus: draft\nowner: unknown\n", idgen.CosmosRootID, displayName)
 	if err := os.WriteFile(storage.CosmosFile(loc), []byte(cosmosYAML), 0o644); err != nil {
 		return Repository{}, err
 	}
@@ -303,6 +294,26 @@ func defaultTypeDefs() []typeDefSeed {
 	}
 }
 
+// newRepoID returns a fresh system-assigned repository id (ADR-0020, REP_
+// prefix). It regenerates on the astronomically rare collision with an existing
+// configured repository.
+func (r *Registry) newRepoID(cfg reposConfig) (string, error) {
+	existing := make(map[string]bool, len(cfg.Repositories))
+	for _, e := range cfg.Repositories {
+		existing[e.ID] = true
+	}
+	for attempt := 0; attempt < 5; attempt++ {
+		id, err := idgen.NewForType("repository")
+		if err != nil {
+			return "", err
+		}
+		if !existing[id] {
+			return id, nil
+		}
+	}
+	return "", fmt.Errorf("could not allocate a unique repository id")
+}
+
 // resolve turns a possibly-relative configured location into an absolute path.
 func (r *Registry) resolve(location string) string {
 	if filepath.IsAbs(location) {
@@ -315,12 +326,6 @@ func (r *Registry) localDefault() Repository {
 	repo := Repository{ID: LocalDefaultID, Kind: KindFilesystem, Location: r.workspace, Status: "unknown"}
 	probeGit(&repo)
 	return repo
-}
-
-func slug(name string) string {
-	s := strings.ToLower(strings.TrimSpace(name))
-	s = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(s, "-")
-	return strings.Trim(s, "-")
 }
 
 // probeGit fills Head/Status/DefaultBranch from git, best-effort. A workspace
