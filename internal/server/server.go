@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -57,6 +58,8 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/v1/namespaces", h.apiNamespaces)
 	mux.HandleFunc("/api/v1/graph", h.apiGraph)
 	mux.HandleFunc("/api/v1/validate", h.apiValidate)
+	mux.HandleFunc("/api/v1/source", h.apiSource)
+	mux.HandleFunc("/api/v1/render/markdown", h.apiRenderMarkdown)
 	mux.HandleFunc("/api/v1/blueprints", h.apiBlueprints)
 	mux.HandleFunc("/api/v1/blueprints/", h.apiBlueprintRoutes)
 	mux.HandleFunc("/api/v1/products/", h.apiProductRoutes)
@@ -1692,7 +1695,7 @@ func (h *handler) serviceDetailPage(w http.ResponseWriter, r *http.Request, serv
 		h.errorPage(w, r, statusOf(err), "Service not found", err.Error())
 		return
 	}
-	h.page(w, "service_detail", map[string]any{"ActiveNav": "services", "PageTitle": s.Name, "ServiceDTO": s})
+	h.page(w, "service_detail", map[string]any{"ActiveNav": "services", "PageTitle": s.Name, "ServiceDTO": s, "SourcePath": filepath.Join(s.Path, "service.yaml"), "SourceLang": "yaml"})
 }
 func (h *handler) namespacesPage(w http.ResponseWriter, r *http.Request) {
 	ns, err := app.BuildNamespaceTree(h.cosmosPath)
@@ -1815,6 +1818,8 @@ func (h *handler) blueprintPage(w http.ResponseWriter, r *http.Request, id strin
 		"Blueprint":         bp,
 		"AllBlueprints":     allBps.Blueprints,
 		"ServiceBlueprints": serviceBps,
+		"SourcePath":        bp.Path,
+		"SourceLang":        "yaml",
 	})
 }
 func (h *handler) instancesPage(w http.ResponseWriter, r *http.Request) {
@@ -1848,6 +1853,8 @@ func (h *handler) instancePage(w http.ResponseWriter, r *http.Request, id string
 		"Compliance":   comp,
 		"SubInstances": subInstances,
 		"Blueprints":   bps.Blueprints,
+		"SourcePath":   inst.Path,
+		"SourceLang":   "yaml",
 	})
 }
 func (h *handler) apiProvisionServiceInstance(w http.ResponseWriter, r *http.Request) {

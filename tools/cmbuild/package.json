@@ -1,0 +1,22 @@
+{
+  "name": "nomos-codemirror-bundle",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Builds the vendored CodeMirror 6 IIFE bundle served by the Nomos web UI.",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild entry.js --bundle --format=iife --minify --legal-comments=none --outfile=../../internal/server/web/static/vendor/codemirror/codemirror.js"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.8.1",
+    "@codemirror/lang-json": "^6.0.2",
+    "@codemirror/lang-markdown": "^6.3.4",
+    "@codemirror/lang-yaml": "^6.1.2",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.38.5",
+    "codemirror": "^6.0.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

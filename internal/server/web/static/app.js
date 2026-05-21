@@ -1,4 +1,21 @@
 document.addEventListener('click', (e) => {
+  const toggle = e.target.closest('[data-sidebar-toggle]');
+  if (toggle) {
+    const order = ['expanded', 'collapsed', 'hidden'];
+    const root = document.documentElement;
+    const current = root.classList.contains('sidebar-hidden')
+      ? 'hidden'
+      : root.classList.contains('sidebar-collapsed')
+        ? 'collapsed'
+        : 'expanded';
+    const next = order[(order.indexOf(current) + 1) % order.length];
+    root.classList.toggle('sidebar-collapsed', next === 'collapsed');
+    root.classList.toggle('sidebar-hidden', next === 'hidden');
+    try {
+      localStorage.setItem('nomos-sidebar', next);
+    } catch (err) {}
+    return;
+  }
   const btn = e.target.closest('[data-copy]');
   if (!btn) return;
   const el = document.querySelector(btn.getAttribute('data-copy'));
@@ -49,3 +66,149 @@ function updateServicePreview(form) {
   const preview = form.querySelector('[data-service-preview]');
   if (preview) preview.value = `${parent} / services / ${name}`;
 }
+
+// Inline source viewer/editor for YAML, JSON and Markdown artifact files.
+// Each [data-source-editor] element carries data-path and data-lang and is
+// backed by the vendored CodeMirror 6 bundle plus the /api/v1/source endpoints.
+function initSourceEditors() {
+  const editors = document.querySelectorAll('[data-source-editor]');
+  if (!editors.length) return;
+  loadCodeMirror().then(() => editors.forEach(setupSourceEditor));
+}
+
+let cmLoader = null;
+function loadCodeMirror() {
+  if (window.CM6) return Promise.resolve();
+  if (cmLoader) return cmLoader;
+  cmLoader = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = '/static/vendor/codemirror/codemirror.js';
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('failed to load editor bundle'));
+    document.head.appendChild(s);
+  });
+  return cmLoader;
+}
+
+function setupSourceEditor(root) {
+  if (root.dataset.sourceReady) return;
+  root.dataset.sourceReady = '1';
+  const path = root.dataset.path;
+  const language = root.dataset.lang || 'text';
+  if (!path) return;
+
+  const host = root.querySelector('[data-editor-host]');
+  const preview = root.querySelector('[data-editor-preview]');
+  const status = root.querySelector('[data-editor-status]');
+  const findings = root.querySelector('[data-editor-findings]');
+  const saveBtn = root.querySelector('[data-editor-save]');
+  const previewBtn = root.querySelector('[data-editor-preview-toggle]');
+  let editor = null;
+  let dirty = false;
+
+  const setStatus = (msg, kind) => {
+    if (!status) return;
+    status.textContent = msg || '';
+    status.className = 'editor-status' + (kind ? ' editor-status-' + kind : '');
+  };
+
+  fetch(`/api/v1/source?path=${encodeURIComponent(path)}`)
+    .then((r) => r.json().then((b) => ({ ok: r.ok, body: b })))
+    .then(({ ok, body }) => {
+      if (!ok) throw new Error(body.error || 'load failed');
+      editor = window.CM6.create(host, {
+        doc: body.content || '',
+        language,
+        onChange: () => {
+          dirty = true;
+          setStatus('Unsaved changes', 'warn');
+        },
+      });
+      setStatus('Loaded', 'ok');
+    })
+    .catch((err) => setStatus('Could not load source: ' + err.message, 'error'));
+
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      if (!editor) return;
+      setStatus('Saving…', '');
+      if (findings) findings.innerHTML = '';
+      fetch(`/api/v1/source?path=${encodeURIComponent(path)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: editor.getValue() }),
+      })
+        .then((r) => r.json().then((b) => ({ status: r.status, body: b })))
+        .then(({ status: code, body }) => {
+          if (code === 422) {
+            setStatus('Syntax error — not saved', 'error');
+            renderFindings(findings, [{ severity: 'error', message: body.syntaxError }]);
+            return;
+          }
+          if (!body.ok) {
+            setStatus(body.error || 'Save failed', 'error');
+            return;
+          }
+          dirty = false;
+          const list = body.validation && body.validation.findings ? body.validation.findings : [];
+          setStatus('Saved' + (list.length ? ` · ${list.length} finding(s)` : ''), list.length ? 'warn' : 'ok');
+          renderFindings(findings, list);
+        })
+        .catch((err) => setStatus('Save failed: ' + err.message, 'error'));
+    });
+  }
+
+  if (previewBtn && preview) {
+    previewBtn.addEventListener('click', () => {
+      if (!editor) return;
+      const showing = preview.hidden === false;
+      if (showing) {
+        preview.hidden = true;
+        host.hidden = false;
+        previewBtn.textContent = 'Preview';
+        return;
+      }
+      fetch('/api/v1/render/markdown', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: editor.getValue() }),
+      })
+        .then((r) => r.json())
+        .then((b) => {
+          preview.innerHTML = b.html || '';
+          preview.hidden = false;
+          host.hidden = true;
+          previewBtn.textContent = 'Edit';
+        })
+        .catch((err) => setStatus('Preview failed: ' + err.message, 'error'));
+    });
+  }
+
+  window.addEventListener('beforeunload', (e) => {
+    if (dirty) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+}
+
+function renderFindings(container, findings) {
+  if (!container) return;
+  container.innerHTML = '';
+  if (!findings || !findings.length) return;
+  const list = document.createElement('ul');
+  list.className = 'editor-finding-list';
+  findings.forEach((f) => {
+    const li = document.createElement('li');
+    li.className = 'editor-finding editor-finding-' + (f.severity || 'info');
+    const sev = document.createElement('span');
+    sev.className = 'editor-finding-severity';
+    sev.textContent = (f.severity || 'info').toUpperCase();
+    li.appendChild(sev);
+    li.appendChild(document.createTextNode(' ' + (f.message || '')));
+    list.appendChild(li);
+  });
+  container.appendChild(list);
+}
+
+document.addEventListener('DOMContentLoaded', initSourceEditors);

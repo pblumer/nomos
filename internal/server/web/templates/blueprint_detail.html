@@ -110,6 +110,8 @@
   </div>
 </section>
 
+{{if .SourcePath}}{{template "source_card" .}}{{end}}
+
 <div class="bp-layout">
   {{/* Left column: metadata + requirements */}}
   <div style="display:flex;flex-direction:column;gap:1rem">
