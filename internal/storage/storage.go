@@ -22,6 +22,9 @@ func CatalogDir(workspace string) string   { return filepath.Join(NomosDir(works
 
 // TypesDir holds user-defined artifact type definitions (.nomos/types/<id>.yaml).
 func TypesDir(workspace string) string { return filepath.Join(NomosDir(workspace), "types") }
+
+// ViewsDir holds standalone form/view definitions (.nomos/views/<name>.frm).
+func ViewsDir(workspace string) string { return filepath.Join(NomosDir(workspace), "views") }
 func ServicegraphsDir(workspace string) string {
 	return filepath.Join(NomosDir(workspace), "servicegraphs")
 }
