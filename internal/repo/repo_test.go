@@ -29,13 +29,15 @@ func TestLocalRegistryReturnsDefaultRepository(t *testing.T) {
 	}
 }
 
-func TestCreateFilesystemDefaultLocationIsWorkspaceRelative(t *testing.T) {
+func TestCreateFilesystemDefaultLocationIsOutsideWorkspace(t *testing.T) {
 	ws := t.TempDir()
+	home := t.TempDir() // isolate ~/.nomos-repos from the developer's real home
+	t.Setenv("HOME", home)
 	r, err := NewLocalRegistry(ws).CreateFilesystem("acme", "Acme")
 	if err != nil {
 		t.Fatalf("CreateFilesystem: %v", err)
 	}
-	want := filepath.Join(ws, ".nomos", "repos", "acme")
+	want := filepath.Join(home, storage.DefaultReposDirName, "acme")
 	if r.Location != want {
 		t.Errorf("Location = %q, want %q", r.Location, want)
 	}

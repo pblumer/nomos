@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/nomos/nomos/internal/storage"
 )
 
 // newRepoWithFile creates a fresh filesystem repository and returns its
@@ -12,6 +14,7 @@ import (
 // reproducible regardless of the host's global git configuration.
 func newRepoWithFile(t *testing.T) string {
 	t.Helper()
+	t.Setenv(storage.ReposDirEnv, t.TempDir()) // keep repos out of the real ~/.nomos-repos
 	ws := t.TempDir()
 	r, err := NewLocalRegistry(ws).CreateFilesystem("acme", "Acme")
 	if err != nil {
@@ -125,6 +128,7 @@ func TestTagLifecycle(t *testing.T) {
 }
 
 func TestDeleteRemovesRepositoryAndDirectory(t *testing.T) {
+	t.Setenv(storage.ReposDirEnv, t.TempDir())
 	ws := t.TempDir()
 	reg := NewLocalRegistry(ws)
 	r, err := reg.CreateFilesystem("acme", "Acme")
@@ -154,6 +158,7 @@ func TestDeleteRefusesDefaultAndUnknown(t *testing.T) {
 }
 
 func TestRenameUpdatesDisplayName(t *testing.T) {
+	t.Setenv(storage.ReposDirEnv, t.TempDir())
 	ws := t.TempDir()
 	reg := NewLocalRegistry(ws)
 	if _, err := reg.CreateFilesystem("acme", "Acme"); err != nil {
