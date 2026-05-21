@@ -114,7 +114,10 @@ func (r *Registry) CreateFilesystem(name string) (Repository, error) {
 	if _, err := os.Stat(loc); err == nil {
 		return Repository{}, fmt.Errorf("repository directory already exists: %s", loc)
 	}
-	if err := os.MkdirAll(filepath.Join(storage.NomosDir(loc), "domains"), 0o755); err != nil {
+	// Seed the views directory with the starter "capture a type" form (ADR-0024)
+	// so a freshly created repository ships a data-entry view. This MkdirAll also
+	// materialises .nomos itself, which cosmos.yaml and the type seeds rely on.
+	if err := seedDefaultViews(loc); err != nil {
 		return Repository{}, err
 	}
 	displayName := strings.TrimSpace(name)
@@ -229,6 +232,93 @@ func seedDefaultTypes(loc string) error {
 		}
 	}
 	return nil
+}
+
+// seedDefaultViews writes the starter "capture a type" form under .nomos/views
+// so a freshly created repository ships a data-entry view (ADR-0024). The file
+// follows the <typeID>_new.frm convention; here the captured type is "type",
+// i.e. the form that records a new type definition.
+func seedDefaultViews(loc string) error {
+	dir := storage.ViewsDir(loc)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	b, err := yaml.Marshal(defaultTypeCaptureView())
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "type_new.frm"), b, 0o644)
+}
+
+// viewSeed mirrors model.View's YAML shape; defined locally to keep the repo
+// package free of an app/model dependency for a one-off scaffold.
+type viewSeed struct {
+	Engine        string         `yaml:"engine,omitempty"`
+	EngineVersion string         `yaml:"engine_version,omitempty"`
+	Schema        map[string]any `yaml:"schema,omitempty"`
+}
+
+// defaultTypeCaptureView is the form-js view that records a new type definition.
+// It is laid out for the form-js renderer (ADR-0024): an intro text, an identity
+// group (id/label/description) and a rendering group (icon/viewer/editor), with
+// the id constrained to the lowercase-slug shape type ids must follow.
+func defaultTypeCaptureView() viewSeed {
+	return viewSeed{
+		Engine:        "form-js",
+		EngineVersion: "1",
+		Schema: map[string]any{
+			"type": "default",
+			"components": []map[string]any{
+				{
+					"type": "text",
+					"text": "## Neuen Typ erfassen\n\nLegt eine neue Typdefinition unter `.nomos/types` an.",
+				},
+				{
+					"type":        "group",
+					"label":       "Identität",
+					"showOutline": true,
+					"components": []map[string]any{
+						{
+							"type":        "textfield",
+							"key":         "id",
+							"label":       "ID",
+							"description": "Kleinbuchstaben-Slug: a–z, 0–9, - und _ (z. B. \"data-object\").",
+							"validate":    map[string]any{"required": true, "pattern": "^[a-z0-9_-]+$"},
+						},
+						{"type": "textfield", "key": "label", "label": "Label", "description": "Anzeigename im Explorer."},
+						{"type": "textarea", "key": "description", "label": "Beschreibung"},
+					},
+				},
+				{
+					"type":        "group",
+					"label":       "Darstellung",
+					"showOutline": true,
+					"components": []map[string]any{
+						{"type": "textfield", "key": "icon", "label": "Icon", "description": "Material-Icon-Name, z. B. \"settings\"."},
+						{
+							"type":  "select",
+							"key":   "viewer",
+							"label": "Viewer",
+							"values": []map[string]any{
+								{"label": "Formular", "value": "form"},
+								{"label": "BPMN", "value": "bpmn"},
+								{"label": "DMN", "value": "dmn"},
+							},
+						},
+						{
+							"type":  "select",
+							"key":   "editor",
+							"label": "Editor",
+							"values": []map[string]any{
+								{"label": "Formular", "value": "form"},
+								{"label": "DMN", "value": "dmn"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 // typeDefSeed mirrors model.TypeDef's YAML shape; defined locally to keep the

@@ -60,6 +60,14 @@ func TestCreateFilesystemDefaultLocationIsOutsideWorkspace(t *testing.T) {
 			t.Errorf("expected seeded type definition %q: %v", id, err)
 		}
 	}
+	// The starter "capture a type" form is seeded under .nomos/views.
+	if _, err := os.Stat(filepath.Join(storage.ViewsDir(want), "type_new.frm")); err != nil {
+		t.Errorf("expected seeded type-capture view: %v", err)
+	}
+	// The obsolete .nomos/domains directory is no longer scaffolded.
+	if _, err := os.Stat(filepath.Join(storage.NomosDir(want), "domains")); !os.IsNotExist(err) {
+		t.Errorf("expected no .nomos/domains directory, stat err = %v", err)
+	}
 }
 
 func TestCreateFilesystemHonorsReposDirOverride(t *testing.T) {
