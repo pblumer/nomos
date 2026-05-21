@@ -27,6 +27,38 @@ type RepositoriesDTO struct {
 	Repositories []RepositoryDTO `json:"repositories"`
 }
 
+// GitFileChangeDTO is one entry of a repository's working-tree status.
+type GitFileChangeDTO struct {
+	Code string `json:"code"`
+	Path string `json:"path"`
+}
+
+// GitStatusDTO is a repository's working-tree state for the commit UI.
+type GitStatusDTO struct {
+	Initialized bool               `json:"initialized"`
+	Branch      string             `json:"branch,omitempty"`
+	Head        string             `json:"head,omitempty"`
+	Dirty       bool               `json:"dirty"`
+	Files       []GitFileChangeDTO `json:"files"`
+}
+
+// GitBranchesDTO lists a repository's local branches and the current one.
+type GitBranchesDTO struct {
+	Current  string   `json:"current"`
+	Branches []string `json:"branches"`
+}
+
+// GitTagDTO is one git tag (releases are modeled as tags, local git-first).
+type GitTagDTO struct {
+	Name    string `json:"name"`
+	Message string `json:"message,omitempty"`
+}
+
+// GitTagsDTO lists a repository's tags.
+type GitTagsDTO struct {
+	Tags []GitTagDTO `json:"tags"`
+}
+
 // ServerDTO describes a Nomos server mounted in the Cosmos Explorer tree
 // (ADR-0022 §1). The server answers on its endpoint (port 7373) and manages the
 // repositories beneath it.

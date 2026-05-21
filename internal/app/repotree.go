@@ -295,6 +295,49 @@ func MoveRepoNode(loc, fromRel, toDirRel string) error {
 	return nil
 }
 
+// DeleteRepoNode removes the file or folder at rel (folders recursively). It is
+// the filesystem realization of a delete gesture in the Explorer tree.
+func DeleteRepoNode(loc, rel string) error {
+	abs, err := safeRepoPath(loc, rel)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(abs); err != nil {
+		return Error(CodeInvalidInput, "does not exist: "+rel, http.StatusNotFound, err)
+	}
+	if err := os.RemoveAll(abs); err != nil {
+		return Error(CodeInternalError, "failed to delete: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return nil
+}
+
+// RenameRepoNode renames the file or folder at rel to name (a bare base name,
+// kept in the same parent directory).
+func RenameRepoNode(loc, rel, name string) error {
+	abs, err := safeRepoPath(loc, rel)
+	if err != nil {
+		return err
+	}
+	name = strings.TrimSpace(filepath.ToSlash(name))
+	if name == "" || strings.ContainsAny(name, "/\\") || name == "." || name == ".." {
+		return Error(CodeInvalidInput, "invalid name: "+name, http.StatusBadRequest, nil)
+	}
+	if _, err := os.Stat(abs); err != nil {
+		return Error(CodeInvalidInput, "does not exist: "+rel, http.StatusNotFound, err)
+	}
+	dest := filepath.Join(filepath.Dir(abs), name)
+	if dest == abs {
+		return nil
+	}
+	if _, err := os.Stat(dest); err == nil {
+		return Error(CodeInvalidInput, "destination already exists: "+name, http.StatusConflict, nil)
+	}
+	if err := os.Rename(abs, dest); err != nil {
+		return Error(CodeInternalError, "failed to rename: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return nil
+}
+
 func (m *repoMirror) serviceNode(sn cosmosfs.ServiceNode, rel string) NamespaceTreeNodeDTO {
 	s := serviceDTO(sn)
 	sd := s
