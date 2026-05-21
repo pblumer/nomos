@@ -1,5 +1,4 @@
 bin/
 tmp/
-frontend/node_modules/
 .git/
 *.md
