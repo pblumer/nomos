@@ -117,6 +117,9 @@ func plumbingDirs(root string) map[string]bool {
 		filepath.Clean(storage.ReposDir(root)): true,
 		filepath.Clean(storage.CacheDir(root)): true,
 		filepath.Clean(storage.IndexDir(root)): true,
+		// Type definitions describe types; they are not catalog artifacts and
+		// must not be probed by the `type` field (a def may name a built-in type).
+		filepath.Clean(storage.TypesDir(root)): true,
 	}
 }
 

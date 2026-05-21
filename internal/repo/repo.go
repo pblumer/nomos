@@ -136,6 +136,10 @@ func (r *Registry) CreateFilesystem(id, name string) (Repository, error) {
 	if err := os.WriteFile(storage.CosmosFile(loc), []byte(cosmosYAML), 0o644); err != nil {
 		return Repository{}, err
 	}
+	// Seed starter type definitions so .nomos/types is populated on creation
+	// (best-effort: the user may delete or adapt them). The directory is
+	// system-relevant, so a failure here does not block repository creation.
+	_ = seedDefaultTypes(loc)
 	// Initialize git so the workspace is git-first from creation (best-effort:
 	// a missing git binary must not block filesystem repository creation).
 	_ = exec.Command("git", "-C", loc, "init", "-q").Run()
@@ -153,6 +157,89 @@ func (r *Registry) CreateFilesystem(id, name string) (Repository, error) {
 	repo := Repository{ID: id, Name: displayName, Kind: KindFilesystem, Location: loc, Status: "unknown"}
 	probeGit(&repo)
 	return repo, nil
+}
+
+// seedDefaultTypes writes the built-in artifact types as editable definitions
+// under .nomos/types so a freshly created repository ships a starter set the
+// user can extend, adapt, or delete.
+func seedDefaultTypes(loc string) error {
+	dir := storage.TypesDir(loc)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	for _, def := range defaultTypeDefs() {
+		b, err := yaml.Marshal(def)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(dir, def.ID+".yaml"), b, 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// typeDefSeed mirrors model.TypeDef's YAML shape; defined locally to keep the
+// repo package free of an app/model dependency for a one-off scaffold.
+type typeDefSeed struct {
+	ID           string           `yaml:"id"`
+	Label        string           `yaml:"label,omitempty"`
+	Description  string           `yaml:"description,omitempty"`
+	Icon         string           `yaml:"icon,omitempty"`
+	Viewer       string           `yaml:"viewer,omitempty"`
+	Editor       string           `yaml:"editor,omitempty"`
+	File         string           `yaml:"file,omitempty"`
+	Properties   []typeProp       `yaml:"properties,omitempty"`
+	Dependencies []typeDependency `yaml:"dependencies,omitempty"`
+}
+type typeProp struct {
+	Name     string `yaml:"name"`
+	Type     string `yaml:"type,omitempty"`
+	Required bool   `yaml:"required,omitempty"`
+}
+type typeDependency struct {
+	Type     string `yaml:"type"`
+	Relation string `yaml:"relation,omitempty"`
+}
+
+func defaultTypeDefs() []typeDefSeed {
+	return []typeDefSeed{
+		{
+			ID: "service", Label: "Service", Icon: "settings", Viewer: "bpmn", Editor: "form", File: "service.yaml",
+			Description: "A capability-providing service.",
+			Properties: []typeProp{
+				{Name: "name", Type: "string", Required: true},
+				{Name: "owner", Type: "string"},
+				{Name: "capabilities", Type: "list"},
+			},
+			Dependencies: []typeDependency{{Type: "decision", Relation: "uses"}},
+		},
+		{
+			ID: "decision", Label: "Decision", Icon: "gavel", Viewer: "dmn", Editor: "dmn", File: "decision.yaml",
+			Description: "Decision logic, optionally backed by a DMN table.",
+			Properties: []typeProp{
+				{Name: "name", Type: "string", Required: true},
+				{Name: "inputs", Type: "list"},
+				{Name: "outputs", Type: "list"},
+			},
+		},
+		{
+			ID: "blueprint", Label: "Blueprint", Icon: "assignment", Viewer: "form", Editor: "form",
+			Description: "An abstract product or service definition in the catalog.",
+			Properties: []typeProp{
+				{Name: "name", Type: "string", Required: true},
+				{Name: "fulfillment", Type: "object"},
+			},
+		},
+		{
+			ID: "product", Label: "Product", Icon: "inventory_2", Viewer: "form", Editor: "form",
+			Description: "A concrete product offering composed of services.",
+			Properties: []typeProp{
+				{Name: "name", Type: "string", Required: true},
+			},
+			Dependencies: []typeDependency{{Type: "service", Relation: "fulfilled_by"}},
+		},
+	}
 }
 
 // resolve turns a possibly-relative configured location into an absolute path.

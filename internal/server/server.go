@@ -197,6 +197,18 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			writeJSON(w, http.StatusOK, map[string]string{"path": body.Path})
+		case "fs/type":
+			var def model.TypeDef
+			if err := json.NewDecoder(r.Body).Decode(&def); err != nil {
+				h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+				return
+			}
+			saved, err := app.SaveTypeDef(loc, def)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusCreated, saved)
 		case "fs/move":
 			var body struct {
 				From  string `json:"from"`
@@ -230,6 +242,9 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 	case resource == "namespaces":
 		dto, err := app.BuildNamespaceTree(loc)
 		h.writeOrErr(w, dto, err)
+	case resource == "types":
+		defs, err := app.ListTypeDefs(loc)
+		h.writeOrErr(w, map[string]any{"types": defs}, err)
 	default:
 		http.NotFound(w, r)
 	}
