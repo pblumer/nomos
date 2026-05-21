@@ -40,6 +40,39 @@ func TestSaveAndListTypeDefs(t *testing.T) {
 	}
 }
 
+func TestSaveAndLoadTypeForm(t *testing.T) {
+	p := createAppTestCosmos(t)
+
+	// No form authored yet.
+	if _, ok, err := LoadTypeForm(p, "task"); err != nil || ok {
+		t.Fatalf("expected no form, got ok=%v err=%v", ok, err)
+	}
+
+	schema := map[string]any{"type": "default", "components": []any{map[string]any{"type": "textfield", "key": "title"}}}
+	if _, err := SaveTypeForm(p, "task", model.View{Schema: schema}); err != nil {
+		t.Fatalf("SaveTypeForm: %v", err)
+	}
+	// Written to .nomos/views/<id>_new.frm with the default engine.
+	if _, err := os.Stat(filepath.Join(storage.ViewsDir(p), "task_new.frm")); err != nil {
+		t.Fatalf("form file not created: %v", err)
+	}
+	v, ok, err := LoadTypeForm(p, "task")
+	if err != nil || !ok {
+		t.Fatalf("LoadTypeForm: ok=%v err=%v", ok, err)
+	}
+	if v.Engine != "form-js" {
+		t.Fatalf("expected default engine form-js, got %q", v.Engine)
+	}
+	if v.Schema["type"] != "default" {
+		t.Fatalf("schema not round-tripped: %+v", v.Schema)
+	}
+
+	// Invalid ids are rejected.
+	if _, err := SaveTypeForm(p, "Not Valid", model.View{}); err == nil {
+		t.Fatal("expected rejection of invalid type id")
+	}
+}
+
 func TestRepoTreeShowsTypeDefs(t *testing.T) {
 	p := createAppTestCosmos(t)
 	if _, err := SaveTypeDef(p, model.TypeDef{ID: "widget", Label: "Widget", Viewer: "form"}); err != nil {
@@ -53,6 +86,9 @@ func TestRepoTreeShowsTypeDefs(t *testing.T) {
 	types := findChild(nomos.Children, "folder", "types")
 	if types == nil {
 		t.Fatal("expected types/ folder under .nomos")
+	}
+	if !types.IsTypesFolder {
+		t.Fatal("expected types/ folder to be marked IsTypesFolder")
 	}
 	td := findChild(types.Children, "type-def", "Widget")
 	if td == nil {

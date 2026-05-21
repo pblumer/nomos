@@ -249,6 +249,17 @@ type ViewBinding struct {
 	Submit        string `yaml:"submit,omitempty" json:"submit,omitempty"`
 }
 
+// View is the standalone form/view envelope (ADR-0024) persisted as a .frm file
+// (e.g. .nomos/views/<type>_new.frm). It mirrors the inline view fields on
+// ServiceUserInterface: the engine-native schema is stored unchanged and the
+// Web UI dispatches to the renderer registered for Engine (e.g. "form-js").
+type View struct {
+	Engine        string         `yaml:"engine,omitempty" json:"engine,omitempty"`
+	EngineVersion string         `yaml:"engine_version,omitempty" json:"engine_version,omitempty"`
+	Schema        map[string]any `yaml:"schema,omitempty" json:"schema,omitempty"`
+	Binding       *ViewBinding   `yaml:"binding,omitempty" json:"binding,omitempty"`
+}
+
 func (u *ServiceUserInterface) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var s string
 	if err := unmarshal(&s); err == nil {
