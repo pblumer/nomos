@@ -133,6 +133,27 @@ func repositoryNode(r RepositoryDTO, content []NamespaceTreeNodeDTO) NamespaceTr
 	}
 }
 
+// catalogIndexNode groups the cosmos blueprints as a flat "Catalog Index"
+// branch. Individual blueprints are leaf nodes; their attributes, references and
+// process detail live in the Explorer's detail panel rather than the tree.
+func catalogIndexNode(path string) NamespaceTreeNodeDTO {
+	parent := NamespaceTreeNodeDTO{Label: "Catalog Index", Kind: "blueprint-parent"}
+	bp, err := ListBlueprints(path)
+	if err != nil {
+		return parent
+	}
+	for _, b := range bp.Blueprints {
+		parent.Children = append(parent.Children, NamespaceTreeNodeDTO{
+			Label:          firstNonEmpty(b.Name, b.ID),
+			Kind:           "blueprint",
+			Canonical:      b.ID,
+			Persisted:      true,
+			CanOpenDetails: true,
+		})
+	}
+	return parent
+}
+
 // serverContent returns the server marker DTO and the nodes shown beneath it:
 // the content directly for a single repository, or one node per repository when
 // there are several.
@@ -146,7 +167,7 @@ func serverContent(path string, m MountDTO) (*ServerDTO, []NamespaceTreeNodeDTO)
 				loc = path
 			}
 			ns, _ := BuildNamespaceTree(loc)
-			return ns.Root.Children
+			return append(ns.Root.Children, catalogIndexNode(loc))
 		})
 	}
 	repos, err := fetchRemoteRepositories(m.Endpoint)

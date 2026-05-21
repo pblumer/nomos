@@ -51,6 +51,10 @@ func TestBuildExplorerTreePlacesLocalServerUnderLocal(t *testing.T) {
 	if findTreeNode(*server, "service", "user-account") == nil {
 		t.Fatal("server content should include services")
 	}
+	// Blueprints are surfaced as a flat "Catalog Index" branch in the content.
+	if findTreeNode(*server, "blueprint-parent", "Catalog Index") == nil {
+		t.Fatal("server content should include the Catalog Index branch")
+	}
 }
 
 func TestBuildExplorerTreePlacesLocalServerUnderDomain(t *testing.T) {

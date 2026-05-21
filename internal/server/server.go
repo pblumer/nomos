@@ -1597,12 +1597,11 @@ func (h *handler) cosmosPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	doc, _ := app.DoctorCosmos(h.cosmosPath)
-	ns, _ := app.BuildNamespaceTree(h.cosmosPath)
-	bp, _ := app.ListBlueprints(h.cosmosPath)
+	ns, _ := app.BuildExplorerTreeForHost(h.cosmosPath, r.Host)
 	h.page(w, "cosmos", map[string]any{
 		"ActiveNav": "cosmos", "PageTitle": "Cosmos",
 		"Cosmos": co, "Doctor": doc,
-		"NamespaceTree": ns, "Blueprints": bp.Blueprints,
+		"NamespaceTree": ns,
 	})
 }
 func (h *handler) servicesPage(w http.ResponseWriter, r *http.Request) {
