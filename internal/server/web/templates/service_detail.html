@@ -7,6 +7,8 @@
   <a class="button button-secondary" href="/api/v1/services/{{.ServiceDTO.Name}}">API JSON</a>
 </section>
 
+{{if .SourcePath}}{{template "source_card" .}}{{end}}
+
 <section class="card">
   <h3>Metadata</h3>
   <dl class="details-list">
