@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/nomos/nomos/internal/idgen"
+	"github.com/nomos/nomos/internal/storage"
 )
 
 func TestListRepositoriesReturnsLocalDefault(t *testing.T) {
@@ -196,12 +199,14 @@ func TestListRepositoriesNameFallsBackWithoutCosmos(t *testing.T) {
 }
 
 func TestCreateRepositoryAndListAndScopedContent(t *testing.T) {
+	t.Setenv(storage.ReposDirEnv, t.TempDir()) // keep repos out of the real ~/.nomos-repos
 	p := createAppTestCosmos(t)
 	created, err := CreateRepository(p, "Team Beta")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if created.ID != "team-beta" || created.Kind != "filesystem" {
+	// The id is system-generated per ADR-0020 (REP_ prefix), not slug-derived.
+	if !idgen.IsValidForType(created.ID, "repository") || created.Kind != "filesystem" {
 		t.Fatalf("unexpected created repo: %+v", created)
 	}
 	repos, _ := ListRepositories(p)
@@ -210,24 +215,30 @@ func TestCreateRepositoryAndListAndScopedContent(t *testing.T) {
 		ids = append(ids, r.ID)
 	}
 	if len(repos.Repositories) != 2 {
-		t.Fatalf("expected default + team-beta, got %v", ids)
+		t.Fatalf("expected default + new repo, got %v", ids)
 	}
 	// New repo resolves and has its own (empty) cosmos.
-	got, err := GetRepository(p, "team-beta")
+	got, err := GetRepository(p, created.ID)
 	if err != nil || got.Location == "" {
-		t.Fatalf("GetRepository(team-beta) = %+v err %v", got, err)
+		t.Fatalf("GetRepository(%s) = %+v err %v", created.ID, got, err)
 	}
 	co, err := GetCosmos(got.Location)
 	if err != nil || co.Name != "Team Beta" {
 		t.Fatalf("new repo cosmos = %+v err %v", co, err)
 	}
-	// Duplicate name → conflict/error.
-	if _, err := CreateRepository(p, "Team Beta"); err == nil {
-		t.Fatal("duplicate repository should fail")
+	// Names are mutable display labels (ADR-0020), not identities: creating a
+	// second repository with the same name succeeds with a distinct id.
+	dup, err := CreateRepository(p, "Team Beta")
+	if err != nil {
+		t.Fatalf("second repository with a duplicate name should succeed: %v", err)
+	}
+	if dup.ID == created.ID {
+		t.Fatalf("expected a distinct id for the duplicate-named repo, got %q twice", dup.ID)
 	}
 }
 
 func TestExplorerTreeShowsMultipleRepositories(t *testing.T) {
+	t.Setenv(storage.ReposDirEnv, t.TempDir())
 	p := createAppTestCosmos(t)
 	if _, err := CreateRepository(p, "extra"); err != nil {
 		t.Fatal(err)

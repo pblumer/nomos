@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/nomos/nomos/internal/storage"
 )
 
 func TestDeleteRepoNode(t *testing.T) {
@@ -101,6 +103,7 @@ func TestGitOpsUnknownRepo(t *testing.T) {
 }
 
 func TestCreateAndDeleteRepository(t *testing.T) {
+	t.Setenv(storage.ReposDirEnv, t.TempDir()) // keep repos out of the real ~/.nomos-repos
 	p := createAppTestCosmos(t)
 	r, err := CreateRepository(p, "Team Beta")
 	if err != nil {

@@ -45,17 +45,26 @@ func RepositoriesFile(workspace string) string {
 }
 
 // ReposDirEnv lets an operator point new local filesystem repositories at a
-// predefined, writable base directory instead of the default
-// <workspace>/.nomos/repos. Only the operator sets this; API clients never
-// supply a path, and repository ids are validated, so this cannot be abused
-// for path traversal.
+// predefined, writable base directory instead of the default ~/.nomos-repos.
+// Only the operator sets this; API clients never supply a path, and repository
+// ids are validated, so this cannot be abused for path traversal.
 const ReposDirEnv = "NOMOS_REPOS_DIR"
 
+// DefaultReposDirName is the home-relative base directory for new local
+// filesystem repositories.
+const DefaultReposDirName = ".nomos-repos"
+
 // ReposDir is the base directory under which new local filesystem repositories
-// are created. It honors the NOMOS_REPOS_DIR override when set.
+// are created. It lives outside the workspace (~/.nomos-repos) so that managed
+// repositories are not nested inside the workspace's own git tree. The
+// NOMOS_REPOS_DIR override takes precedence; when no home directory is
+// resolvable it falls back to the workspace-local <workspace>/.nomos/repos.
 func ReposDir(workspace string) string {
 	if dir := os.Getenv(ReposDirEnv); dir != "" {
 		return dir
+	}
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		return filepath.Join(home, DefaultReposDirName)
 	}
 	return filepath.Join(NomosDir(workspace), "repos")
 }

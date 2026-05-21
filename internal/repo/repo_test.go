@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/nomos/nomos/internal/idgen"
 	"github.com/nomos/nomos/internal/storage"
 )
 
@@ -29,18 +30,24 @@ func TestLocalRegistryReturnsDefaultRepository(t *testing.T) {
 	}
 }
 
-func TestCreateFilesystemDefaultLocationIsWorkspaceRelative(t *testing.T) {
+func TestCreateFilesystemDefaultLocationIsOutsideWorkspace(t *testing.T) {
 	ws := t.TempDir()
-	r, err := NewLocalRegistry(ws).CreateFilesystem("acme", "Acme")
+	home := t.TempDir() // isolate ~/.nomos-repos from the developer's real home
+	t.Setenv("HOME", home)
+	r, err := NewLocalRegistry(ws).CreateFilesystem("Acme")
 	if err != nil {
 		t.Fatalf("CreateFilesystem: %v", err)
 	}
-	want := filepath.Join(ws, ".nomos", "repos", "acme")
+	// The id is system-generated per ADR-0020 (REP_ prefix), not slug-derived.
+	if !idgen.IsValidForType(r.ID, "repository") {
+		t.Errorf("ID = %q, want a system-generated REP_ id", r.ID)
+	}
+	want := filepath.Join(home, storage.DefaultReposDirName, r.ID)
 	if r.Location != want {
 		t.Errorf("Location = %q, want %q", r.Location, want)
 	}
 	// The repo must reappear (resolved) on a fresh List from the same workspace.
-	if !containsID(NewLocalRegistry(ws).List(), "acme") {
+	if !containsID(NewLocalRegistry(ws).List(), r.ID) {
 		t.Errorf("created repository not found in List")
 	}
 	// New repositories are git-first: a git database is initialized on creation.
@@ -60,11 +67,11 @@ func TestCreateFilesystemHonorsReposDirOverride(t *testing.T) {
 	base := t.TempDir() // a predefined, writable area outside the workspace
 	t.Setenv(storage.ReposDirEnv, base)
 
-	r, err := NewLocalRegistry(ws).CreateFilesystem("acme", "Acme")
+	r, err := NewLocalRegistry(ws).CreateFilesystem("Acme")
 	if err != nil {
 		t.Fatalf("CreateFilesystem: %v", err)
 	}
-	want := filepath.Join(base, "acme")
+	want := filepath.Join(base, r.ID)
 	if r.Location != want {
 		t.Errorf("Location = %q, want %q", r.Location, want)
 	}
@@ -72,7 +79,7 @@ func TestCreateFilesystemHonorsReposDirOverride(t *testing.T) {
 		t.Errorf("cosmos.yaml not created under override dir: %v", err)
 	}
 	// Stored as absolute, so List from the workspace still resolves it.
-	if !containsID(NewLocalRegistry(ws).List(), "acme") {
+	if !containsID(NewLocalRegistry(ws).List(), r.ID) {
 		t.Errorf("override repository not found in List")
 	}
 }
