@@ -1,4 +1,12 @@
 document.addEventListener('click', (e) => {
+  const toggle = e.target.closest('[data-sidebar-toggle]');
+  if (toggle) {
+    const collapsed = document.documentElement.classList.toggle('sidebar-collapsed');
+    try {
+      localStorage.setItem('nomos-sidebar', collapsed ? 'collapsed' : 'expanded');
+    } catch (err) {}
+    return;
+  }
   const btn = e.target.closest('[data-copy]');
   if (!btn) return;
   const el = document.querySelector(btn.getAttribute('data-copy'));
