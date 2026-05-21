@@ -99,6 +99,7 @@ func (m *repoMirror) children(absDir, relDir string) []NamespaceTreeNodeDTO {
 				Label:          firstNonEmpty(meta.Label, name),
 				Kind:           "folder",
 				IsFolder:       true,
+				IsTypesFolder:  abs == m.typesDir,
 				GitPath:        rel,
 				TreePath:       rel,
 				DisplayPath:    rel,

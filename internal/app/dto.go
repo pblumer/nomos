@@ -274,6 +274,7 @@ type NamespaceTreeNodeDTO struct {
 	Persisted            bool                       `json:"persisted"`
 	Virtual              bool                       `json:"virtual"`
 	IsFolder             bool                       `json:"isFolder,omitempty"`
+	IsTypesFolder        bool                       `json:"isTypesFolder,omitempty"`
 	AllowedTypes         []string                   `json:"allowedTypes,omitempty"`
 	CanCreateChildDomain bool                       `json:"canCreateChildDomain"`
 	CanAddService        bool                       `json:"canAddService"`
