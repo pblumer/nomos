@@ -1,0 +1,177 @@
+package server
+
+import (
+	"encoding/json"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/microcosm-cc/bluemonday"
+	"github.com/nomos/nomos/internal/app"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
+	gmhtml "github.com/yuin/goldmark/renderer/html"
+	"gopkg.in/yaml.v3"
+)
+
+// sourceLanguage maps a file extension to the editor language the frontend uses.
+func sourceLanguage(path string) string {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".yaml", ".yml":
+		return "yaml"
+	case ".json":
+		return "json"
+	case ".md", ".markdown":
+		return "markdown"
+	default:
+		return "text"
+	}
+}
+
+var allowedSourceExt = map[string]bool{
+	".yaml": true, ".yml": true, ".json": true, ".md": true, ".markdown": true,
+}
+
+// resolveSourcePath maps a client-supplied path to an absolute file inside the
+// cosmos workspace, rejecting traversal outside the root and disallowed types.
+func (h *handler) resolveSourcePath(raw string) (string, bool) {
+	if raw == "" {
+		return "", false
+	}
+	root, err := filepath.Abs(h.cosmosPath)
+	if err != nil {
+		return "", false
+	}
+	// Artifact paths come straight from the DTOs, which carry the same base as
+	// cosmosPath (cwd-relative or absolute), so resolve against the working
+	// directory rather than re-joining the root.
+	target, err := filepath.Abs(raw)
+	if err != nil {
+		return "", false
+	}
+	rel, err := filepath.Rel(root, target)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	if !allowedSourceExt[strings.ToLower(filepath.Ext(target))] {
+		return "", false
+	}
+	return target, true
+}
+
+// apiSource reads (GET) or writes (PUT) a single artifact source file. GET with
+// ?render=1 returns sanitized HTML for Markdown sources. PUT validates syntax,
+// writes the file, then runs cosmos validation so the backend stays the
+// authority on artifact correctness.
+func (h *handler) apiSource(w http.ResponseWriter, r *http.Request) {
+	path, ok := h.resolveSourcePath(r.URL.Query().Get("path"))
+	if !ok {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or unsupported path"})
+		return
+	}
+	lang := sourceLanguage(path)
+	switch r.Method {
+	case http.MethodGet:
+		data, err := os.ReadFile(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				writeJSON(w, http.StatusNotFound, map[string]string{"error": "file not found"})
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		if r.URL.Query().Get("render") == "1" && lang == "markdown" {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"path": r.URL.Query().Get("path"), "language": lang, "html": renderMarkdown(data),
+			})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"path": r.URL.Query().Get("path"), "language": lang, "content": string(data),
+		})
+	case http.MethodPut:
+		var body struct {
+			Content string `json:"content"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+			return
+		}
+		if msg := checkSourceSyntax(lang, body.Content); msg != "" {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"ok": false, "syntaxError": msg})
+			return
+		}
+		info, statErr := os.Stat(path)
+		mode := os.FileMode(0o644)
+		if statErr == nil {
+			mode = info.Mode().Perm()
+		}
+		if err := os.WriteFile(path, []byte(body.Content), mode); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		resp := map[string]any{"ok": true, "language": lang}
+		if val, err := app.ValidateCosmos(h.cosmosPath); err == nil {
+			resp["validation"] = val
+		}
+		writeJSON(w, http.StatusOK, resp)
+	default:
+		w.Header().Set("Allow", "GET, PUT")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+// apiRenderMarkdown renders an arbitrary Markdown body to sanitized HTML, used
+// by the editor preview without persisting anything.
+func (h *handler) apiRenderMarkdown(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	var body struct {
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"html": renderMarkdown([]byte(body.Content))})
+}
+
+// checkSourceSyntax returns a human-readable error if the content is not
+// well-formed for its language, or "" when it parses.
+func checkSourceSyntax(lang, content string) string {
+	switch lang {
+	case "yaml":
+		var v any
+		if err := yaml.Unmarshal([]byte(content), &v); err != nil {
+			return err.Error()
+		}
+	case "json":
+		var v any
+		if err := json.Unmarshal([]byte(content), &v); err != nil {
+			return err.Error()
+		}
+	}
+	return ""
+}
+
+var (
+	mdRenderer = goldmark.New(
+		goldmark.WithExtensions(extension.GFM),
+		goldmark.WithRendererOptions(gmhtml.WithUnsafe()),
+	)
+	mdSanitizer = bluemonday.UGCPolicy()
+)
+
+// renderMarkdown converts Markdown to HTML and sanitizes it against XSS.
+func renderMarkdown(src []byte) string {
+	var buf strings.Builder
+	if err := mdRenderer.Convert(src, &buf); err != nil {
+		return ""
+	}
+	return mdSanitizer.Sanitize(buf.String())
+}

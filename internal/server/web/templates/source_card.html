@@ -1,0 +1,16 @@
+{{define "source_card"}}
+<section class="card source-card" data-source-editor data-path="{{.SourcePath}}" data-lang="{{.SourceLang}}">
+  <div class="source-card-head">
+    <h3>Source</h3>
+    <div class="source-card-actions">
+      {{if eq .SourceLang "markdown"}}<button type="button" class="button button-secondary" data-editor-preview-toggle>Preview</button>{{end}}
+      <button type="button" class="button button-primary" data-editor-save>Save</button>
+    </div>
+  </div>
+  <p class="muted source-path"><code>{{.SourcePath}}</code></p>
+  <span class="editor-status" data-editor-status></span>
+  <div class="source-editor-host" data-editor-host></div>
+  <div class="source-preview markdown-body" data-editor-preview hidden></div>
+  <div class="editor-findings" data-editor-findings></div>
+</section>
+{{end}}

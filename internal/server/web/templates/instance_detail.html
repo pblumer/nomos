@@ -70,6 +70,8 @@
   </div>
 </section>
 
+{{if .SourcePath}}{{template "source_card" .}}{{end}}
+
 <div class="id-layout">
 
   {{/* Left column: metadata + sub-services */}}
