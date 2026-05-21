@@ -162,6 +162,14 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 	loc := repoDTO.Location
 	resource := strings.Join(parts[1:], "/")
 
+	// RESTful CRUD for user-defined types and their instances lives under
+	// .../types[/{id}[/instances]] and supports GET/POST/PUT/DELETE. The legacy
+	// POST .../fs/type and .../fs/type-form gestures stay handled below.
+	if len(parts) > 1 && parts[1] == "types" {
+		h.handleTypeRoutes(w, r, loc, parts[2:])
+		return
+	}
+
 	if resource == "" && r.Method == http.MethodDelete {
 		if err := app.DeleteRepository(h.cosmosPath, repoID); err != nil {
 			h.apiErr(w, err)
@@ -359,9 +367,6 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 	case resource == "git/tags":
 		dto, err := app.GitTags(h.cosmosPath, repoID)
 		h.writeOrErr(w, dto, err)
-	case resource == "types":
-		defs, err := app.ListTypeDefs(loc)
-		h.writeOrErr(w, map[string]any{"types": defs}, err)
 	case resource == "type-form":
 		v, ok, err := app.LoadTypeForm(loc, r.URL.Query().Get("type_id"))
 		if err != nil {

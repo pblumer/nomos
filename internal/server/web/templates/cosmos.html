@@ -634,6 +634,10 @@ async function fetch(input,init){
   return res;
 }
 function recordApiCall(c){apiCallSeq++;lastApiCall=c;renderApiInspector(c);}
+// app.js (loaded outside this IIFE) uses the native window.fetch and therefore
+// bypasses the wrapper above. Expose the recorder so the inline source editor
+// can surface its /api/v1/source calls in the inspector too.
+window.__nomosRecordApiCall=recordApiCall;
 function prettyJson(text){if(text==null||text==='')return null;try{return JSON.stringify(JSON.parse(text),null,2);}catch(_){return null;}}
 function renderApiInspector(c){
   const body=$('api-inspector-body');if(!body)return;
