@@ -73,16 +73,13 @@
     cmd: "{{ nomos_home }}/nomos cosmos init {{ nomos_cosmos_path }}"
     creates: "{{ nomos_cosmos_path }}/.nomos/cosmos.yaml"
 
-# The Docker container runs as UID/GID 10001. Cosmos files must be owned by 10001
-# so the server can write them (BPMN sync, self-upgrade, etc.).
-# Host nomos user UID 998 ≠ container UID 10001 — chown from host as root.
-- name: Fix cosmos ownership for Docker container (UID 10001)
-  file:
-    path: "{{ nomos_cosmos_path }}"
-    state: directory
-    owner: "10001"
-    group: "10001"
-    recurse: true
+# The container app user is "nomos" (Alpine adduser -S → UID 100, GID 101).
+# Bootstrap and binary-copy steps run as root, leaving files root-owned.
+# Fix ownership inside the container so the app can write to /workspace.
+- name: Fix workspace ownership inside Docker container (nomos user)
+  command: >
+    docker exec -u 0 nomos sh -c
+    'chown -R nomos:nomos /workspace'
 
 - name: Enable and start nomos service
   systemd:
