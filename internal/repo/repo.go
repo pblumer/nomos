@@ -136,6 +136,9 @@ func (r *Registry) CreateFilesystem(id, name string) (Repository, error) {
 	if err := os.WriteFile(storage.CosmosFile(loc), []byte(cosmosYAML), 0o644); err != nil {
 		return Repository{}, err
 	}
+	// Initialize git so the workspace is git-first from creation (best-effort:
+	// a missing git binary must not block filesystem repository creation).
+	_ = exec.Command("git", "-C", loc, "init", "-q").Run()
 	// Prefer a workspace-relative location so repositories.yaml stays portable;
 	// fall back to an absolute path when the repos base lives outside the
 	// workspace (e.g. NOMOS_REPOS_DIR points elsewhere).

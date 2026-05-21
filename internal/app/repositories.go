@@ -145,8 +145,7 @@ func serverContent(path string, m MountDTO) (*ServerDTO, []NamespaceTreeNodeDTO)
 			if loc == "" {
 				loc = path
 			}
-			ns, _ := BuildNamespaceTree(loc)
-			return ns.Root.Children
+			return BuildRepoTree(loc)
 		})
 	}
 	repos, err := fetchRemoteRepositories(m.Endpoint)

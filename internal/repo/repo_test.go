@@ -43,6 +43,10 @@ func TestCreateFilesystemDefaultLocationIsWorkspaceRelative(t *testing.T) {
 	if !containsID(NewLocalRegistry(ws).List(), "acme") {
 		t.Errorf("created repository not found in List")
 	}
+	// New repositories are git-first: a git database is initialized on creation.
+	if _, err := os.Stat(filepath.Join(want, ".git")); err != nil {
+		t.Errorf("expected git repository to be initialized: %v", err)
+	}
 }
 
 func TestCreateFilesystemHonorsReposDirOverride(t *testing.T) {

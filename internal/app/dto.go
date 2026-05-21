@@ -242,6 +242,7 @@ type NamespaceTreeNodeDTO struct {
 	Persisted            bool                       `json:"persisted"`
 	Virtual              bool                       `json:"virtual"`
 	IsFolder             bool                       `json:"isFolder,omitempty"`
+	AllowedTypes         []string                   `json:"allowedTypes,omitempty"`
 	CanCreateChildDomain bool                       `json:"canCreateChildDomain"`
 	CanAddService        bool                       `json:"canAddService"`
 	CanOpenDetails       bool                       `json:"canOpenDetails"`
@@ -805,6 +806,9 @@ type CreateDecisionRequest struct {
 	Context string          `json:"context,omitempty"`
 	Inputs  []DecisionIODTO `json:"inputs,omitempty"`
 	Outputs []DecisionIODTO `json:"outputs,omitempty"`
+	// Folder is an optional workspace-relative folder within the decisions root
+	// in which to create the decision (empty → the root itself).
+	Folder string `json:"folder,omitempty"`
 }
 
 // UpdateDecisionRequest is the partial update payload for a decision.
