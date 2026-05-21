@@ -712,10 +712,14 @@ func serveCmd() *cobra.Command {
 	c := &cobra.Command{Use: "serve", RunE: func(cmd *cobra.Command, args []string) error {
 		listen, _ := cmd.Flags().GetString("listen")
 		p, _ := cmd.Flags().GetString("path")
+		if checkUpdates, _ := cmd.Flags().GetBool("check-updates"); checkUpdates {
+			os.Setenv("NOMOS_UPDATE_CHECK", "1")
+		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Nomos server listening on http://%s\nCosmos path: %s\n", listen, p)
 		return http.ListenAndServe(listen, newServeMux(p))
 	}}
 	c.Flags().String("listen", "127.0.0.1:7373", "")
 	c.Flags().String("path", ".", "Path to the Cosmos repository")
+	c.Flags().Bool("check-updates", false, "Opt in to checking GitHub for newer Nomos releases (also via NOMOS_UPDATE_CHECK)")
 	return c
 }
