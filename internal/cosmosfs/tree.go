@@ -51,33 +51,18 @@ func LoadTree(path string) (Tree, error) {
 		return Tree{}, err
 	}
 	tree := Tree{Path: path, Cosmos: co}
-	services, err := scanServices(path)
+	res, err := classifyWalk(path)
 	if err != nil {
 		return Tree{}, err
 	}
-	tree.Services = services
-	decisions, err := scanDecisions(storage.DecisionsDir(path))
-	if err != nil {
-		return Tree{}, err
-	}
-	tree.Decisions = decisions
-	blueprints, err := scanBlueprints(path)
-	if err != nil {
-		return Tree{}, err
-	}
-	instances, err := scanInstances(path)
-	if err != nil {
-		return Tree{}, err
-	}
-	tree.Blueprints = blueprints
-	tree.Instances = instances
-	servicegraphs, err := scanServicegraphs(path)
-	if err != nil {
-		return Tree{}, err
-	}
-	tree.Servicegraphs = servicegraphs
+	tree.Services = res.services
+	tree.Decisions = res.decisions
+	tree.Blueprints = res.blueprints
+	tree.Instances = res.instances
+	tree.Servicegraphs = res.servicegraphs
 	return tree, nil
 }
+
 func firstNonEmpty(values ...string) string {
 	for _, v := range values {
 		if strings.TrimSpace(v) != "" {
@@ -87,185 +72,144 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-func scanBlueprints(path string) ([]BlueprintNode, error) {
-	return scanBlueprintArtifacts(filepath.Join(storage.CatalogDirForRead(path), "blueprints"))
-}
-
-func scanBlueprintArtifacts(root string) ([]BlueprintNode, error) {
-	var nodes []BlueprintNode
-	if _, err := os.Stat(root); err != nil {
-		if os.IsNotExist(err) {
-			return nodes, nil
-		}
-		return nil, err
-	}
-	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() || !isYAML(path) {
-			return nil
-		}
-		var b model.Blueprint
-		if err := fsx.ReadYAML(path, &b); err != nil {
-			return err
-		}
-		if b.Type == "product_blueprint" || b.Type == "service_blueprint" || b.Type == "product" || b.Type == "service" {
-			nodes = append(nodes, BlueprintNode{Path: path, Metadata: b})
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	sort.Slice(nodes, func(i, j int) bool { return nodes[i].Metadata.ID < nodes[j].Metadata.ID })
-	return nodes, nil
-}
-
-func scanInstances(path string) ([]InstanceNode, error) {
-	return scanInstanceArtifacts(filepath.Join(storage.CatalogDirForRead(path), "instances"))
-}
-
-func scanInstanceArtifacts(root string) ([]InstanceNode, error) {
-	var nodes []InstanceNode
-	if _, err := os.Stat(root); err != nil {
-		if os.IsNotExist(err) {
-			return nodes, nil
-		}
-		return nil, err
-	}
-	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() || !isYAML(path) {
-			return nil
-		}
-		var inst model.Instance
-		if err := fsx.ReadYAML(path, &inst); err != nil {
-			return err
-		}
-		if inst.Type == "product_instance" || inst.Type == "service_instance" {
-			nodes = append(nodes, InstanceNode{Path: path, Metadata: inst})
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	sort.Slice(nodes, func(i, j int) bool { return nodes[i].Metadata.ID < nodes[j].Metadata.ID })
-	return nodes, nil
-}
-
-func scanServicegraphs(path string) ([]ServicegraphNode, error) {
-	root := storage.CatalogServicegraphsDirForRead(path)
-	var nodes []ServicegraphNode
-	if _, err := os.Stat(root); err != nil {
-		if os.IsNotExist(err) {
-			return nodes, nil
-		}
-		return nil, err
-	}
-	ents, err := os.ReadDir(root)
-	if err != nil {
-		return nil, err
-	}
-	for _, e := range ents {
-		if e.IsDir() || !isYAML(e.Name()) {
-			continue
-		}
-		full := filepath.Join(root, e.Name())
-		var sg model.Servicegraph
-		if err := fsx.ReadYAML(full, &sg); err != nil {
-			return nil, err
-		}
-		if sg.Type == "servicegraph" {
-			nodes = append(nodes, ServicegraphNode{Path: full, Metadata: sg})
-		}
-	}
-	sort.Slice(nodes, func(i, j int) bool { return nodes[i].Metadata.ID < nodes[j].Metadata.ID })
-	return nodes, nil
-}
-
-// scanServices walks the services root recursively so that artifacts may be
-// freely organized into nested folders (ADR: folders are a human/git-facing
-// organization layer; identity is the stable service ID resolved via the index,
-// the directory path is only the derived address). Any directory that holds a
-// service.yaml is a service node; descent stops there so a service's own
-// subdirectories (capabilities/, etc.) are never mistaken for nested services.
-func scanServices(path string) ([]ServiceNode, error) {
-	root := storage.ServicesDir(path)
-	var nodes []ServiceNode
-	err := filepath.WalkDir(root, func(dir string, de os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			if os.IsNotExist(walkErr) {
-				return filepath.SkipAll
-			}
-			return walkErr
-		}
-		if !de.IsDir() {
-			return nil
-		}
-		yamlFile := filepath.Join(dir, "service.yaml")
-		if _, err := os.Stat(yamlFile); err != nil {
-			return nil
-		}
-		var s model.Service
-		if err := fsx.ReadYAML(yamlFile, &s); err != nil {
-			return err
-		}
-		nodes = append(nodes, ServiceNode{Path: dir, Metadata: s, Name: firstNonEmpty(s.Name, filepath.Base(dir))})
-		return filepath.SkipDir
-	})
-	if err != nil {
-		return nil, err
-	}
-	sort.Slice(nodes, func(i, j int) bool { return nodes[i].Name < nodes[j].Name })
-	return nodes, nil
-}
-
-// ScanDecisions reads all Decision artifacts under the given decisions root.
+// ScanDecisions reads all Decision artifacts under the given root, recognizing
+// them by content anywhere in the tree (folders are a free organization layer).
 func ScanDecisions(root string) ([]DecisionNode, error) {
-	return scanDecisions(root)
+	res, err := classifyWalk(root)
+	if err != nil {
+		return nil, err
+	}
+	return res.decisions, nil
 }
 
-// scanDecisions walks the decisions root recursively (free folder nesting).
-// A directory holding a decision.yaml is a decision node; descent stops there so
-// per-version snapshot directories (versions/<v>/decision.yaml) are not picked
-// up as separate decisions.
-func scanDecisions(root string) ([]DecisionNode, error) {
-	var nodes []DecisionNode
-	err := filepath.WalkDir(root, func(dir string, de os.DirEntry, walkErr error) error {
+type walkResult struct {
+	services      []ServiceNode
+	decisions     []DecisionNode
+	blueprints    []BlueprintNode
+	instances     []InstanceNode
+	servicegraphs []ServicegraphNode
+}
+
+func isBlueprintType(t string) bool {
+	switch t {
+	case "product_blueprint", "service_blueprint", "product", "service":
+		return true
+	}
+	return false
+}
+
+func isInstanceType(t string) bool {
+	return t == "product_instance" || t == "service_instance"
+}
+
+// configFiles are workspace metadata, never catalog artifacts.
+var configFiles = map[string]bool{
+	"cosmos.yaml":        true,
+	"repositories.yaml":  true,
+	"mounts.yaml":        true,
+	"keys.yaml":          true,
+	".nomos.folder.yaml": true,
+}
+
+// plumbingDirs lists derived directories that never hold authored artifacts.
+func plumbingDirs(root string) map[string]bool {
+	return map[string]bool{
+		filepath.Clean(storage.ReposDir(root)): true,
+		filepath.Clean(storage.CacheDir(root)): true,
+		filepath.Clean(storage.IndexDir(root)): true,
+	}
+}
+
+// classifyWalk walks root once and recognizes artifacts by content anywhere in
+// the tree (ADR: below the repository the git/filesystem layout is the source
+// of truth; identity follows artifact content, not a fixed directory). A
+// directory holding service.yaml is a service and a directory holding
+// decision.yaml is a decision — descent stops there so their internal layout
+// (capabilities/, version snapshots, …) is never rescanned. Remaining YAML
+// files are classified by their `type` field. The git database and derived
+// Nomos directories are skipped.
+func classifyWalk(root string) (walkResult, error) {
+	var res walkResult
+	if _, err := os.Stat(root); err != nil {
+		if os.IsNotExist(err) {
+			return res, nil
+		}
+		return res, err
+	}
+	skip := plumbingDirs(root)
+	err := filepath.WalkDir(root, func(p string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			if os.IsNotExist(walkErr) {
 				return filepath.SkipAll
 			}
 			return walkErr
 		}
-		if !de.IsDir() {
+		if d.IsDir() {
+			if d.Name() == ".git" || skip[filepath.Clean(p)] {
+				return filepath.SkipDir
+			}
+			if _, err := os.Stat(filepath.Join(p, "service.yaml")); err == nil {
+				var s model.Service
+				if err := fsx.ReadYAML(filepath.Join(p, "service.yaml"), &s); err != nil {
+					return err
+				}
+				res.services = append(res.services, ServiceNode{Path: p, Metadata: s, Name: firstNonEmpty(s.Name, filepath.Base(p))})
+				return filepath.SkipDir
+			}
+			if _, err := os.Stat(filepath.Join(p, "decision.yaml")); err == nil {
+				var dec model.Decision
+				if err := fsx.ReadYAML(filepath.Join(p, "decision.yaml"), &dec); err != nil {
+					return err
+				}
+				dn := DecisionNode{Path: p, Metadata: dec}
+				if _, err := os.Stat(filepath.Join(p, "decision.dmn")); err == nil {
+					dn.DMNPath = filepath.Join(p, "decision.dmn")
+				}
+				res.decisions = append(res.decisions, dn)
+				return filepath.SkipDir
+			}
 			return nil
 		}
-		yamlFile := filepath.Join(dir, "decision.yaml")
-		if _, err := os.Stat(yamlFile); err != nil {
+		if !isYAML(p) || configFiles[d.Name()] {
 			return nil
 		}
-		var d model.Decision
-		if err := fsx.ReadYAML(yamlFile, &d); err != nil {
-			return err
+		var probe struct {
+			Type string `yaml:"type"`
 		}
-		dn := DecisionNode{Path: dir, Metadata: d}
-		dmnFile := filepath.Join(dir, "decision.dmn")
-		if _, err := os.Stat(dmnFile); err == nil {
-			dn.DMNPath = dmnFile
+		if err := fsx.ReadYAML(p, &probe); err != nil {
+			return nil // unreadable / non-conforming YAML is not an artifact
 		}
-		nodes = append(nodes, dn)
-		return filepath.SkipDir
+		switch {
+		case isBlueprintType(probe.Type):
+			var b model.Blueprint
+			if err := fsx.ReadYAML(p, &b); err != nil {
+				return err
+			}
+			res.blueprints = append(res.blueprints, BlueprintNode{Path: p, Metadata: b})
+		case isInstanceType(probe.Type):
+			var inst model.Instance
+			if err := fsx.ReadYAML(p, &inst); err != nil {
+				return err
+			}
+			res.instances = append(res.instances, InstanceNode{Path: p, Metadata: inst})
+		case probe.Type == "servicegraph":
+			var sg model.Servicegraph
+			if err := fsx.ReadYAML(p, &sg); err != nil {
+				return err
+			}
+			res.servicegraphs = append(res.servicegraphs, ServicegraphNode{Path: p, Metadata: sg})
+		}
+		return nil
 	})
 	if err != nil {
-		return nil, err
+		return res, err
 	}
-	sort.Slice(nodes, func(i, j int) bool { return nodes[i].Metadata.ID < nodes[j].Metadata.ID })
-	return nodes, nil
+	sort.Slice(res.services, func(i, j int) bool { return res.services[i].Name < res.services[j].Name })
+	sort.Slice(res.decisions, func(i, j int) bool { return res.decisions[i].Metadata.ID < res.decisions[j].Metadata.ID })
+	sort.Slice(res.blueprints, func(i, j int) bool { return res.blueprints[i].Metadata.ID < res.blueprints[j].Metadata.ID })
+	sort.Slice(res.instances, func(i, j int) bool { return res.instances[i].Metadata.ID < res.instances[j].Metadata.ID })
+	sort.Slice(res.servicegraphs, func(i, j int) bool { return res.servicegraphs[i].Metadata.ID < res.servicegraphs[j].Metadata.ID })
+	return res, nil
 }
 
 func isYAML(path string) bool {

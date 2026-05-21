@@ -1,4 +1,4 @@
-# ADR-0029 (DRAFT): Dezentrales, selbstheilendes Verzeichnis (Membership-Gossip mit Leaf-Knoten)
+# ADR-0030 (DRAFT): Dezentrales, selbstheilendes Verzeichnis (Membership-Gossip mit Leaf-Knoten)
 
 ## Status
 

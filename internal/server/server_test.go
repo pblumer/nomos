@@ -114,6 +114,37 @@ func TestWebShellPagesAndAPI(t *testing.T) { /* same as before */
 	}
 }
 
+func TestVersionEndpointAndTopbar(t *testing.T) {
+	h := NewHandler(createTestCosmos(t))
+
+	rr := get(h, "/api/v1/version")
+	if rr.Code != 200 {
+		t.Fatalf("version status=%d", rr.Code)
+	}
+	var payload struct {
+		Version map[string]any `json:"version"`
+		Update  map[string]any `json:"update"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("version json invalid: %v", err)
+	}
+	if payload.Version["name"] != "nomos" {
+		t.Fatalf("unexpected version payload: %#v", payload.Version)
+	}
+	if _, ok := payload.Version["version"]; !ok {
+		t.Fatal("version field missing")
+	}
+	// Update check is opt-in: disabled unless NOMOS_UPDATE_CHECK is set.
+	if payload.Update["enabled"] != false {
+		t.Fatalf("expected update check disabled by default, got %#v", payload.Update["enabled"])
+	}
+
+	// The running version is rendered in the web shell topbar.
+	if body := get(h, "/").Body.String(); !strings.Contains(body, "version-badge") {
+		t.Fatal("topbar version badge missing from web shell")
+	}
+}
+
 func TestOpenAPIAndSwaggerRoutes(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
 

@@ -1,5 +1,7 @@
 # 013 - Dev- und Prod-Umgebung für MVP 0.1
 
+> **Superseded (2026-05-21):** Die hier beschriebene Zwei-Container-Topologie (FastAPI-Backend + React-Frontend hinter Caddy) entfällt. Nomos wird als einzelne Go-Binary betrieben (`nomos serve`, Port 7373), deployt via `deploy/ansible/` und Reverse-Proxy. Siehe [ADR-0029](adr/ADR-0029-consolidate-go-monolith-ui.md). Dieses Dokument bleibt als historischer Kontext erhalten.
+
 ## Zweck
 Dieses Dokument beschreibt den einfachsten, kontrollierten Aufbau für Entwicklungs- und Produktionsumgebung in MVP 0.1. Ziel ist ein schneller Start mit wenig Betriebsaufwand und klarer Erweiterbarkeit.
 

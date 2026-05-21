@@ -7,6 +7,13 @@ import (
 
 const DirName = ".nomos"
 
+// FolderMetaName is the per-folder metadata file that declares which artifact
+// types may be created in a folder (and optional label/description).
+const FolderMetaName = ".nomos.folder.yaml"
+
+// FolderMetaFile returns the metadata file path for a directory.
+func FolderMetaFile(dir string) string { return filepath.Join(dir, FolderMetaName) }
+
 func NomosDir(workspace string) string     { return filepath.Join(workspace, DirName) }
 func CosmosFile(workspace string) string   { return filepath.Join(NomosDir(workspace), "cosmos.yaml") }
 func ServicesDir(workspace string) string  { return filepath.Join(NomosDir(workspace), "services") }

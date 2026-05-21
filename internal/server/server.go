@@ -15,6 +15,7 @@ import (
 	"github.com/nomos/nomos/internal/app"
 	"github.com/nomos/nomos/internal/mcpserver"
 	"github.com/nomos/nomos/internal/model"
+	"github.com/nomos/nomos/internal/update"
 	versionpkg "github.com/nomos/nomos/internal/version"
 )
 
@@ -24,15 +25,17 @@ var webFS embed.FS
 type handler struct {
 	cosmosPath string
 	tmpl       *template.Template
+	updater    *update.Checker
 }
 
 func NewHandler(cosmosPath string) http.Handler {
 	t := template.Must(template.New("web").ParseFS(webFS, "web/templates/*.html"))
 	staticFS := must(fs.Sub(webFS, "web/static"))
-	h := &handler{cosmosPath: cosmosPath, tmpl: t}
+	h := &handler{cosmosPath: cosmosPath, tmpl: t, updater: update.NewChecker()}
 	mux := http.NewServeMux()
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 	mux.HandleFunc("/health", h.health)
+	mux.HandleFunc("/api/v1/version", h.apiVersion)
 	mux.HandleFunc("/openapi.json", h.openAPIJSON)
 	mux.HandleFunc("/swagger", h.swaggerUI)
 	mux.HandleFunc("/swagger/", h.swaggerUI)
@@ -83,6 +86,19 @@ func must[T any](v T, err error) T {
 func (h *handler) health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]string{"service": "nomos", "status": "ok", "version": versionpkg.Get().Version})
 }
+
+// apiVersion returns the running server's full build version and, when the
+// opt-in update check is enabled, whether a newer release is available.
+func (h *handler) apiVersion(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/version" {
+		http.NotFound(w, r)
+		return
+	}
+	writeJSON(w, 200, map[string]any{
+		"version": versionpkg.Get(),
+		"update":  h.updater.Status(),
+	})
+}
 func (h *handler) apiCosmos(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/api/v1/cosmos" {
 		http.NotFound(w, r)
@@ -128,10 +144,6 @@ func (h *handler) apiRepositories(w http.ResponseWriter, r *http.Request) {
 // non-scoped aliases use, so /api/v1/repositories/default/cosmos and
 // /api/v1/cosmos return identical payloads.
 func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
 	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/repositories/")
 	parts := strings.Split(rest, "/")
 	repoID := parts[0]
@@ -145,7 +157,68 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	loc := repoDTO.Location
-	switch resource := strings.Join(parts[1:], "/"); {
+	resource := strings.Join(parts[1:], "/")
+
+	if r.Method == http.MethodPost {
+		switch resource {
+		case "fs/folder":
+			var body struct {
+				Path         string   `json:"path"`
+				Label        string   `json:"label"`
+				Description  string   `json:"description"`
+				AllowedTypes []string `json:"allowed_types"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+				return
+			}
+			meta := &model.FolderMeta{Label: body.Label, Description: body.Description, AllowedTypes: body.AllowedTypes}
+			if err := app.CreateRepoFolder(loc, body.Path, meta); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusCreated, map[string]string{"path": body.Path})
+		case "fs/folder-meta":
+			var body struct {
+				Path         string   `json:"path"`
+				Label        string   `json:"label"`
+				Description  string   `json:"description"`
+				AllowedTypes []string `json:"allowed_types"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+				return
+			}
+			if err := app.SetFolderMeta(loc, body.Path, model.FolderMeta{Label: body.Label, Description: body.Description, AllowedTypes: body.AllowedTypes}); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"path": body.Path})
+		case "fs/move":
+			var body struct {
+				From  string `json:"from"`
+				ToDir string `json:"to_dir"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+				return
+			}
+			if err := app.MoveRepoNode(loc, body.From, body.ToDir); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"from": body.From, "to_dir": body.ToDir})
+		default:
+			http.NotFound(w, r)
+		}
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	switch {
 	case resource == "":
 		writeJSON(w, 200, repoDTO)
 	case resource == "cosmos":
@@ -328,7 +401,7 @@ func (h *handler) apiServices(w http.ResponseWriter, r *http.Request) {
 		h.writeOrErr(w, dto, err)
 	case http.MethodPost:
 		_ = r.ParseForm()
-		dto, err := app.AddService(h.cosmosPath, r.FormValue("name"), r.FormValue("owner"), r.FormValue("force") != "")
+		dto, err := app.AddServiceIn(h.cosmosPath, r.FormValue("dir"), r.FormValue("name"), r.FormValue("owner"), r.FormValue("force") != "")
 		if err != nil {
 			h.apiErr(w, err)
 			return
@@ -1149,7 +1222,7 @@ func (h *handler) apiBlueprints(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 			return
 		}
-		if err := app.CreateBlueprint(h.cosmosPath, bp); err != nil {
+		if err := app.CreateBlueprintIn(h.cosmosPath, r.URL.Query().Get("dir"), bp); err != nil {
 			h.apiErr(w, err)
 			return
 		}
@@ -1597,12 +1670,11 @@ func (h *handler) cosmosPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	doc, _ := app.DoctorCosmos(h.cosmosPath)
-	ns, _ := app.BuildNamespaceTree(h.cosmosPath)
-	bp, _ := app.ListBlueprints(h.cosmosPath)
+	ns, _ := app.BuildExplorerTreeForHost(h.cosmosPath, r.Host)
 	h.page(w, "cosmos", map[string]any{
 		"ActiveNav": "cosmos", "PageTitle": "Cosmos",
 		"Cosmos": co, "Doctor": doc,
-		"NamespaceTree": ns, "Blueprints": bp.Blueprints,
+		"NamespaceTree": ns,
 	})
 }
 func (h *handler) servicesPage(w http.ResponseWriter, r *http.Request) {
@@ -1809,7 +1881,7 @@ func (h *handler) apiPage(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) page(w http.ResponseWriter, name string, extra map[string]any) {
 	co, _ := app.GetCosmos(h.cosmosPath)
-	data := map[string]any{"CosmosPath": h.cosmosPath, "ShellCosmos": co, "ContentTemplate": "content_" + name}
+	data := map[string]any{"CosmosPath": h.cosmosPath, "ShellCosmos": co, "ContentTemplate": "content_" + name, "Version": versionpkg.Get(), "Update": h.updater.Status()}
 	for k, v := range extra {
 		data[k] = v
 	}
@@ -1820,7 +1892,7 @@ func (h *handler) page(w http.ResponseWriter, name string, extra map[string]any)
 func (h *handler) errorPage(w http.ResponseWriter, r *http.Request, code int, title, msg string) {
 	co, _ := app.GetCosmos(h.cosmosPath)
 	w.WriteHeader(code)
-	data := map[string]any{"CosmosPath": h.cosmosPath, "ShellCosmos": co, "PageTitle": title, "ActiveNav": "", "ContentTemplate": "content_error", "ErrorTitle": title, "Error": msg, "StatusCode": code}
+	data := map[string]any{"CosmosPath": h.cosmosPath, "ShellCosmos": co, "PageTitle": title, "ActiveNav": "", "ContentTemplate": "content_error", "ErrorTitle": title, "Error": msg, "StatusCode": code, "Version": versionpkg.Get(), "Update": h.updater.Status()}
 	if err := h.tmpl.ExecuteTemplate(w, "error", data); err != nil {
 		http.Error(w, err.Error(), 500)
 	}

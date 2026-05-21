@@ -34,7 +34,7 @@ func traceFileName(t model.DecisionTrace) string {
 
 // findDecisionNode locates a decision node by ID.
 func findDecisionNode(path, id string) (cosmosfs.DecisionNode, error) {
-	nodes, err := cosmosfs.ScanDecisions(decisionsRoot(path))
+	nodes, err := cosmosfs.ScanDecisions(path)
 	if err != nil {
 		return cosmosfs.DecisionNode{}, err
 	}

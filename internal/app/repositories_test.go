@@ -44,12 +44,13 @@ func TestBuildExplorerTreePlacesLocalServerUnderLocal(t *testing.T) {
 	if server == nil || server.Server == nil || !server.Server.Local {
 		t.Fatalf("expected local server node, got %+v", server)
 	}
-	// Single repository → content hangs directly under the server (no repo level).
-	if findTreeNode(*server, "service-parent", "Services") == nil {
-		t.Fatal("namespace tree should hang directly under the single-repo server")
+	// Single repository → the physical working directory is mirrored directly
+	// under the server (no repo level): .nomos/ → services/ → service leaves.
+	if findTreeNode(*server, "folder", "services") == nil {
+		t.Fatal("server content should mirror the physical services/ folder")
 	}
 	if findTreeNode(*server, "service", "user-account") == nil {
-		t.Fatal("server content should include services")
+		t.Fatal("server content should include service leaves")
 	}
 }
 

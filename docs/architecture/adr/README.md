@@ -36,7 +36,8 @@ ADRs record significant architectural and technology decisions. Each ADR capture
 | [ADR-0026](ADR-0026-DRAFT-domains-as-derived-naming-and-folders.md) | Domänen als abgeleitetes Naming, Ordner als Nomos-Namensräume | Proposed |
 | [ADR-0027](ADR-0027-DRAFT-folder-namespace-model.md) | Ordner-Modell als Namensraum in Nomos | Proposed |
 | [ADR-0028](ADR-0028-DRAFT-id-based-references.md) | ID-basierte Referenzen statt Adress-Strings | Proposed |
-| [ADR-0029](ADR-0029-DRAFT-decentralized-directory-gossip.md) | Dezentrales, selbstheilendes Verzeichnis (Membership-Gossip mit Leaf-Knoten) | Draft |
+| [ADR-0029](ADR-0029-consolidate-go-monolith-ui.md) | Konsolidierung auf den Go-Monolith mit eingebetteter Web-UI | Accepted |
+| [ADR-0030](ADR-0030-DRAFT-decentralized-directory-gossip.md) | Dezentrales, selbstheilendes Verzeichnis (Membership-Gossip mit Leaf-Knoten) | Draft |
 
 ## Superseded / legacy stubs
 
