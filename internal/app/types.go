@@ -60,6 +60,51 @@ func SaveTypeDef(loc string, def model.TypeDef) (model.TypeDef, error) {
 	return def, nil
 }
 
+// TypeFormName returns the .frm filename that holds the data-entry form for new
+// instances of a type (e.g. "task" -> "task_new.frm").
+func TypeFormName(typeID string) string { return typeID + "_new.frm" }
+
+// LoadTypeForm reads the data-entry form (.frm) for a type from .nomos/views.
+// ok is false when no form has been authored yet.
+func LoadTypeForm(loc, typeID string) (model.View, bool, error) {
+	typeID = strings.TrimSpace(typeID)
+	if !typeIDPattern.MatchString(typeID) {
+		return model.View{}, false, Error(CodeInvalidInput, "type id must be a lowercase slug (a-z, 0-9, -, _)", http.StatusBadRequest, nil)
+	}
+	path := filepath.Join(storage.ViewsDir(loc), TypeFormName(typeID))
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return model.View{}, false, nil
+		}
+		return model.View{}, false, Error(CodeInternalError, "failed to read form: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	var v model.View
+	if err := fsx.ReadYAML(path, &v); err != nil {
+		return model.View{}, false, Error(CodeInternalError, "failed to parse form: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return v, true, nil
+}
+
+// SaveTypeForm writes (creating .nomos/views if needed) the data-entry form for
+// a type to .nomos/views/<id>_new.frm. Engine defaults to "form-js".
+func SaveTypeForm(loc, typeID string, v model.View) (model.View, error) {
+	typeID = strings.TrimSpace(typeID)
+	if !typeIDPattern.MatchString(typeID) {
+		return model.View{}, Error(CodeInvalidInput, "type id must be a lowercase slug (a-z, 0-9, -, _)", http.StatusBadRequest, nil)
+	}
+	if v.Engine == "" {
+		v.Engine = "form-js"
+	}
+	dir := storage.ViewsDir(loc)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return model.View{}, Error(CodeInternalError, "failed to create views directory: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	if err := fsx.WriteYAML(filepath.Join(dir, TypeFormName(typeID)), v); err != nil {
+		return model.View{}, Error(CodeInternalError, "failed to write form: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return v, nil
+}
+
 // readTypeDef parses a type definition file; ok is false when the file is
 // missing or not valid YAML.
 func readTypeDef(path string) (model.TypeDef, bool) {

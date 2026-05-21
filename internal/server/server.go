@@ -299,6 +299,24 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			writeJSON(w, http.StatusCreated, saved)
+		case "fs/type-form":
+			var body struct {
+				TypeID        string             `json:"type_id"`
+				Engine        string             `json:"engine"`
+				EngineVersion string             `json:"engine_version"`
+				Schema        map[string]any     `json:"schema"`
+				Binding       *model.ViewBinding `json:"binding"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+				return
+			}
+			saved, err := app.SaveTypeForm(loc, body.TypeID, model.View{Engine: body.Engine, EngineVersion: body.EngineVersion, Schema: body.Schema, Binding: body.Binding})
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, saved)
 		case "fs/move":
 			var body struct {
 				From  string `json:"from"`
@@ -344,6 +362,13 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 	case resource == "types":
 		defs, err := app.ListTypeDefs(loc)
 		h.writeOrErr(w, map[string]any{"types": defs}, err)
+	case resource == "type-form":
+		v, ok, err := app.LoadTypeForm(loc, r.URL.Query().Get("type_id"))
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"exists": ok, "view": v})
 	default:
 		http.NotFound(w, r)
 	}
