@@ -114,7 +114,10 @@ func (r *Registry) CreateFilesystem(name string) (Repository, error) {
 	if _, err := os.Stat(loc); err == nil {
 		return Repository{}, fmt.Errorf("repository directory already exists: %s", loc)
 	}
-	if err := os.MkdirAll(filepath.Join(storage.NomosDir(loc), "domains"), 0o755); err != nil {
+	// Seed the views directory with the starter "capture a type" form (ADR-0024)
+	// so a freshly created repository ships a data-entry view. This MkdirAll also
+	// materialises .nomos itself, which cosmos.yaml and the type seeds rely on.
+	if err := seedDefaultViews(loc); err != nil {
 		return Repository{}, err
 	}
 	displayName := strings.TrimSpace(name)
@@ -229,6 +232,49 @@ func seedDefaultTypes(loc string) error {
 		}
 	}
 	return nil
+}
+
+// seedDefaultViews writes the starter "capture a type" form under .nomos/views
+// so a freshly created repository ships a data-entry view (ADR-0024). The file
+// follows the <typeID>_new.frm convention; here the captured type is "type",
+// i.e. the form that records a new type definition.
+func seedDefaultViews(loc string) error {
+	dir := storage.ViewsDir(loc)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	b, err := yaml.Marshal(defaultTypeCaptureView())
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "type_new.frm"), b, 0o644)
+}
+
+// viewSeed mirrors model.View's YAML shape; defined locally to keep the repo
+// package free of an app/model dependency for a one-off scaffold.
+type viewSeed struct {
+	Engine        string         `yaml:"engine,omitempty"`
+	EngineVersion string         `yaml:"engine_version,omitempty"`
+	Schema        map[string]any `yaml:"schema,omitempty"`
+}
+
+// defaultTypeCaptureView is the form-js view that records a new type definition.
+func defaultTypeCaptureView() viewSeed {
+	return viewSeed{
+		Engine:        "form-js",
+		EngineVersion: "1",
+		Schema: map[string]any{
+			"type": "default",
+			"components": []map[string]any{
+				{"type": "textfield", "key": "id", "label": "ID", "validate": map[string]any{"required": true}},
+				{"type": "textfield", "key": "label", "label": "Label"},
+				{"type": "textarea", "key": "description", "label": "Description"},
+				{"type": "textfield", "key": "icon", "label": "Icon"},
+				{"type": "textfield", "key": "viewer", "label": "Viewer"},
+				{"type": "textfield", "key": "editor", "label": "Editor"},
+			},
+		},
+	}
 }
 
 // typeDefSeed mirrors model.TypeDef's YAML shape; defined locally to keep the
