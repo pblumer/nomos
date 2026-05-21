@@ -128,10 +128,6 @@ func (h *handler) apiRepositories(w http.ResponseWriter, r *http.Request) {
 // non-scoped aliases use, so /api/v1/repositories/default/cosmos and
 // /api/v1/cosmos return identical payloads.
 func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
 	rest := strings.TrimPrefix(r.URL.Path, "/api/v1/repositories/")
 	parts := strings.Split(rest, "/")
 	repoID := parts[0]
@@ -145,7 +141,48 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	loc := repoDTO.Location
-	switch resource := strings.Join(parts[1:], "/"); {
+	resource := strings.Join(parts[1:], "/")
+
+	if r.Method == http.MethodPost {
+		switch resource {
+		case "fs/folder":
+			var body struct {
+				Path string `json:"path"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+				return
+			}
+			if err := app.CreateRepoFolder(loc, body.Path); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusCreated, map[string]string{"path": body.Path})
+		case "fs/move":
+			var body struct {
+				From  string `json:"from"`
+				ToDir string `json:"to_dir"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+				return
+			}
+			if err := app.MoveRepoNode(loc, body.From, body.ToDir); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"from": body.From, "to_dir": body.ToDir})
+		default:
+			http.NotFound(w, r)
+		}
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	switch {
 	case resource == "":
 		writeJSON(w, 200, repoDTO)
 	case resource == "cosmos":
