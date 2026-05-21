@@ -39,25 +39,32 @@ func (h *handler) resolveSourcePath(raw string) (string, bool) {
 	if raw == "" {
 		return "", false
 	}
+	if !allowedSourceExt[strings.ToLower(filepath.Ext(raw))] {
+		return "", false
+	}
 	root, err := filepath.Abs(h.cosmosPath)
 	if err != nil {
 		return "", false
 	}
-	// Artifact paths come straight from the DTOs, which carry the same base as
-	// cosmosPath (cwd-relative or absolute), so resolve against the working
-	// directory rather than re-joining the root.
-	target, err := filepath.Abs(raw)
-	if err != nil {
-		return "", false
+	// Two bases are tried: the working directory (artifact DTO paths carry the
+	// same base as cosmosPath) and the cosmos root itself (Explorer file nodes
+	// carry repo-relative paths). The first candidate that stays inside the
+	// root wins.
+	var candidates []string
+	if abs, err := filepath.Abs(raw); err == nil {
+		candidates = append(candidates, abs)
 	}
-	rel, err := filepath.Rel(root, target)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", false
+	if !filepath.IsAbs(raw) {
+		candidates = append(candidates, filepath.Join(root, raw))
 	}
-	if !allowedSourceExt[strings.ToLower(filepath.Ext(target))] {
-		return "", false
+	for _, target := range candidates {
+		rel, err := filepath.Rel(root, target)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			continue
+		}
+		return target, true
 	}
-	return target, true
+	return "", false
 }
 
 // apiSource reads (GET) or writes (PUT) a single artifact source file. GET with
