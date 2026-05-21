@@ -211,5 +211,137 @@ func CreateRepository(path, name string) (RepositoryDTO, error) {
 	if err != nil {
 		return RepositoryDTO{}, Error(CodeInvalidInput, err.Error(), http.StatusBadRequest, err)
 	}
-	return RepositoryDTO{ID: r.ID, Name: r.Name, Kind: string(r.Kind), Location: r.Location, DefaultBranch: r.DefaultBranch, Status: r.Status, Head: r.Head}, nil
+	return repoToDTO(r), nil
+}
+
+// DeleteRepository removes a filesystem repository from this server (ADR-0022).
+// The default repository cannot be removed.
+func DeleteRepository(path, id string) error {
+	if err := repo.NewLocalRegistry(path).Delete(id); err != nil {
+		return Error(CodeInvalidInput, err.Error(), http.StatusBadRequest, err)
+	}
+	return nil
+}
+
+// RenameRepository updates a repository's display name (ADR-0022).
+func RenameRepository(path, id, name string) (RepositoryDTO, error) {
+	r, err := repo.NewLocalRegistry(path).Rename(id, name)
+	if err != nil {
+		return RepositoryDTO{}, Error(CodeInvalidInput, err.Error(), http.StatusBadRequest, err)
+	}
+	return repoToDTO(r), nil
+}
+
+func repoToDTO(r repo.Repository) RepositoryDTO {
+	return RepositoryDTO{ID: r.ID, Name: r.Name, Kind: string(r.Kind), Location: r.Location, DefaultBranch: r.DefaultBranch, Status: r.Status, Head: r.Head}
+}
+
+// repoLocation resolves a repository id to its working directory on this server.
+func repoLocation(path, id string) (string, error) {
+	r, err := GetRepository(path, id)
+	if err != nil {
+		return "", err
+	}
+	if r.Location == "" {
+		return path, nil
+	}
+	return r.Location, nil
+}
+
+// GitStatus returns the working-tree state of repository id (ADR-0022 §3).
+func GitStatus(path, id string) (GitStatusDTO, error) {
+	loc, err := repoLocation(path, id)
+	if err != nil {
+		return GitStatusDTO{}, err
+	}
+	st, err := repo.Status(loc)
+	if err != nil {
+		return GitStatusDTO{}, Error(CodeInternalError, err.Error(), http.StatusInternalServerError, err)
+	}
+	out := GitStatusDTO{Initialized: st.Initialized, Branch: st.Branch, Head: st.Head, Dirty: st.Dirty, Files: []GitFileChangeDTO{}}
+	for _, f := range st.Files {
+		out.Files = append(out.Files, GitFileChangeDTO{Code: f.Code, Path: f.Path})
+	}
+	return out, nil
+}
+
+// CommitRepo stages and commits all working-tree changes of repository id.
+func CommitRepo(path, id, message string) (GitStatusDTO, error) {
+	loc, err := repoLocation(path, id)
+	if err != nil {
+		return GitStatusDTO{}, err
+	}
+	if err := repo.Commit(loc, message); err != nil {
+		return GitStatusDTO{}, Error(CodeInvalidInput, err.Error(), http.StatusBadRequest, err)
+	}
+	return GitStatus(path, id)
+}
+
+// GitBranches lists the local branches of repository id.
+func GitBranches(path, id string) (GitBranchesDTO, error) {
+	loc, err := repoLocation(path, id)
+	if err != nil {
+		return GitBranchesDTO{}, err
+	}
+	current, all, err := repo.Branches(loc)
+	if err != nil {
+		return GitBranchesDTO{}, Error(CodeInternalError, err.Error(), http.StatusInternalServerError, err)
+	}
+	if all == nil {
+		all = []string{}
+	}
+	return GitBranchesDTO{Current: current, Branches: all}, nil
+}
+
+// CreateBranch creates a branch in repository id, optionally switching to it.
+func CreateBranch(path, id, name string, checkout bool) (GitBranchesDTO, error) {
+	loc, err := repoLocation(path, id)
+	if err != nil {
+		return GitBranchesDTO{}, err
+	}
+	if err := repo.CreateBranch(loc, name, checkout); err != nil {
+		return GitBranchesDTO{}, Error(CodeInvalidInput, err.Error(), http.StatusBadRequest, err)
+	}
+	return GitBranches(path, id)
+}
+
+// CheckoutBranch switches repository id to an existing branch.
+func CheckoutBranch(path, id, name string) (GitBranchesDTO, error) {
+	loc, err := repoLocation(path, id)
+	if err != nil {
+		return GitBranchesDTO{}, err
+	}
+	if err := repo.Checkout(loc, name); err != nil {
+		return GitBranchesDTO{}, Error(CodeInvalidInput, err.Error(), http.StatusBadRequest, err)
+	}
+	return GitBranches(path, id)
+}
+
+// GitTags lists the tags (releases) of repository id.
+func GitTags(path, id string) (GitTagsDTO, error) {
+	loc, err := repoLocation(path, id)
+	if err != nil {
+		return GitTagsDTO{}, err
+	}
+	tags, err := repo.Tags(loc)
+	if err != nil {
+		return GitTagsDTO{}, Error(CodeInternalError, err.Error(), http.StatusInternalServerError, err)
+	}
+	out := GitTagsDTO{Tags: []GitTagDTO{}}
+	for _, t := range tags {
+		out.Tags = append(out.Tags, GitTagDTO{Name: t.Name, Message: t.Message})
+	}
+	return out, nil
+}
+
+// CreateTag creates a tag (release) at HEAD of repository id.
+func CreateTag(path, id, name, message string) (GitTagsDTO, error) {
+	loc, err := repoLocation(path, id)
+	if err != nil {
+		return GitTagsDTO{}, err
+	}
+	if err := repo.CreateTag(loc, name, message); err != nil {
+		return GitTagsDTO{}, Error(CodeInvalidInput, err.Error(), http.StatusBadRequest, err)
+	}
+	return GitTags(path, id)
 }

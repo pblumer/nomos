@@ -159,6 +159,67 @@ func (r *Registry) CreateFilesystem(id, name string) (Repository, error) {
 	return repo, nil
 }
 
+// Delete removes a configured filesystem repository: it drops the entry from
+// repositories.yaml and deletes its working directory. The default repository
+// (the active workspace) cannot be deleted.
+func (r *Registry) Delete(id string) error {
+	if id == LocalDefaultID {
+		return fmt.Errorf("the default repository cannot be deleted")
+	}
+	cfg, err := r.load()
+	if err != nil {
+		return err
+	}
+	idx := -1
+	for i, e := range cfg.Repositories {
+		if e.ID == id {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		return fmt.Errorf("repository %q not found", id)
+	}
+	loc := r.resolve(cfg.Repositories[idx].Location)
+	// Never delete the workspace itself, even if it was somehow registered.
+	if filepath.Clean(loc) != filepath.Clean(r.workspace) {
+		if err := os.RemoveAll(loc); err != nil {
+			return fmt.Errorf("failed to remove repository directory: %w", err)
+		}
+	}
+	cfg.Repositories = append(cfg.Repositories[:idx], cfg.Repositories[idx+1:]...)
+	return r.save(cfg)
+}
+
+// Rename updates a repository's display name. The id and on-disk location stay
+// stable so existing references keep resolving. The default repository's name
+// lives in its cosmos.yaml and is not editable here.
+func (r *Registry) Rename(id, name string) (Repository, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return Repository{}, fmt.Errorf("name is required")
+	}
+	if id == LocalDefaultID {
+		return Repository{}, fmt.Errorf("the default repository is renamed via its cosmos.yaml")
+	}
+	cfg, err := r.load()
+	if err != nil {
+		return Repository{}, err
+	}
+	for i, e := range cfg.Repositories {
+		if e.ID == id {
+			cfg.Repositories[i].Name = name
+			if err := r.save(cfg); err != nil {
+				return Repository{}, err
+			}
+			repo := Repository{ID: id, Name: name, Kind: e.Kind, Location: r.resolve(e.Location), Status: "unknown"}
+			probeGit(&repo)
+			return repo, nil
+		}
+	}
+	return Repository{}, fmt.Errorf("repository %q not found", id)
+}
+
 // seedDefaultTypes writes the built-in artifact types as editable definitions
 // under .nomos/types so a freshly created repository ships a starter set the
 // user can extend, adapt, or delete.

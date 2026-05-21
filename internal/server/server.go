@@ -162,8 +162,98 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 	loc := repoDTO.Location
 	resource := strings.Join(parts[1:], "/")
 
+	if resource == "" && r.Method == http.MethodDelete {
+		if err := app.DeleteRepository(h.cosmosPath, repoID); err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if resource == "" && (r.Method == http.MethodPatch || r.Method == http.MethodPut) {
+		var body struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+			return
+		}
+		dto, err := app.RenameRepository(h.cosmosPath, repoID, body.Name)
+		h.writeOrErr(w, dto, err)
+		return
+	}
+
 	if r.Method == http.MethodPost {
 		switch resource {
+		case "fs/delete":
+			var body struct {
+				Path string `json:"path"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+				return
+			}
+			if err := app.DeleteRepoNode(loc, body.Path); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"path": body.Path})
+		case "fs/rename":
+			var body struct {
+				Path string `json:"path"`
+				Name string `json:"name"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+				return
+			}
+			if err := app.RenameRepoNode(loc, body.Path, body.Name); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"path": body.Path, "name": body.Name})
+		case "git/commit":
+			var body struct {
+				Message string `json:"message"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+				return
+			}
+			dto, err := app.CommitRepo(h.cosmosPath, repoID, body.Message)
+			h.writeOrErr(w, dto, err)
+		case "git/branches":
+			var body struct {
+				Name     string `json:"name"`
+				Checkout bool   `json:"checkout"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+				return
+			}
+			dto, err := app.CreateBranch(h.cosmosPath, repoID, body.Name, body.Checkout)
+			h.writeOrErr(w, dto, err)
+		case "git/checkout":
+			var body struct {
+				Branch string `json:"branch"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+				return
+			}
+			dto, err := app.CheckoutBranch(h.cosmosPath, repoID, body.Branch)
+			h.writeOrErr(w, dto, err)
+		case "git/tags":
+			var body struct {
+				Name    string `json:"name"`
+				Message string `json:"message"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+				return
+			}
+			dto, err := app.CreateTag(h.cosmosPath, repoID, body.Name, body.Message)
+			h.writeOrErr(w, dto, err)
 		case "fs/folder":
 			var body struct {
 				Path         string   `json:"path"`
@@ -241,6 +331,15 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 		h.writeOrErr(w, dto, err)
 	case resource == "namespaces":
 		dto, err := app.BuildNamespaceTree(loc)
+		h.writeOrErr(w, dto, err)
+	case resource == "git/status":
+		dto, err := app.GitStatus(h.cosmosPath, repoID)
+		h.writeOrErr(w, dto, err)
+	case resource == "git/branches":
+		dto, err := app.GitBranches(h.cosmosPath, repoID)
+		h.writeOrErr(w, dto, err)
+	case resource == "git/tags":
+		dto, err := app.GitTags(h.cosmosPath, repoID)
 		h.writeOrErr(w, dto, err)
 	case resource == "types":
 		defs, err := app.ListTypeDefs(loc)
