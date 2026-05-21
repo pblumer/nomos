@@ -47,6 +47,12 @@ func TestCreateFilesystemDefaultLocationIsWorkspaceRelative(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(want, ".git")); err != nil {
 		t.Errorf("expected git repository to be initialized: %v", err)
 	}
+	// Starter type definitions are seeded under .nomos/types.
+	for _, id := range []string{"service", "decision", "blueprint", "product"} {
+		if _, err := os.Stat(filepath.Join(storage.TypesDir(want), id+".yaml")); err != nil {
+			t.Errorf("expected seeded type definition %q: %v", id, err)
+		}
+	}
 }
 
 func TestCreateFilesystemHonorsReposDirOverride(t *testing.T) {

@@ -289,6 +289,7 @@ type NamespaceTreeNodeDTO struct {
 	Capability           *ServiceCapabilityDTO      `json:"capability,omitempty"`
 	DataObject           *ServiceDataObjectDTO      `json:"dataObject,omitempty"`
 	UserInterface        *ServiceUserInterfaceDTO   `json:"userInterface,omitempty"`
+	TypeDef              *model.TypeDef             `json:"typeDef,omitempty"`
 	Children             []NamespaceTreeNodeDTO     `json:"children,omitempty"`
 }
 

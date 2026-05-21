@@ -51,7 +51,7 @@ func BuildRepoTree(loc string) []NamespaceTreeNodeDTO {
 		filepath.Clean(storage.IndexDir(loc)): true,
 	}
 
-	m := &repoMirror{services: services, decisions: decisions, blueprints: blueprints, skip: skip}
+	m := &repoMirror{services: services, decisions: decisions, blueprints: blueprints, skip: skip, typesDir: filepath.Clean(storage.TypesDir(loc))}
 	return m.children(loc, "")
 }
 
@@ -60,6 +60,7 @@ type repoMirror struct {
 	decisions  map[string]cosmosfs.DecisionNode
 	blueprints map[string]cosmosfs.BlueprintNode
 	skip       map[string]bool
+	typesDir   string
 }
 
 func (m *repoMirror) children(absDir, relDir string) []NamespaceTreeNodeDTO {
@@ -111,6 +112,26 @@ func (m *repoMirror) children(absDir, relDir string) []NamespaceTreeNodeDTO {
 
 		if name == storage.FolderMetaName {
 			continue
+		}
+		if filepath.Clean(absDir) == m.typesDir && isYAMLName(name) {
+			if def, ok := readTypeDef(abs); ok {
+				if def.ID == "" {
+					def.ID = strings.TrimSuffix(strings.TrimSuffix(name, ".yaml"), ".yml")
+				}
+				td := def
+				out = append(out, NamespaceTreeNodeDTO{
+					Label:          firstNonEmpty(def.Label, def.ID, name),
+					Kind:           "type-def",
+					Canonical:      def.ID,
+					TypeDef:        &td,
+					GitPath:        rel,
+					TreePath:       rel,
+					DisplayPath:    rel,
+					Persisted:      true,
+					CanOpenDetails: true,
+				})
+				continue
+			}
 		}
 		if bn, ok := m.blueprints[abs]; ok {
 			out = append(out, NamespaceTreeNodeDTO{

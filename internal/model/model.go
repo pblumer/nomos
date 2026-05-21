@@ -9,6 +9,41 @@ type FolderMeta struct {
 	AllowedTypes []string `yaml:"allowed_types,omitempty" json:"allowed_types,omitempty"`
 }
 
+// TypeDef is a user-defined artifact type stored as .nomos/types/<id>.yaml. It
+// describes how a custom type is composed: which properties it carries, which
+// viewer/editor renders it, how it is recognized in the working tree, and which
+// other types it may depend on. The built-in types (service, decision,
+// blueprint, product) stay available regardless of these definitions.
+type TypeDef struct {
+	ID          string `yaml:"id" json:"id"`
+	Label       string `yaml:"label,omitempty" json:"label,omitempty"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+	Icon        string `yaml:"icon,omitempty" json:"icon,omitempty"`
+	Viewer      string `yaml:"viewer,omitempty" json:"viewer,omitempty"`
+	Editor      string `yaml:"editor,omitempty" json:"editor,omitempty"`
+	// File is the filename that marks a directory as this type (e.g.
+	// "service.yaml"), used to recognize instances in the working tree.
+	File         string           `yaml:"file,omitempty" json:"file,omitempty"`
+	Properties   []TypeProperty   `yaml:"properties,omitempty" json:"properties,omitempty"`
+	Dependencies []TypeDependency `yaml:"dependencies,omitempty" json:"dependencies,omitempty"`
+}
+
+// TypeProperty is a single field in a TypeDef's schema.
+type TypeProperty struct {
+	Name        string `yaml:"name" json:"name"`
+	Type        string `yaml:"type,omitempty" json:"type,omitempty"`
+	Label       string `yaml:"label,omitempty" json:"label,omitempty"`
+	Required    bool   `yaml:"required,omitempty" json:"required,omitempty"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+}
+
+// TypeDependency declares an allowed relationship from this type to another.
+type TypeDependency struct {
+	Type     string `yaml:"type" json:"type"`
+	Relation string `yaml:"relation,omitempty" json:"relation,omitempty"`
+	Required bool   `yaml:"required,omitempty" json:"required,omitempty"`
+}
+
 type Cosmos struct {
 	ID        string        `yaml:"id" json:"id"`
 	Type      string        `yaml:"type" json:"type"`

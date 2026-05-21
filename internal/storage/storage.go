@@ -19,6 +19,9 @@ func CosmosFile(workspace string) string   { return filepath.Join(NomosDir(works
 func ServicesDir(workspace string) string  { return filepath.Join(NomosDir(workspace), "services") }
 func DecisionsDir(workspace string) string { return filepath.Join(NomosDir(workspace), "decisions") }
 func CatalogDir(workspace string) string   { return filepath.Join(NomosDir(workspace), "catalog") }
+
+// TypesDir holds user-defined artifact type definitions (.nomos/types/<id>.yaml).
+func TypesDir(workspace string) string { return filepath.Join(NomosDir(workspace), "types") }
 func ServicegraphsDir(workspace string) string {
 	return filepath.Join(NomosDir(workspace), "servicegraphs")
 }
