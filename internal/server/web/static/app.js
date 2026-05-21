@@ -1,4 +1,21 @@
 document.addEventListener('click', (e) => {
+  const toggle = e.target.closest('[data-sidebar-toggle]');
+  if (toggle) {
+    const order = ['expanded', 'collapsed', 'hidden'];
+    const root = document.documentElement;
+    const current = root.classList.contains('sidebar-hidden')
+      ? 'hidden'
+      : root.classList.contains('sidebar-collapsed')
+        ? 'collapsed'
+        : 'expanded';
+    const next = order[(order.indexOf(current) + 1) % order.length];
+    root.classList.toggle('sidebar-collapsed', next === 'collapsed');
+    root.classList.toggle('sidebar-hidden', next === 'hidden');
+    try {
+      localStorage.setItem('nomos-sidebar', next);
+    } catch (err) {}
+    return;
+  }
   const btn = e.target.closest('[data-copy]');
   if (!btn) return;
   const el = document.querySelector(btn.getAttribute('data-copy'));
