@@ -30,6 +30,7 @@ type apiEndpoint struct {
 var apiEndpoints = []apiEndpoint{
 	// System
 	{Method: "GET", Path: "/health", Tag: "System", Summary: "Health check", Description: "Returns Nomos service status and version.", Response: schemaRef("HealthResponse")},
+	{Method: "GET", Path: "/api/v1/version", Tag: "System", Summary: "Version info", Description: "Returns the running server's full build version, plus update availability when the opt-in update check (NOMOS_UPDATE_CHECK) is enabled.", Response: schemaRef("VersionResponse")},
 
 	// Cosmos
 	{Method: "GET", Path: "/api/v1/cosmos", Tag: "Cosmos", Summary: "Get Cosmos", Description: "Returns the current Cosmos metadata and aggregate counts.", Response: schemaRef("Cosmos")},
@@ -340,6 +341,9 @@ func formRequestBody(properties map[string]any) map[string]any {
 func schemas() map[string]any {
 	return map[string]any{
 		"HealthResponse":             object(map[string]any{"service": stringSchema("Service name."), "status": stringSchema("Health status."), "version": stringSchema("Nomos version.")}),
+		"VersionInfo":                object(map[string]any{"name": stringSchema("Service name."), "version": stringSchema("Build version."), "commit": stringSchema("Git commit."), "date": stringSchema("Build date."), "dirty": stringSchema("Working-tree state at build time."), "builtBy": stringSchema("Build origin."), "go": stringSchema("Go runtime version."), "os": stringSchema("Operating system."), "arch": stringSchema("CPU architecture.")}),
+		"UpdateStatus":               object(map[string]any{"enabled": map[string]any{"type": "boolean", "description": "True when the opt-in update check is active."}, "current": stringSchema("Running version."), "latest": stringSchema("Latest released version, when known."), "updateAvailable": map[string]any{"type": "boolean"}, "checkedAt": stringSchema("Timestamp of the last successful check."), "error": stringSchema("Last check error, if any.")}),
+		"VersionResponse":            object(map[string]any{"version": schemaRef("VersionInfo"), "update": schemaRef("UpdateStatus")}),
 		"Cosmos":                     object(map[string]any{"path": stringSchema("Filesystem path."), "id": stringSchema("Cosmos id."), "name": stringSchema("Cosmos name."), "version": stringSchema("Cosmos version."), "status": stringSchema("Cosmos status."), "owner": stringSchema("Owner."), "serviceCount": map[string]any{"type": "integer"}, "decisionCount": map[string]any{"type": "integer"}}),
 		"Repository":                 object(map[string]any{"id": stringSchema("Repository id, unique per server."), "name": stringSchema("Display name."), "kind": stringSchema("filesystem, github, or gitbucket."), "location": stringSchema("Filesystem path or remote URL."), "default_branch": stringSchema("Default git branch."), "status": stringSchema("clean, dirty, unreachable, or unknown."), "head": stringSchema("Short HEAD commit hash.")}),
 		"RepositoriesResponse":       object(map[string]any{"repositories": arrayOf(schemaRef("Repository"))}),

@@ -1,5 +1,7 @@
 # 012 - Technologie-Stack fuer MVP 0.1
 
+> **Superseded (2026-05-21):** Der hier festgehaltene Python/FastAPI-Backend- und React/Vite-Frontend-Stack wurde zugunsten eines Go-Monolithen mit server-gerenderter, eingebetteter Web-UI (`nomos serve`) aufgegeben. Siehe [ADR-0029](adr/ADR-0029-consolidate-go-monolith-ui.md). Dieses Dokument bleibt als historischer Kontext erhalten.
+
 ## Zweck
 Dieses Dokument fixiert den initial gewaehlten Technologie-Stack fuer die Umsetzung von MVP 0.1. Es ergaenzt die Architekturgrundlagen um konkrete Framework-Entscheidungen fuer Backend, Frontend, Validierung, Git-Integration und Delivery.
 

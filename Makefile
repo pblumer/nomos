@@ -1,4 +1,4 @@
-.PHONY: help test vet fmt build run demo validate-demo serve-demo clean version version-json release-build validate-self-model
+.PHONY: help test vet fmt build run demo validate-demo serve-demo clean version version-json release-build validate-self-model assets-codemirror
 
 VERSION ?= dev
 BUILT_BY ?= source
@@ -44,5 +44,7 @@ validate-self-model: build
 	  ./bin/nomos validate --path $$tmp && \
 	  ./bin/nomos self status --path $$tmp && \
 	  rm -rf $$tmp
+assets-codemirror:
+	cd tools/cmbuild && npm install && npm run build
 clean:
 	rm -rf ./bin ./tmp

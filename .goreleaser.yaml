@@ -6,7 +6,7 @@ builds:
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
     ldflags:
-      - -s -w -X github.com/nomos/nomos/internal/cli.version={{.Version}} -X github.com/nomos/nomos/internal/cli.commit={{.Commit}} -X github.com/nomos/nomos/internal/cli.date={{.Date}}
+      - -s -w -X github.com/nomos/nomos/internal/version.Version={{.Version}} -X github.com/nomos/nomos/internal/version.Commit={{.Commit}} -X github.com/nomos/nomos/internal/version.Date={{.Date}} -X github.com/nomos/nomos/internal/version.BuiltBy=goreleaser
 archives:
   - formats: [tar.gz]
 checksum:
