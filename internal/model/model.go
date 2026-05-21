@@ -1,5 +1,14 @@
 package model
 
+// FolderMeta is the optional per-folder metadata (.nomos.folder.yaml) that
+// declares which artifact types may be created in a folder. An empty
+// AllowedTypes means no restriction (permissive default).
+type FolderMeta struct {
+	Label        string   `yaml:"label,omitempty" json:"label,omitempty"`
+	Description  string   `yaml:"description,omitempty" json:"description,omitempty"`
+	AllowedTypes []string `yaml:"allowed_types,omitempty" json:"allowed_types,omitempty"`
+}
+
 type Cosmos struct {
 	ID        string        `yaml:"id" json:"id"`
 	Type      string        `yaml:"type" json:"type"`

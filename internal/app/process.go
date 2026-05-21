@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nomos/nomos/internal/cosmosfs"
 	"github.com/nomos/nomos/internal/dmn"
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/idgen"
@@ -866,30 +867,23 @@ func findDecisionByID(cosmosPath, id string) *model.Decision {
 	if cosmosPath == "" || id == "" {
 		return nil
 	}
-	root := storage.DecisionsDir(cosmosPath)
-	var found *model.Decision
-	_ = filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
-		if err != nil || found != nil {
-			return err
+	nodes, err := cosmosfs.ScanDecisions(cosmosPath)
+	if err != nil {
+		return nil
+	}
+	for _, n := range nodes {
+		if n.Metadata.ID != id {
+			continue
 		}
-		if !d.IsDir() {
-			return nil
-		}
-		for _, name := range []string{id + ".yaml", "decision.yaml"} {
-			var dec model.Decision
-			if fsx.ReadYAML(filepath.Join(p, name), &dec) == nil && dec.ID == id {
-				if dec.DMNFile != "" {
-					if dmnOuts := dmnOutputsFromFile(filepath.Join(p, dec.DMNFile), id); len(dmnOuts) > 0 {
-						dec.Outputs = dmnOuts
-					}
-				}
-				found = &dec
-				return filepath.SkipAll
+		dec := n.Metadata
+		if dec.DMNFile != "" {
+			if dmnOuts := dmnOutputsFromFile(filepath.Join(n.Path, dec.DMNFile), id); len(dmnOuts) > 0 {
+				dec.Outputs = dmnOuts
 			}
 		}
-		return nil
-	})
-	return found
+		return &dec
+	}
+	return nil
 }
 
 // dmnOutputsFromFile parses a DMN file and returns the output columns of the decision

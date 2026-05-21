@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/nomos/nomos/internal/cosmosfs"
+	"github.com/nomos/nomos/internal/fsx"
+	"github.com/nomos/nomos/internal/model"
 	"github.com/nomos/nomos/internal/storage"
 )
 
@@ -91,13 +93,15 @@ func (m *repoMirror) children(absDir, relDir string) []NamespaceTreeNodeDTO {
 				out = append(out, m.decisionNode(dn, rel))
 				continue
 			}
+			meta := readFolderMeta(abs)
 			out = append(out, NamespaceTreeNodeDTO{
-				Label:          name,
+				Label:          firstNonEmpty(meta.Label, name),
 				Kind:           "folder",
 				IsFolder:       true,
 				GitPath:        rel,
 				TreePath:       rel,
 				DisplayPath:    rel,
+				AllowedTypes:   meta.AllowedTypes,
 				Persisted:      true,
 				CanOpenDetails: true,
 				Children:       m.children(abs, rel),
@@ -105,6 +109,9 @@ func (m *repoMirror) children(absDir, relDir string) []NamespaceTreeNodeDTO {
 			continue
 		}
 
+		if name == storage.FolderMetaName {
+			continue
+		}
 		if bn, ok := m.blueprints[abs]; ok {
 			out = append(out, NamespaceTreeNodeDTO{
 				Label:          firstNonEmpty(bn.Metadata.Name, bn.Metadata.ID, name),
@@ -153,22 +160,19 @@ func safeRepoPath(loc, rel string) (string, error) {
 	return filepath.Join(loc, filepath.FromSlash(rel)), nil
 }
 
-// resolveArtifactDir validates that the workspace-relative folder lies within
-// the artifact root (e.g. .nomos/services) and returns the absolute creation
-// directory. An empty folder means the root itself. This lets predefined
-// artifacts be created inside a freely-organized subfolder of their root while
-// staying discoverable by the root-scoped scanners.
-func resolveArtifactDir(workspace, root, folderRel string) (string, error) {
-	rootClean := filepath.Clean(root)
+// resolveArtifactDir returns the absolute directory in which to create an
+// artifact. An empty folder falls back to defaultDir (the type's conventional
+// home); otherwise the artifact is created in the chosen workspace-relative
+// folder. Recognition is content-driven, so any existing folder in the repo is
+// a valid home (folders are a free organization layer); which *types* a folder
+// accepts is governed separately by its .nomos.folder.yaml metadata.
+func resolveArtifactDir(workspace, defaultDir, folderRel string) (string, error) {
 	if strings.TrimSpace(folderRel) == "" {
-		return rootClean, nil
+		return filepath.Clean(defaultDir), nil
 	}
 	abs, err := safeRepoPath(workspace, folderRel)
 	if err != nil {
 		return "", err
-	}
-	if abs != rootClean && !strings.HasPrefix(abs, rootClean+string(filepath.Separator)) {
-		return "", Error(CodeInvalidInput, "target folder is outside the artifact root", http.StatusBadRequest, nil)
 	}
 	if fi, err := os.Stat(abs); err != nil || !fi.IsDir() {
 		return "", Error(CodeInvalidInput, "target folder does not exist: "+folderRel, http.StatusBadRequest, err)
@@ -178,7 +182,8 @@ func resolveArtifactDir(workspace, root, folderRel string) (string, error) {
 
 // CreateRepoFolder creates a directory at the given repository-relative path,
 // mirroring the create-folder gesture in the Explorer tree onto the filesystem.
-func CreateRepoFolder(loc, rel string) error {
+// When meta is non-nil it is written as the folder's .nomos.folder.yaml.
+func CreateRepoFolder(loc, rel string, meta *model.FolderMeta) error {
 	abs, err := safeRepoPath(loc, rel)
 	if err != nil {
 		return err
@@ -189,7 +194,65 @@ func CreateRepoFolder(loc, rel string) error {
 	if err := os.MkdirAll(abs, 0o755); err != nil {
 		return Error(CodeInternalError, "failed to create folder: "+err.Error(), http.StatusInternalServerError, err)
 	}
+	if meta != nil && (meta.Label != "" || meta.Description != "" || len(meta.AllowedTypes) > 0) {
+		if err := fsx.WriteYAML(storage.FolderMetaFile(abs), *meta); err != nil {
+			return Error(CodeInternalError, "failed to write folder metadata: "+err.Error(), http.StatusInternalServerError, err)
+		}
+	}
 	return nil
+}
+
+// readFolderMeta returns the folder's metadata, or an empty value when no
+// .nomos.folder.yaml is present (permissive default).
+func readFolderMeta(absDir string) model.FolderMeta {
+	var meta model.FolderMeta
+	_ = fsx.ReadYAML(storage.FolderMetaFile(absDir), &meta)
+	return meta
+}
+
+// SetFolderMeta writes (or clears) a folder's .nomos.folder.yaml.
+func SetFolderMeta(loc, rel string, meta model.FolderMeta) error {
+	abs, err := safeRepoPath(loc, rel)
+	if err != nil {
+		return err
+	}
+	if fi, err := os.Stat(abs); err != nil || !fi.IsDir() {
+		return Error(CodeInvalidInput, "folder does not exist: "+rel, http.StatusBadRequest, err)
+	}
+	if meta.Label == "" && meta.Description == "" && len(meta.AllowedTypes) == 0 {
+		err := os.Remove(storage.FolderMetaFile(abs))
+		if err != nil && !os.IsNotExist(err) {
+			return Error(CodeInternalError, "failed to clear folder metadata: "+err.Error(), http.StatusInternalServerError, err)
+		}
+		return nil
+	}
+	if err := fsx.WriteYAML(storage.FolderMetaFile(abs), meta); err != nil {
+		return Error(CodeInternalError, "failed to write folder metadata: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return nil
+}
+
+// folderAllows enforces a folder's allowed_types when creating an artifact.
+// Permissive default: the conventional default location (empty folderRel) and
+// folders without metadata accept every type.
+func folderAllows(loc, folderRel, artifactType string) error {
+	if strings.TrimSpace(folderRel) == "" {
+		return nil
+	}
+	abs, err := safeRepoPath(loc, folderRel)
+	if err != nil {
+		return err
+	}
+	meta := readFolderMeta(abs)
+	if len(meta.AllowedTypes) == 0 {
+		return nil
+	}
+	for _, t := range meta.AllowedTypes {
+		if t == artifactType {
+			return nil
+		}
+	}
+	return Error(CodeInvalidInput, "folder does not allow creating "+artifactType+" (allowed: "+strings.Join(meta.AllowedTypes, ", ")+")", http.StatusBadRequest, nil)
 }
 
 // MoveRepoNode moves the file or folder at fromRel into the folder at toDirRel,

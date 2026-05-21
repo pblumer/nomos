@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/nomos/nomos/internal/model"
 	"github.com/nomos/nomos/internal/storage"
 )
 
@@ -86,18 +87,18 @@ func TestBuildRepoTreeMirrorsPhysicalLayout(t *testing.T) {
 func TestCreateRepoFolderAndMove(t *testing.T) {
 	p := createAppTestCosmos(t)
 
-	if err := CreateRepoFolder(p, ".nomos/services/team-a"); err != nil {
+	if err := CreateRepoFolder(p, ".nomos/services/team-a", nil); err != nil {
 		t.Fatalf("CreateRepoFolder: %v", err)
 	}
 	if fi, err := os.Stat(filepath.Join(p, ".nomos", "services", "team-a")); err != nil || !fi.IsDir() {
 		t.Fatalf("folder not created: %v", err)
 	}
 	// Duplicate creation is rejected.
-	if err := CreateRepoFolder(p, ".nomos/services/team-a"); err == nil {
+	if err := CreateRepoFolder(p, ".nomos/services/team-a", nil); err == nil {
 		t.Fatal("expected conflict creating an existing folder")
 	}
 	// Path traversal is rejected.
-	if err := CreateRepoFolder(p, "../escape"); err == nil {
+	if err := CreateRepoFolder(p, "../escape", nil); err == nil {
 		t.Fatal("expected traversal to be rejected")
 	}
 	if _, err := os.Stat(filepath.Join(filepath.Dir(p), "escape")); err == nil {
@@ -123,7 +124,7 @@ func TestCreateRepoFolderAndMove(t *testing.T) {
 
 func TestAddServiceInFolder(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if err := CreateRepoFolder(p, ".nomos/services/team-a"); err != nil {
+	if err := CreateRepoFolder(p, ".nomos/services/team-a", nil); err != nil {
 		t.Fatal(err)
 	}
 	// Created inside the chosen subfolder of the services root.
@@ -141,9 +142,37 @@ func TestAddServiceInFolder(t *testing.T) {
 	if findChild(teamA.Children, "service", "billing") == nil {
 		t.Fatal("created service not discoverable in mirror")
 	}
-	// A folder outside the services root is rejected.
-	if _, err := AddServiceIn(p, ".nomos/catalog", "oops", "X", false); err == nil {
-		t.Fatal("expected rejection for folder outside services root")
+	// A non-existent target folder is rejected.
+	if _, err := AddServiceIn(p, ".nomos/services/ghost", "oops", "X", false); err == nil {
+		t.Fatal("expected rejection for non-existent folder")
+	}
+}
+
+func TestFolderMetaRestrictsArtifactTypes(t *testing.T) {
+	p := createAppTestCosmos(t)
+	// A folder that only allows decisions.
+	meta := &model.FolderMeta{Label: "Rules", AllowedTypes: []string{"decision"}}
+	if err := CreateRepoFolder(p, ".nomos/services/rules", meta); err != nil {
+		t.Fatal(err)
+	}
+	// Service creation is rejected by the folder's allowed_types.
+	if _, err := AddServiceIn(p, ".nomos/services/rules", "nope", "X", false); err == nil {
+		t.Fatal("expected service creation to be rejected by folder metadata")
+	}
+	// A permissive folder (no metadata) accepts the service.
+	if err := CreateRepoFolder(p, ".nomos/services/free", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AddServiceIn(p, ".nomos/services/free", "ok", "X", false); err != nil {
+		t.Fatalf("permissive folder should accept service: %v", err)
+	}
+	// The mirror surfaces the restricting folder's allowed types and label.
+	nodes := BuildRepoTree(p)
+	nomos := findChild(nodes, "folder", ".nomos")
+	services := findChild(nomos.Children, "folder", "services")
+	rules := findChild(services.Children, "folder", "Rules")
+	if rules == nil || len(rules.AllowedTypes) != 1 || rules.AllowedTypes[0] != "decision" {
+		t.Fatalf("expected Rules folder with allowed_types [decision], got %+v", rules)
 	}
 }
 

@@ -1115,6 +1115,9 @@ func AddServiceIn(path, folderRel, name, owner string, force bool) (ServiceDTO, 
 	if strings.TrimSpace(owner) == "" {
 		owner = "unknown"
 	}
+	if err := folderAllows(path, folderRel, "service"); err != nil {
+		return ServiceDTO{}, err
+	}
 	base, err := resolveArtifactDir(path, storage.ServicesDir(path), folderRel)
 	if err != nil {
 		return ServiceDTO{}, err
@@ -1250,6 +1253,13 @@ func CreateBlueprintIn(path, folderRel string, bp model.Blueprint) error {
 		}
 	}
 
+	artifactType := "blueprint"
+	if bp.Type == "product_blueprint" {
+		artifactType = "product"
+	}
+	if err := folderAllows(path, folderRel, artifactType); err != nil {
+		return err
+	}
 	var dir string
 	if strings.TrimSpace(folderRel) != "" {
 		resolved, err := resolveArtifactDir(path, filepath.Join(storage.CatalogDir(path), "blueprints"), folderRel)

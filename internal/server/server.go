@@ -147,17 +147,37 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 		switch resource {
 		case "fs/folder":
 			var body struct {
-				Path string `json:"path"`
+				Path         string   `json:"path"`
+				Label        string   `json:"label"`
+				Description  string   `json:"description"`
+				AllowedTypes []string `json:"allowed_types"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
 				return
 			}
-			if err := app.CreateRepoFolder(loc, body.Path); err != nil {
+			meta := &model.FolderMeta{Label: body.Label, Description: body.Description, AllowedTypes: body.AllowedTypes}
+			if err := app.CreateRepoFolder(loc, body.Path, meta); err != nil {
 				h.apiErr(w, err)
 				return
 			}
 			writeJSON(w, http.StatusCreated, map[string]string{"path": body.Path})
+		case "fs/folder-meta":
+			var body struct {
+				Path         string   `json:"path"`
+				Label        string   `json:"label"`
+				Description  string   `json:"description"`
+				AllowedTypes []string `json:"allowed_types"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+				return
+			}
+			if err := app.SetFolderMeta(loc, body.Path, model.FolderMeta{Label: body.Label, Description: body.Description, AllowedTypes: body.AllowedTypes}); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"path": body.Path})
 		case "fs/move":
 			var body struct {
 				From  string `json:"from"`

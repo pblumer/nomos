@@ -24,7 +24,7 @@ func decisionsRoot(path string) string {
 }
 
 func ListDecisions(path string) (DecisionsDTO, error) {
-	nodes, err := cosmosfs.ScanDecisions(decisionsRoot(path))
+	nodes, err := cosmosfs.ScanDecisions(path)
 	if err != nil {
 		return DecisionsDTO{}, err
 	}
@@ -37,7 +37,7 @@ func ListDecisions(path string) (DecisionsDTO, error) {
 }
 
 func GetDecision(path, id string) (DecisionDTO, error) {
-	nodes, err := cosmosfs.ScanDecisions(decisionsRoot(path))
+	nodes, err := cosmosfs.ScanDecisions(path)
 	if err != nil {
 		return DecisionDTO{}, err
 	}
@@ -67,7 +67,10 @@ func GetDecision(path, id string) (DecisionDTO, error) {
 func CreateDecision(path string, req CreateDecisionRequest) (DecisionDTO, error) {
 	id := strings.TrimSpace(req.ID)
 	if id == "" {
-		id = nextDecisionID(decisionsRoot(path))
+		id = nextDecisionID(path)
+	}
+	if err := folderAllows(path, req.Folder, "decision"); err != nil {
+		return DecisionDTO{}, err
 	}
 	base, err := resolveArtifactDir(path, decisionsRoot(path), req.Folder)
 	if err != nil {
@@ -104,7 +107,7 @@ func CreateDecision(path string, req CreateDecisionRequest) (DecisionDTO, error)
 }
 
 func UpdateDecision(path, id string, req UpdateDecisionRequest) (DecisionDTO, error) {
-	nodes, err := cosmosfs.ScanDecisions(decisionsRoot(path))
+	nodes, err := cosmosfs.ScanDecisions(path)
 	if err != nil {
 		return DecisionDTO{}, err
 	}
@@ -166,15 +169,20 @@ func UpdateDecision(path, id string, req UpdateDecisionRequest) (DecisionDTO, er
 }
 
 func DeleteDecision(path, id string) error {
-	dir := filepath.Join(decisionsRoot(path), id)
-	if _, err := os.Stat(dir); err != nil {
-		return Error(CodeInvalidInput, "Decision not found: "+id, http.StatusNotFound, nil)
+	nodes, err := cosmosfs.ScanDecisions(path)
+	if err != nil {
+		return err
 	}
-	return os.RemoveAll(dir)
+	for _, n := range nodes {
+		if n.Metadata.ID == id {
+			return os.RemoveAll(n.Path)
+		}
+	}
+	return Error(CodeInvalidInput, "Decision not found: "+id, http.StatusNotFound, nil)
 }
 
 func GetDecisionDMN(path, id string) (string, error) {
-	nodes, err := cosmosfs.ScanDecisions(decisionsRoot(path))
+	nodes, err := cosmosfs.ScanDecisions(path)
 	if err != nil {
 		return "", err
 	}
@@ -195,7 +203,7 @@ func GetDecisionDMN(path, id string) (string, error) {
 }
 
 func UpdateDecisionDMN(path, id, dmnXML string) (DecisionDTO, error) {
-	nodes, err := cosmosfs.ScanDecisions(decisionsRoot(path))
+	nodes, err := cosmosfs.ScanDecisions(path)
 	if err != nil {
 		return DecisionDTO{}, err
 	}
@@ -513,7 +521,7 @@ func decisionIOsFromDTO(dtos []DecisionIODTO) []model.DecisionIO {
 // the full DMN 1.5 Decision Requirements Graph as Nomos types. Used by the
 // Cosmos Explorer to render decision metadata around the dmn-js editor.
 func GetDecisionDefinitions(path, id string) (*model.DMNDefinitions, error) {
-	nodes, err := cosmosfs.ScanDecisions(decisionsRoot(path))
+	nodes, err := cosmosfs.ScanDecisions(path)
 	if err != nil {
 		return nil, err
 	}
@@ -545,7 +553,7 @@ type EvaluateDecisionRequest struct {
 // EvaluateDecision loads the DMN file for a decision and evaluates it against the provided inputs.
 // Note: callers that need a persisted audit trail should use EvaluateDecisionWithTrace.
 func EvaluateDecision(path, id string, req EvaluateDecisionRequest) (*dmn.Result, error) {
-	nodes, err := cosmosfs.ScanDecisions(decisionsRoot(path))
+	nodes, err := cosmosfs.ScanDecisions(path)
 	if err != nil {
 		return nil, err
 	}
