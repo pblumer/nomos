@@ -15,6 +15,7 @@ import (
 	"github.com/nomos/nomos/internal/app"
 	"github.com/nomos/nomos/internal/mcpserver"
 	"github.com/nomos/nomos/internal/model"
+	"github.com/nomos/nomos/internal/update"
 	versionpkg "github.com/nomos/nomos/internal/version"
 )
 
@@ -24,15 +25,17 @@ var webFS embed.FS
 type handler struct {
 	cosmosPath string
 	tmpl       *template.Template
+	updater    *update.Checker
 }
 
 func NewHandler(cosmosPath string) http.Handler {
 	t := template.Must(template.New("web").ParseFS(webFS, "web/templates/*.html"))
 	staticFS := must(fs.Sub(webFS, "web/static"))
-	h := &handler{cosmosPath: cosmosPath, tmpl: t}
+	h := &handler{cosmosPath: cosmosPath, tmpl: t, updater: update.NewChecker()}
 	mux := http.NewServeMux()
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 	mux.HandleFunc("/health", h.health)
+	mux.HandleFunc("/api/v1/version", h.apiVersion)
 	mux.HandleFunc("/openapi.json", h.openAPIJSON)
 	mux.HandleFunc("/swagger", h.swaggerUI)
 	mux.HandleFunc("/swagger/", h.swaggerUI)
@@ -82,6 +85,19 @@ func must[T any](v T, err error) T {
 
 func (h *handler) health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]string{"service": "nomos", "status": "ok", "version": versionpkg.Get().Version})
+}
+
+// apiVersion returns the running server's full build version and, when the
+// opt-in update check is enabled, whether a newer release is available.
+func (h *handler) apiVersion(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/v1/version" {
+		http.NotFound(w, r)
+		return
+	}
+	writeJSON(w, 200, map[string]any{
+		"version": versionpkg.Get(),
+		"update":  h.updater.Status(),
+	})
 }
 func (h *handler) apiCosmos(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/api/v1/cosmos" {
@@ -1865,7 +1881,7 @@ func (h *handler) apiPage(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) page(w http.ResponseWriter, name string, extra map[string]any) {
 	co, _ := app.GetCosmos(h.cosmosPath)
-	data := map[string]any{"CosmosPath": h.cosmosPath, "ShellCosmos": co, "ContentTemplate": "content_" + name}
+	data := map[string]any{"CosmosPath": h.cosmosPath, "ShellCosmos": co, "ContentTemplate": "content_" + name, "Version": versionpkg.Get(), "Update": h.updater.Status()}
 	for k, v := range extra {
 		data[k] = v
 	}
@@ -1876,7 +1892,7 @@ func (h *handler) page(w http.ResponseWriter, name string, extra map[string]any)
 func (h *handler) errorPage(w http.ResponseWriter, r *http.Request, code int, title, msg string) {
 	co, _ := app.GetCosmos(h.cosmosPath)
 	w.WriteHeader(code)
-	data := map[string]any{"CosmosPath": h.cosmosPath, "ShellCosmos": co, "PageTitle": title, "ActiveNav": "", "ContentTemplate": "content_error", "ErrorTitle": title, "Error": msg, "StatusCode": code}
+	data := map[string]any{"CosmosPath": h.cosmosPath, "ShellCosmos": co, "PageTitle": title, "ActiveNav": "", "ContentTemplate": "content_error", "ErrorTitle": title, "Error": msg, "StatusCode": code, "Version": versionpkg.Get(), "Update": h.updater.Status()}
 	if err := h.tmpl.ExecuteTemplate(w, "error", data); err != nil {
 		http.Error(w, err.Error(), 500)
 	}
