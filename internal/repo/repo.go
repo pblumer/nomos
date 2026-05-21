@@ -259,6 +259,9 @@ type viewSeed struct {
 }
 
 // defaultTypeCaptureView is the form-js view that records a new type definition.
+// It is laid out for the form-js renderer (ADR-0024): an intro text, an identity
+// group (id/label/description) and a rendering group (icon/viewer/editor), with
+// the id constrained to the lowercase-slug shape type ids must follow.
 func defaultTypeCaptureView() viewSeed {
 	return viewSeed{
 		Engine:        "form-js",
@@ -266,12 +269,53 @@ func defaultTypeCaptureView() viewSeed {
 		Schema: map[string]any{
 			"type": "default",
 			"components": []map[string]any{
-				{"type": "textfield", "key": "id", "label": "ID", "validate": map[string]any{"required": true}},
-				{"type": "textfield", "key": "label", "label": "Label"},
-				{"type": "textarea", "key": "description", "label": "Description"},
-				{"type": "textfield", "key": "icon", "label": "Icon"},
-				{"type": "textfield", "key": "viewer", "label": "Viewer"},
-				{"type": "textfield", "key": "editor", "label": "Editor"},
+				{
+					"type": "text",
+					"text": "## Neuen Typ erfassen\n\nLegt eine neue Typdefinition unter `.nomos/types` an.",
+				},
+				{
+					"type":        "group",
+					"label":       "Identität",
+					"showOutline": true,
+					"components": []map[string]any{
+						{
+							"type":        "textfield",
+							"key":         "id",
+							"label":       "ID",
+							"description": "Kleinbuchstaben-Slug: a–z, 0–9, - und _ (z. B. \"data-object\").",
+							"validate":    map[string]any{"required": true, "pattern": "^[a-z0-9_-]+$"},
+						},
+						{"type": "textfield", "key": "label", "label": "Label", "description": "Anzeigename im Explorer."},
+						{"type": "textarea", "key": "description", "label": "Beschreibung"},
+					},
+				},
+				{
+					"type":        "group",
+					"label":       "Darstellung",
+					"showOutline": true,
+					"components": []map[string]any{
+						{"type": "textfield", "key": "icon", "label": "Icon", "description": "Material-Icon-Name, z. B. \"settings\"."},
+						{
+							"type":  "select",
+							"key":   "viewer",
+							"label": "Viewer",
+							"values": []map[string]any{
+								{"label": "Formular", "value": "form"},
+								{"label": "BPMN", "value": "bpmn"},
+								{"label": "DMN", "value": "dmn"},
+							},
+						},
+						{
+							"type":  "select",
+							"key":   "editor",
+							"label": "Editor",
+							"values": []map[string]any{
+								{"label": "Formular", "value": "form"},
+								{"label": "DMN", "value": "dmn"},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
