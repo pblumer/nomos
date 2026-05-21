@@ -62,6 +62,8 @@ func TestNewForType(t *testing.T) {
 		"attribute":           "ATR_",
 		"blueprint":           "BLP_",
 		"domain":              "DOM_",
+		"server":              "SVR_",
+		"repository":          "REP_",
 	}
 	for typ, want := range cases {
 		id, err := NewForType(typ)
@@ -153,6 +155,51 @@ func TestIsLegacy(t *testing.T) {
 	for _, c := range cases {
 		if got := IsLegacy(c.id); got != c.want {
 			t.Errorf("IsLegacy(%q) = %v; want %v", c.id, got, c.want)
+		}
+	}
+}
+
+func TestCosmosHandle(t *testing.T) {
+	h, err := CosmosHandle("Blumer.NET", "Cosmos-Local")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h != "blumer.net/cosmos-local" {
+		t.Errorf("CosmosHandle = %q; want blumer.net/cosmos-local", h)
+	}
+	if !IsValidHandle(h) {
+		t.Errorf("IsValidHandle(%q) = false; want true", h)
+	}
+	bad := []struct{ authority, slug string }{
+		{"localhost", "nomos"},    // single label, no dot
+		{"blumer.net", "no slug"}, // space in slug
+		{"blumer..net", "nomos"},  // empty label
+		{"", "nomos"},             // empty authority
+		{"blumer.net", ""},        // empty slug
+	}
+	for _, c := range bad {
+		if _, err := CosmosHandle(c.authority, c.slug); err == nil {
+			t.Errorf("CosmosHandle(%q,%q) expected error", c.authority, c.slug)
+		}
+	}
+}
+
+func TestIsValidHandle(t *testing.T) {
+	cases := []struct {
+		h    string
+		want bool
+	}{
+		{"blumer.net/nomos", true},
+		{"a.b.c.example.com/my-cosmos", true},
+		{"COS_root", false},
+		{"blumer.net", false},      // missing slug
+		{"/nomos", false},          // missing authority
+		{"localhost/nomos", false}, // authority needs at least two labels
+		{"", false},
+	}
+	for _, c := range cases {
+		if got := IsValidHandle(c.h); got != c.want {
+			t.Errorf("IsValidHandle(%q) = %v; want %v", c.h, got, c.want)
 		}
 	}
 }

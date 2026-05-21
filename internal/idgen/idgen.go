@@ -3,7 +3,9 @@
 // Format: <TYP>_<6 Zeichen Crockford-Base32>, z. B. "PRD_A7K3M2".
 // Crockford-Base32 lässt I, L, O, U aus, damit IDs robust beim Abtippen sind.
 //
-// Sonderfall: "COS_root" ist die fest vergebene ID des Cosmos (genau einer pro Repo).
+// Sonderfall: "COS_root" ist die fest vergebene, repo-lokale opake ID des Cosmos
+// (genau einer pro Repo). Weltweite Eindeutigkeit liefert nicht die opake ID,
+// sondern zusätzlich der Cosmos-Handle <domain>/<slug> (siehe CosmosHandle).
 package idgen
 
 import (
@@ -19,13 +21,19 @@ const crockfordAlphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 // SuffixLength ist die Anzahl der zufälligen Zeichen nach dem Präfix.
 const SuffixLength = 6
 
-// CosmosRootID ist die feste ID des Cosmos-Wurzelartefakts.
+// CosmosRootID ist die feste, repo-lokale opake ID des Cosmos-Wurzelartefakts.
 const CosmosRootID = "COS_root"
+
+// CosmosHandleSeparator trennt Autorität und Slug im weltweit eindeutigen
+// Cosmos-Handle (siehe CosmosHandle).
+const CosmosHandleSeparator = "/"
 
 // artefactPrefixes ordnet jedem Artefakttyp einen festen 3-Buchstaben-Präfix zu.
 // Neue Artefakttypen müssen hier registriert werden.
 var artefactPrefixes = map[string]string{
 	"cosmos":              "COS",
+	"server":              "SVR", // Nomos Core-Knoten / Mount (ADR-0022)
+	"repository":          "REP", // git-first Repository / Cosmos-Mount (ADR-0022)
 	"domain":              "DOM",
 	"service":             "SRV", // Namespace-Service (live)
 	"product":             "PRD", // legacy product artefact, gleicher Präfix wie product_blueprint
@@ -50,6 +58,13 @@ var artefactPrefixes = map[string]string{
 var (
 	idRegex     = regexp.MustCompile(`^[A-Z]{3}_[0-9A-HJKMNP-TV-Z]{6}$`)
 	prefixRegex = regexp.MustCompile(`^[A-Z]{3}$`)
+
+	// authorityRegex erlaubt DNS-artige Domains (mind. zwei Labels).
+	authorityRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$`)
+	// slugRegex erlaubt einen URL-/CLI-freundlichen Kurznamen.
+	slugRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`)
+	// handleRegex deckt das gesamte Handle-Format <authority>/<slug> ab.
+	handleRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+/[a-z0-9]([a-z0-9-]*[a-z0-9])?$`)
 )
 
 // PrefixForType liefert den kanonischen Präfix für einen Artefakttyp.
@@ -115,6 +130,28 @@ func IsValidForType(id, artefactType string) bool {
 		return true
 	}
 	return strings.HasPrefix(id, p+"_")
+}
+
+// CosmosHandle bildet den weltweit eindeutigen Cosmos-Handle aus der
+// besitzenden Domain (authority, DNS-artig gemäß ADR-0009) und einem
+// cosmos-lokalen Slug. Der Handle ist global eindeutig, weil DNS-Domains
+// global eindeutig sind und der Domaininhaber die Slugs in seinem Namensraum
+// kontrolliert. Die opake id (COS_root) bleibt davon unberührt und repo-lokal.
+func CosmosHandle(authority, slug string) (string, error) {
+	a := strings.ToLower(strings.TrimSpace(authority))
+	s := strings.ToLower(strings.TrimSpace(slug))
+	if !authorityRegex.MatchString(a) {
+		return "", fmt.Errorf("idgen: invalid cosmos authority %q (expected DNS-style domain)", authority)
+	}
+	if !slugRegex.MatchString(s) {
+		return "", fmt.Errorf("idgen: invalid cosmos slug %q", slug)
+	}
+	return a + CosmosHandleSeparator + s, nil
+}
+
+// IsValidHandle prüft das Format eines Cosmos-Handles (<authority>/<slug>).
+func IsValidHandle(handle string) bool {
+	return handleRegex.MatchString(strings.TrimSpace(handle))
 }
 
 // IsLegacy gibt true zurück, wenn id nicht leer ist und nicht dem

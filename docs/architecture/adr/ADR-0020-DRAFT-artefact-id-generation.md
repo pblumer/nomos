@@ -45,10 +45,39 @@ STP_N4M6B2   Process Step
 DEC_R9S5T7   Decision
 EVD_V2W8X4   Evidence
 DOM_K1L3M5   Domain
-COS_root     Cosmos (Sonderfall: genau ein Cosmos pro Repo, fixe ID)
+SVR_J8H4K2   Server (Nomos Core-Knoten / Mount, ADR-0022)
+REP_P3Q7N5   Repository (git-first Cosmos-Mount, ADR-0022)
+COS_root     Cosmos (Sonderfall: repo-lokale opake ID, siehe unten)
 ```
 
-Ausnahme: die `Cosmos`-Wurzel trägt die feste ID `COS_root`, weil pro Repo definitionsgemäß genau ein Cosmos existiert.
+### Cosmos-Identität: opake ID plus weltweiter Handle
+
+Frühere Entwürfe behandelten den Cosmos als „genau einen pro Repo" mit der
+einzigen fixen ID `COS_root`. Das kollidiert mit der föderierten Zielarchitektur:
+
+- [ADR-0009](ADR-0009-nomos-cosmos-network-and-core-engine.md) beschreibt einen
+  föderierten Cosmos aus vielen autonomen Knoten mit Cross-Domain-Referenzen.
+- [ADR-0022](ADR-0022-DRAFT-cosmos-explorer-server-and-repository-mounts.md) hält
+  fest, dass ein **Server mehrere Repositories** verwaltet und *jedes Repository
+  ein eigenständiger git-first Cosmos* ist. Es gibt also mehrere Cosmos pro Server.
+
+Trügen alle Repos dieselbe ID `COS_root`, ließe sich „der Cloud-Cosmos" nicht
+von „dem Local-Cosmos" per ID unterscheiden. Daher trägt der Cosmos **zwei
+Identifier-Ebenen**:
+
+1. **Opake ID `COS_root`** — bleibt erhalten, ist aber ausdrücklich nur
+   **repo-lokal** (genau ein Cosmos pro Repository). Sie dient internen
+   Referenzen innerhalb desselben Repositories.
+2. **Weltweiter Handle `<authority>/<slug>`** — der publizierte, global
+   eindeutige Identifier. `authority` ist die DNS-artige besitzende Domain
+   (provable über `.well-known/nomos`, [ADR-0010](ADR-0010-DRAFT-well-known-endpoint-and-domain-proof.md)),
+   `slug` ein cosmos-lokaler, mutierbarer Kurzname. Global eindeutig, weil
+   DNS-Domains global eindeutig sind und der Domaininhaber die Slugs in seinem
+   Namensraum kontrolliert. Beispiel: `blumer.net/nomos`.
+
+Cross-Cosmos- und Föderations-Referenzen gehen über den **Handle**, nicht über
+die opake `COS_root`-ID. Server und Repository (die Mount-/Topologie-Ebene aus
+ADR-0022) bekommen reguläre systemgenerierte IDs (`SVR_…`, `REP_…`).
 
 ### Vergabe
 
@@ -122,8 +151,10 @@ Werte) — kompatibel zur bestehenden Regex.
 
 ## Umsetzung (Stand)
 
-1. **`internal/idgen`** — Präfix-Register (18 Typen), `New`, `NewForType`,
-   `IsValid`, `IsValidForType`, `IsLegacy`. Vollständige Unit-Tests.
+1. **`internal/idgen`** — Präfix-Register (inkl. `server`/`SVR`,
+   `repository`/`REP`), `New`, `NewForType`, `IsValid`, `IsValidForType`,
+   `IsLegacy` sowie der weltweite Cosmos-Handle (`CosmosHandle`,
+   `IsValidHandle`). Vollständige Unit-Tests.
 2. **`internal/idmigrate`** — `Scan`, `BuildPlan`, `Apply`, History-
    Persistenz (`.nomos/id-history.yaml`), transparente `Resolve(path,
    anyID)`-Auflösung mit In-Memory-Cache.
@@ -145,9 +176,16 @@ Werte) — kompatibel zur bestehenden Regex.
 
 - Verfallszeit von `id-history.yaml`-Einträgen (heute: forever; akzeptabel
   weil append-only und sehr klein).
-- Verhalten beim Forken eines Cosmos: bleibt die ID, oder wird im neuen
-  Cosmos rebrandet? Empfehlung: ID bleibt; Cosmos-eigene Identität wird
-  separat über die Cosmos-Wurzel (`COS_root`) markiert.
+- Verhalten beim Forken eines Cosmos: die opake `COS_root`-ID bleibt
+  (repo-lokal); die globale Identität wird über einen **neuen Handle**
+  (`<authority>/<slug>` der forkenden Domain) vergeben, damit Fork und Original
+  weltweit unterscheidbar bleiben.
+- Persistenz und Vergabe des Cosmos-Handles: heute über `CosmosHandle` aus
+  Domain + Slug formbar; wo `authority`/`slug` autoritativ gepflegt werden
+  (cosmos.yaml-Feld vs. abgeleitet aus `.well-known/nomos`) ist noch offen.
+- Server-/Repository-IDs (`SVR_`/`REP_`): Vergabezeitpunkt — beim Mount
+  ([ADR-0022](ADR-0022-DRAFT-cosmos-explorer-server-and-repository-mounts.md))
+  vs. beim Anlegen eines Repositories — ist noch zu klären.
 - Sub-Artefakte (`ProcessStep`): eigenständige ID-Vergabe (`STP_…`) wurde
   implementiert. Verbund-IDs (`PRC_…/STP_…`) wurden verworfen, weil
   Steps individuell referenzierbar sein müssen.
@@ -159,3 +197,6 @@ Werte) — kompatibel zur bestehenden Regex.
 - ADR-0001 (Git-first als Quelle der Wahrheit) — motiviert Merge-Sicherheit.
 - ADR-0002 (YAML als Artefaktformat) — `id` lebt im YAML-Frontmatter.
 - ADR-0005 (Blueprint-/Instance-/Assurance-Modell) — definiert die Artefakttypen, die Präfixe bekommen.
+- ADR-0009 (Föderierter Cosmos / Core Engine) — motiviert den weltweiten Cosmos-Handle.
+- ADR-0010 (Well-known-Endpoint und Domain-Proof) — liefert die Autorität des Handles.
+- ADR-0022 (Cosmos Explorer — Server- und Repository-Mounts) — führt die Typen Server/Repository ein.
