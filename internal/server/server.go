@@ -229,6 +229,19 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.Method == http.MethodDelete {
+		if id := strings.TrimPrefix(resource, "fs/type/"); id != resource && id != "" {
+			if err := app.DeleteTypeDef(loc, id); err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"id": id})
+			return
+		}
+		http.NotFound(w, r)
+		return
+	}
+
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return

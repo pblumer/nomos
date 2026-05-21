@@ -38,6 +38,17 @@ func TestSaveAndListTypeDefs(t *testing.T) {
 	if _, err := SaveTypeDef(p, model.TypeDef{ID: "Not Valid"}); err == nil {
 		t.Fatal("expected rejection of invalid type id")
 	}
+
+	// Delete removes the definition; a second delete reports not found.
+	if err := DeleteTypeDef(p, "widget"); err != nil {
+		t.Fatalf("DeleteTypeDef: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(storage.TypesDir(p), "widget.yaml")); !os.IsNotExist(err) {
+		t.Fatal("expected type def file to be removed")
+	}
+	if err := DeleteTypeDef(p, "widget"); err == nil {
+		t.Fatal("expected not-found error deleting a missing type")
+	}
 }
 
 func TestRepoTreeShowsTypeDefs(t *testing.T) {
@@ -50,9 +61,9 @@ func TestRepoTreeShowsTypeDefs(t *testing.T) {
 	if nomos == nil {
 		t.Fatal("expected .nomos folder")
 	}
-	types := findChild(nomos.Children, "folder", "types")
+	types := findChild(nomos.Children, "types-folder", "types")
 	if types == nil {
-		t.Fatal("expected types/ folder under .nomos")
+		t.Fatal("expected types/ folder under .nomos as a types-folder node")
 	}
 	td := findChild(types.Children, "type-def", "Widget")
 	if td == nil {
