@@ -14,13 +14,17 @@ The Cosmos Explorer product showcase exposes a **Process** tab. If `bpmn-js` bro
 small task mapping overlays. In constrained/offline development environments where the npm package cannot be fetched, the
 same API and mapping UI remain usable and the tab falls back to showing the BPMN XML text instead of a custom renderer.
 
-To refresh the local browser bundle in a connected environment:
+The vendored browser bundles are committed under `internal/server/web/static/vendor/` and embedded into the
+`nomos` binary, so no Node toolchain is required at build or runtime. To refresh them from upstream in a connected
+environment, fetch the package into a throwaway directory and copy the dist files in:
 
 ```bash
-npm --prefix frontend install
+tmp="$(mktemp -d)"
+npm --prefix "$tmp" install bpmn-js@^18
 mkdir -p internal/server/web/static/vendor/bpmn-js
-cp frontend/node_modules/bpmn-js/dist/bpmn-viewer.production.min.js internal/server/web/static/vendor/bpmn-js/
-cp frontend/node_modules/bpmn-js/dist/bpmn-modeler.production.min.js internal/server/web/static/vendor/bpmn-js/
+cp "$tmp"/node_modules/bpmn-js/dist/bpmn-viewer.production.min.js internal/server/web/static/vendor/bpmn-js/
+cp "$tmp"/node_modules/bpmn-js/dist/bpmn-modeler.production.min.js internal/server/web/static/vendor/bpmn-js/
+rm -rf "$tmp"
 ```
 
 ## API quick reference
