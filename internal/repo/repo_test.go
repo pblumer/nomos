@@ -54,10 +54,13 @@ func TestCreateFilesystemDefaultLocationIsOutsideWorkspace(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(want, ".git")); err != nil {
 		t.Errorf("expected git repository to be initialized: %v", err)
 	}
-	// Starter type definitions are seeded under .nomos/types.
-	for _, id := range []string{"service", "decision", "blueprint", "product"} {
-		if _, err := os.Stat(filepath.Join(storage.TypesDir(want), id+".yaml")); err != nil {
-			t.Errorf("expected seeded type definition %q: %v", id, err)
+	// Only the Decision starter type is seeded under .nomos/types.
+	if _, err := os.Stat(filepath.Join(storage.TypesDir(want), "decision.yaml")); err != nil {
+		t.Errorf("expected seeded type definition %q: %v", "decision", err)
+	}
+	for _, id := range []string{"service", "blueprint", "product"} {
+		if _, err := os.Stat(filepath.Join(storage.TypesDir(want), id+".yaml")); !os.IsNotExist(err) {
+			t.Errorf("expected no seeded type definition %q, stat err = %v", id, err)
 		}
 	}
 	// The starter "capture a type" form is seeded under .nomos/views.
