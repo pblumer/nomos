@@ -430,16 +430,6 @@ type typeDependency struct {
 func defaultTypeDefs() []typeDefSeed {
 	return []typeDefSeed{
 		{
-			ID: "service", Label: "Service", Icon: "settings", Viewer: "bpmn", Editor: "form", File: "service.yaml",
-			Description: "A capability-providing service.",
-			Properties: []typeProp{
-				{Name: "name", Type: "string", Required: true},
-				{Name: "owner", Type: "string"},
-				{Name: "capabilities", Type: "list"},
-			},
-			Dependencies: []typeDependency{{Type: "decision", Relation: "uses"}},
-		},
-		{
 			ID: "decision", Label: "Decision", Icon: "gavel", Viewer: "dmn", Editor: "dmn", File: "decision.yaml",
 			Description: "Decision logic, optionally backed by a DMN table.",
 			Properties: []typeProp{
@@ -447,22 +437,6 @@ func defaultTypeDefs() []typeDefSeed {
 				{Name: "inputs", Type: "list"},
 				{Name: "outputs", Type: "list"},
 			},
-		},
-		{
-			ID: "blueprint", Label: "Blueprint", Icon: "assignment", Viewer: "form", Editor: "form",
-			Description: "An abstract product or service definition in the catalog.",
-			Properties: []typeProp{
-				{Name: "name", Type: "string", Required: true},
-				{Name: "fulfillment", Type: "object"},
-			},
-		},
-		{
-			ID: "product", Label: "Product", Icon: "inventory_2", Viewer: "form", Editor: "form",
-			Description: "A concrete product offering composed of services.",
-			Properties: []typeProp{
-				{Name: "name", Type: "string", Required: true},
-			},
-			Dependencies: []typeDependency{{Type: "service", Relation: "fulfilled_by"}},
 		},
 	}
 }
