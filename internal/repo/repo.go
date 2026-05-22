@@ -351,8 +351,9 @@ type viewSeed struct {
 
 // defaultTypeCaptureView is the form-js view that records a new type definition.
 // It is laid out for the form-js renderer (ADR-0024): an intro text, an identity
-// group (id/label/description) and a rendering group (icon/viewer/editor), with
-// the id constrained to the lowercase-slug shape type ids must follow.
+// group (label/description) and a rendering group (icon/viewer/editor). Only the
+// label is captured; the type id and the instance-id prefix are derived from it
+// automatically by the capture dialog, so neither has to be entered by hand.
 func defaultTypeCaptureView() viewSeed {
 	return viewSeed{
 		Engine:        "form-js",
@@ -371,14 +372,11 @@ func defaultTypeCaptureView() viewSeed {
 					"components": []map[string]any{
 						{
 							"type":        "textfield",
-							"key":         "id",
-							"label":       "ID",
-							"description": "Kleinbuchstaben-Slug: a–z, 0–9, - und _ (z. B. \"data-object\").",
-							"validate":    map[string]any{"required": true, "pattern": "^[a-z0-9_-]+$"},
+							"key":         "label",
+							"label":       "Label",
+							"description": "Anzeigename im Explorer. ID und Instanz-ID-Präfix werden automatisch daraus abgeleitet.",
+							"validate":    map[string]any{"required": true},
 						},
-						{"type": "textfield", "key": "label", "label": "Label", "description": "Anzeigename im Explorer."},
-						{"type": "textfield", "key": "file", "label": "Erkennungsdatei", "description": "Markiert ein Verzeichnis als Instanz dieses Typs (z. B. \"requirement.yaml\")."},
-						{"type": "textfield", "key": "id_prefix", "label": "ID-Präfix", "description": "Optional: drei Großbuchstaben für automatische Instanz-IDs (z. B. \"RSK\" → RSK_4F7K2Q).", "validate": map[string]any{"pattern": "^[A-Z]{0,3}$"}},
 						{"type": "textarea", "key": "description", "label": "Beschreibung"},
 					},
 				},

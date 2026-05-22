@@ -231,13 +231,13 @@
 .btn[disabled]{opacity:.5;cursor:not-allowed}
 .nmodal-overlay{position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.45);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .15s,visibility .15s}
 .nmodal-overlay.open{opacity:1;visibility:visible}
-.nmodal{background:#fff;border-radius:14px;width:min(500px,92vw);box-shadow:0 8px 40px rgba(15,23,42,.18);transform:translateY(8px) scale(.97);transition:transform .15s}
+.nmodal{background:#fff;border-radius:14px;width:min(500px,92vw);max-height:calc(100vh - 4rem);display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(15,23,42,.18);transform:translateY(8px) scale(.97);transition:transform .15s}
 .nmodal-overlay.open .nmodal{transform:translateY(0) scale(1)}
-.nmodal-head{padding:1.2rem 1.4rem .9rem;border-bottom:1px solid #f0f4f8;display:flex;justify-content:space-between;align-items:center}
+.nmodal-head{padding:1.2rem 1.4rem .9rem;border-bottom:1px solid #f0f4f8;display:flex;justify-content:space-between;align-items:center;flex:0 0 auto}
 .nmodal-head h3{margin:0;font-size:1rem}
 .nmodal-close{background:none;border:none;cursor:pointer;color:#94a3b8;font-size:1.1rem;line-height:1;padding:4px 7px;border-radius:6px}.nmodal-close:hover{background:#f1f5f9;color:#334155}
-.nmodal-body{padding:1.2rem 1.4rem}
-.nmodal-foot{padding:.9rem 1.4rem;border-top:1px solid #f0f4f8;display:flex;justify-content:flex-end;gap:.5rem}
+.nmodal-body{padding:1.2rem 1.4rem;overflow-y:auto;flex:1 1 auto;min-height:0}
+.nmodal-foot{padding:.9rem 1.4rem;border-top:1px solid #f0f4f8;display:flex;justify-content:flex-end;gap:.5rem;flex:0 0 auto}
 .nfield{margin-bottom:.85rem}
 .nfield label{display:block;font-size:.8rem;font-weight:600;color:#475569;margin-bottom:.3rem}
 .nfield input,.nfield select,.nfield textarea{width:100%;border:1px solid #d1d5db;border-radius:8px;padding:.5rem .7rem;font-size:.88rem;background:#fff;transition:border .12s;box-sizing:border-box}
@@ -853,7 +853,7 @@ function injectFolderTypeItems(row){
   const cached=TYPES_BY_REPO[repo];
   if(cached)build(cached);else fetchRepoTypes(repo).then(build);
 }
-function showCtx(x,y,row){ctxRow=row;ctx.querySelectorAll('.nctx-dyn').forEach(e=>e.remove());const allowed=row.dataset.kind==='folder'?folderActions(row):(CTX[row.dataset.kind]||[]);const isLocal=row.dataset.local==='true';ctx.querySelectorAll('.nctx-item:not(.nctx-dyn)').forEach(it=>{let show=allowed.includes(it.dataset.action);const a=it.dataset.action;if(a==='unmount-server'&&isLocal)show=false;it.style.display=show?'flex':'none';});ctx.querySelectorAll('.nctx-sep').forEach(s=>{s.style.display='block';});injectFolderTypeItems(row);ctx.style.left=x+'px';ctx.style.top=y+'px';ctx.classList.add('open');requestAnimationFrame(()=>{const r=ctx.getBoundingClientRect();if(r.right>innerWidth)ctx.style.left=(x-r.width)+'px';if(r.bottom>innerHeight)ctx.style.top=(y-r.height)+'px';});}
+function showCtx(x,y,row){ctxRow=row;ctx.querySelectorAll('.nctx-dyn').forEach(e=>e.remove());const allowed=row.dataset.kind==='folder'?folderActions(row):(CTX[row.dataset.kind]||[]);const isLocal=row.dataset.local==='true';ctx.querySelectorAll('.nctx-item:not(.nctx-dyn)').forEach(it=>{let show=allowed.includes(it.dataset.action);const a=it.dataset.action;if(a==='unmount-server'&&isLocal)show=false;it.style.display=show?'flex':'none';});ctx.querySelectorAll('.nctx-sep').forEach(s=>{s.style.display='block';});ctx.style.left=x+'px';ctx.style.top=y+'px';ctx.classList.add('open');injectFolderTypeItems(row);requestAnimationFrame(()=>{const r=ctx.getBoundingClientRect();if(r.right>innerWidth)ctx.style.left=(x-r.width)+'px';if(r.bottom>innerHeight)ctx.style.top=(y-r.height)+'px';});}
 function hideCtx(){ctx.classList.remove('open');}
 ctx.addEventListener('click',e=>{const it=e.target.closest('.nctx-item');if(!it)return;e.stopPropagation();hideCtx();handleAction(it.dataset.action,ctxRow);});
 
@@ -1252,22 +1252,32 @@ function doRenameFsNode(row){if(!localOnly(row))return;const repo=repoIdFor(row)
 
 async function doCommit(row){if(!localOnly(row))return;const repo=repoIdFor(row);const sr=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/git/status');const st=await sr.json().catch(()=>({}));if(!sr.ok){alert(st.error?.message||'Status konnte nicht geladen werden');return;}const files=st.files||[];const listHtml=files.length?`<ul style="list-style:none;margin:.3rem 0;padding:0;max-height:180px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px">${files.map(f=>`<li style="display:flex;gap:.5rem;padding:.25rem .5rem;font-size:.8rem;font-family:monospace"><span style="color:#64748b;width:1.8rem">${esc(f.code)}</span><span>${esc(f.path)}</span></li>`).join('')}</ul>`:`<p style="color:#64748b;font-size:.85rem">Keine Änderungen — der Arbeitsbaum ist sauber.</p>`;openModal('Commit · '+esc(repo),`<div class="nfield"><label>${files.length} Änderung(en)</label>${listHtml}</div><div class="nfield"><label>Commit-Nachricht</label><input id="cm-msg" placeholder="z.B. Update services" /></div>`,async()=>{const msg=$('cm-msg')?.value.trim();if(!msg)throw new Error('Commit-Nachricht erforderlich');const r=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/git/commit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});const d=await r.json().catch(()=>({}));if(r.ok){closeModal();location.reload();}else throw new Error(d.error?.message||'Commit fehlgeschlagen');},'Committen');if(!files.length)modalConfirm.disabled=true;}
 
+// slugifyId derives a lowercase-slug type id (a-z, 0-9, -) from a free-text
+// label; prefixFromLabel derives the three-uppercase-letter instance-id prefix.
+// They let the capture form (type_new.frm) omit the id/prefix fields entirely:
+// when the form does not supply them, doAddType derives them from the label.
+function slugifyId(s){return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');}
+function prefixFromLabel(s){const letters=(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z]/g,'').toUpperCase();return letters.length>=3?letters.slice(0,3):'';}
+
 // doAddType creates a new user-defined type definition under .nomos/types via
 // POST /repositories/{repo}/fs/type. The capture form is the form-js view
 // authored in .nomos/views/type_new.frm (ADR-0024) rendered live in the modal,
-// so editing that .frm changes this dialog. Available from the types folder and
-// from any existing type-def node.
+// so editing that .frm changes this dialog. The form need only capture the
+// label: when it omits the id (and id_prefix), they are derived from the label
+// automatically. Available from the types folder and from any type-def node.
 function doAddType(row){if(!localOnly(row))return;const repo=repoIdFor(row);
   let typeForm=null;
   openModal('Neuer Typ',`<div id="ty-form-host" class="view-render"><p class="muted" style="color:#64748b;font-size:.85rem">Formular l&auml;dt…</p></div>`,async()=>{
     if(!typeForm)throw new Error('Erfassungsformular nicht geladen');
     const res=await typeForm.submit();
     if(res.errors&&Object.keys(res.errors).length)throw new Error('Bitte Pflichtfelder korrekt ausfüllen.');
-    const d=res.data||{};const id=(d.id||'').trim();
-    if(!id)throw new Error('ID erforderlich');
+    const d=res.data||{};const label=(d.label||'').trim();
+    let id=(d.id||'').trim();if(!id)id=slugifyId(label);
+    if(!id)throw new Error('Label oder ID erforderlich');
     if(!/^[a-z0-9][a-z0-9_-]*$/.test(id))throw new Error('ID muss ein Kleinbuchstaben-Slug sein (a-z, 0-9, -, _)');
+    let id_prefix=(d.id_prefix||'').trim().toUpperCase();if(!id_prefix)id_prefix=prefixFromLabel(label);
     const properties=(Array.isArray(d.properties)?d.properties:[]).map(p=>({name:(p&&p.name||'').trim(),type:p&&p.type||'string',required:!!(p&&p.required)})).filter(p=>p.name);
-    const def={id,label:(d.label||'').trim(),icon:(d.icon||'').trim(),file:(d.file||'').trim(),id_prefix:(d.id_prefix||'').trim().toUpperCase(),description:(d.description||'').trim(),viewer:d.viewer||'',editor:d.editor||'',properties};
+    const def={id,label,icon:(d.icon||'').trim(),file:(d.file||'').trim(),id_prefix,description:(d.description||'').trim(),viewer:d.viewer||'',editor:d.editor||'',properties};
     const r=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/fs/type',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(def)});const rd=await r.json().catch(()=>({}));if(r.ok){closeModal();location.reload();}else throw new Error(rd.error?.message||'Typ konnte nicht erstellt werden');
   },'Typ anlegen');
   const host=$('ty-form-host');
