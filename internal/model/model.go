@@ -44,6 +44,23 @@ type TypeDependency struct {
 	Required bool   `yaml:"required,omitempty" json:"required,omitempty"`
 }
 
+// ERD is a relationship-diagram layout persisted as a .erd file. It stores only
+// which types appear and where their boxes sit; the edges are derived live from
+// each type's Dependencies, so the type YAMLs remain the single source of truth.
+type ERD struct {
+	Engine        string    `yaml:"engine,omitempty" json:"engine,omitempty"`
+	EngineVersion string    `yaml:"engine_version,omitempty" json:"engine_version,omitempty"`
+	Label         string    `yaml:"label,omitempty" json:"label,omitempty"`
+	Nodes         []ERDNode `yaml:"nodes,omitempty" json:"nodes,omitempty"`
+}
+
+// ERDNode places a type's box on the ERD canvas.
+type ERDNode struct {
+	Type string `yaml:"type" json:"type"`
+	X    int    `yaml:"x" json:"x"`
+	Y    int    `yaml:"y" json:"y"`
+}
+
 type Cosmos struct {
 	ID        string        `yaml:"id" json:"id"`
 	Type      string        `yaml:"type" json:"type"`

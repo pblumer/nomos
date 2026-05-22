@@ -37,6 +37,9 @@ var allowedSourceExt = map[string]bool{
 // allowedViewExt gates the view endpoint to .frm form files (ADR-0024).
 var allowedViewExt = map[string]bool{".frm": true}
 
+// allowedErdExt gates the ERD endpoint to .erd relationship-diagram files.
+var allowedErdExt = map[string]bool{".erd": true}
+
 // resolveSourcePath maps a client-supplied path to an absolute file inside the
 // cosmos workspace, rejecting traversal outside the root and disallowed types.
 func (h *handler) resolveSourcePath(raw string) (string, bool) {
@@ -178,6 +181,62 @@ func (h *handler) apiView(w http.ResponseWriter, r *http.Request) {
 			v.Engine = "form-js"
 		}
 		out, err := yaml.Marshal(v)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		mode := os.FileMode(0o644)
+		if info, statErr := os.Stat(path); statErr == nil {
+			mode = info.Mode().Perm()
+		}
+		if err := os.WriteFile(path, out, mode); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	default:
+		w.Header().Set("Allow", "GET, PUT")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+// apiERD reads (GET) or writes (PUT) a .erd relationship-diagram file by
+// workspace path, translating between its YAML on disk and JSON for the
+// lightweight SVG editor. Only the layout is stored here; relationships live in
+// the type definitions' dependencies.
+func (h *handler) apiERD(w http.ResponseWriter, r *http.Request) {
+	path, ok := h.resolveWorkspacePath(r.URL.Query().Get("path"), allowedErdExt)
+	if !ok {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or unsupported path"})
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		data, err := os.ReadFile(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				writeJSON(w, http.StatusNotFound, map[string]string{"error": "file not found"})
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		var e model.ERD
+		if err := yaml.Unmarshal(data, &e); err != nil {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "ERD is not valid YAML: " + err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"path": r.URL.Query().Get("path"), "erd": e})
+	case http.MethodPut:
+		var e model.ERD
+		if err := json.NewDecoder(r.Body).Decode(&e); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+			return
+		}
+		if e.Engine == "" {
+			e.Engine = "nomos-erd"
+		}
+		out, err := yaml.Marshal(e)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
