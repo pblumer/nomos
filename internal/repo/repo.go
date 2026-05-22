@@ -153,6 +153,62 @@ func (r *Registry) CreateFilesystem(name string) (Repository, error) {
 	return repo, nil
 }
 
+// Attach registers an existing directory as a repository this server manages,
+// without scaffolding any files (no cosmos.yaml, types, views, or git init). It
+// is the "open an existing repository" counterpart to CreateFilesystem: the
+// caller supplies a path that already holds a git-first workspace and an
+// optional display name. The id is system-generated (ADR-0020, REP_ prefix).
+func (r *Registry) Attach(location, name string) (Repository, error) {
+	location = strings.TrimSpace(location)
+	if location == "" {
+		return Repository{}, fmt.Errorf("location is required")
+	}
+	abs := r.resolve(location)
+	info, err := os.Stat(abs)
+	if err != nil {
+		return Repository{}, fmt.Errorf("repository location not found: %s", abs)
+	}
+	if !info.IsDir() {
+		return Repository{}, fmt.Errorf("repository location is not a directory: %s", abs)
+	}
+	cfg, err := r.load()
+	if err != nil {
+		return Repository{}, err
+	}
+	// The workspace is already exposed as the default repository; attaching it
+	// again would create a duplicate, so reject it.
+	if filepath.Clean(abs) == filepath.Clean(r.workspace) {
+		return Repository{}, fmt.Errorf("this directory is already the default repository")
+	}
+	for _, e := range cfg.Repositories {
+		if filepath.Clean(r.resolve(e.Location)) == filepath.Clean(abs) {
+			return Repository{}, fmt.Errorf("repository already attached: %s", abs)
+		}
+	}
+	id, err := r.newRepoID(cfg)
+	if err != nil {
+		return Repository{}, err
+	}
+	displayName := strings.TrimSpace(name)
+	if displayName == "" {
+		displayName = filepath.Base(abs)
+	}
+	// Prefer a workspace-relative location so repositories.yaml stays portable;
+	// fall back to the absolute path when the directory lives outside the
+	// workspace (mirrors CreateFilesystem).
+	stored := abs
+	if rel, err := filepath.Rel(r.workspace, abs); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel) {
+		stored = filepath.ToSlash(rel)
+	}
+	cfg.Repositories = append(cfg.Repositories, configEntry{ID: id, Name: displayName, Kind: KindFilesystem, Location: stored})
+	if err := r.save(cfg); err != nil {
+		return Repository{}, err
+	}
+	repo := Repository{ID: id, Name: displayName, Kind: KindFilesystem, Location: abs, Status: "unknown"}
+	probeGit(&repo)
+	return repo, nil
+}
+
 // Delete removes a configured filesystem repository: it drops the entry from
 // repositories.yaml and deletes its working directory. The default repository
 // (the active workspace) cannot be deleted.

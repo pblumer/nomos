@@ -129,13 +129,22 @@ func (h *handler) apiRepositories(w http.ResponseWriter, r *http.Request) {
 		h.writeOrErr(w, dto, err)
 	case http.MethodPost:
 		var body struct {
-			Name string `json:"name"`
+			Name     string `json:"name"`
+			Location string `json:"location"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
 			return
 		}
-		dto, err := app.CreateRepository(h.cosmosPath, body.Name)
+		// A "location" attaches an existing directory (open repository); without
+		// it a fresh repository is scaffolded (create new).
+		var dto app.RepositoryDTO
+		var err error
+		if strings.TrimSpace(body.Location) != "" {
+			dto, err = app.AttachRepository(h.cosmosPath, body.Location, body.Name)
+		} else {
+			dto, err = app.CreateRepository(h.cosmosPath, body.Name)
+		}
 		if err != nil {
 			h.apiErr(w, err)
 			return

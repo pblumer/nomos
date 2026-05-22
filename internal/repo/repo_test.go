@@ -92,6 +92,66 @@ func TestCreateFilesystemHonorsReposDirOverride(t *testing.T) {
 	}
 }
 
+func TestAttachRegistersExistingDirectoryWithoutScaffolding(t *testing.T) {
+	ws := t.TempDir()
+	existing := t.TempDir() // a pre-existing directory outside the workspace
+
+	r, err := NewLocalRegistry(ws).Attach(existing, "Imported")
+	if err != nil {
+		t.Fatalf("Attach: %v", err)
+	}
+	if !idgen.IsValidForType(r.ID, "repository") {
+		t.Errorf("ID = %q, want a system-generated REP_ id", r.ID)
+	}
+	if r.Name != "Imported" {
+		t.Errorf("Name = %q, want Imported", r.Name)
+	}
+	if r.Location != existing {
+		t.Errorf("Location = %q, want %q", r.Location, existing)
+	}
+	// Attaching must not scaffold a fresh workspace: no cosmos.yaml is written.
+	if _, err := os.Stat(filepath.Join(storage.NomosDir(existing), "cosmos.yaml")); !os.IsNotExist(err) {
+		t.Errorf("Attach scaffolded cosmos.yaml; stat err = %v", err)
+	}
+	// The attached repository must reappear on a fresh List from the workspace.
+	if !containsID(NewLocalRegistry(ws).List(), r.ID) {
+		t.Errorf("attached repository not found in List")
+	}
+}
+
+func TestAttachDefaultsNameToBaseAndRejectsBadInput(t *testing.T) {
+	ws := t.TempDir()
+	existing := filepath.Join(t.TempDir(), "team-beta")
+	if err := os.MkdirAll(existing, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	reg := NewLocalRegistry(ws)
+
+	r, err := reg.Attach(existing, "")
+	if err != nil {
+		t.Fatalf("Attach: %v", err)
+	}
+	if r.Name != "team-beta" {
+		t.Errorf("Name = %q, want directory base name team-beta", r.Name)
+	}
+	// Re-attaching the same directory is a duplicate and must be rejected.
+	if _, err := reg.Attach(existing, ""); err == nil {
+		t.Error("expected error re-attaching an already attached directory")
+	}
+	// The workspace itself is the default repository and cannot be attached.
+	if _, err := reg.Attach(ws, ""); err == nil {
+		t.Error("expected error attaching the workspace")
+	}
+	// A non-existent path is rejected.
+	if _, err := reg.Attach(filepath.Join(existing, "missing"), ""); err == nil {
+		t.Error("expected error attaching a non-existent path")
+	}
+	// An empty location is rejected.
+	if _, err := reg.Attach("", ""); err == nil {
+		t.Error("expected error attaching an empty location")
+	}
+}
+
 func containsID(repos []Repository, id string) bool {
 	for _, r := range repos {
 		if r.ID == id {

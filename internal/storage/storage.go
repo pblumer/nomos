@@ -42,6 +42,14 @@ func UCIDir(workspace string) string      { return filepath.Join(NomosDir(worksp
 func KeysFile(workspace string) string    { return filepath.Join(NomosDir(workspace), "keys.yaml") }
 func MountsFile(workspace string) string  { return filepath.Join(NomosDir(workspace), "mounts.yaml") }
 
+// ServerConfigFile is the optional, file-based identity of a Nomos server
+// (.nomos/server.yml): its public domain and a display label. Non-authoritative
+// operator config; absent by default. The NOMOS_DOMAIN environment variable
+// still overrides the file's domain.
+func ServerConfigFile(workspace string) string {
+	return filepath.Join(NomosDir(workspace), "server.yml")
+}
+
 // RepositoriesFile lists the additional repositories a server manages beyond
 // its default workspace (ADR-0022 §2). Non-authoritative server config.
 func RepositoriesFile(workspace string) string {
