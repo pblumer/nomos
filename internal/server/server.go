@@ -667,6 +667,54 @@ func (h *handler) apiDecisionByID(w http.ResponseWriter, r *http.Request, id str
 		writeJSON(w, http.StatusOK, defs)
 		return
 	}
+	if len(tail) == 1 && tail[0] == "tables" {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		tables, err := app.DecisionTables(h.cosmosPath, id)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"decision_id": id, "tables": tables})
+		return
+	}
+	if len(tail) == 1 && tail[0] == "coverage" {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		cov, err := app.DecisionCoverage(h.cosmosPath, id)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, cov)
+		return
+	}
+	if len(tail) >= 1 && tail[0] == "bkm" {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		if len(tail) == 1 {
+			bkms, err := app.DecisionBKMs(h.cosmosPath, id)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"decision_id": id, "bkms": bkms})
+			return
+		}
+		bkm, err := app.DecisionBKM(h.cosmosPath, id, tail[1])
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, bkm)
+		return
+	}
 	if len(tail) == 1 && tail[0] == "dmn" {
 		switch r.Method {
 		case http.MethodGet:
