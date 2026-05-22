@@ -182,6 +182,69 @@ func (m *MethodDefinition) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	return unmarshal((*plain)(m))
 }
 
+// Operation is a callable unit a service exposes — the successor to
+// MethodDefinition. Where a method was REST-only and embedded as a plain entry,
+// an operation carries a Protocol discriminator so the same concept covers REST,
+// MCP and gRPC bindings, and can bind its I/O contract to reusable data objects.
+type Operation struct {
+	Name     string `yaml:"name" json:"name"`
+	Summary  string `yaml:"summary,omitempty" json:"summary,omitempty"`
+	Protocol string `yaml:"protocol" json:"protocol"` // rest | mcp | grpc
+	// InputObject / OutputObject bind the operation's I/O contract to reusable
+	// data objects (.nomos/data), mirroring the decision I/O ↔ data-object link.
+	InputObject  string `yaml:"input_object,omitempty" json:"input_object,omitempty"`
+	OutputObject string `yaml:"output_object,omitempty" json:"output_object,omitempty"`
+	// Exactly one variant matching Protocol is populated.
+	REST *RESTOperation `yaml:"rest,omitempty" json:"rest,omitempty"`
+	MCP  *MCPOperation  `yaml:"mcp,omitempty" json:"mcp,omitempty"`
+	GRPC *GRPCOperation `yaml:"grpc,omitempty" json:"grpc,omitempty"`
+}
+
+// RESTOperation is the REST proxy binding of an operation; its fields mirror
+// MethodDefinition so migrating a method is a 1:1 lift.
+type RESTOperation struct {
+	HTTPMethod string            `yaml:"http_method,omitempty" json:"http_method,omitempty"`
+	Path       string            `yaml:"path,omitempty" json:"path,omitempty"`
+	BaseURL    string            `yaml:"base_url,omitempty" json:"base_url,omitempty"`
+	Parameters []MethodParameter `yaml:"parameters,omitempty" json:"parameters,omitempty"`
+	Headers    []MethodHeader    `yaml:"headers,omitempty" json:"headers,omitempty"`
+	Security   *MethodSecurity   `yaml:"security,omitempty" json:"security,omitempty"`
+	Payload    *MethodPayload    `yaml:"payload,omitempty" json:"payload,omitempty"`
+}
+
+// MCPOperation binds an operation to a tool exposed by an MCP server.
+type MCPOperation struct {
+	Transport string `yaml:"transport,omitempty" json:"transport,omitempty"` // stdio | sse | http
+	ServerURL string `yaml:"server_url,omitempty" json:"server_url,omitempty"`
+	Tool      string `yaml:"tool,omitempty" json:"tool,omitempty"`
+}
+
+// GRPCOperation binds an operation to a gRPC method.
+type GRPCOperation struct {
+	Target   string `yaml:"target,omitempty" json:"target,omitempty"`
+	Service  string `yaml:"service,omitempty" json:"service,omitempty"`
+	Method   string `yaml:"method,omitempty" json:"method,omitempty"`
+	ProtoRef string `yaml:"proto_ref,omitempty" json:"proto_ref,omitempty"`
+}
+
+// ToOperation lifts a legacy MethodDefinition into a REST operation. Used by the
+// methods→operations migration.
+func (m MethodDefinition) ToOperation() Operation {
+	return Operation{
+		Name:     m.Name,
+		Summary:  m.Summary,
+		Protocol: "rest",
+		REST: &RESTOperation{
+			HTTPMethod: m.HTTPMethod,
+			Path:       m.Path,
+			Parameters: m.Parameters,
+			Headers:    m.Headers,
+			Security:   m.Security,
+			Payload:    m.Payload,
+		},
+	}
+}
+
 // ConnectorArg describes one argument of a CLI connector.
 type ConnectorArg struct {
 	Name        string   `yaml:"name" json:"name"`
@@ -353,6 +416,7 @@ type Service struct {
 	UserInterfaces    []ServiceUserInterface `yaml:"user_interfaces,omitempty" json:"user_interfaces,omitempty"`
 	SupportedProducts []string               `yaml:"supported_products,omitempty" json:"supported_products,omitempty"`
 	Methods           []MethodDefinition     `yaml:"methods,omitempty" json:"methods,omitempty"`
+	Operations        []Operation            `yaml:"operations,omitempty" json:"operations,omitempty"`
 	Summary           string                 `yaml:"summary" json:"summary"`
 	SLA               *ServiceLevelInfo      `yaml:"sla,omitempty" json:"sla,omitempty"`
 	OLA               *ServiceLevelInfo      `yaml:"ola,omitempty" json:"ola,omitempty"`
