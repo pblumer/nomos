@@ -34,22 +34,27 @@ type MountsDTO struct {
 // localDisplayEndpoint shows the local server under its public domain rather
 // than a bare "localhost", so an official deployment (e.g. nomos.blumer.cloud)
 // is recognizable. The public domain is taken, in order, from the NOMOS_DOMAIN
-// environment variable or — when that is unset — auto-detected from the request
-// Host header (hostHint); otherwise the machine hostname is used, falling back
-// to LocalServerEndpoint when unavailable. A container hostname (e.g. a Docker
-// container ID like "56afaec69c76") is thus overridable without rebuilding the
-// image, and a reverse-proxied deployment is recognized without any config.
+// environment variable, the workspace's .nomos/server.yml domain, or — when both
+// are unset — auto-detected from the request Host header (hostHint); otherwise
+// the machine hostname is used, falling back to LocalServerEndpoint when
+// unavailable. A container hostname (e.g. a Docker container ID like
+// "56afaec69c76") is thus overridable without rebuilding the image, and a
+// reverse-proxied deployment is recognized without any config.
 //
 // A real DNS domain is only honored once it is provably owned via its _nomos
 // TXT record (same proof as VerifyDomain), so a server cannot claim a domain it
 // does not control; until then it falls back to the hostname. For an explicit
-// NOMOS_DOMAIN, bare names and IPs need no proof; an auto-detected Host header
-// is only honored when it is a provably owned DNS domain. Internal resolution
-// still keys the local mount by mount.LocalID.
-func localDisplayEndpoint() string { return localDisplayEndpointHint("") }
+// NOMOS_DOMAIN or server.yml domain, bare names and IPs need no proof; an
+// auto-detected Host header is only honored when it is a provably owned DNS
+// domain. Internal resolution still keys the local mount by mount.LocalID.
+func localDisplayEndpoint(path string) string { return localDisplayEndpointHint(path, "") }
 
-func localDisplayEndpointHint(hostHint string) string {
-	if d := strings.TrimSpace(os.Getenv("NOMOS_DOMAIN")); d != "" {
+func localDisplayEndpointHint(path, hostHint string) string {
+	d := strings.TrimSpace(os.Getenv("NOMOS_DOMAIN"))
+	if d == "" {
+		d = LoadServerConfig(path).Domain
+	}
+	if d != "" {
 		host := hostOnly(d)
 		if net.ParseIP(host) != nil || !strings.Contains(host, ".") || domainOwnershipVerified(host) {
 			return d
@@ -141,8 +146,8 @@ func ownershipCandidates(host string) []string {
 	return out
 }
 
-func localMountDTO(hostHint string) MountDTO {
-	return MountDTO{ID: mount.LocalID, Endpoint: localDisplayEndpointHint(hostHint), Label: "Local", Local: true, Authenticated: true}
+func localMountDTO(path, hostHint string) MountDTO {
+	return MountDTO{ID: mount.LocalID, Endpoint: localDisplayEndpointHint(path, hostHint), Label: fallback(LoadServerConfig(path).Label, "Local"), Local: true, Authenticated: true}
 }
 
 // ListMounts returns the implicit local server mount followed by the configured
@@ -152,7 +157,7 @@ func ListMounts(path string) (MountsDTO, error) { return ListMountsForHost(path,
 // ListMountsForHost is ListMounts with an optional request Host header used to
 // auto-detect the local server's public domain (see localDisplayEndpoint).
 func ListMountsForHost(path, hostHint string) (MountsDTO, error) {
-	out := MountsDTO{Mounts: []MountDTO{localMountDTO(hostHint)}}
+	out := MountsDTO{Mounts: []MountDTO{localMountDTO(path, hostHint)}}
 	remotes, err := mount.NewStore(path).Mounts()
 	if err != nil {
 		return MountsDTO{}, Error(CodeInternalError, err.Error(), http.StatusInternalServerError, err)
@@ -320,7 +325,7 @@ func DiscoverServers(path string) (DiscoveryDTO, error) {
 	if err != nil {
 		return DiscoveryDTO{}, Error(CodeInternalError, err.Error(), http.StatusInternalServerError, err)
 	}
-	known := map[string]bool{LocalServerEndpoint: true, localDisplayEndpoint(): true}
+	known := map[string]bool{LocalServerEndpoint: true, localDisplayEndpoint(path): true}
 	for _, m := range remotes {
 		known[m.Endpoint] = true
 	}
