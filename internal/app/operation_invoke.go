@@ -15,8 +15,8 @@ import (
 // OperationInvokeResult is the outcome of proxying an operation call.
 type OperationInvokeResult struct {
 	Protocol    string `json:"protocol"`
-	Request     string `json:"request"`               // human-readable request line, e.g. "GET https://…"
-	Status      int    `json:"status,omitempty"`      // HTTP status (REST)
+	Request     string `json:"request"`          // human-readable request line, e.g. "GET https://…"
+	Status      int    `json:"status,omitempty"` // HTTP status (REST)
 	ContentType string `json:"content_type,omitempty"`
 	Body        string `json:"body,omitempty"`
 	DurationMs  int64  `json:"duration_ms,omitempty"`
