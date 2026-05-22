@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/nomos/nomos/internal/fsx"
+	"github.com/nomos/nomos/internal/idgen"
 	"github.com/nomos/nomos/internal/model"
 	"github.com/nomos/nomos/internal/storage"
 )
@@ -36,10 +37,28 @@ func typeWithDetectionFile(loc, typeID string) (model.TypeDef, error) {
 	return def, nil
 }
 
+// NewTypeInstanceID mints a fresh instance id using the type's declared
+// IDPrefix (e.g. "RSK" -> RSK_4F7K2Q). It fails when the type has no prefix.
+func NewTypeInstanceID(loc, typeID string) (string, error) {
+	def, err := GetTypeDef(loc, typeID)
+	if err != nil {
+		return "", err
+	}
+	if def.IDPrefix == "" {
+		return "", Error(CodeInvalidInput, "type '"+typeID+"' has no id_prefix; set TypeDef.id_prefix to auto-generate ids", http.StatusBadRequest, nil)
+	}
+	id, err := idgen.New(def.IDPrefix)
+	if err != nil {
+		return "", Error(CodeInvalidInput, err.Error(), http.StatusBadRequest, err)
+	}
+	return id, nil
+}
+
 // instanceSkipDirs returns the absolute derived directories that never hold
 // authored instances (git database and Nomos plumbing).
 func instanceSkipDirs(loc string) map[string]bool {
 	return map[string]bool{
+		filepath.Clean(storage.NomosDir(loc)): true,
 		filepath.Clean(storage.ReposDir(loc)): true,
 		filepath.Clean(storage.CacheDir(loc)): true,
 		filepath.Clean(storage.IndexDir(loc)): true,

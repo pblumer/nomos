@@ -66,6 +66,13 @@ var apiEndpoints = []apiEndpoint{
 	{Method: "PUT", Path: "/api/v1/repositories/{repo}/types/{type}/instances", Tag: "Types", Summary: "Update type instance", Description: "Overwrites the data of the instance addressed by ?path=<dir>.", Request: object(map[string]any{"data": genObj()}), Response: genObj()},
 	{Method: "DELETE", Path: "/api/v1/repositories/{repo}/types/{type}/instances", Tag: "Types", Summary: "Delete type instance", Description: "Removes the instance directory addressed by ?path=<dir>.", Response: schemaRef("DeletedResponse"), Code: "204"},
 
+	// Data objects (reusable table schemas referenced by types)
+	{Method: "GET", Path: "/api/v1/repositories/{repo}/data-objects", Tag: "Data Objects", Summary: "List data objects", Description: "Returns the data objects (table schemas) under .nomos/data.", Response: genObj()},
+	{Method: "POST", Path: "/api/v1/repositories/{repo}/data-objects", Tag: "Data Objects", Summary: "Create data object", Description: "Creates a data object. The id must be a lowercase slug.", Request: genObj(), Response: genObj(), Code: "201"},
+	{Method: "GET", Path: "/api/v1/repositories/{repo}/data-objects/{id}", Tag: "Data Objects", Summary: "Get data object", Description: "Returns one data object by id.", Response: genObj()},
+	{Method: "PUT", Path: "/api/v1/repositories/{repo}/data-objects/{id}", Tag: "Data Objects", Summary: "Update data object", Description: "Creates or replaces a data object; the id is taken from the path.", Request: genObj(), Response: genObj()},
+	{Method: "DELETE", Path: "/api/v1/repositories/{repo}/data-objects/{id}", Tag: "Data Objects", Summary: "Delete data object", Description: "Removes a data object.", Response: schemaRef("DeletedResponse"), Code: "204"},
+
 	// Mounts
 	{Method: "GET", Path: "/api/v1/mounts", Tag: "Mounts", Summary: "List mounts", Description: "Returns the implicit local server mount followed by configured remote mounts (ADR-0022).", Response: schemaRef("MountsResponse")},
 	{Method: "POST", Path: "/api/v1/mounts", Tag: "Mounts", Summary: "Add mount", Description: "Registers a remote server mount by endpoint (host:7373). An optional token is the remote server's API key used for proxied writes (ADR-0023).", Request: object(map[string]any{"endpoint": stringSchema("Remote server endpoint, e.g. nomos.blumer.cloud:7373."), "label": stringSchema("Optional display label."), "token": stringSchema("Optional remote API key for write access.")}), Response: schemaRef("Mount"), Code: "201"},
@@ -82,6 +89,10 @@ var apiEndpoints = []apiEndpoint{
 	{Method: "DELETE", Path: "/api/v1/decisions/{decision}", Tag: "Decisions", Summary: "Delete decision", Description: "Deletes a decision.", Code: "204"},
 	{Method: "POST", Path: "/api/v1/decisions/{decision}/evaluate", Tag: "Decisions", Summary: "Evaluate decision", Description: "Evaluates a decision against supplied inputs and records a trace.", Request: object(map[string]any{"inputs": genObj()}), Response: genObj()},
 	{Method: "GET", Path: "/api/v1/decisions/{decision}/definitions", Tag: "Decisions", Summary: "Get decision definitions", Description: "Returns the parsed decision requirements graph (DRG).", Response: genObj()},
+	{Method: "GET", Path: "/api/v1/decisions/{decision}/tables", Tag: "Decisions", Summary: "List decision tables", Description: "Returns each decision table as a flat columns-and-rules projection for test authoring.", Response: genObj()},
+	{Method: "GET", Path: "/api/v1/decisions/{decision}/coverage", Tag: "Decisions", Summary: "Decision rule coverage", Description: "Evaluates the stored scenarios against the decision table and reports per-rule hit counts and uncovered rules.", Response: genObj()},
+	{Method: "GET", Path: "/api/v1/decisions/{decision}/bkm", Tag: "Decisions", Summary: "List business knowledge models", Description: "Returns the business knowledge models (BKMs) in the decision's DMN.", Response: genObj()},
+	{Method: "GET", Path: "/api/v1/decisions/{decision}/bkm/{name}", Tag: "Decisions", Summary: "Get business knowledge model", Description: "Returns one BKM by name or id.", Response: genObj()},
 	{Method: "GET", Path: "/api/v1/decisions/{decision}/dmn", Tag: "Decisions", Summary: "Get decision DMN", Description: "Returns the raw DMN XML for a decision.", Response: nil},
 	{Method: "PUT", Path: "/api/v1/decisions/{decision}/dmn", Tag: "Decisions", Summary: "Update decision DMN", Description: "Replaces the DMN XML of a decision.", Request: genObj(), Response: genObj()},
 	{Method: "GET", Path: "/api/v1/decisions/{decision}/traces", Tag: "Decisions", Summary: "List decision traces", Description: "Returns recorded evaluation traces for a decision.", Response: genObj()},
@@ -114,11 +125,12 @@ var apiEndpoints = []apiEndpoint{
 	{Method: "POST", Path: "/api/v1/services/{service}/user-interfaces", Tag: "Services", Summary: "Add user interface", Description: "Adds a user interface to a service.", Request: genObj(), Response: schemaRef("Service"), Code: "201"},
 	{Method: "PUT", Path: "/api/v1/services/{service}/user-interfaces/{userInterface}", Tag: "Services", Summary: "Update user interface", Description: "Updates a service user interface.", Request: genObj(), Response: schemaRef("Service")},
 	{Method: "DELETE", Path: "/api/v1/services/{service}/user-interfaces/{userInterface}", Tag: "Services", Summary: "Delete user interface", Description: "Removes a service user interface.", Response: schemaRef("Service")},
-	{Method: "GET", Path: "/api/v1/services/{service}/methods", Tag: "Services", Summary: "List methods", Description: "Returns the methods defined on a service.", Response: genObj()},
-	{Method: "POST", Path: "/api/v1/services/{service}/methods", Tag: "Services", Summary: "Add method", Description: "Adds a method to a service.", Request: object(map[string]any{"method": stringSchema("Method name.")}), Response: schemaRef("Service"), Code: "201"},
-	{Method: "GET", Path: "/api/v1/services/{service}/methods/{method}", Tag: "Services", Summary: "Get method", Description: "Returns one service method definition.", Response: genObj()},
-	{Method: "PUT", Path: "/api/v1/services/{service}/methods/{method}", Tag: "Services", Summary: "Update method", Description: "Updates a service method definition.", Request: genObj(), Response: schemaRef("Service")},
-	{Method: "DELETE", Path: "/api/v1/services/{service}/methods/{method}", Tag: "Services", Summary: "Delete method", Description: "Removes a service method.", Response: schemaRef("Service")},
+	{Method: "GET", Path: "/api/v1/services/{service}/operations", Tag: "Services", Summary: "List operations", Description: "Returns the operations defined on a service.", Response: genObj()},
+	{Method: "POST", Path: "/api/v1/services/{service}/operations", Tag: "Services", Summary: "Add operation", Description: "Adds an operation to a service.", Request: object(map[string]any{"operation": stringSchema("Operation name.")}), Response: schemaRef("Service"), Code: "201"},
+	{Method: "GET", Path: "/api/v1/services/{service}/operations/{operation}", Tag: "Services", Summary: "Get operation", Description: "Returns one service operation definition.", Response: genObj()},
+	{Method: "PUT", Path: "/api/v1/services/{service}/operations/{operation}", Tag: "Services", Summary: "Update operation", Description: "Updates a service operation definition.", Request: genObj(), Response: schemaRef("Service")},
+	{Method: "DELETE", Path: "/api/v1/services/{service}/operations/{operation}", Tag: "Services", Summary: "Delete operation", Description: "Removes a service operation.", Response: schemaRef("Service")},
+	{Method: "POST", Path: "/api/v1/services/{service}/operations/{operation}/invoke", Tag: "Services", Summary: "Invoke operation", Description: "Proxies a call to the external API the operation binds to (REST implemented; MCP/gRPC pending). Body: {inputs}.", Request: object(map[string]any{"inputs": genObj()}), Response: genObj()},
 
 	// Namespaces
 	{Method: "GET", Path: "/api/v1/namespaces", Tag: "Namespaces", Summary: "Get namespace tree", Description: "Returns the cosmos namespace tree.", Response: schemaRef("NamespaceTree")},

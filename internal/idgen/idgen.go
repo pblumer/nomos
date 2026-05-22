@@ -73,6 +73,11 @@ func PrefixForType(artefactType string) (string, bool) {
 	return p, ok
 }
 
+// IsValidPrefix prüft, ob s ein gültiger ID-Präfix ist (genau drei Großbuchstaben).
+func IsValidPrefix(s string) bool {
+	return prefixRegex.MatchString(strings.TrimSpace(s))
+}
+
 // KnownTypes liefert alle registrierten Artefakttypen.
 func KnownTypes() []string {
 	out := make([]string, 0, len(artefactPrefixes))

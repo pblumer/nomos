@@ -25,6 +25,10 @@ func TypesDir(workspace string) string { return filepath.Join(NomosDir(workspace
 
 // ViewsDir holds standalone form/view definitions (.nomos/views/<name>.frm).
 func ViewsDir(workspace string) string { return filepath.Join(NomosDir(workspace), "views") }
+
+// DataDir holds reusable data-object (table-schema) definitions
+// (.nomos/data/<id>.yaml) that types reference as their main/helper objects.
+func DataDir(workspace string) string { return filepath.Join(NomosDir(workspace), "data") }
 func ServicegraphsDir(workspace string) string {
 	return filepath.Join(NomosDir(workspace), "servicegraphs")
 }

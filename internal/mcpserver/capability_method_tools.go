@@ -13,16 +13,16 @@ import (
 // registerCapabilityMethodTools adds MCP tools for capability and method CRUD.
 // Methods are how a service exposes work; capabilities group methods into a
 // user-facing contract. Use these together: define methods first, then group
-// them under capabilities via method_refs.
+// them under capabilities via operation_refs.
 func registerCapabilityMethodTools(srv *mcp.Server, cosmosPath string) {
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "nomos_capability_add",
-		Description: "Add a new capability to a service. method_refs links it to existing methods so consumers see which methods implement the capability.",
+		Description: "Add a new capability to a service. operation_refs links it to existing methods so consumers see which methods implement the capability.",
 	}, toolCapabilityAdd(cosmosPath))
 
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "nomos_capability_update",
-		Description: "Update fields of an existing capability. Only provided fields are changed; omit method_refs/data_object_refs to leave them as-is, pass an empty array to clear them.",
+		Description: "Update fields of an existing capability. Only provided fields are changed; omit operation_refs/data_object_refs to leave them as-is, pass an empty array to clear them.",
 	}, toolCapabilityUpdate(cosmosPath))
 
 	mcp.AddTool(srv, &mcp.Tool{
@@ -31,18 +31,18 @@ func registerCapabilityMethodTools(srv *mcp.Server, cosmosPath string) {
 	}, toolCapabilityDelete(cosmosPath))
 
 	mcp.AddTool(srv, &mcp.Tool{
-		Name:        "nomos_method_add",
+		Name:        "nomos_operation_add",
 		Description: "Add a new method to a service. Optionally set summary, http_method and path in the same call.",
 	}, toolMethodAdd(cosmosPath))
 
 	mcp.AddTool(srv, &mcp.Tool{
-		Name:        "nomos_method_update",
+		Name:        "nomos_operation_update",
 		Description: "Update fields of an existing method on a service. Only non-empty fields are written.",
 	}, toolMethodUpdate(cosmosPath))
 
 	mcp.AddTool(srv, &mcp.Tool{
-		Name:        "nomos_method_delete",
-		Description: "Delete a method from a service. References to it in capability.method_refs are cleaned up automatically.",
+		Name:        "nomos_operation_delete",
+		Description: "Delete a method from a service. References to it in capability.operation_refs are cleaned up automatically.",
 	}, toolMethodDelete(cosmosPath))
 }
 
@@ -55,7 +55,7 @@ type capabilityAddIn struct {
 	Summary        string   `json:"summary,omitempty"          jsonschema:"one-line description of what the capability does"`
 	Stability      string   `json:"stability,omitempty"        jsonschema:"draft | experimental | stable | deprecated"`
 	SideEffect     string   `json:"side_effect,omitempty"      jsonschema:"none | read_only | mutates_workspace | network_egress"`
-	MethodRefs     []string `json:"method_refs,omitempty"      jsonschema:"names of methods on the same service that implement this capability"`
+	OperationRefs  []string `json:"operation_refs,omitempty"      jsonschema:"names of methods on the same service that implement this capability"`
 	DataObjectRefs []string `json:"data_object_refs,omitempty" jsonschema:"IDs of data objects on the same service referenced by this capability"`
 }
 
@@ -70,7 +70,7 @@ func toolCapabilityAdd(path string) func(context.Context, *mcp.CallToolRequest, 
 			Summary:        in.Summary,
 			Stability:      in.Stability,
 			SideEffect:     in.SideEffect,
-			MethodRefs:     in.MethodRefs,
+			OperationRefs:  in.OperationRefs,
 			DataObjectRefs: in.DataObjectRefs,
 		}
 		dto, err := app.AddServiceCapability(path, in.Service, cap)
@@ -84,7 +84,7 @@ func toolCapabilityAdd(path string) func(context.Context, *mcp.CallToolRequest, 
 			"service":          in.Service,
 			"stability":        added.Stability,
 			"side_effect":      added.SideEffect,
-			"method_refs":      added.MethodRefs,
+			"operation_refs":   added.OperationRefs,
 			"data_object_refs": added.DataObjectRefs,
 		})
 	}
@@ -101,7 +101,7 @@ type capabilityUpdateIn struct {
 	Summary        *string   `json:"summary,omitempty"          jsonschema:"new one-line description"`
 	Stability      *string   `json:"stability,omitempty"        jsonschema:"draft | experimental | stable | deprecated"`
 	SideEffect     *string   `json:"side_effect,omitempty"      jsonschema:"none | read_only | mutates_workspace | network_egress"`
-	MethodRefs     *[]string `json:"method_refs,omitempty"      jsonschema:"replace linked method names; pass [] to clear, omit to keep existing"`
+	OperationRefs  *[]string `json:"operation_refs,omitempty"      jsonschema:"replace linked method names; pass [] to clear, omit to keep existing"`
 	DataObjectRefs *[]string `json:"data_object_refs,omitempty" jsonschema:"replace linked data object IDs; pass [] to clear, omit to keep existing"`
 }
 
@@ -121,7 +121,7 @@ func toolCapabilityUpdate(path string) func(context.Context, *mcp.CallToolReques
 		}
 
 		patch := model.ServiceCapability{
-			MethodRefs:     cur.MethodRefs,
+			OperationRefs:  cur.OperationRefs,
 			DataObjectRefs: cur.DataObjectRefs,
 		}
 		if in.Name != nil {
@@ -136,8 +136,8 @@ func toolCapabilityUpdate(path string) func(context.Context, *mcp.CallToolReques
 		if in.SideEffect != nil {
 			patch.SideEffect = *in.SideEffect
 		}
-		if in.MethodRefs != nil {
-			patch.MethodRefs = *in.MethodRefs
+		if in.OperationRefs != nil {
+			patch.OperationRefs = *in.OperationRefs
 		}
 		if in.DataObjectRefs != nil {
 			patch.DataObjectRefs = *in.DataObjectRefs
@@ -154,7 +154,7 @@ func toolCapabilityUpdate(path string) func(context.Context, *mcp.CallToolReques
 			"service":          in.Service,
 			"stability":        updated.Stability,
 			"side_effect":      updated.SideEffect,
-			"method_refs":      updated.MethodRefs,
+			"operation_refs":   updated.OperationRefs,
 			"data_object_refs": updated.DataObjectRefs,
 		})
 	}
@@ -197,15 +197,15 @@ func toolMethodAdd(path string) func(context.Context, *mcp.CallToolRequest, meth
 		if in.Service == "" || in.Name == "" {
 			return nil, nil, fmt.Errorf("service and name are required")
 		}
-		if _, err := app.AddServiceMethod(path, in.Service, in.Name); err != nil {
+		if _, err := app.AddServiceOperation(path, in.Service, in.Name); err != nil {
 			return nil, nil, fmt.Errorf("method_add %q in %s: %w", in.Name, in.Service, err)
 		}
 		// If caller supplied extra fields, follow up with an update.
 		if in.Summary != "" || in.HTTPMethod != "" || in.Path != "" {
-			if _, err := app.UpdateMethod(path, in.Service, in.Name, model.MethodDefinition{
-				Summary:    in.Summary,
-				HTTPMethod: in.HTTPMethod,
-				Path:       in.Path,
+			if _, err := app.UpdateOperation(path, in.Service, in.Name, model.Operation{
+				Summary:  in.Summary,
+				Protocol: "rest",
+				REST:     &model.RESTOperation{HTTPMethod: in.HTTPMethod, Path: in.Path},
 			}); err != nil {
 				return nil, nil, fmt.Errorf("method_add %q: created but failed to set fields: %w", in.Name, err)
 			}
@@ -235,10 +235,10 @@ func toolMethodUpdate(path string) func(context.Context, *mcp.CallToolRequest, m
 		if in.Service == "" || in.Method == "" {
 			return nil, nil, fmt.Errorf("service and method are required")
 		}
-		dto, err := app.UpdateMethod(path, in.Service, in.Method, model.MethodDefinition{
-			Summary:    in.Summary,
-			HTTPMethod: in.HTTPMethod,
-			Path:       in.Path,
+		dto, err := app.UpdateOperation(path, in.Service, in.Method, model.Operation{
+			Summary:  in.Summary,
+			Protocol: "rest",
+			REST:     &model.RESTOperation{HTTPMethod: in.HTTPMethod, Path: in.Path},
 		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("method_update %q in %s: %w", in.Method, in.Service, err)
@@ -265,7 +265,7 @@ func toolMethodDelete(path string) func(context.Context, *mcp.CallToolRequest, m
 		if in.Service == "" || in.Method == "" {
 			return nil, nil, fmt.Errorf("service and method are required")
 		}
-		if _, err := app.RemoveServiceMethod(path, in.Service, in.Method); err != nil {
+		if _, err := app.RemoveServiceOperation(path, in.Service, in.Method); err != nil {
 			return nil, nil, fmt.Errorf("method_delete %q in %s: %w", in.Method, in.Service, err)
 		}
 		return textResult(map[string]any{

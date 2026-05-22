@@ -15,6 +15,7 @@ import (
 	"github.com/nomos/nomos/internal/fsx"
 	"github.com/nomos/nomos/internal/idgen"
 	"github.com/nomos/nomos/internal/model"
+	"github.com/nomos/nomos/internal/repo"
 	"github.com/nomos/nomos/internal/selfmodel"
 	"github.com/nomos/nomos/internal/server"
 	"github.com/nomos/nomos/internal/storage"
@@ -111,6 +112,9 @@ func cosmosCmd() *cobra.Command {
 		if err := appendGitignore(p); err != nil {
 			return err
 		}
+		// Seed the type-capture form so "Neuer Typ" in the web UI has a form-js
+		// view to render (ADR-0024); best-effort, matching API repo creation.
+		_ = repo.SeedDefaultViews(p)
 		if git {
 			if err := os.WriteFile(filepath.Join(p, ".gitkeep"), []byte{}, 0o644); err != nil {
 				return err

@@ -148,15 +148,36 @@ type MethodPayloadDTO struct {
 	Fields      []MethodPayloadFieldDTO `json:"fields,omitempty"`
 }
 
-type MethodDefinitionDTO struct {
-	Name       string               `json:"name"`
-	Summary    string               `json:"summary,omitempty"`
-	HTTPMethod string               `json:"http_method,omitempty"`
-	Path       string               `json:"path,omitempty"`
-	Parameters []MethodParameterDTO `json:"parameters,omitempty"`
-	Headers    []MethodHeaderDTO    `json:"headers,omitempty"`
-	Security   *MethodSecurityDTO   `json:"security,omitempty"`
-	Payload    *MethodPayloadDTO    `json:"payload,omitempty"`
+// OperationDTO is a service operation (successor to the method DTO). REST fields
+// are flattened for editor convenience; mcp/grpc carry the other protocols.
+type OperationDTO struct {
+	Name         string               `json:"name"`
+	Summary      string               `json:"summary,omitempty"`
+	Protocol     string               `json:"protocol,omitempty"`
+	InputObject  string               `json:"input_object,omitempty"`
+	OutputObject string               `json:"output_object,omitempty"`
+	HTTPMethod   string               `json:"http_method,omitempty"`
+	Path         string               `json:"path,omitempty"`
+	BaseURL      string               `json:"base_url,omitempty"`
+	Parameters   []MethodParameterDTO `json:"parameters,omitempty"`
+	Headers      []MethodHeaderDTO    `json:"headers,omitempty"`
+	Security     *MethodSecurityDTO   `json:"security,omitempty"`
+	Payload      *MethodPayloadDTO    `json:"payload,omitempty"`
+	MCP          *MCPOperationDTO     `json:"mcp,omitempty"`
+	GRPC         *GRPCOperationDTO    `json:"grpc,omitempty"`
+}
+
+type MCPOperationDTO struct {
+	Transport string `json:"transport,omitempty"`
+	ServerURL string `json:"server_url,omitempty"`
+	Tool      string `json:"tool,omitempty"`
+}
+
+type GRPCOperationDTO struct {
+	Target   string `json:"target,omitempty"`
+	Service  string `json:"service,omitempty"`
+	Method   string `json:"method,omitempty"`
+	ProtoRef string `json:"proto_ref,omitempty"`
 }
 
 type ConnectorDTO struct {
@@ -182,7 +203,7 @@ type ServiceCapabilityDTO struct {
 	SideEffect     string         `json:"side_effect,omitempty"`
 	Connectors     []ConnectorDTO `json:"connectors,omitempty"`
 	RelatedUCI     []string       `json:"related_uci,omitempty"`
-	MethodRefs     []string       `json:"method_refs,omitempty"`
+	OperationRefs  []string       `json:"operation_refs,omitempty"`
 	DataObjectRefs []string       `json:"data_object_refs,omitempty"`
 	ConnectorTypes string         `json:"connector_types,omitempty"` // e.g. "CLI · REST · MCP"
 }
@@ -225,7 +246,7 @@ type ServiceDTO struct {
 	UserInterfaces    []string                  `json:"user_interfaces,omitempty"`
 	UserInterfaceDefs []ServiceUserInterfaceDTO `json:"user_interface_defs,omitempty"`
 	SupportedProducts []string                  `json:"supported_products,omitempty"`
-	Methods           []MethodDefinitionDTO     `json:"methods,omitempty"`
+	Operations        []OperationDTO            `json:"operations,omitempty"`
 	Status            string                    `json:"status"`
 	Path              string                    `json:"path"`
 }

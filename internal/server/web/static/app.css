@@ -110,3 +110,30 @@
 .markdown-body code{font-family:ui-monospace,monospace;font-size:.85rem}
 .markdown-body table{border-collapse:collapse}
 .markdown-body th,.markdown-body td{border:1px solid var(--color-border);padding:.35rem .55rem}
+
+/* ERD relationship editor: lightweight SVG canvas with draggable type boxes. */
+.erd-toolbar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin:.2rem 0 .5rem}
+.erd-canvas{position:relative;min-height:520px;border:1px solid var(--color-border);border-radius:.6rem;overflow:auto;background:#fafbfc;background-image:radial-gradient(#e2e8f0 1px,transparent 1px);background-size:18px 18px}
+.erd-edges{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+.erd-edge{stroke:#94a3b8;stroke-width:1.6;fill:none;pointer-events:stroke;cursor:pointer}
+.erd-edge:hover{stroke:#dc2626;stroke-width:2.4}
+.erd-edge-label{font-size:10px;fill:#64748b;pointer-events:none}
+.erd-node{position:absolute;min-width:140px;background:#fff;border:1px solid #cbd5e1;border-radius:.55rem;box-shadow:0 1px 3px rgba(15,23,42,.08);font-size:.8rem;user-select:none;cursor:grab}
+.erd-node.dragging{cursor:grabbing;box-shadow:0 6px 18px rgba(15,23,42,.18);z-index:5}
+.erd-node.connect-source{outline:2px solid #6366f1;outline-offset:1px}
+.erd-node.connecting{cursor:crosshair}
+.erd-node-title{display:flex;align-items:center;gap:.35rem;font-weight:600;padding:.35rem .55rem;border-bottom:1px solid #eef2f7;color:#0f172a}
+.erd-node-title .mi{font-family:'Material Symbols Outlined';font-size:16px;color:#6366f1}
+.erd-node-props{list-style:none;margin:0;padding:.25rem .55rem;display:flex;flex-direction:column;gap:1px;color:#475569}
+.erd-node-props li{display:flex;gap:.4rem;font-size:.74rem}
+.erd-node-props .erd-prop-type{margin-left:auto;color:#94a3b8}
+.erd-node-empty{padding:.3rem .55rem;font-size:.74rem;color:#94a3b8}
+
+/* Data object (table-schema) editor + type-detail links. */
+.dbo-table{width:100%;border-collapse:collapse;font-size:.8rem;margin:.1rem 0 .3rem}
+.dbo-table th{text-align:left;font-size:.7rem;color:#64748b;font-weight:600;padding:.2rem .35rem;border-bottom:1px solid var(--color-border)}
+.dbo-table td{padding:.18rem .25rem;vertical-align:middle}
+.dbo-table input[type=text],.dbo-table input:not([type]){width:100%;box-sizing:border-box;padding:.25rem .4rem;border:1px solid var(--color-border);border-radius:.35rem;font-size:.8rem}
+.dbo-table .dbo-row-del{padding:.05rem .45rem;line-height:1.2}
+.dbo-link-row{display:flex;align-items:center;gap:.45rem;padding:.35rem .5rem;border:1px solid var(--color-border);border-radius:.5rem;margin:.25rem 0;font-size:.83rem;background:#fff}
+.dbo-link-row .muted{color:#94a3b8;font-size:.74rem}

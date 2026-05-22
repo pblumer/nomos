@@ -128,9 +128,9 @@ func TestUpdateServiceCapability(t *testing.T) {
 		t.Fatal(err)
 	}
 	svc, err := UpdateServiceCapability(p, "user-account", "cap-x", model.ServiceCapability{
-		Summary:    "Updated summary",
-		Stability:  "stable",
-		MethodRefs: []string{"createUser"},
+		Summary:       "Updated summary",
+		Stability:     "stable",
+		OperationRefs: []string{"createUser"},
 	})
 	if err != nil {
 		t.Fatalf("UpdateServiceCapability: %v", err)
@@ -141,8 +141,8 @@ func TestUpdateServiceCapability(t *testing.T) {
 	if svc.CapabilityDefs[0].Summary != "Updated summary" {
 		t.Errorf("unexpected Summary: %q", svc.CapabilityDefs[0].Summary)
 	}
-	if len(svc.CapabilityDefs[0].MethodRefs) != 1 {
-		t.Errorf("expected 1 method ref, got %v", svc.CapabilityDefs[0].MethodRefs)
+	if len(svc.CapabilityDefs[0].OperationRefs) != 1 {
+		t.Errorf("expected 1 method ref, got %v", svc.CapabilityDefs[0].OperationRefs)
 	}
 }
 
@@ -341,21 +341,21 @@ func TestRemoveServiceUserInterface_NotFound(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// UpdateMethod / GetServiceMethod
+// UpdateMethod / GetServiceOperation
 // ---------------------------------------------------------------------------
 
 func TestUpdateMethod_Success(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if _, err := AddServiceMethod(p, "user-account", "createUser"); err != nil {
+	if _, err := AddServiceOperation(p, "user-account", "createUser"); err != nil {
 		t.Fatal(err)
 	}
-	dto, err := UpdateMethod(p, "user-account", "createUser", model.MethodDefinition{
-		HTTPMethod: "POST",
-		Path:       "/users",
-		Summary:    "Creates a user",
+	dto, err := UpdateOperation(p, "user-account", "createUser", model.Operation{
+		Protocol: "rest",
+		Summary:  "Creates a user",
+		REST:     &model.RESTOperation{HTTPMethod: "POST", Path: "/users"},
 	})
 	if err != nil {
-		t.Fatalf("UpdateMethod: %v", err)
+		t.Fatalf("UpdateOperation: %v", err)
 	}
 	if dto.HTTPMethod != "POST" || dto.Path != "/users" || dto.Summary != "Creates a user" {
 		t.Errorf("unexpected DTO: %+v", dto)
@@ -364,7 +364,7 @@ func TestUpdateMethod_Success(t *testing.T) {
 
 func TestUpdateMethod_NotFound(t *testing.T) {
 	p := createAppTestCosmos(t)
-	_, err := UpdateMethod(p, "user-account", "ghost", model.MethodDefinition{HTTPMethod: "GET"})
+	_, err := UpdateOperation(p, "user-account", "ghost", model.Operation{Protocol: "rest", REST: &model.RESTOperation{HTTPMethod: "GET"}})
 	if err == nil {
 		t.Error("expected error for missing method")
 	}
@@ -372,21 +372,24 @@ func TestUpdateMethod_NotFound(t *testing.T) {
 
 func TestUpdateMethod_WithHeadersAndSecurity(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if _, err := AddServiceMethod(p, "user-account", "secureCreate"); err != nil {
+	if _, err := AddServiceOperation(p, "user-account", "secureCreate"); err != nil {
 		t.Fatal(err)
 	}
-	dto, err := UpdateMethod(p, "user-account", "secureCreate", model.MethodDefinition{
-		Headers:  []model.MethodHeader{{Name: "X-Request-ID", Value: "{{requestId}}", Required: true}},
-		Security: &model.MethodSecurity{Scheme: "bearer", In: "header", Name: "Authorization"},
-		Payload: &model.MethodPayload{
-			ContentType: "application/json",
-			Fields: []model.MethodPayloadField{
-				{Name: "username", Type: "string", Required: true},
+	dto, err := UpdateOperation(p, "user-account", "secureCreate", model.Operation{
+		Protocol: "rest",
+		REST: &model.RESTOperation{
+			Headers:  []model.MethodHeader{{Name: "X-Request-ID", Value: "{{requestId}}", Required: true}},
+			Security: &model.MethodSecurity{Scheme: "bearer", In: "header", Name: "Authorization"},
+			Payload: &model.MethodPayload{
+				ContentType: "application/json",
+				Fields: []model.MethodPayloadField{
+					{Name: "username", Type: "string", Required: true},
+				},
 			},
 		},
 	})
 	if err != nil {
-		t.Fatalf("UpdateMethod: %v", err)
+		t.Fatalf("UpdateOperation: %v", err)
 	}
 	if len(dto.Headers) != 1 || dto.Headers[0].Name != "X-Request-ID" {
 		t.Errorf("unexpected headers: %+v", dto.Headers)
@@ -399,39 +402,39 @@ func TestUpdateMethod_WithHeadersAndSecurity(t *testing.T) {
 	}
 }
 
-func TestUpdateMethodParameters(t *testing.T) {
+func TestUpdateOperationParameters(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if _, err := AddServiceMethod(p, "user-account", "getUser"); err != nil {
+	if _, err := AddServiceOperation(p, "user-account", "getUser"); err != nil {
 		t.Fatal(err)
 	}
-	dto, err := UpdateMethodParameters(p, "user-account", "getUser", []model.MethodParameter{
+	dto, err := UpdateOperationParameters(p, "user-account", "getUser", []model.MethodParameter{
 		{Name: "userId", Type: "string", In: "path", Required: true},
 	})
 	if err != nil {
-		t.Fatalf("UpdateMethodParameters: %v", err)
+		t.Fatalf("UpdateOperationParameters: %v", err)
 	}
 	if len(dto.Parameters) != 1 || dto.Parameters[0].Name != "userId" {
 		t.Errorf("unexpected parameters: %+v", dto.Parameters)
 	}
 }
 
-func TestGetServiceMethod_Success(t *testing.T) {
+func TestGetServiceOperation_Success(t *testing.T) {
 	p := createAppTestCosmos(t)
-	if _, err := AddServiceMethod(p, "user-account", "findUser"); err != nil {
+	if _, err := AddServiceOperation(p, "user-account", "findUser"); err != nil {
 		t.Fatal(err)
 	}
-	dto, err := GetServiceMethod(p, "user-account", "findUser")
+	dto, err := GetServiceOperation(p, "user-account", "findUser")
 	if err != nil {
-		t.Fatalf("GetServiceMethod: %v", err)
+		t.Fatalf("GetServiceOperation: %v", err)
 	}
 	if dto.Name != "findUser" {
 		t.Errorf("unexpected name: %q", dto.Name)
 	}
 }
 
-func TestGetServiceMethod_NotFound(t *testing.T) {
+func TestGetServiceOperation_NotFound(t *testing.T) {
 	p := createAppTestCosmos(t)
-	_, err := GetServiceMethod(p, "user-account", "ghost")
+	_, err := GetServiceOperation(p, "user-account", "ghost")
 	if err == nil {
 		t.Error("expected error for missing method")
 	}

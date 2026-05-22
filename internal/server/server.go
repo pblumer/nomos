@@ -59,6 +59,10 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/v1/graph", h.apiGraph)
 	mux.HandleFunc("/api/v1/validate", h.apiValidate)
 	mux.HandleFunc("/api/v1/source", h.apiSource)
+	mux.HandleFunc("/api/v1/source/scaffold", h.apiSourceScaffold)
+	mux.HandleFunc("/api/v1/view", h.apiView)
+	mux.HandleFunc("/api/v1/erd", h.apiERD)
+	mux.HandleFunc("/api/v1/dmn", h.apiDMNFile)
 	mux.HandleFunc("/api/v1/render/markdown", h.apiRenderMarkdown)
 	mux.HandleFunc("/api/v1/blueprints", h.apiBlueprints)
 	mux.HandleFunc("/api/v1/blueprints/", h.apiBlueprintRoutes)
@@ -176,6 +180,13 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 	// POST .../fs/type and .../fs/type-form gestures stay handled below.
 	if len(parts) > 1 && parts[1] == "types" {
 		h.handleTypeRoutes(w, r, loc, parts[2:])
+		return
+	}
+
+	// RESTful CRUD for reusable data objects (table schemas) lives under
+	// .../data-objects[/{id}] and supports GET/POST/PUT/DELETE.
+	if len(parts) > 1 && parts[1] == "data-objects" {
+		h.handleDataObjectRoutes(w, r, loc, parts[2:])
 		return
 	}
 
@@ -666,6 +677,54 @@ func (h *handler) apiDecisionByID(w http.ResponseWriter, r *http.Request, id str
 		writeJSON(w, http.StatusOK, defs)
 		return
 	}
+	if len(tail) == 1 && tail[0] == "tables" {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		tables, err := app.DecisionTables(h.cosmosPath, id)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"decision_id": id, "tables": tables})
+		return
+	}
+	if len(tail) == 1 && tail[0] == "coverage" {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		cov, err := app.DecisionCoverage(h.cosmosPath, id)
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, cov)
+		return
+	}
+	if len(tail) >= 1 && tail[0] == "bkm" {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		if len(tail) == 1 {
+			bkms, err := app.DecisionBKMs(h.cosmosPath, id)
+			if err != nil {
+				h.apiErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"decision_id": id, "bkms": bkms})
+			return
+		}
+		bkm, err := app.DecisionBKM(h.cosmosPath, id, tail[1])
+		if err != nil {
+			h.apiErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, bkm)
+		return
+	}
 	if len(tail) == 1 && tail[0] == "dmn" {
 		switch r.Method {
 		case http.MethodGet:
@@ -1038,13 +1097,31 @@ func (h *handler) apiServiceRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 	service := parts[0]
 
+	// POST /api/v1/services/{service}/operations/{operation}/invoke
+	if len(parts) == 4 && parts[1] == "operations" && parts[3] == "invoke" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			Inputs map[string]any `json:"inputs"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+			return
+		}
+		res, err := app.InvokeOperation(h.cosmosPath, service, parts[2], req.Inputs)
+		h.writeOrErr(w, res, err)
+		return
+	}
+
 	// POST /api/v1/services/{service}/{kind}/{id}/move
 	if len(parts) == 4 && parts[3] == "move" {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		kind := map[string]string{"capabilities": "capability", "data-objects": "data-object", "user-interfaces": "user-interface", "methods": "method"}[parts[1]]
+		kind := map[string]string{"capabilities": "capability", "data-objects": "data-object", "user-interfaces": "user-interface", "operations": "operation"}[parts[1]]
 		if kind == "" {
 			htmlNotFound(w, r)
 			return
@@ -1208,17 +1285,17 @@ func (h *handler) apiServiceRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// GET/POST /api/v1/services/{service}/methods
-	if len(parts) == 2 && parts[1] == "methods" {
+	// GET/POST /api/v1/services/{service}/operations
+	if len(parts) == 2 && parts[1] == "operations" {
 		if r.Method == http.MethodPost {
 			var req struct {
-				Method string `json:"method"`
+				Operation string `json:"operation"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 				return
 			}
-			dto, err := app.AddServiceMethod(h.cosmosPath, service, req.Method)
+			dto, err := app.AddServiceOperation(h.cosmosPath, service, req.Operation)
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -1232,19 +1309,19 @@ func (h *handler) apiServiceRoutes(w http.ResponseWriter, r *http.Request) {
 				h.apiErr(w, err)
 				return
 			}
-			writeJSON(w, 200, map[string]any{"methods": dto.Methods})
+			writeJSON(w, 200, map[string]any{"operations": dto.Operations})
 			return
 		}
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
-	// GET/PUT/DELETE /api/v1/services/{service}/methods/{method}
-	if len(parts) == 3 && parts[1] == "methods" {
-		method := parts[2]
+	// GET/PUT/DELETE /api/v1/services/{service}/operations/{operation}
+	if len(parts) == 3 && parts[1] == "operations" {
+		operation := parts[2]
 		switch r.Method {
 		case http.MethodGet:
-			dto, err := app.GetServiceMethod(h.cosmosPath, service, method)
+			dto, err := app.GetServiceOperation(h.cosmosPath, service, operation)
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -1252,35 +1329,44 @@ func (h *handler) apiServiceRoutes(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, 200, dto)
 		case http.MethodPut:
 			var req struct {
-				Summary    string                  `json:"summary"`
-				HTTPMethod string                  `json:"http_method"`
-				Path       string                  `json:"path"`
-				Parameters []model.MethodParameter `json:"parameters"`
-				Headers    []model.MethodHeader    `json:"headers"`
-				Security   *model.MethodSecurity   `json:"security"`
-				Payload    *model.MethodPayload    `json:"payload"`
+				Summary      string                  `json:"summary"`
+				InputObject  string                  `json:"input_object"`
+				OutputObject string                  `json:"output_object"`
+				HTTPMethod   string                  `json:"http_method"`
+				Path         string                  `json:"path"`
+				BaseURL      string                  `json:"base_url"`
+				Parameters   []model.MethodParameter `json:"parameters"`
+				Headers      []model.MethodHeader    `json:"headers"`
+				Security     *model.MethodSecurity   `json:"security"`
+				Payload      *model.MethodPayload    `json:"payload"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 				return
 			}
-			patch := model.MethodDefinition{
-				Summary:    req.Summary,
-				HTTPMethod: req.HTTPMethod,
-				Path:       req.Path,
-				Parameters: req.Parameters,
-				Headers:    req.Headers,
-				Security:   req.Security,
-				Payload:    req.Payload,
+			patch := model.Operation{
+				Summary:      req.Summary,
+				Protocol:     "rest",
+				InputObject:  req.InputObject,
+				OutputObject: req.OutputObject,
+				REST: &model.RESTOperation{
+					HTTPMethod: req.HTTPMethod,
+					Path:       req.Path,
+					BaseURL:    req.BaseURL,
+					Parameters: req.Parameters,
+					Headers:    req.Headers,
+					Security:   req.Security,
+					Payload:    req.Payload,
+				},
 			}
-			dto, err := app.UpdateMethod(h.cosmosPath, service, method, patch)
+			dto, err := app.UpdateOperation(h.cosmosPath, service, operation, patch)
 			if err != nil {
 				h.apiErr(w, err)
 				return
 			}
 			writeJSON(w, 200, dto)
 		case http.MethodDelete:
-			dto, err := app.RemoveServiceMethod(h.cosmosPath, service, method)
+			dto, err := app.RemoveServiceOperation(h.cosmosPath, service, operation)
 			if err != nil {
 				h.apiErr(w, err)
 				return

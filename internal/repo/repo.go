@@ -117,7 +117,7 @@ func (r *Registry) CreateFilesystem(name string) (Repository, error) {
 	// Seed the views directory with the starter "capture a type" form (ADR-0024)
 	// so a freshly created repository ships a data-entry view. This MkdirAll also
 	// materialises .nomos itself, which cosmos.yaml and the type seeds rely on.
-	if err := seedDefaultViews(loc); err != nil {
+	if err := SeedDefaultViews(loc); err != nil {
 		return Repository{}, err
 	}
 	displayName := strings.TrimSpace(name)
@@ -290,11 +290,12 @@ func seedDefaultTypes(loc string) error {
 	return nil
 }
 
-// seedDefaultViews writes the starter "capture a type" form under .nomos/views
+// SeedDefaultViews writes the starter "capture a type" form under .nomos/views
 // so a freshly created repository ships a data-entry view (ADR-0024). The file
 // follows the <typeID>_new.frm convention; here the captured type is "type",
-// i.e. the form that records a new type definition.
-func seedDefaultViews(loc string) error {
+// i.e. the form that records a new type definition. Exported so the cosmos-init
+// CLI path seeds the same view as API-created repositories.
+func SeedDefaultViews(loc string) error {
 	dir := storage.ViewsDir(loc)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
@@ -342,6 +343,8 @@ func defaultTypeCaptureView() viewSeed {
 							"validate":    map[string]any{"required": true, "pattern": "^[a-z0-9_-]+$"},
 						},
 						{"type": "textfield", "key": "label", "label": "Label", "description": "Anzeigename im Explorer."},
+						{"type": "textfield", "key": "file", "label": "Erkennungsdatei", "description": "Markiert ein Verzeichnis als Instanz dieses Typs (z. B. \"requirement.yaml\")."},
+						{"type": "textfield", "key": "id_prefix", "label": "ID-Präfix", "description": "Optional: drei Großbuchstaben für automatische Instanz-IDs (z. B. \"RSK\" → RSK_4F7K2Q).", "validate": map[string]any{"pattern": "^[A-Z]{0,3}$"}},
 						{"type": "textarea", "key": "description", "label": "Beschreibung"},
 					},
 				},
@@ -370,6 +373,30 @@ func defaultTypeCaptureView() viewSeed {
 								{"label": "DMN", "value": "dmn"},
 							},
 						},
+					},
+				},
+				{
+					"type":               "dynamiclist",
+					"path":               "properties",
+					"label":              "Properties",
+					"showOutline":        true,
+					"isRepeating":        true,
+					"allowAddRemove":     true,
+					"defaultRepetitions": 0,
+					"components": []map[string]any{
+						{"type": "textfield", "key": "name", "label": "Feldname", "validate": map[string]any{"required": true}},
+						{
+							"type":  "select",
+							"key":   "type",
+							"label": "Typ",
+							"values": []map[string]any{
+								{"label": "string", "value": "string"},
+								{"label": "number", "value": "number"},
+								{"label": "boolean", "value": "boolean"},
+								{"label": "text", "value": "text"},
+							},
+						},
+						{"type": "checkbox", "key": "required", "label": "Pflicht"},
 					},
 				},
 			},

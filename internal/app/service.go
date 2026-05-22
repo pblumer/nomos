@@ -118,20 +118,20 @@ func BuildNamespaceTree(path string) (NamespaceTreeDTO, error) {
 }
 
 func serviceDTO(s cosmosfs.ServiceNode) ServiceDTO {
-	methods := make([]MethodDefinitionDTO, 0, len(s.Metadata.Methods))
-	for _, m := range s.Metadata.Methods {
-		methods = append(methods, methodDTO(m))
+	operations := make([]OperationDTO, 0, len(s.Metadata.Operations))
+	for _, op := range s.Metadata.Operations {
+		operations = append(operations, operationDTO(op))
 	}
 	capNames := make([]string, 0, len(s.Metadata.Capabilities))
 	var capDefs []ServiceCapabilityDTO
 	for _, c := range s.Metadata.Capabilities {
 		capNames = append(capNames, c.Name)
-		if len(c.Connectors) > 0 || c.Summary != "" || c.Stability != "" || len(c.MethodRefs) > 0 || len(c.DataObjectRefs) > 0 {
+		if len(c.Connectors) > 0 || c.Summary != "" || c.Stability != "" || len(c.OperationRefs) > 0 || len(c.DataObjectRefs) > 0 {
 			connDTOs := make([]ConnectorDTO, 0, len(c.Connectors))
 			for _, cn := range c.Connectors {
 				connDTOs = append(connDTOs, ConnectorDTO{Type: cn.Type, Description: cn.Description, Invocation: cn.Invocation, Method: cn.Method, Path: cn.Path, Auth: cn.Auth, Tool: cn.Tool, Kind: cn.Kind, ArtifactRef: cn.ArtifactRef, ConsumerPool: cn.ConsumerPool, ProviderPool: cn.ProviderPool})
 			}
-			capDefs = append(capDefs, ServiceCapabilityDTO{ID: c.ID, Name: c.Name, Summary: c.Summary, Stability: c.Stability, SideEffect: c.SideEffect, Connectors: connDTOs, RelatedUCI: c.RelatedUCI, MethodRefs: c.MethodRefs, DataObjectRefs: c.DataObjectRefs, ConnectorTypes: connectorTypeLabel(c.Connectors)})
+			capDefs = append(capDefs, ServiceCapabilityDTO{ID: c.ID, Name: c.Name, Summary: c.Summary, Stability: c.Stability, SideEffect: c.SideEffect, Connectors: connDTOs, RelatedUCI: c.RelatedUCI, OperationRefs: c.OperationRefs, DataObjectRefs: c.DataObjectRefs, ConnectorTypes: connectorTypeLabel(c.Connectors)})
 		}
 	}
 	doNames := make([]string, 0, len(s.Metadata.DataObjects))
@@ -150,13 +150,13 @@ func serviceDTO(s cosmosfs.ServiceNode) ServiceDTO {
 		}
 		uiDefs = append(uiDefs, ui)
 	}
-	return ServiceDTO{ID: s.Metadata.ID, Name: s.Name, Owner: fallback(s.Metadata.Owner, "unknown"), Capabilities: capNames, CapabilityDefs: capDefs, DataObjects: doNames, DataObjectDefs: doDefs, UserInterfaces: uiNames, UserInterfaceDefs: uiDefs, SupportedProducts: s.Metadata.SupportedProducts, Methods: methods, Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path}
+	return ServiceDTO{ID: s.Metadata.ID, Name: s.Name, Owner: fallback(s.Metadata.Owner, "unknown"), Capabilities: capNames, CapabilityDefs: capDefs, DataObjects: doNames, DataObjectDefs: doDefs, UserInterfaces: uiNames, UserInterfaceDefs: uiDefs, SupportedProducts: s.Metadata.SupportedProducts, Operations: operations, Status: fallback(s.Metadata.Status, "unknown"), Path: s.Path}
 }
 
-func AddServiceMethod(path, serviceName, method string) (ServiceDTO, error) {
-	method = strings.TrimSpace(method)
-	if method == "" {
-		return ServiceDTO{}, Error(CodeInvalidInput, "method name is required", http.StatusBadRequest, nil)
+func AddServiceOperation(path, serviceName, operation string) (ServiceDTO, error) {
+	operation = strings.TrimSpace(operation)
+	if operation == "" {
+		return ServiceDTO{}, Error(CodeInvalidInput, "operation name is required", http.StatusBadRequest, nil)
 	}
 	svc, err := GetService(path, serviceName)
 	if err != nil {
@@ -167,19 +167,19 @@ func AddServiceMethod(path, serviceName, method string) (ServiceDTO, error) {
 	if err := fsx.ReadYAML(yamlPath, &raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	for _, m := range raw.Methods {
-		if m.Name == method {
-			return ServiceDTO{}, Error(CodeInvalidInput, "method already exists: "+method, http.StatusConflict, nil)
+	for _, op := range raw.Operations {
+		if op.Name == operation {
+			return ServiceDTO{}, Error(CodeInvalidInput, "operation already exists: "+operation, http.StatusConflict, nil)
 		}
 	}
-	raw.Methods = append(raw.Methods, model.MethodDefinition{Name: method})
+	raw.Operations = append(raw.Operations, model.Operation{Name: operation, Protocol: "rest", REST: &model.RESTOperation{}})
 	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	return GetService(path, serviceName)
 }
 
-func RemoveServiceMethod(path, serviceName, method string) (ServiceDTO, error) {
+func RemoveServiceOperation(path, serviceName, operation string) (ServiceDTO, error) {
 	svc, err := GetService(path, serviceName)
 	if err != nil {
 		return ServiceDTO{}, err
@@ -189,15 +189,15 @@ func RemoveServiceMethod(path, serviceName, method string) (ServiceDTO, error) {
 	if err := fsx.ReadYAML(yamlPath, &raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
 	}
-	filtered := raw.Methods[:0]
-	for _, m := range raw.Methods {
-		if m.Name != method {
-			filtered = append(filtered, m)
+	filtered := raw.Operations[:0]
+	for _, op := range raw.Operations {
+		if op.Name != operation {
+			filtered = append(filtered, op)
 		}
 	}
-	raw.Methods = filtered
+	raw.Operations = filtered
 	for i := range raw.Capabilities {
-		raw.Capabilities[i].MethodRefs = removeString(raw.Capabilities[i].MethodRefs, method)
+		raw.Capabilities[i].OperationRefs = removeString(raw.Capabilities[i].OperationRefs, operation)
 	}
 	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
 		return ServiceDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
@@ -355,7 +355,7 @@ func UpdateServiceCapability(path, serviceName, capID string, patch model.Servic
 			if patch.RelatedUCI != nil {
 				raw.Capabilities[i].RelatedUCI = patch.RelatedUCI
 			}
-			raw.Capabilities[i].MethodRefs = patch.MethodRefs
+			raw.Capabilities[i].OperationRefs = patch.OperationRefs
 			raw.Capabilities[i].DataObjectRefs = patch.DataObjectRefs
 			found = true
 			break
@@ -572,113 +572,142 @@ func removeString(s []string, v string) []string {
 
 // UpdateMethodParameters replaces the parameter list of a named method on a service.
 // Deprecated: prefer UpdateMethod which updates all endpoint fields.
-func UpdateMethodParameters(path, serviceName, methodName string, params []model.MethodParameter) (MethodDefinitionDTO, error) {
-	return UpdateMethod(path, serviceName, methodName, model.MethodDefinition{Parameters: params})
+func UpdateOperationParameters(path, serviceName, operationName string, params []model.MethodParameter) (OperationDTO, error) {
+	return UpdateOperation(path, serviceName, operationName, model.Operation{Protocol: "rest", REST: &model.RESTOperation{Parameters: params}})
 }
 
-// UpdateMethod performs a partial update of a named method: only non-zero fields in patch are written.
-func UpdateMethod(path, serviceName, methodName string, patch model.MethodDefinition) (MethodDefinitionDTO, error) {
+// UpdateOperation performs a partial update of a named operation's REST binding:
+// only non-zero fields in patch are written.
+func UpdateOperation(path, serviceName, operationName string, patch model.Operation) (OperationDTO, error) {
 	svc, err := GetService(path, serviceName)
 	if err != nil {
-		return MethodDefinitionDTO{}, err
+		return OperationDTO{}, err
 	}
 	yamlPath := filepath.Join(svc.Path, "service.yaml")
 	var raw model.Service
 	if err := fsx.ReadYAML(yamlPath, &raw); err != nil {
-		return MethodDefinitionDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
+		return OperationDTO{}, Error(CodeInternalError, "Failed to read service: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	pr := patch.REST
+	if pr == nil {
+		pr = &model.RESTOperation{}
 	}
 	found := false
-	for i, m := range raw.Methods {
-		if m.Name == methodName {
-			if patch.Summary != "" {
-				raw.Methods[i].Summary = patch.Summary
-			}
-			if patch.HTTPMethod != "" {
-				raw.Methods[i].HTTPMethod = patch.HTTPMethod
-			}
-			if patch.Path != "" {
-				raw.Methods[i].Path = patch.Path
-			}
-			if patch.Parameters != nil {
-				raw.Methods[i].Parameters = patch.Parameters
-			}
-			if patch.Headers != nil {
-				raw.Methods[i].Headers = patch.Headers
-			}
-			if patch.Security != nil {
-				raw.Methods[i].Security = patch.Security
-			}
-			if patch.Payload != nil {
-				raw.Methods[i].Payload = patch.Payload
-			}
-			found = true
-			break
+	for i := range raw.Operations {
+		if raw.Operations[i].Name != operationName {
+			continue
 		}
+		if patch.Summary != "" {
+			raw.Operations[i].Summary = patch.Summary
+		}
+		if patch.InputObject != "" {
+			raw.Operations[i].InputObject = patch.InputObject
+		}
+		if patch.OutputObject != "" {
+			raw.Operations[i].OutputObject = patch.OutputObject
+		}
+		if raw.Operations[i].REST == nil {
+			raw.Operations[i].REST = &model.RESTOperation{}
+		}
+		r := raw.Operations[i].REST
+		if pr.HTTPMethod != "" {
+			r.HTTPMethod = pr.HTTPMethod
+		}
+		if pr.Path != "" {
+			r.Path = pr.Path
+		}
+		if pr.BaseURL != "" {
+			r.BaseURL = pr.BaseURL
+		}
+		if pr.Parameters != nil {
+			r.Parameters = pr.Parameters
+		}
+		if pr.Headers != nil {
+			r.Headers = pr.Headers
+		}
+		if pr.Security != nil {
+			r.Security = pr.Security
+		}
+		if pr.Payload != nil {
+			r.Payload = pr.Payload
+		}
+		found = true
+		break
 	}
 	if !found {
-		return MethodDefinitionDTO{}, Error(CodeServiceNotFound, "method not found: "+methodName, http.StatusNotFound, nil)
+		return OperationDTO{}, Error(CodeServiceNotFound, "operation not found: "+operationName, http.StatusNotFound, nil)
 	}
 	if err := fsx.WriteYAML(yamlPath, raw); err != nil {
-		return MethodDefinitionDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
+		return OperationDTO{}, Error(CodeInternalError, "Failed to write service: "+err.Error(), http.StatusInternalServerError, err)
 	}
 	updated, err := GetService(path, serviceName)
 	if err != nil {
-		return MethodDefinitionDTO{}, err
+		return OperationDTO{}, err
 	}
-	for _, m := range updated.Methods {
-		if m.Name == methodName {
-			return m, nil
+	for _, op := range updated.Operations {
+		if op.Name == operationName {
+			return op, nil
 		}
 	}
-	return MethodDefinitionDTO{Name: methodName}, nil
+	return OperationDTO{Name: operationName}, nil
 }
 
-// methodDTO converts a model.MethodDefinition to MethodDefinitionDTO.
-func methodDTO(m model.MethodDefinition) MethodDefinitionDTO {
-	params := make([]MethodParameterDTO, 0, len(m.Parameters))
-	for _, p := range m.Parameters {
-		params = append(params, MethodParameterDTO{Name: p.Name, Type: p.Type, In: p.In, Required: p.Required, Description: p.Description})
+// operationDTO converts a model.Operation to OperationDTO, flattening the REST
+// binding for editor convenience.
+func operationDTO(op model.Operation) OperationDTO {
+	dto := OperationDTO{
+		Name:         op.Name,
+		Summary:      op.Summary,
+		Protocol:     op.Protocol,
+		InputObject:  op.InputObject,
+		OutputObject: op.OutputObject,
 	}
-	headers := make([]MethodHeaderDTO, 0, len(m.Headers))
-	for _, h := range m.Headers {
-		headers = append(headers, MethodHeaderDTO{Name: h.Name, Value: h.Value, Required: h.Required, Description: h.Description})
-	}
-	var sec *MethodSecurityDTO
-	if m.Security != nil {
-		sec = &MethodSecurityDTO{Scheme: m.Security.Scheme, In: m.Security.In, Name: m.Security.Name}
-	}
-	var payload *MethodPayloadDTO
-	if m.Payload != nil {
-		fields := make([]MethodPayloadFieldDTO, 0, len(m.Payload.Fields))
-		for _, f := range m.Payload.Fields {
-			fields = append(fields, MethodPayloadFieldDTO{Name: f.Name, Type: f.Type, Required: f.Required, Description: f.Description, Example: f.Example})
+	if r := op.REST; r != nil {
+		params := make([]MethodParameterDTO, 0, len(r.Parameters))
+		for _, p := range r.Parameters {
+			params = append(params, MethodParameterDTO{Name: p.Name, Type: p.Type, In: p.In, Required: p.Required, Description: p.Description})
 		}
-		payload = &MethodPayloadDTO{ContentType: m.Payload.ContentType, Fields: fields}
+		headers := make([]MethodHeaderDTO, 0, len(r.Headers))
+		for _, h := range r.Headers {
+			headers = append(headers, MethodHeaderDTO{Name: h.Name, Value: h.Value, Required: h.Required, Description: h.Description})
+		}
+		dto.HTTPMethod = r.HTTPMethod
+		dto.Path = r.Path
+		dto.BaseURL = r.BaseURL
+		dto.Parameters = params
+		dto.Headers = headers
+		if r.Security != nil {
+			dto.Security = &MethodSecurityDTO{Scheme: r.Security.Scheme, In: r.Security.In, Name: r.Security.Name}
+		}
+		if r.Payload != nil {
+			fields := make([]MethodPayloadFieldDTO, 0, len(r.Payload.Fields))
+			for _, f := range r.Payload.Fields {
+				fields = append(fields, MethodPayloadFieldDTO{Name: f.Name, Type: f.Type, Required: f.Required, Description: f.Description, Example: f.Example})
+			}
+			dto.Payload = &MethodPayloadDTO{ContentType: r.Payload.ContentType, Fields: fields}
+		}
 	}
-	return MethodDefinitionDTO{
-		Name:       m.Name,
-		Summary:    m.Summary,
-		HTTPMethod: m.HTTPMethod,
-		Path:       m.Path,
-		Parameters: params,
-		Headers:    headers,
-		Security:   sec,
-		Payload:    payload,
+	if op.MCP != nil {
+		dto.MCP = &MCPOperationDTO{Transport: op.MCP.Transport, ServerURL: op.MCP.ServerURL, Tool: op.MCP.Tool}
 	}
+	if op.GRPC != nil {
+		dto.GRPC = &GRPCOperationDTO{Target: op.GRPC.Target, Service: op.GRPC.Service, Method: op.GRPC.Method, ProtoRef: op.GRPC.ProtoRef}
+	}
+	return dto
 }
 
-// GetServiceMethod returns the definition of a single named method on a service.
-func GetServiceMethod(path, serviceName, methodName string) (MethodDefinitionDTO, error) {
+// GetServiceOperation returns the definition of a single named operation.
+func GetServiceOperation(path, serviceName, operationName string) (OperationDTO, error) {
 	svc, err := GetService(path, serviceName)
 	if err != nil {
-		return MethodDefinitionDTO{}, err
+		return OperationDTO{}, err
 	}
-	for _, m := range svc.Methods {
-		if m.Name == methodName {
-			return m, nil
+	for _, op := range svc.Operations {
+		if op.Name == operationName {
+			return op, nil
 		}
 	}
-	return MethodDefinitionDTO{}, Error(CodeServiceNotFound, "method not found: "+methodName, http.StatusNotFound, nil)
+	return OperationDTO{}, Error(CodeServiceNotFound, "operation not found: "+operationName, http.StatusNotFound, nil)
 }
 
 func allProductSummaries(tree cosmosfs.Tree) []ProductSummaryDTO {
@@ -1207,11 +1236,11 @@ func moveEmbeddedElement(src, dst *model.Service, kind, id string) (bool, error)
 				return true, nil
 			}
 		}
-	case "method":
-		for i, m := range src.Methods {
-			if m.Name == id {
-				src.Methods = append(src.Methods[:i], src.Methods[i+1:]...)
-				dst.Methods = append(dst.Methods, m)
+	case "operation":
+		for i, op := range src.Operations {
+			if op.Name == id {
+				src.Operations = append(src.Operations[:i], src.Operations[i+1:]...)
+				dst.Operations = append(dst.Operations, op)
 				return true, nil
 			}
 		}

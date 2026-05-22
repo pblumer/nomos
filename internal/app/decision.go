@@ -53,8 +53,13 @@ func GetDecision(path, id string) (DecisionDTO, error) {
 			// requiring users to re-save the DMN.
 			if n.DMNPath != "" {
 				if data, err := os.ReadFile(n.DMNPath); err == nil {
-					if defs, perr := dmn.ParseDefinitions(data); perr == nil && len(defs.InputData) > 0 {
-						dto.Inputs = decisionIODTOs(inputsFromDMN(defs))
+					if defs, perr := dmn.ParseDefinitions(data); perr == nil {
+						if len(defs.InputData) > 0 {
+							dto.Inputs = decisionIODTOs(inputsFromDMN(defs))
+						}
+						if len(defs.Decisions) > 0 {
+							dto.Outputs = decisionIODTOs(outputsFromDMN(defs))
+						}
 					}
 				}
 			}

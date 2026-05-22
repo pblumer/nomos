@@ -6,54 +6,54 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// AddServiceMethod / RemoveServiceMethod
+// AddServiceOperation / RemoveServiceOperation
 // ---------------------------------------------------------------------------
 
-func TestAddServiceMethod_Success(t *testing.T) {
+func TestAddServiceOperation_Success(t *testing.T) {
 	p := createAppTestCosmos(t)
 
-	svc, err := AddServiceMethod(p, "user-account", "create")
+	svc, err := AddServiceOperation(p, "user-account", "create")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(svc.Methods) != 1 || svc.Methods[0].Name != "create" {
-		t.Fatalf("expected method 'create', got %v", svc.Methods)
+	if len(svc.Operations) != 1 || svc.Operations[0].Name != "create" {
+		t.Fatalf("expected method 'create', got %v", svc.Operations)
 	}
 }
 
-func TestAddServiceMethod_MultipleMethodsAccumulate(t *testing.T) {
+func TestAddServiceOperation_MultipleMethodsAccumulate(t *testing.T) {
 	p := createAppTestCosmos(t)
 
 	for _, m := range []string{"create", "delete", "update"} {
-		if _, err := AddServiceMethod(p, "user-account", m); err != nil {
-			t.Fatalf("AddServiceMethod(%s): %v", m, err)
+		if _, err := AddServiceOperation(p, "user-account", m); err != nil {
+			t.Fatalf("AddServiceOperation(%s): %v", m, err)
 		}
 	}
 	svc, err := GetService(p, "user-account")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(svc.Methods) != 3 {
-		t.Fatalf("expected 3 methods, got %v", svc.Methods)
+	if len(svc.Operations) != 3 {
+		t.Fatalf("expected 3 methods, got %v", svc.Operations)
 	}
 }
 
-func TestAddServiceMethod_Duplicate(t *testing.T) {
+func TestAddServiceOperation_Duplicate(t *testing.T) {
 	p := createAppTestCosmos(t)
 
-	if _, err := AddServiceMethod(p, "user-account", "create"); err != nil {
+	if _, err := AddServiceOperation(p, "user-account", "create"); err != nil {
 		t.Fatal(err)
 	}
-	_, err := AddServiceMethod(p, "user-account", "create")
+	_, err := AddServiceOperation(p, "user-account", "create")
 	if err == nil {
 		t.Fatal("expected conflict error for duplicate method")
 	}
 }
 
-func TestAddServiceMethod_EmptyName(t *testing.T) {
+func TestAddServiceOperation_EmptyName(t *testing.T) {
 	p := createAppTestCosmos(t)
 
-	_, err := AddServiceMethod(p, "user-account", "  ")
+	_, err := AddServiceOperation(p, "user-account", "  ")
 	if err == nil {
 		t.Fatal("expected error for empty method name")
 	}
@@ -62,72 +62,72 @@ func TestAddServiceMethod_EmptyName(t *testing.T) {
 	}
 }
 
-func TestAddServiceMethod_TrimmedWhitespace(t *testing.T) {
+func TestAddServiceOperation_TrimmedWhitespace(t *testing.T) {
 	p := createAppTestCosmos(t)
 
-	svc, err := AddServiceMethod(p, "user-account", "  create  ")
+	svc, err := AddServiceOperation(p, "user-account", "  create  ")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if svc.Methods[0].Name != "create" {
-		t.Fatalf("expected trimmed method name, got %q", svc.Methods[0].Name)
+	if svc.Operations[0].Name != "create" {
+		t.Fatalf("expected trimmed method name, got %q", svc.Operations[0].Name)
 	}
 }
 
-func TestAddServiceMethod_ServiceNotFound(t *testing.T) {
+func TestAddServiceOperation_ServiceNotFound(t *testing.T) {
 	p := createAppTestCosmos(t)
 
-	_, err := AddServiceMethod(p, "does-not-exist", "create")
+	_, err := AddServiceOperation(p, "does-not-exist", "create")
 	if err == nil {
 		t.Fatal("expected error for missing service")
 	}
 }
 
-func TestRemoveServiceMethod_Success(t *testing.T) {
+func TestRemoveServiceOperation_Success(t *testing.T) {
 	p := createAppTestCosmos(t)
 
-	if _, err := AddServiceMethod(p, "user-account", "create"); err != nil {
+	if _, err := AddServiceOperation(p, "user-account", "create"); err != nil {
 		t.Fatal(err)
 	}
 
-	svc, err := RemoveServiceMethod(p, "user-account", "create")
+	svc, err := RemoveServiceOperation(p, "user-account", "create")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(svc.Methods) != 0 {
-		t.Fatalf("expected 0 methods after remove, got %v", svc.Methods)
+	if len(svc.Operations) != 0 {
+		t.Fatalf("expected 0 methods after remove, got %v", svc.Operations)
 	}
 }
 
-func TestRemoveServiceMethod_OnlyRemovesTarget(t *testing.T) {
+func TestRemoveServiceOperation_OnlyRemovesTarget(t *testing.T) {
 	p := createAppTestCosmos(t)
 
 	for _, m := range []string{"create", "delete"} {
-		if _, err := AddServiceMethod(p, "user-account", m); err != nil {
+		if _, err := AddServiceOperation(p, "user-account", m); err != nil {
 			t.Fatal(err)
 		}
 	}
-	svc, err := RemoveServiceMethod(p, "user-account", "delete")
+	svc, err := RemoveServiceOperation(p, "user-account", "delete")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(svc.Methods) != 1 || svc.Methods[0].Name != "create" {
-		t.Fatalf("expected only 'create' remaining, got %v", svc.Methods)
+	if len(svc.Operations) != 1 || svc.Operations[0].Name != "create" {
+		t.Fatalf("expected only 'create' remaining, got %v", svc.Operations)
 	}
 }
 
-func TestRemoveServiceMethod_NonExistentIsNoOp(t *testing.T) {
+func TestRemoveServiceOperation_NonExistentIsNoOp(t *testing.T) {
 	p := createAppTestCosmos(t)
 
-	if _, err := AddServiceMethod(p, "user-account", "create"); err != nil {
+	if _, err := AddServiceOperation(p, "user-account", "create"); err != nil {
 		t.Fatal(err)
 	}
-	svc, err := RemoveServiceMethod(p, "user-account", "does-not-exist")
+	svc, err := RemoveServiceOperation(p, "user-account", "does-not-exist")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(svc.Methods) != 1 {
-		t.Fatalf("existing method should be untouched, got %v", svc.Methods)
+	if len(svc.Operations) != 1 {
+		t.Fatalf("existing method should be untouched, got %v", svc.Operations)
 	}
 }
 

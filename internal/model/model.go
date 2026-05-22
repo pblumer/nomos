@@ -23,9 +23,45 @@ type TypeDef struct {
 	Editor      string `yaml:"editor,omitempty" json:"editor,omitempty"`
 	// File is the filename that marks a directory as this type (e.g.
 	// "service.yaml"), used to recognize instances in the working tree.
-	File         string           `yaml:"file,omitempty" json:"file,omitempty"`
+	File string `yaml:"file,omitempty" json:"file,omitempty"`
+	// IDPrefix is an optional three-uppercase-letter prefix for auto-generated
+	// instance ids (e.g. "RSK" -> RSK_4F7K2Q). When empty, instances are named
+	// by a user-supplied slug instead.
+	IDPrefix     string           `yaml:"id_prefix,omitempty" json:"id_prefix,omitempty"`
 	Properties   []TypeProperty   `yaml:"properties,omitempty" json:"properties,omitempty"`
 	Dependencies []TypeDependency `yaml:"dependencies,omitempty" json:"dependencies,omitempty"`
+	// DataMain is the id of the type's main data object (its table schema). When
+	// empty the convention is a data object whose id equals the type id.
+	DataMain string `yaml:"data_main,omitempty" json:"data_main,omitempty"`
+	// DataHelpers lists the ids of auxiliary data objects this type references.
+	DataHelpers []string `yaml:"data_helpers,omitempty" json:"data_helpers,omitempty"`
+}
+
+// DataObject is a reusable data/table schema stored as .nomos/data/<id>.yaml.
+// A type's main data object is named after the type; helper objects are linked
+// from the type and may be shared across types.
+type DataObject struct {
+	ID          string         `yaml:"id" json:"id"`
+	Label       string         `yaml:"label,omitempty" json:"label,omitempty"`
+	Description string         `yaml:"description,omitempty" json:"description,omitempty"`
+	Fields      []DataField    `yaml:"fields,omitempty" json:"fields,omitempty"`
+	Relations   []DataRelation `yaml:"relations,omitempty" json:"relations,omitempty"`
+}
+
+// DataField is one column of a DataObject.
+type DataField struct {
+	Name        string `yaml:"name" json:"name"`
+	Type        string `yaml:"type,omitempty" json:"type,omitempty"`
+	Required    bool   `yaml:"required,omitempty" json:"required,omitempty"`
+	Key         bool   `yaml:"key,omitempty" json:"key,omitempty"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+}
+
+// DataRelation is a foreign-key style link from this DataObject to another.
+type DataRelation struct {
+	Target   string `yaml:"target" json:"target"`
+	Field    string `yaml:"field,omitempty" json:"field,omitempty"`
+	Relation string `yaml:"relation,omitempty" json:"relation,omitempty"`
 }
 
 // TypeProperty is a single field in a TypeDef's schema.
@@ -42,6 +78,23 @@ type TypeDependency struct {
 	Type     string `yaml:"type" json:"type"`
 	Relation string `yaml:"relation,omitempty" json:"relation,omitempty"`
 	Required bool   `yaml:"required,omitempty" json:"required,omitempty"`
+}
+
+// ERD is a relationship-diagram layout persisted as a .erd file. It stores only
+// which types appear and where their boxes sit; the edges are derived live from
+// each type's Dependencies, so the type YAMLs remain the single source of truth.
+type ERD struct {
+	Engine        string    `yaml:"engine,omitempty" json:"engine,omitempty"`
+	EngineVersion string    `yaml:"engine_version,omitempty" json:"engine_version,omitempty"`
+	Label         string    `yaml:"label,omitempty" json:"label,omitempty"`
+	Nodes         []ERDNode `yaml:"nodes,omitempty" json:"nodes,omitempty"`
+}
+
+// ERDNode places a type's box on the ERD canvas.
+type ERDNode struct {
+	Type string `yaml:"type" json:"type"`
+	X    int    `yaml:"x" json:"x"`
+	Y    int    `yaml:"y" json:"y"`
 }
 
 type Cosmos struct {
@@ -129,6 +182,69 @@ func (m *MethodDefinition) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	return unmarshal((*plain)(m))
 }
 
+// Operation is a callable unit a service exposes — the successor to
+// MethodDefinition. Where a method was REST-only and embedded as a plain entry,
+// an operation carries a Protocol discriminator so the same concept covers REST,
+// MCP and gRPC bindings, and can bind its I/O contract to reusable data objects.
+type Operation struct {
+	Name     string `yaml:"name" json:"name"`
+	Summary  string `yaml:"summary,omitempty" json:"summary,omitempty"`
+	Protocol string `yaml:"protocol" json:"protocol"` // rest | mcp | grpc
+	// InputObject / OutputObject bind the operation's I/O contract to reusable
+	// data objects (.nomos/data), mirroring the decision I/O ↔ data-object link.
+	InputObject  string `yaml:"input_object,omitempty" json:"input_object,omitempty"`
+	OutputObject string `yaml:"output_object,omitempty" json:"output_object,omitempty"`
+	// Exactly one variant matching Protocol is populated.
+	REST *RESTOperation `yaml:"rest,omitempty" json:"rest,omitempty"`
+	MCP  *MCPOperation  `yaml:"mcp,omitempty" json:"mcp,omitempty"`
+	GRPC *GRPCOperation `yaml:"grpc,omitempty" json:"grpc,omitempty"`
+}
+
+// RESTOperation is the REST proxy binding of an operation; its fields mirror
+// MethodDefinition so migrating a method is a 1:1 lift.
+type RESTOperation struct {
+	HTTPMethod string            `yaml:"http_method,omitempty" json:"http_method,omitempty"`
+	Path       string            `yaml:"path,omitempty" json:"path,omitempty"`
+	BaseURL    string            `yaml:"base_url,omitempty" json:"base_url,omitempty"`
+	Parameters []MethodParameter `yaml:"parameters,omitempty" json:"parameters,omitempty"`
+	Headers    []MethodHeader    `yaml:"headers,omitempty" json:"headers,omitempty"`
+	Security   *MethodSecurity   `yaml:"security,omitempty" json:"security,omitempty"`
+	Payload    *MethodPayload    `yaml:"payload,omitempty" json:"payload,omitempty"`
+}
+
+// MCPOperation binds an operation to a tool exposed by an MCP server.
+type MCPOperation struct {
+	Transport string `yaml:"transport,omitempty" json:"transport,omitempty"` // stdio | sse | http
+	ServerURL string `yaml:"server_url,omitempty" json:"server_url,omitempty"`
+	Tool      string `yaml:"tool,omitempty" json:"tool,omitempty"`
+}
+
+// GRPCOperation binds an operation to a gRPC method.
+type GRPCOperation struct {
+	Target   string `yaml:"target,omitempty" json:"target,omitempty"`
+	Service  string `yaml:"service,omitempty" json:"service,omitempty"`
+	Method   string `yaml:"method,omitempty" json:"method,omitempty"`
+	ProtoRef string `yaml:"proto_ref,omitempty" json:"proto_ref,omitempty"`
+}
+
+// ToOperation lifts a legacy MethodDefinition into a REST operation. Used by the
+// methods→operations migration.
+func (m MethodDefinition) ToOperation() Operation {
+	return Operation{
+		Name:     m.Name,
+		Summary:  m.Summary,
+		Protocol: "rest",
+		REST: &RESTOperation{
+			HTTPMethod: m.HTTPMethod,
+			Path:       m.Path,
+			Parameters: m.Parameters,
+			Headers:    m.Headers,
+			Security:   m.Security,
+			Payload:    m.Payload,
+		},
+	}
+}
+
 // ConnectorArg describes one argument of a CLI connector.
 type ConnectorArg struct {
 	Name        string   `yaml:"name" json:"name"`
@@ -178,15 +294,17 @@ type Connector struct {
 // surrounding service's methods and data objects it is composed of. The
 // referenced values are method names and data-object IDs.
 type ServiceCapability struct {
-	ID             string      `yaml:"id" json:"id"`
-	Name           string      `yaml:"name" json:"name"`
-	Summary        string      `yaml:"summary,omitempty" json:"summary,omitempty"`
-	Stability      string      `yaml:"stability,omitempty" json:"stability,omitempty"`
-	SideEffect     string      `yaml:"side_effect,omitempty" json:"side_effect,omitempty"`
-	Connectors     []Connector `yaml:"connectors,omitempty" json:"connectors,omitempty"`
-	RelatedUCI     []string    `yaml:"related_uci,omitempty" json:"related_uci,omitempty"`
-	MethodRefs     []string    `yaml:"method_refs,omitempty" json:"method_refs,omitempty"`
-	DataObjectRefs []string    `yaml:"data_object_refs,omitempty" json:"data_object_refs,omitempty"`
+	ID         string      `yaml:"id" json:"id"`
+	Name       string      `yaml:"name" json:"name"`
+	Summary    string      `yaml:"summary,omitempty" json:"summary,omitempty"`
+	Stability  string      `yaml:"stability,omitempty" json:"stability,omitempty"`
+	SideEffect string      `yaml:"side_effect,omitempty" json:"side_effect,omitempty"`
+	Connectors []Connector `yaml:"connectors,omitempty" json:"connectors,omitempty"`
+	RelatedUCI []string    `yaml:"related_uci,omitempty" json:"related_uci,omitempty"`
+	// OperationRefs names the operations on the same service that compose this
+	// capability (successor to the removed method_refs).
+	OperationRefs  []string `yaml:"operation_refs,omitempty" json:"operation_refs,omitempty"`
+	DataObjectRefs []string `yaml:"data_object_refs,omitempty" json:"data_object_refs,omitempty"`
 }
 
 func (c *ServiceCapability) UnmarshalYAML(unmarshal func(interface{}) error) error {
@@ -197,7 +315,20 @@ func (c *ServiceCapability) UnmarshalYAML(unmarshal func(interface{}) error) err
 		return nil
 	}
 	type plain ServiceCapability
-	return unmarshal((*plain)(c))
+	if err := unmarshal((*plain)(c)); err != nil {
+		return err
+	}
+	// Lazy-lift: legacy method_refs become operation_refs when none are set.
+	if len(c.OperationRefs) == 0 {
+		var legacy struct {
+			MethodRefs []string `yaml:"method_refs"`
+		}
+		_ = unmarshal(&legacy)
+		if len(legacy.MethodRefs) > 0 {
+			c.OperationRefs = legacy.MethodRefs
+		}
+	}
+	return nil
 }
 
 // ServiceDataObject describes a named data object owned/exposed by a service
@@ -299,10 +430,31 @@ type Service struct {
 	DataObjects       []ServiceDataObject    `yaml:"data_objects,omitempty" json:"data_objects,omitempty"`
 	UserInterfaces    []ServiceUserInterface `yaml:"user_interfaces,omitempty" json:"user_interfaces,omitempty"`
 	SupportedProducts []string               `yaml:"supported_products,omitempty" json:"supported_products,omitempty"`
-	Methods           []MethodDefinition     `yaml:"methods,omitempty" json:"methods,omitempty"`
+	Operations        []Operation            `yaml:"operations,omitempty" json:"operations,omitempty"`
 	Summary           string                 `yaml:"summary" json:"summary"`
 	SLA               *ServiceLevelInfo      `yaml:"sla,omitempty" json:"sla,omitempty"`
 	OLA               *ServiceLevelInfo      `yaml:"ola,omitempty" json:"ola,omitempty"`
+}
+
+// UnmarshalYAML lazily lifts a service's legacy methods into Operations on load,
+// so existing service.yaml files keep working while operations are the canonical
+// callable units. The legacy `methods:` key is read into a local struct since the
+// Methods field has been removed from the model.
+func (s *Service) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type plain Service
+	if err := unmarshal((*plain)(s)); err != nil {
+		return err
+	}
+	if len(s.Operations) == 0 {
+		var legacy struct {
+			Methods []MethodDefinition `yaml:"methods"`
+		}
+		_ = unmarshal(&legacy)
+		for _, m := range legacy.Methods {
+			s.Operations = append(s.Operations, m.ToOperation())
+		}
+	}
+	return nil
 }
 
 type Variant struct {
