@@ -214,6 +214,18 @@ func CreateRepository(path, name string) (RepositoryDTO, error) {
 	return repoToDTO(r), nil
 }
 
+// AttachRepository registers an existing directory on this server as a managed
+// repository without scaffolding files (ADR-0022 §2) — the "open an existing
+// repository" gesture. The location is a path on the server's filesystem,
+// absolute or relative to the workspace.
+func AttachRepository(path, location, name string) (RepositoryDTO, error) {
+	r, err := repo.NewLocalRegistry(path).Attach(location, name)
+	if err != nil {
+		return RepositoryDTO{}, Error(CodeInvalidInput, err.Error(), http.StatusBadRequest, err)
+	}
+	return repoToDTO(r), nil
+}
+
 // DeleteRepository removes a filesystem repository from this server (ADR-0022).
 // The default repository cannot be removed.
 func DeleteRepository(path, id string) error {
