@@ -3834,7 +3834,7 @@ function renderMethodDetail(m,domain,svc,usedByCaps){
 </div>
 <div id="field-status" style="font-size:.75rem;margin-top:.2rem;min-height:1.1em"></div>
 </div>
-<div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/services/${encodeURIComponent(svc)}/operations/${encodeURIComponent(m.name)}">API JSON</a></div>`;
+<div class="detail-footer"><button class="btn btn-primary" id="me-invoke"><span class="mi" style="font-family:'Material Symbols Outlined'">play_arrow</span> Aufrufen</button><a class="btn btn-secondary" href="/api/v1/services/${encodeURIComponent(svc)}/operations/${encodeURIComponent(m.name)}">API JSON</a></div>`;
 }
 function wireMethodCapabilityChips(container,domain,svc){
   container.querySelectorAll('.method-cap-chip').forEach(chip=>{
@@ -3855,6 +3855,19 @@ function wireMethodCapabilityChips(container,domain,svc){
 }
 function wireMethodDetail(container,m,domain,svc){
   const methodsUrl='/api/v1/services/'+encodeURIComponent(svc)+'/operations/'+encodeURIComponent(m.name);
+  container.querySelector('#me-invoke')?.addEventListener('click',()=>{
+    openModal('Operation aufrufen: '+m.name,`<div class="nfield"><label>Inputs (JSON)</label><textarea id="mi-inputs" rows="5" style="width:100%;font-family:monospace;font-size:.8rem">{}</textarea><div class="nfield-hint">Werte je Parameter-/Feldname. Reserviert: <code>_auth</code> (Token), <code>_body</code> (Body überschreiben).</div></div><button type="button" class="btn btn-primary btn-sm" id="mi-send"><span class="mi" style="font-family:'Material Symbols Outlined'">send</span> Senden</button> <span id="mi-status" style="font-size:.78rem"></span><pre id="mi-out" style="margin-top:.6rem;max-height:280px;overflow:auto;background:#0f172a;color:#e2e8f0;padding:.6rem;border-radius:8px;font-size:.75rem;white-space:pre-wrap"></pre>`,async()=>{},'Schließen');
+    const send=$('mi-send'),out=$('mi-out'),st=$('mi-status');
+    send?.addEventListener('click',async()=>{
+      let inputs;try{inputs=JSON.parse($('mi-inputs').value||'{}');}catch(e){st.textContent='Ungültiges JSON';st.style.color='#dc2626';return;}
+      send.disabled=true;st.textContent='Sende…';st.style.color='#64748b';
+      try{const r=await fetch(methodsUrl+'/invoke',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({inputs})});const d=await r.json().catch(()=>({}));
+        if(!r.ok){st.textContent=(d.error?.message||d.error||'Fehler');st.style.color='#dc2626';out.textContent=JSON.stringify(d,null,2);return;}
+        st.textContent=(d.request||'')+'  →  '+(d.status||'')+' ('+(d.duration_ms||0)+'ms)';st.style.color='#16a34a';
+        out.textContent=d.body||'(leer)';
+      }catch(e){st.textContent=e.message;st.style.color='#dc2626';}finally{send.disabled=false;}
+    });
+  });
   function setStatus(elId,msg,ok=false){const el=container.querySelector('#'+elId);if(el){el.textContent=msg;el.style.color=ok?'#16a34a':'#dc2626';if(ok)setTimeout(()=>{if(el)el.textContent='';},2000);}}
   async function save(patch){
     const r=await fetch(methodsUrl,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});

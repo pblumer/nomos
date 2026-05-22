@@ -129,6 +129,7 @@ var apiEndpoints = []apiEndpoint{
 	{Method: "GET", Path: "/api/v1/services/{service}/operations/{operation}", Tag: "Services", Summary: "Get operation", Description: "Returns one service operation definition.", Response: genObj()},
 	{Method: "PUT", Path: "/api/v1/services/{service}/operations/{operation}", Tag: "Services", Summary: "Update operation", Description: "Updates a service operation definition.", Request: genObj(), Response: schemaRef("Service")},
 	{Method: "DELETE", Path: "/api/v1/services/{service}/operations/{operation}", Tag: "Services", Summary: "Delete operation", Description: "Removes a service operation.", Response: schemaRef("Service")},
+	{Method: "POST", Path: "/api/v1/services/{service}/operations/{operation}/invoke", Tag: "Services", Summary: "Invoke operation", Description: "Proxies a call to the external API the operation binds to (REST implemented; MCP/gRPC pending). Body: {inputs}.", Request: object(map[string]any{"inputs": genObj()}), Response: genObj()},
 
 	// Namespaces
 	{Method: "GET", Path: "/api/v1/namespaces", Tag: "Namespaces", Summary: "Get namespace tree", Description: "Returns the cosmos namespace tree.", Response: schemaRef("NamespaceTree")},

@@ -1088,6 +1088,24 @@ func (h *handler) apiServiceRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 	service := parts[0]
 
+	// POST /api/v1/services/{service}/operations/{operation}/invoke
+	if len(parts) == 4 && parts[1] == "operations" && parts[3] == "invoke" {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			Inputs map[string]any `json:"inputs"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
+			return
+		}
+		res, err := app.InvokeOperation(h.cosmosPath, service, parts[2], req.Inputs)
+		h.writeOrErr(w, res, err)
+		return
+	}
+
 	// POST /api/v1/services/{service}/{kind}/{id}/move
 	if len(parts) == 4 && parts[3] == "move" {
 		if r.Method != http.MethodPost {
