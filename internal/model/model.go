@@ -301,8 +301,11 @@ type ServiceCapability struct {
 	SideEffect     string      `yaml:"side_effect,omitempty" json:"side_effect,omitempty"`
 	Connectors     []Connector `yaml:"connectors,omitempty" json:"connectors,omitempty"`
 	RelatedUCI     []string    `yaml:"related_uci,omitempty" json:"related_uci,omitempty"`
-	MethodRefs     []string    `yaml:"method_refs,omitempty" json:"method_refs,omitempty"`
-	DataObjectRefs []string    `yaml:"data_object_refs,omitempty" json:"data_object_refs,omitempty"`
+	// MethodRefs is the legacy name; OperationRefs is the successor. Reading a
+	// capability lifts method_refs into OperationRefs (operations replace methods).
+	MethodRefs     []string `yaml:"method_refs,omitempty" json:"method_refs,omitempty"`
+	OperationRefs  []string `yaml:"operation_refs,omitempty" json:"operation_refs,omitempty"`
+	DataObjectRefs []string `yaml:"data_object_refs,omitempty" json:"data_object_refs,omitempty"`
 }
 
 func (c *ServiceCapability) UnmarshalYAML(unmarshal func(interface{}) error) error {
@@ -313,7 +316,14 @@ func (c *ServiceCapability) UnmarshalYAML(unmarshal func(interface{}) error) err
 		return nil
 	}
 	type plain ServiceCapability
-	return unmarshal((*plain)(c))
+	if err := unmarshal((*plain)(c)); err != nil {
+		return err
+	}
+	// Lazy-lift: legacy method_refs become operation_refs when none are set.
+	if len(c.OperationRefs) == 0 && len(c.MethodRefs) > 0 {
+		c.OperationRefs = append([]string(nil), c.MethodRefs...)
+	}
+	return nil
 }
 
 // ServiceDataObject describes a named data object owned/exposed by a service
@@ -420,6 +430,23 @@ type Service struct {
 	Summary           string                 `yaml:"summary" json:"summary"`
 	SLA               *ServiceLevelInfo      `yaml:"sla,omitempty" json:"sla,omitempty"`
 	OLA               *ServiceLevelInfo      `yaml:"ola,omitempty" json:"ola,omitempty"`
+}
+
+// UnmarshalYAML lazily lifts a service's legacy methods into Operations on load,
+// so existing service.yaml files keep working while operations become the
+// canonical callable units. Methods stays populated for now (deprecated) until
+// the API/UI consumers are migrated.
+func (s *Service) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type plain Service
+	if err := unmarshal((*plain)(s)); err != nil {
+		return err
+	}
+	if len(s.Operations) == 0 && len(s.Methods) > 0 {
+		for _, m := range s.Methods {
+			s.Operations = append(s.Operations, m.ToOperation())
+		}
+	}
+	return nil
 }
 
 type Variant struct {

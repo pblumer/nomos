@@ -48,6 +48,68 @@ func TestOperationRoundTrip(t *testing.T) {
 	}
 }
 
+func TestLegacyMethodsLiftToOperations(t *testing.T) {
+	const y = `
+id: SRV_1
+type: service
+name: billing
+methods:
+  - name: getInvoice
+    http_method: GET
+    path: /invoices/{id}
+  - createInvoice
+capabilities:
+  - id: cap1
+    name: Invoicing
+    method_refs: [getInvoice, createInvoice]
+`
+	var s Service
+	if err := yaml.Unmarshal([]byte(y), &s); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(s.Operations) != 2 {
+		t.Fatalf("expected 2 lifted operations, got %d", len(s.Operations))
+	}
+	if s.Operations[0].Protocol != "rest" || s.Operations[0].REST == nil || s.Operations[0].REST.Path != "/invoices/{id}" {
+		t.Errorf("first operation not lifted correctly: %+v", s.Operations[0])
+	}
+	if s.Operations[1].Name != "createInvoice" || s.Operations[1].REST == nil {
+		t.Errorf("string-form method not lifted: %+v", s.Operations[1])
+	}
+	if len(s.Capabilities) != 1 || len(s.Capabilities[0].OperationRefs) != 2 || s.Capabilities[0].OperationRefs[0] != "getInvoice" {
+		t.Errorf("method_refs not lifted to operation_refs: %+v", s.Capabilities)
+	}
+}
+
+func TestOperationsTakePrecedenceOverLegacyMethods(t *testing.T) {
+	const y = `
+id: SRV_2
+type: service
+name: x
+methods:
+  - name: old
+operations:
+  - name: new
+    protocol: rest
+    rest: {http_method: POST, path: /new}
+capabilities:
+  - id: c
+    name: C
+    method_refs: [old]
+    operation_refs: [new]
+`
+	var s Service
+	if err := yaml.Unmarshal([]byte(y), &s); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(s.Operations) != 1 || s.Operations[0].Name != "new" {
+		t.Errorf("explicit operations should win over legacy methods: %+v", s.Operations)
+	}
+	if len(s.Capabilities[0].OperationRefs) != 1 || s.Capabilities[0].OperationRefs[0] != "new" {
+		t.Errorf("explicit operation_refs should win: %+v", s.Capabilities[0].OperationRefs)
+	}
+}
+
 func TestMethodToOperation(t *testing.T) {
 	m := MethodDefinition{Name: "getThing", Summary: "Reads a thing", HTTPMethod: "GET", Path: "/things/{id}"}
 	op := m.ToOperation()
