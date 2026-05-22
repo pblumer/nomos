@@ -128,3 +128,12 @@
 .erd-node-props li{display:flex;gap:.4rem;font-size:.74rem}
 .erd-node-props .erd-prop-type{margin-left:auto;color:#94a3b8}
 .erd-node-empty{padding:.3rem .55rem;font-size:.74rem;color:#94a3b8}
+
+/* Data object (table-schema) editor + type-detail links. */
+.dbo-table{width:100%;border-collapse:collapse;font-size:.8rem;margin:.1rem 0 .3rem}
+.dbo-table th{text-align:left;font-size:.7rem;color:#64748b;font-weight:600;padding:.2rem .35rem;border-bottom:1px solid var(--color-border)}
+.dbo-table td{padding:.18rem .25rem;vertical-align:middle}
+.dbo-table input[type=text],.dbo-table input:not([type]){width:100%;box-sizing:border-box;padding:.25rem .4rem;border:1px solid var(--color-border);border-radius:.35rem;font-size:.8rem}
+.dbo-table .dbo-row-del{padding:.05rem .45rem;line-height:1.2}
+.dbo-link-row{display:flex;align-items:center;gap:.45rem;padding:.35rem .5rem;border:1px solid var(--color-border);border-radius:.5rem;margin:.25rem 0;font-size:.83rem;background:#fff}
+.dbo-link-row .muted{color:#94a3b8;font-size:.74rem}

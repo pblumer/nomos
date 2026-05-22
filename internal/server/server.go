@@ -172,6 +172,13 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// RESTful CRUD for reusable data objects (table schemas) lives under
+	// .../data-objects[/{id}] and supports GET/POST/PUT/DELETE.
+	if len(parts) > 1 && parts[1] == "data-objects" {
+		h.handleDataObjectRoutes(w, r, loc, parts[2:])
+		return
+	}
+
 	if resource == "" && r.Method == http.MethodDelete {
 		if err := app.DeleteRepository(h.cosmosPath, repoID); err != nil {
 			h.apiErr(w, err)

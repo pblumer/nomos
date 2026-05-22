@@ -26,6 +26,38 @@ type TypeDef struct {
 	File         string           `yaml:"file,omitempty" json:"file,omitempty"`
 	Properties   []TypeProperty   `yaml:"properties,omitempty" json:"properties,omitempty"`
 	Dependencies []TypeDependency `yaml:"dependencies,omitempty" json:"dependencies,omitempty"`
+	// DataMain is the id of the type's main data object (its table schema). When
+	// empty the convention is a data object whose id equals the type id.
+	DataMain string `yaml:"data_main,omitempty" json:"data_main,omitempty"`
+	// DataHelpers lists the ids of auxiliary data objects this type references.
+	DataHelpers []string `yaml:"data_helpers,omitempty" json:"data_helpers,omitempty"`
+}
+
+// DataObject is a reusable data/table schema stored as .nomos/data/<id>.yaml.
+// A type's main data object is named after the type; helper objects are linked
+// from the type and may be shared across types.
+type DataObject struct {
+	ID          string         `yaml:"id" json:"id"`
+	Label       string         `yaml:"label,omitempty" json:"label,omitempty"`
+	Description string         `yaml:"description,omitempty" json:"description,omitempty"`
+	Fields      []DataField    `yaml:"fields,omitempty" json:"fields,omitempty"`
+	Relations   []DataRelation `yaml:"relations,omitempty" json:"relations,omitempty"`
+}
+
+// DataField is one column of a DataObject.
+type DataField struct {
+	Name        string `yaml:"name" json:"name"`
+	Type        string `yaml:"type,omitempty" json:"type,omitempty"`
+	Required    bool   `yaml:"required,omitempty" json:"required,omitempty"`
+	Key         bool   `yaml:"key,omitempty" json:"key,omitempty"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+}
+
+// DataRelation is a foreign-key style link from this DataObject to another.
+type DataRelation struct {
+	Target   string `yaml:"target" json:"target"`
+	Field    string `yaml:"field,omitempty" json:"field,omitempty"`
+	Relation string `yaml:"relation,omitempty" json:"relation,omitempty"`
 }
 
 // TypeProperty is a single field in a TypeDef's schema.

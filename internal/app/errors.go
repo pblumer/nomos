@@ -34,6 +34,7 @@ const (
 	CodeTypeNotFound              = "TYPE_NOT_FOUND"
 	CodeTypeInstanceNotFound      = "TYPE_INSTANCE_NOT_FOUND"
 	CodeTypeInstanceExists        = "TYPE_INSTANCE_EXISTS"
+	CodeDataObjectNotFound        = "DATA_OBJECT_NOT_FOUND"
 )
 
 type AppError struct {

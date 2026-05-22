@@ -65,6 +65,13 @@ var apiEndpoints = []apiEndpoint{
 	{Method: "PUT", Path: "/api/v1/repositories/{repo}/types/{type}/instances", Tag: "Types", Summary: "Update type instance", Description: "Overwrites the data of the instance addressed by ?path=<dir>.", Request: object(map[string]any{"data": genObj()}), Response: genObj()},
 	{Method: "DELETE", Path: "/api/v1/repositories/{repo}/types/{type}/instances", Tag: "Types", Summary: "Delete type instance", Description: "Removes the instance directory addressed by ?path=<dir>.", Response: schemaRef("DeletedResponse"), Code: "204"},
 
+	// Data objects (reusable table schemas referenced by types)
+	{Method: "GET", Path: "/api/v1/repositories/{repo}/data-objects", Tag: "Data Objects", Summary: "List data objects", Description: "Returns the data objects (table schemas) under .nomos/data.", Response: genObj()},
+	{Method: "POST", Path: "/api/v1/repositories/{repo}/data-objects", Tag: "Data Objects", Summary: "Create data object", Description: "Creates a data object. The id must be a lowercase slug.", Request: genObj(), Response: genObj(), Code: "201"},
+	{Method: "GET", Path: "/api/v1/repositories/{repo}/data-objects/{id}", Tag: "Data Objects", Summary: "Get data object", Description: "Returns one data object by id.", Response: genObj()},
+	{Method: "PUT", Path: "/api/v1/repositories/{repo}/data-objects/{id}", Tag: "Data Objects", Summary: "Update data object", Description: "Creates or replaces a data object; the id is taken from the path.", Request: genObj(), Response: genObj()},
+	{Method: "DELETE", Path: "/api/v1/repositories/{repo}/data-objects/{id}", Tag: "Data Objects", Summary: "Delete data object", Description: "Removes a data object.", Response: schemaRef("DeletedResponse"), Code: "204"},
+
 	// Mounts
 	{Method: "GET", Path: "/api/v1/mounts", Tag: "Mounts", Summary: "List mounts", Description: "Returns the implicit local server mount followed by configured remote mounts (ADR-0022).", Response: schemaRef("MountsResponse")},
 	{Method: "POST", Path: "/api/v1/mounts", Tag: "Mounts", Summary: "Add mount", Description: "Registers a remote server mount by endpoint (host:7373). An optional token is the remote server's API key used for proxied writes (ADR-0023).", Request: object(map[string]any{"endpoint": stringSchema("Remote server endpoint, e.g. nomos.blumer.cloud:7373."), "label": stringSchema("Optional display label."), "token": stringSchema("Optional remote API key for write access.")}), Response: schemaRef("Mount"), Code: "201"},
