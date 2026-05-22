@@ -144,6 +144,37 @@ func (h *handler) apiSource(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// apiSourceScaffold returns a snippet of the required fields the posted YAML
+// content is still missing, for the file at ?path. It never writes; the client
+// appends the snippet to the editor for the user to fill in and review.
+func (h *handler) apiSourceScaffold(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	if _, ok := h.resolveSourcePath(r.URL.Query().Get("path")); !ok {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or unsupported path"})
+		return
+	}
+	var body struct {
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+		return
+	}
+	snippet, missing, err := app.RequiredFieldScaffold(body.Content)
+	if err != nil {
+		h.apiErr(w, err)
+		return
+	}
+	if missing == nil {
+		missing = []string{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"snippet": snippet, "missing": missing})
+}
+
 // apiView reads (GET) or writes (PUT) a .frm form file by workspace path,
 // translating between its YAML on disk and the form-js schema the editor wants.
 // It complements the type-keyed type-form endpoint by letting the Explorer open
