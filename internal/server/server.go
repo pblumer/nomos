@@ -1094,7 +1094,7 @@ func (h *handler) apiServiceRoutes(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		kind := map[string]string{"capabilities": "capability", "data-objects": "data-object", "user-interfaces": "user-interface", "methods": "method"}[parts[1]]
+		kind := map[string]string{"capabilities": "capability", "data-objects": "data-object", "user-interfaces": "user-interface", "operations": "operation"}[parts[1]]
 		if kind == "" {
 			htmlNotFound(w, r)
 			return
