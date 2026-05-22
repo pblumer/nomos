@@ -23,7 +23,7 @@ func TestResolveSourcePath(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, ok := h.resolveSourcePath(tc.raw)
+			got, ok := h.resolveSourcePath("", tc.raw)
 			if ok != tc.ok {
 				t.Fatalf("resolveSourcePath(%q) ok = %v, want %v", tc.raw, ok, tc.ok)
 			}

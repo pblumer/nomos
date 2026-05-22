@@ -120,6 +120,10 @@ function setupSourceEditor(root) {
   const path = root.dataset.path;
   const language = root.dataset.lang || 'text';
   if (!path) return;
+  // Files inside an attached repository carry repo-relative paths; the repo id
+  // tells the backend which working directory to resolve them against.
+  const repo = root.dataset.repo || '';
+  const repoQS = repo ? `&repo=${encodeURIComponent(repo)}` : '';
 
   const host = root.querySelector('[data-editor-host]');
   const preview = root.querySelector('[data-editor-preview]');
@@ -136,7 +140,7 @@ function setupSourceEditor(root) {
     status.className = 'editor-status' + (kind ? ' editor-status-' + kind : '');
   };
 
-  trackedFetch(`/api/v1/source?path=${encodeURIComponent(path)}`)
+  trackedFetch(`/api/v1/source?path=${encodeURIComponent(path)}${repoQS}`)
     .then((r) => r.json().then((b) => ({ ok: r.ok, body: b })))
     .then(({ ok, body }) => {
       if (!ok) throw new Error(body.error || 'load failed');
@@ -157,7 +161,7 @@ function setupSourceEditor(root) {
       if (!editor) return;
       setStatus('Saving…', '');
       if (findings) findings.innerHTML = '';
-      trackedFetch(`/api/v1/source?path=${encodeURIComponent(path)}`, {
+      trackedFetch(`/api/v1/source?path=${encodeURIComponent(path)}${repoQS}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: editor.getValue() }),
@@ -181,7 +185,7 @@ function setupSourceEditor(root) {
           const list = all.filter((f) => findingRelevantToPath(f.path, path));
           setStatus('Saved' + (list.length ? ` · ${list.length} finding(s)` : ''), list.length ? 'warn' : 'ok');
           renderFindings(findings, list);
-          if (list.length && findings) addScaffoldButton(findings, path, editor, setStatus);
+          if (list.length && findings) addScaffoldButton(findings, path, editor, setStatus, repoQS);
         })
         .catch((err) => setStatus('Save failed: ' + err.message, 'error'));
     });
@@ -240,7 +244,7 @@ function findingRelevantToPath(findingPath, editPath) {
 // the findings: it asks the server which required fields the current content is
 // missing and appends a placeholder snippet to the editor (never deletes, never
 // saves) so the user can fill it in and review before saving.
-function addScaffoldButton(container, path, editor, setStatus) {
+function addScaffoldButton(container, path, editor, setStatus, repoQS = '') {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'btn btn-secondary btn-sm';
@@ -248,7 +252,7 @@ function addScaffoldButton(container, path, editor, setStatus) {
   btn.textContent = 'Fehlende Pflichtfelder ergänzen';
   btn.addEventListener('click', () => {
     btn.disabled = true;
-    trackedFetch(`/api/v1/source/scaffold?path=${encodeURIComponent(path)}`, {
+    trackedFetch(`/api/v1/source/scaffold?path=${encodeURIComponent(path)}${repoQS}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: editor.getValue() }),

@@ -330,6 +330,7 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 		case "fs/type-form":
 			var body struct {
 				TypeID        string             `json:"type_id"`
+				Variant       string             `json:"variant"`
 				Engine        string             `json:"engine"`
 				EngineVersion string             `json:"engine_version"`
 				Schema        map[string]any     `json:"schema"`
@@ -339,7 +340,7 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 				h.apiErr(w, app.Error(app.CodeInvalidInput, "invalid JSON body", http.StatusBadRequest, err))
 				return
 			}
-			saved, err := app.SaveTypeForm(loc, body.TypeID, model.View{Engine: body.Engine, EngineVersion: body.EngineVersion, Schema: body.Schema, Binding: body.Binding})
+			saved, err := app.SaveTypeFormVariant(loc, body.TypeID, body.Variant, model.View{Engine: body.Engine, EngineVersion: body.EngineVersion, Schema: body.Schema, Binding: body.Binding})
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -388,7 +389,7 @@ func (h *handler) apiRepositoryRoutes(w http.ResponseWriter, r *http.Request) {
 		dto, err := app.GitTags(h.cosmosPath, repoID)
 		h.writeOrErr(w, dto, err)
 	case resource == "type-form":
-		v, ok, err := app.LoadTypeForm(loc, r.URL.Query().Get("type_id"))
+		v, ok, err := app.LoadTypeFormVariant(loc, r.URL.Query().Get("type_id"), r.URL.Query().Get("variant"))
 		if err != nil {
 			h.apiErr(w, err)
 			return

@@ -14,6 +14,7 @@ import (
 
 	"github.com/nomos/nomos/internal/idgen"
 	"github.com/nomos/nomos/internal/storage"
+	"github.com/nomos/nomos/internal/viewgen"
 	"gopkg.in/yaml.v3"
 )
 
@@ -272,7 +273,8 @@ func (r *Registry) Rename(id, name string) (Repository, error) {
 
 // seedDefaultTypes writes the built-in artifact types as editable definitions
 // under .nomos/types so a freshly created repository ships a starter set the
-// user can extend, adapt, or delete.
+// user can extend, adapt, or delete. Each type also ships with its four
+// standard view forms (new/edit/list/short, ADR-0024) under .nomos/views.
 func seedDefaultTypes(loc string) error {
 	dir := storage.TypesDir(loc)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -284,6 +286,38 @@ func seedDefaultTypes(loc string) error {
 			return err
 		}
 		if err := os.WriteFile(filepath.Join(dir, def.ID+".yaml"), b, 0o644); err != nil {
+			return err
+		}
+		if err := seedTypeForms(loc, def); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// seedTypeForms writes the four standard view forms for a seeded type. It mirrors
+// app.SeedTypeForms but stays in the repo package to avoid an import cycle
+// (app depends on repo).
+func seedTypeForms(loc string, def typeDefSeed) error {
+	dir := storage.ViewsDir(loc)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	props := make([]viewgen.Prop, 0, len(def.Properties))
+	for _, p := range def.Properties {
+		props = append(props, viewgen.Prop{Name: p.Name, Type: p.Type, Required: p.Required})
+	}
+	for _, v := range viewgen.Variants {
+		path := filepath.Join(dir, viewgen.FormName(def.ID, v))
+		if _, err := os.Stat(path); err == nil {
+			continue
+		}
+		view := viewSeed{Engine: "form-js", EngineVersion: "1", Schema: viewgen.Schema(def.ID, def.Label, props, v)}
+		b, err := yaml.Marshal(view)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(path, b, 0o644); err != nil {
 			return err
 		}
 	}

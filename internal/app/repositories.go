@@ -8,6 +8,11 @@ import (
 	"github.com/nomos/nomos/internal/repo"
 )
 
+// LocalDefaultRepoID is the identifier of the local server's default repository
+// (the active workspace), re-exported from the repo package so server handlers
+// can recognise it without importing repo directly.
+const LocalDefaultRepoID = repo.LocalDefaultID
+
 // ListRepositories returns the repositories the server manages (ADR-0022 §2).
 // PR 1 covers the local server: a single default repository for the active
 // workspace, its name taken from the workspace cosmos when present.

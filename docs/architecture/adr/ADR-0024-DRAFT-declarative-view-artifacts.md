@@ -63,6 +63,25 @@ Nomos interpretiert nur Envelope + optionale `binding`-Verknüpfung. So lassen s
 mehrere Editoren (form-js, forms.js, künftige) nebeneinander betreiben, ohne das
 Artefaktmodell zu ändern.
 
+#### Standard-Views je Typ (`<typeID>_<variant>.frm`)
+
+Jeder Typ bringt vier Standard-Views unter `.nomos/views` mit, benannt nach dem
+Muster `<typeID>_<variant>.frm`:
+
+| Variant | Datei | Zweck |
+| --- | --- | --- |
+| `new` | `<typeID>_new.frm` | Erfassungsformular für eine neue Instanz (editierbar) |
+| `edit` | `<typeID>_edit.frm` | Bearbeitungsformular für eine bestehende Instanz (editierbar) |
+| `list` | `<typeID>_list.frm` | Tabellen-/Listenansicht der Schlüsselfelder (read-only) |
+| `short` | `<typeID>_short.frm` | Kompakte Kurzansicht eines Eintrags (read-only) |
+
+Die vier Forms werden beim Anlegen eines Typs aus dessen Properties generiert
+(`internal/viewgen`) und mit dem Repository ausgeliefert; sie sind danach frei
+editierbar. Ein erneutes Speichern der Typdefinition ergänzt nur fehlende
+Varianten und überschreibt vom Nutzer bearbeitete Forms nicht. Die mitgelieferte
+Sonderform `type_new.frm` bleibt davon unberührt: sie erfasst neue *Typen* (Meta-Form),
+nicht Instanzen eines Typs.
+
 ### 2. REST liefert die Spec, nicht gerendertes UI
 
 Die View wird als **Spec** über REST ausgeliefert — lokal, repository-scoped und
