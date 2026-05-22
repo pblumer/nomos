@@ -254,6 +254,7 @@
 .nctx-item .mi{font-size:15px;color:#64748b;font-family:'Material Symbols Outlined'}
 .nctx-danger{color:#dc2626}.nctx-danger .mi{color:#dc2626}.nctx-danger:hover{background:#fef2f2}
 .nctx-sep{border:0;border-top:1px solid #f0f4f8;margin:.25rem 0}
+.nctx-dev-tag{margin-left:auto;font-size:.6rem;font-weight:700;letter-spacing:.04em;color:#7c3aed;background:#f3e8ff;border-radius:4px;padding:1px 5px}
 .svc-chips{display:flex;flex-wrap:wrap;gap:.3rem;min-height:28px;margin-bottom:.4rem}
 .svc-chip{display:inline-flex;align-items:center;gap:.25rem;background:#ede9fe;color:#5b21b6;border-radius:6px;padding:2px 6px 2px 8px;font-size:.78rem;font-weight:600}
 .svc-chip-remove{background:none;border:none;cursor:pointer;color:#7c3aed;font-size:13px;line-height:1;padding:0 1px;border-radius:3px;display:flex;align-items:center}.svc-chip-remove:hover{background:#c4b5fd;color:#3b0764}
@@ -583,6 +584,7 @@
   <hr class="nctx-sep">
   <div class="nctx-item" data-action="edit"><span class="mi">edit</span> Bearbeiten</div>
   <div class="nctx-item" data-action="rename"><span class="mi">drive_file_rename_outline</span> Umbenennen&hellip;</div>
+  <div class="nctx-item" data-action="edit-source"><span class="mi">code</span> Quelle bearbeiten&hellip; <span class="nctx-dev-tag">DEV</span></div>
   <hr class="nctx-sep">
   <div class="nctx-item nctx-danger" data-action="delete"><span class="mi">delete</span> L&ouml;schen</div>
 </div>
@@ -607,6 +609,7 @@
 <script>
 (function(){
 'use strict';
+const DEV_MODE={{if .DevMode}}true{{else}}false{{end}};
 const $=id=>document.getElementById(id);
 function esc(s){const d=document.createElement('span');d.textContent=s??'';return d.innerHTML;}
 
@@ -853,7 +856,7 @@ function injectFolderTypeItems(row){
   const cached=TYPES_BY_REPO[repo];
   if(cached)build(cached);else fetchRepoTypes(repo).then(build);
 }
-function showCtx(x,y,row){ctxRow=row;ctx.querySelectorAll('.nctx-dyn').forEach(e=>e.remove());const allowed=row.dataset.kind==='folder'?folderActions(row):(CTX[row.dataset.kind]||[]);const isLocal=row.dataset.local==='true';ctx.querySelectorAll('.nctx-item:not(.nctx-dyn)').forEach(it=>{let show=allowed.includes(it.dataset.action);const a=it.dataset.action;if(a==='unmount-server'&&isLocal)show=false;it.style.display=show?'flex':'none';});ctx.querySelectorAll('.nctx-sep').forEach(s=>{s.style.display='block';});injectFolderTypeItems(row);ctx.style.left=x+'px';ctx.style.top=y+'px';ctx.classList.add('open');requestAnimationFrame(()=>{const r=ctx.getBoundingClientRect();if(r.right>innerWidth)ctx.style.left=(x-r.width)+'px';if(r.bottom>innerHeight)ctx.style.top=(y-r.height)+'px';});}
+function showCtx(x,y,row){ctxRow=row;ctx.querySelectorAll('.nctx-dyn').forEach(e=>e.remove());const allowed=row.dataset.kind==='folder'?folderActions(row):(CTX[row.dataset.kind]||[]);const isLocal=row.dataset.local==='true';ctx.querySelectorAll('.nctx-item:not(.nctx-dyn)').forEach(it=>{let show=allowed.includes(it.dataset.action);const a=it.dataset.action;if(a==='unmount-server'&&isLocal)show=false;if(a==='edit-source')show=DEV_MODE&&!!row.dataset.gitPath&&(row.dataset.kind==='file'||row.dataset.kind==='type-def');it.style.display=show?'flex':'none';});ctx.querySelectorAll('.nctx-sep').forEach(s=>{s.style.display='block';});injectFolderTypeItems(row);ctx.style.left=x+'px';ctx.style.top=y+'px';ctx.classList.add('open');requestAnimationFrame(()=>{const r=ctx.getBoundingClientRect();if(r.right>innerWidth)ctx.style.left=(x-r.width)+'px';if(r.bottom>innerHeight)ctx.style.top=(y-r.height)+'px';});}
 function hideCtx(){ctx.classList.remove('open');}
 ctx.addEventListener('click',e=>{const it=e.target.closest('.nctx-item');if(!it)return;e.stopPropagation();hideCtx();handleAction(it.dataset.action,ctxRow);});
 
@@ -936,7 +939,26 @@ async function formEditorSchema(ed){
   throw new Error('Editor stellt kein getSchema/saveSchema bereit');
 }
 
-function handleAction(action,row){if(!row)return;if(action==='copy-service-ref')navigator.clipboard?.writeText(row.dataset.serviceRef||'');else if(action==='delete')doDelete(row);else if(action==='rename')doRename(row);else if(action==='edit')doEdit(row);else if(action==='add-product')doAddProduct(row);else if(action==='add-service')doAddService(row);else if(action==='add-decision')doAddDecision(row);else if(action==='add-blueprint')doAddBlueprint(row);else if(action==='run-test')doRunTest(row);else if(action==='mount-server')doMountServer(row);else if(action==='unmount-server')doUnmountServer(row);else if(action==='discover-servers')doDiscover();else if(action==='add-repository')doAddRepository(row);else if(action==='open-repository')doOpenRepository(row);else if(action==='add-folder')doAddFolder(row);else if(action==='edit-folder-types')doEditFolderTypes(row);else if(action==='commit')doCommit(row);else if(action==='branches')doManageBranches(row);else if(action==='checkout')doManageBranches(row);else if(action==='tag')doManageTags(row);else if(action==='add-type-def')doAddType(row);else if(action==='edit-type-form')doEditTypeForm(row);}
+function handleAction(action,row){if(!row)return;if(action==='copy-service-ref')navigator.clipboard?.writeText(row.dataset.serviceRef||'');else if(action==='delete')doDelete(row);else if(action==='rename')doRename(row);else if(action==='edit')doEdit(row);else if(action==='add-product')doAddProduct(row);else if(action==='add-service')doAddService(row);else if(action==='add-decision')doAddDecision(row);else if(action==='add-blueprint')doAddBlueprint(row);else if(action==='run-test')doRunTest(row);else if(action==='mount-server')doMountServer(row);else if(action==='unmount-server')doUnmountServer(row);else if(action==='discover-servers')doDiscover();else if(action==='add-repository')doAddRepository(row);else if(action==='open-repository')doOpenRepository(row);else if(action==='add-folder')doAddFolder(row);else if(action==='edit-folder-types')doEditFolderTypes(row);else if(action==='commit')doCommit(row);else if(action==='branches')doManageBranches(row);else if(action==='checkout')doManageBranches(row);else if(action==='tag')doManageTags(row);else if(action==='add-type-def')doAddType(row);else if(action==='edit-type-form')doEditTypeForm(row);else if(action==='edit-source')doEditSource(row);}
+
+// doEditSource is the dev-only escape hatch: it opens a tree node's underlying
+// file in the raw CodeMirror source editor, bypassing the specialized
+// form/DMN/ERD/type editors so an operator can hand-fix the YAML. Backend
+// (/api/v1/source) drops the extension allow-list and re-runs cosmos
+// validation on save only when NOMOS_DEV is set.
+function doEditSource(row){
+  if(!DEV_MODE)return;
+  const name=row.querySelector('.cn-label')?.textContent||row.dataset.gitPath||'';
+  const path=row.dataset.gitPath||'';
+  if(!path){alert('Kein Quelldateipfad für diesen Knoten.');return;}
+  let lang=fileSourceLang(name);
+  if(!lang){lang=/\.(frm|erd|ya?ml)$/i.test(name)?'yaml':/\.json$/i.test(name)?'json':/\.(md|markdown)$/i.test(name)?'markdown':'text';}
+  tree.querySelectorAll('.cn-row.selected').forEach(r=>r.classList.remove('selected'));
+  row.classList.add('selected');
+  const previewBtn=lang==='markdown'?`<button type="button" class="btn btn-secondary btn-sm" data-editor-preview-toggle>Vorschau</button>`:'';
+  detail.innerHTML=`<div class="detail-head"><div class="detail-head-left">${iconDiv('file')}<div><div class="detail-title">${esc(name)}</div><div class="detail-subtitle">Quelle bearbeiten · DEV</div></div></div></div><div class="detail-body"><div class="nerror show" style="margin:0 0 .6rem;background:#fdf4ff;border-color:#e9d5ff;color:#6b21a8">Roh-Editor (Dev): umgeht den strukturierten Editor. Beim Speichern prüft der Server Syntax und Cosmos-Validierung.</div><section class="source-card" data-source-editor data-path="${esc(path)}" data-lang="${lang}"><div class="source-card-head"><h3 style="margin:0;font-size:.95rem">Quelle</h3><div class="source-card-actions">${previewBtn}<button type="button" class="btn btn-primary btn-sm" data-editor-save>Speichern</button></div></div><p class="muted source-path"><code>${esc(path)}</code></p><span class="editor-status" data-editor-status></span><div class="source-editor-host" data-editor-host></div><div class="source-preview markdown-body" data-editor-preview hidden></div><div class="editor-findings" data-editor-findings></div></section></div>`;
+  if(window.initSourceEditors)setTimeout(()=>window.initSourceEditors(),0);
+}
 
 // doRename routes by node kind: repository name, or a filesystem file/folder.
 function doRename(row){const kind=row.dataset.kind;if(kind==='repository')doRenameRepository(row);else if(kind==='file'||kind==='folder')doRenameFsNode(row);}

@@ -36,3 +36,21 @@ func TestResolveSourcePath(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveSourcePathDevMode(t *testing.T) {
+	root := t.TempDir()
+	prod := &handler{cosmosPath: root}
+	dev := &handler{cosmosPath: root, devMode: true}
+
+	// In dev mode the extension allow-list is dropped so the raw-source escape
+	// hatch can open specials (.frm/.erd) and other files; traversal stays gated.
+	if _, ok := prod.resolveSourcePath(".nomos/views/intake.frm"); ok {
+		t.Fatal("non-dev mode should reject .frm source paths")
+	}
+	if _, ok := dev.resolveSourcePath(".nomos/views/intake.frm"); !ok {
+		t.Fatal("dev mode should accept .frm source paths")
+	}
+	if _, ok := dev.resolveSourcePath("../secrets.yaml"); ok {
+		t.Fatal("dev mode must still reject traversal outside the root")
+	}
+}

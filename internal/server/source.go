@@ -19,7 +19,8 @@ import (
 // sourceLanguage maps a file extension to the editor language the frontend uses.
 func sourceLanguage(path string) string {
 	switch strings.ToLower(filepath.Ext(path)) {
-	case ".yaml", ".yml":
+	case ".yaml", ".yml", ".frm", ".erd":
+		// .frm/.erd are YAML on disk; the dev raw-source editor edits them as YAML.
 		return "yaml"
 	case ".json":
 		return "json"
@@ -42,18 +43,23 @@ var allowedErdExt = map[string]bool{".erd": true}
 
 // resolveSourcePath maps a client-supplied path to an absolute file inside the
 // cosmos workspace, rejecting traversal outside the root and disallowed types.
+// In dev mode (NOMOS_DEV) the extension allow-list is dropped so the raw-source
+// escape hatch can open any workspace file, including .frm/.erd specials.
 func (h *handler) resolveSourcePath(raw string) (string, bool) {
+	if h.devMode {
+		return h.resolveWorkspacePath(raw, nil)
+	}
 	return h.resolveWorkspacePath(raw, allowedSourceExt)
 }
 
 // resolveWorkspacePath maps a client-supplied path to an absolute file inside
 // the cosmos workspace given an extension allow-set, rejecting traversal
-// outside the root and disallowed types.
+// outside the root and disallowed types. A nil allow-set permits any extension.
 func (h *handler) resolveWorkspacePath(raw string, allowed map[string]bool) (string, bool) {
 	if raw == "" {
 		return "", false
 	}
-	if !allowed[strings.ToLower(filepath.Ext(raw))] {
+	if allowed != nil && !allowed[strings.ToLower(filepath.Ext(raw))] {
 		return "", false
 	}
 	root, err := filepath.Abs(h.cosmosPath)

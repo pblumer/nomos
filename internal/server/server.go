@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -27,12 +28,23 @@ type handler struct {
 	cosmosPath string
 	tmpl       *template.Template
 	updater    *update.Checker
+	devMode    bool
+}
+
+// devModeEnabled reports whether the operator opted into the developer escape
+// hatches (e.g. raw source editing of any workspace file) via NOMOS_DEV.
+func devModeEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("NOMOS_DEV"))) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return false
 }
 
 func NewHandler(cosmosPath string) http.Handler {
 	t := template.Must(template.New("web").ParseFS(webFS, "web/templates/*.html"))
 	staticFS := must(fs.Sub(webFS, "web/static"))
-	h := &handler{cosmosPath: cosmosPath, tmpl: t, updater: update.NewChecker()}
+	h := &handler{cosmosPath: cosmosPath, tmpl: t, updater: update.NewChecker(), devMode: devModeEnabled()}
 	mux := http.NewServeMux()
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 	mux.HandleFunc("/health", h.health)
@@ -2127,7 +2139,7 @@ func (h *handler) apiPage(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) page(w http.ResponseWriter, name string, extra map[string]any) {
 	co, _ := app.GetCosmos(h.cosmosPath)
-	data := map[string]any{"CosmosPath": h.cosmosPath, "ShellCosmos": co, "ContentTemplate": "content_" + name, "Version": versionpkg.Get(), "Update": h.updater.Status()}
+	data := map[string]any{"CosmosPath": h.cosmosPath, "ShellCosmos": co, "ContentTemplate": "content_" + name, "Version": versionpkg.Get(), "Update": h.updater.Status(), "DevMode": h.devMode}
 	for k, v := range extra {
 		data[k] = v
 	}
