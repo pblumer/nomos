@@ -174,7 +174,11 @@ function setupSourceEditor(root) {
             return;
           }
           dirty = false;
-          const list = body.validation && body.validation.findings ? body.validation.findings : [];
+          // Scope findings to the file just saved: a per-file editor should not
+          // surface unrelated cosmos-wide findings (e.g. a product blueprint's
+          // errors while editing cosmos.yaml).
+          const all = body.validation && body.validation.findings ? body.validation.findings : [];
+          const list = all.filter((f) => findingRelevantToPath(f.path, path));
           setStatus('Saved' + (list.length ? ` · ${list.length} finding(s)` : ''), list.length ? 'warn' : 'ok');
           renderFindings(findings, list);
         })
@@ -214,6 +218,21 @@ function setupSourceEditor(root) {
       e.returnValue = '';
     }
   });
+}
+
+// findingRelevantToPath decides whether a validation finding belongs to the
+// file currently open in the editor. A finding is relevant when its path equals
+// the edited file, sits in the same artifact directory, or one path nests under
+// the other. Findings without a path (cosmos-global) are not shown per-file.
+function findingRelevantToPath(findingPath, editPath) {
+  if (!findingPath || !editPath) return false;
+  const norm = (p) => p.replace(/\\/g, '/').replace(/^\.?\//, '').replace(/\/+$/, '');
+  const a = norm(findingPath);
+  const b = norm(editPath);
+  if (a === b) return true;
+  if (b.startsWith(a + '/') || a.startsWith(b + '/')) return true;
+  const dir = (p) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
+  return dir(a) !== '' && dir(a) === dir(b);
 }
 
 function renderFindings(container, findings) {
