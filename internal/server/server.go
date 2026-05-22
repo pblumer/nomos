@@ -61,6 +61,7 @@ func NewHandler(cosmosPath string) http.Handler {
 	mux.HandleFunc("/api/v1/source", h.apiSource)
 	mux.HandleFunc("/api/v1/view", h.apiView)
 	mux.HandleFunc("/api/v1/erd", h.apiERD)
+	mux.HandleFunc("/api/v1/dmn", h.apiDMNFile)
 	mux.HandleFunc("/api/v1/render/markdown", h.apiRenderMarkdown)
 	mux.HandleFunc("/api/v1/blueprints", h.apiBlueprints)
 	mux.HandleFunc("/api/v1/blueprints/", h.apiBlueprintRoutes)

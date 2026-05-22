@@ -40,6 +40,7 @@ func typeWithDetectionFile(loc, typeID string) (model.TypeDef, error) {
 // authored instances (git database and Nomos plumbing).
 func instanceSkipDirs(loc string) map[string]bool {
 	return map[string]bool{
+		filepath.Clean(storage.NomosDir(loc)): true,
 		filepath.Clean(storage.ReposDir(loc)): true,
 		filepath.Clean(storage.CacheDir(loc)): true,
 		filepath.Clean(storage.IndexDir(loc)): true,
