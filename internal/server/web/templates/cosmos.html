@@ -3790,6 +3790,13 @@ function renderMethodDetail(m,domain,svc,usedByCaps){
   <label style="font-size:.78rem;color:#64748b">Pfad (URI)</label><input id="me-path" value="${esc(m.path||'')}" placeholder="/resource/{id}" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;font-family:ui-monospace,monospace">
   <label style="font-size:.78rem;color:#64748b">Zusammenfassung</label><input id="me-summary" value="${esc(m.summary||'')}" placeholder="Kurzbeschreibung" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">
 </div>
+<div class="detail-section-label">Datenobjekte (I/O)</div>
+<div style="display:grid;grid-template-columns:max-content 1fr;gap:.4rem .5rem;align-items:center;margin-bottom:.3rem">
+  <label style="font-size:.78rem;color:#64748b">Input-Objekt</label><input id="me-input-object" list="me-do-list" value="${esc(m.input_object||'')}" placeholder="Datenobjekt-ID (.nomos/data)" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;font-family:ui-monospace,monospace">
+  <label style="font-size:.78rem;color:#64748b">Output-Objekt</label><input id="me-output-object" list="me-do-list" value="${esc(m.output_object||'')}" placeholder="Datenobjekt-ID (.nomos/data)" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;font-family:ui-monospace,monospace">
+</div>
+<datalist id="me-do-list"></datalist>
+<div style="margin-bottom:.7rem"><button class="btn btn-secondary btn-sm" id="me-io-save"><span class="mi" style="font-family:'Material Symbols Outlined'">save</span> I/O speichern</button> <span class="editor-status" id="me-io-status"></span></div>
 <div class="detail-section-label">Security</div>
 <div style="display:grid;grid-template-columns:max-content 1fr max-content 1fr;gap:.4rem .5rem;align-items:center;margin-bottom:.6rem">
   <label style="font-size:.78rem;color:#64748b">Schema</label><select id="me-sec-scheme" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem">${secSchemes}</select>
@@ -3855,6 +3862,14 @@ function wireMethodCapabilityChips(container,domain,svc){
 }
 function wireMethodDetail(container,m,domain,svc){
   const methodsUrl='/api/v1/services/'+encodeURIComponent(svc)+'/operations/'+encodeURIComponent(m.name);
+  // Populate the data-object datalist (best-effort; binding is a plain id string).
+  (async()=>{const dl=container.querySelector('#me-do-list');if(!dl)return;try{const r=await fetch('/api/v1/repositories/default/data-objects');if(!r.ok)return;const d=await r.json();(d.data_objects||[]).forEach(o=>{const opt=document.createElement('option');opt.value=o.id;opt.label=o.label||o.id;dl.appendChild(opt);});}catch(e){}})();
+  container.querySelector('#me-io-save')?.addEventListener('click',async()=>{
+    const st=container.querySelector('#me-io-status');const set=(t,k)=>{if(st){st.textContent=t;st.className='editor-status'+(k?' editor-status-'+k:'');}};
+    const body={input_object:container.querySelector('#me-input-object')?.value.trim()||'',output_object:container.querySelector('#me-output-object')?.value.trim()||''};
+    set('Speichern…','');
+    try{const r=await fetch(methodsUrl,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(r.ok)set('Gespeichert','ok');else set(d.error?.message||d.error||'Speichern fehlgeschlagen','error');}catch(e){set(e.message,'error');}
+  });
   container.querySelector('#me-invoke')?.addEventListener('click',()=>{
     openModal('Operation aufrufen: '+m.name,`<div class="nfield"><label>Inputs (JSON)</label><textarea id="mi-inputs" rows="5" style="width:100%;font-family:monospace;font-size:.8rem">{}</textarea><div class="nfield-hint">Werte je Parameter-/Feldname. Reserviert: <code>_auth</code> (Token), <code>_body</code> (Body überschreiben).</div></div><button type="button" class="btn btn-primary btn-sm" id="mi-send"><span class="mi" style="font-family:'Material Symbols Outlined'">send</span> Senden</button> <span id="mi-status" style="font-size:.78rem"></span><pre id="mi-out" style="margin-top:.6rem;max-height:280px;overflow:auto;background:#0f172a;color:#e2e8f0;padding:.6rem;border-radius:8px;font-size:.75rem;white-space:pre-wrap"></pre>`,async()=>{},'Schließen');
     const send=$('mi-send'),out=$('mi-out'),st=$('mi-status');
