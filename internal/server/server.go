@@ -1258,17 +1258,17 @@ func (h *handler) apiServiceRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// GET/POST /api/v1/services/{service}/methods
-	if len(parts) == 2 && parts[1] == "methods" {
+	// GET/POST /api/v1/services/{service}/operations
+	if len(parts) == 2 && parts[1] == "operations" {
 		if r.Method == http.MethodPost {
 			var req struct {
-				Method string `json:"method"`
+				Operation string `json:"operation"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 				return
 			}
-			dto, err := app.AddServiceMethod(h.cosmosPath, service, req.Method)
+			dto, err := app.AddServiceOperation(h.cosmosPath, service, req.Operation)
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -1282,19 +1282,19 @@ func (h *handler) apiServiceRoutes(w http.ResponseWriter, r *http.Request) {
 				h.apiErr(w, err)
 				return
 			}
-			writeJSON(w, 200, map[string]any{"methods": dto.Methods})
+			writeJSON(w, 200, map[string]any{"operations": dto.Operations})
 			return
 		}
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
-	// GET/PUT/DELETE /api/v1/services/{service}/methods/{method}
-	if len(parts) == 3 && parts[1] == "methods" {
-		method := parts[2]
+	// GET/PUT/DELETE /api/v1/services/{service}/operations/{operation}
+	if len(parts) == 3 && parts[1] == "operations" {
+		operation := parts[2]
 		switch r.Method {
 		case http.MethodGet:
-			dto, err := app.GetServiceMethod(h.cosmosPath, service, method)
+			dto, err := app.GetServiceOperation(h.cosmosPath, service, operation)
 			if err != nil {
 				h.apiErr(w, err)
 				return
@@ -1302,35 +1302,44 @@ func (h *handler) apiServiceRoutes(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, 200, dto)
 		case http.MethodPut:
 			var req struct {
-				Summary    string                  `json:"summary"`
-				HTTPMethod string                  `json:"http_method"`
-				Path       string                  `json:"path"`
-				Parameters []model.MethodParameter `json:"parameters"`
-				Headers    []model.MethodHeader    `json:"headers"`
-				Security   *model.MethodSecurity   `json:"security"`
-				Payload    *model.MethodPayload    `json:"payload"`
+				Summary      string                  `json:"summary"`
+				InputObject  string                  `json:"input_object"`
+				OutputObject string                  `json:"output_object"`
+				HTTPMethod   string                  `json:"http_method"`
+				Path         string                  `json:"path"`
+				BaseURL      string                  `json:"base_url"`
+				Parameters   []model.MethodParameter `json:"parameters"`
+				Headers      []model.MethodHeader    `json:"headers"`
+				Security     *model.MethodSecurity   `json:"security"`
+				Payload      *model.MethodPayload    `json:"payload"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 				return
 			}
-			patch := model.MethodDefinition{
-				Summary:    req.Summary,
-				HTTPMethod: req.HTTPMethod,
-				Path:       req.Path,
-				Parameters: req.Parameters,
-				Headers:    req.Headers,
-				Security:   req.Security,
-				Payload:    req.Payload,
+			patch := model.Operation{
+				Summary:      req.Summary,
+				Protocol:     "rest",
+				InputObject:  req.InputObject,
+				OutputObject: req.OutputObject,
+				REST: &model.RESTOperation{
+					HTTPMethod: req.HTTPMethod,
+					Path:       req.Path,
+					BaseURL:    req.BaseURL,
+					Parameters: req.Parameters,
+					Headers:    req.Headers,
+					Security:   req.Security,
+					Payload:    req.Payload,
+				},
 			}
-			dto, err := app.UpdateMethod(h.cosmosPath, service, method, patch)
+			dto, err := app.UpdateOperation(h.cosmosPath, service, operation, patch)
 			if err != nil {
 				h.apiErr(w, err)
 				return
 			}
 			writeJSON(w, 200, dto)
 		case http.MethodDelete:
-			dto, err := app.RemoveServiceMethod(h.cosmosPath, service, method)
+			dto, err := app.RemoveServiceOperation(h.cosmosPath, service, operation)
 			if err != nil {
 				h.apiErr(w, err)
 				return

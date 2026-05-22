@@ -1456,12 +1456,12 @@ async function loadDetail(row){const kind=row.dataset.kind,id=row.dataset.id,can
     detail.innerHTML='<div class="detail-empty">Lade&hellip;</div>';
     try{
       const [methodRes,svcRes]=await Promise.all([
-        fetch('/api/v1/services/'+encodeURIComponent(svcName)+'/methods/'+encodeURIComponent(methodName)),
+        fetch('/api/v1/services/'+encodeURIComponent(svcName)+'/operations/'+encodeURIComponent(methodName)),
         fetch('/api/v1/services/'+encodeURIComponent(svcName)),
       ]);
       const m=methodRes.ok?await methodRes.json():{name:methodName,parameters:[]};
       const svc=svcRes.ok?await svcRes.json():{};
-      const usedByCaps=(svc.capabilities||[]).filter(c=>(c.method_refs||[]).includes(methodName)).map(c=>({id:c.id,name:c.name||c.id}));
+      const usedByCaps=(svc.capabilities||[]).filter(c=>(c.operation_refs||[]).includes(methodName)).map(c=>({id:c.id,name:c.name||c.id}));
       detail.innerHTML=renderMethodDetail(m,svcName,svcName,usedByCaps);
       wireMethodDetail(detail,m,svcName,svcName);
       wireMethodCapabilityChips(detail,svcName,svcName);
@@ -1898,10 +1898,10 @@ function setBPMNDetail(target,proc,elementId,viewer){
       if(parts.length<2)return;
       const domain=parts.slice(0,-1).join('/'),svc=parts[parts.length-1];
       try{
-        const r=await fetch('/api/v1/services/'+encodeURIComponent(svc)+'/methods');
+        const r=await fetch('/api/v1/services/'+encodeURIComponent(svc)+'/operations');
         if(r.ok){
           const d=await r.json();
-          const methods=d.methods||[];
+          const methods=d.operations||[];
           methods.forEach(m=>{const name=typeof m==='string'?m:m.name;const o=document.createElement('option');o.value=name;o.textContent=name;if(name===selectedMethod)o.selected=true;methSel.appendChild(o);});
           if(selectedMethod&&!methods.find(m=>(typeof m==='string'?m:m.name)===selectedMethod)){const o=document.createElement('option');o.value=selectedMethod;o.textContent=selectedMethod+' (manuell)';o.selected=true;methSel.insertBefore(o,methSel.options[1]);}
         }
@@ -3610,8 +3610,8 @@ function wireSteps(container,d,proc){
     const svc=serviceRef.split('/').pop();
     const base='/api/v1/services/'+encodeURIComponent(svc);
     try{
-      const r=await fetch(base+'/methods');
-      if(r.ok){const dd=await r.json();(dd.methods||[]).forEach(m=>{const name=typeof m==='string'?m:m.name;const o=document.createElement('option');o.value=name;if(methodDl)methodDl.appendChild(o);});}
+      const r=await fetch(base+'/operations');
+      if(r.ok){const dd=await r.json();(dd.operations||[]).forEach(m=>{const name=typeof m==='string'?m:m.name;const o=document.createElement('option');o.value=name;if(methodDl)methodDl.appendChild(o);});}
     }catch(_){}
     if(!isUser){
       try{
@@ -3749,7 +3749,7 @@ function renderMethodChips(methods,domain,svc){
   return methods.map(m=>{const name=typeof m==='string'?m:m.name;const pc=(m.parameters||[]).length;const badge=pc?`<span style="background:#ddd6fe;color:#5b21b6;border-radius:4px;padding:0 4px;font-size:.68rem;margin-left:2px">${pc}p</span>`:'';return`<span class="svc-chip" data-method="${esc(name)}">${esc(name)}${badge}<button class="svc-chip-remove" data-method="${esc(name)}" title="Entfernen">&#x2715;</button></span>`;}).join('');
 }
 function serviceDetail(d){
-  const methodsHtml=renderMethodChips(d.methods,d.domain,d.name);
+  const methodsHtml=renderMethodChips(d.operations,d.domain,d.name);
   return `<div class="detail-head"><div class="detail-head-left">${iconDiv('service')}<div><div class="detail-title">${esc(d.name)}</div><div class="detail-subtitle">Service</div></div></div><div class="detail-actions-head"><button class="btn btn-secondary btn-sm" id="det-edit" title="Bearbeiten"><span class="mi" style="font-family:'Material Symbols Outlined'">edit</span></button><button class="btn btn-danger btn-sm" id="det-delete" title="L&ouml;schen"><span class="mi" style="font-family:'Material Symbols Outlined'">delete</span></button></div></div><div class="detail-body"><dl class="detail-props"><dt>Name</dt><dd>${esc(d.name)}</dd><dt>Owner</dt><dd>${esc(d.owner||'&ndash;')}</dd><dt>Status</dt><dd><span class="badge badge-${d.status}">${esc(d.status)}</span></dd><dt>Pfad</dt><dd><code>${esc(d.path)}</code></dd></dl><div style="margin-top:.75rem"><div style="font-size:.78rem;font-weight:700;color:#475569;margin-bottom:.35rem">Methoden / Operationen</div><div id="svc-method-chips" style="display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.4rem">${methodsHtml}</div><div style="display:flex;gap:.35rem;align-items:center"><input id="svc-method-input" placeholder="z.B. createUser" style="border:1px solid #d1d5db;border-radius:6px;padding:.28rem .45rem;font-size:.8rem;background:#fff;flex:1"><button class="btn btn-primary btn-sm" id="svc-method-add">+ Methode</button></div></div></div><div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/services/${encodeURIComponent(d.name)}">API JSON</a></div>`;
 }
 function methodHttpBadge(verb){const colors={GET:'#0369a1',POST:'#15803d',PUT:'#b45309',PATCH:'#7c3aed',DELETE:'#b91c1c'};const c=colors[verb]||'#475569';return verb?`<span style="font-size:.68rem;font-weight:700;color:#fff;background:${c};border-radius:4px;padding:1px 6px;font-family:ui-monospace,monospace">${esc(verb)}</span>`:'';
@@ -3834,7 +3834,7 @@ function renderMethodDetail(m,domain,svc,usedByCaps){
 </div>
 <div id="field-status" style="font-size:.75rem;margin-top:.2rem;min-height:1.1em"></div>
 </div>
-<div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/services/${encodeURIComponent(svc)}/methods/${encodeURIComponent(m.name)}">API JSON</a></div>`;
+<div class="detail-footer"><a class="btn btn-secondary" href="/api/v1/services/${encodeURIComponent(svc)}/operations/${encodeURIComponent(m.name)}">API JSON</a></div>`;
 }
 function wireMethodCapabilityChips(container,domain,svc){
   container.querySelectorAll('.method-cap-chip').forEach(chip=>{
@@ -3854,7 +3854,7 @@ function wireMethodCapabilityChips(container,domain,svc){
   });
 }
 function wireMethodDetail(container,m,domain,svc){
-  const methodsUrl='/api/v1/services/'+encodeURIComponent(svc)+'/methods/'+encodeURIComponent(m.name);
+  const methodsUrl='/api/v1/services/'+encodeURIComponent(svc)+'/operations/'+encodeURIComponent(m.name);
   function setStatus(elId,msg,ok=false){const el=container.querySelector('#'+elId);if(el){el.textContent=msg;el.style.color=ok?'#16a34a':'#dc2626';if(ok)setTimeout(()=>{if(el)el.textContent='';},2000);}}
   async function save(patch){
     const r=await fetch(methodsUrl,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});
@@ -3961,7 +3961,7 @@ function wireMethodDetail(container,m,domain,svc){
   });
 }
 function wireServiceDetail(container,d){
-  const methodsUrl='/api/v1/services/'+encodeURIComponent(d.name)+'/methods';
+  const methodsUrl='/api/v1/services/'+encodeURIComponent(d.name)+'/operations';
   function refreshChips(methods){
     const el=container.querySelector('#svc-method-chips');
     if(el){el.innerHTML=renderMethodChips(methods,d.domain,d.name);wireChipRemove(methods);}
@@ -3971,19 +3971,19 @@ function wireServiceDetail(container,d){
       btn.addEventListener('click',async()=>{
         const m=btn.dataset.method;btn.disabled=true;
         const r=await fetch(methodsUrl+'/'+encodeURIComponent(m),{method:'DELETE'});
-        if(r.ok){const upd=await r.json();refreshChips(upd.methods||[]);}else btn.disabled=false;
+        if(r.ok){const upd=await r.json();refreshChips(upd.operations||[]);}else btn.disabled=false;
       });
     });
   }
-  wireChipRemove(d.methods||[]);
+  wireChipRemove(d.operations||[]);
   const addBtn=container.querySelector('#svc-method-add');
   const inp=container.querySelector('#svc-method-input');
   async function doAdd(){
     const method=inp?.value.trim();if(!method)return;
     if(addBtn)addBtn.disabled=true;
-    const r=await fetch(methodsUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({method})});
+    const r=await fetch(methodsUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({operation:method})});
     const upd=await r.json().catch(()=>({}));
-    if(r.ok){if(inp)inp.value='';refreshChips(upd.methods||[]);}
+    if(r.ok){if(inp)inp.value='';refreshChips(upd.operations||[]);}
     if(addBtn)addBtn.disabled=false;
   }
   addBtn?.addEventListener('click',doAdd);
@@ -4165,7 +4165,7 @@ function svcElementCard(it,cfg){
   const url=it.url?`<a class="chip chip-link" href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.url)}</a>`:'';
   let refsLine='';
   if(cfg.kind==='capability'){
-    const m=(it.method_refs||[]).length;const d=(it.data_object_refs||[]).length;
+    const m=(it.operation_refs||[]).length;const d=(it.data_object_refs||[]).length;
     if(m||d){
       const parts=[];
       if(m)parts.push(`<span class="chip" title="verknüpfte Methoden">⚡ ${m} Method${m===1?'':'en'}</span>`);
@@ -4190,7 +4190,7 @@ async function loadServiceMethodsDetail(row){
   }catch(err){detail.innerHTML=`<div style="padding:1rem"><div class="nerror show">${esc(err.message)}</div></div>`;}
 }
 function renderServiceMethodsList(container,svc,domain,svcName,row){
-  const methods=(svc.methods||[]).map(m=>typeof m==='string'?{name:m}:m);
+  const methods=(svc.operations||[]).map(m=>typeof m==='string'?{name:m}:m);
   const head=`<div class="detail-head"><div class="detail-head-left"><div class="detail-kind-icon" style="background:#ede9fe;color:#6d28d9;font-family:'Material Symbols Outlined';font-size:18px;width:36px;height:36px;border-radius:8px;display:grid;place-items:center">function</div><div><div class="detail-title">Methods</div><div class="detail-subtitle">${esc(domain)}/${esc(svcName)} · ${methods.length}</div></div></div></div>`;
   const sortOpts=[['name','Name'],['http','HTTP-Methode'],['path','Pfad']].map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
   const toolbar=`<div class="svc-elem-toolbar"><div class="svc-elem-filter"><span class="mi" style="font-family:'Material Symbols Outlined';font-size:18px;color:#94a3b8">search</span><input id="svc-meth-filter" type="search" placeholder="Filtern nach Name, Pfad, Summary…" autocomplete="off"></div><div class="svc-elem-toolbar-right"><label class="svc-elem-sort">Sortieren<select id="svc-meth-sort">${sortOpts}</select></label><span class="svc-elem-count" id="svc-meth-count">${methods.length} ${methods.length===1?'Methode':'Methoden'}</span></div></div>`;
@@ -4202,7 +4202,7 @@ function renderServiceMethodsList(container,svc,domain,svcName,row){
   sortSel?.addEventListener('change',()=>{const key=sortSel.value;const cards=Array.from(list.querySelectorAll('.svc-elem-card'));cards.sort((a,b)=>{const av=(a.dataset['sort'+key.charAt(0).toUpperCase()+key.slice(1)]||'').toLowerCase();const bv=(b.dataset['sort'+key.charAt(0).toUpperCase()+key.slice(1)]||'').toLowerCase();if(av<bv)return -1;if(av>bv)return 1;return 0;});cards.forEach(c=>list.appendChild(c));});
   list?.querySelectorAll('.svc-elem-card[data-method-name]').forEach(card=>{card.classList.add('svc-elem-card-clickable');card.addEventListener('click',()=>{const name=card.dataset.methodName;const targetRow=Array.from(tree.querySelectorAll('.cn-row[data-kind="service-method"]')).find(r=>r.dataset.methodName===name&&r.dataset.domain===domain&&(r.dataset.canonical||'').endsWith('/'+svcName));if(targetRow){expandToRow(targetRow);tree.querySelectorAll('.cn-row.selected').forEach(r=>r.classList.remove('selected'));targetRow.classList.add('selected');loadDetail(targetRow);history.replaceState(null,'','/cosmos?selected='+encodeURIComponent('service-method:'+(targetRow.dataset.canonical||'')));}});});
   const addBtn=container.querySelector('#svc-meth-add');const addInp=container.querySelector('#svc-meth-input');
-  async function doAdd(){const _b=writeGuard(row);if(_b===null)return;const name=addInp?.value.trim();if(!name)return;if(addBtn)addBtn.disabled=true;const r=await fetch(_b+'/api/v1/services/'+encodeURIComponent(svcName)+'/methods',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({method:name})});if(r.ok){location.href='/cosmos?selected=service-method-parent:'+encodeURIComponent(canon);}else{if(addBtn)addBtn.disabled=false;const d=await r.json().catch(()=>({}));alert(d.error?.message||'Hinzufügen fehlgeschlagen');}}
+  async function doAdd(){const _b=writeGuard(row);if(_b===null)return;const name=addInp?.value.trim();if(!name)return;if(addBtn)addBtn.disabled=true;const r=await fetch(_b+'/api/v1/services/'+encodeURIComponent(svcName)+'/operations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({operation:name})});if(r.ok){location.href='/cosmos?selected=service-method-parent:'+encodeURIComponent(canon);}else{if(addBtn)addBtn.disabled=false;const d=await r.json().catch(()=>({}));alert(d.error?.message||'Hinzufügen fehlgeschlagen');}}
   addBtn?.addEventListener('click',doAdd);
   addInp?.addEventListener('keydown',e=>{if(e.key==='Enter')doAdd();});
 }
@@ -4266,9 +4266,9 @@ function renderSvcElementDetail(container,svc,domain,svcName,cfg,item,row){
   const extraFields=cfg.extraFields.map(fieldHtml).join('');
   let linksHtml='';
   if(cfg.kind==='capability'){
-    const allMethods=(svc.methods||[]).map(m=>m.name);
+    const allMethods=(svc.operations||[]).map(m=>m.name);
     const allDataObjects=(svc.data_object_defs||[]).map(d=>({id:d.id,name:d.name||d.id}));
-    const methodRefs=item.method_refs||[];
+    const methodRefs=item.operation_refs||[];
     const doRefs=item.data_object_refs||[];
     linksHtml=`<div class="nfield"><label>Methoden (verknüpft)</label>${renderRefChips('se-method-refs',allMethods.map(m=>({id:m,name:m+'()'})),methodRefs,'Keine Methoden im Service')}</div><div class="nfield"><label>Data Objects (verknüpft)</label>${renderRefChips('se-do-refs',allDataObjects,doRefs,'Keine Data Objects im Service')}</div>`;
   }
@@ -4329,7 +4329,7 @@ function renderSvcElementDetail(container,svc,domain,svcName,cfg,item,row){
       const payload={name:container.querySelector('#se-name').value.trim(),summary:container.querySelector('#se-summary').value.trim()};
       cfg.extraFields.forEach(f=>{const v=container.querySelector('#se-'+f.id)?.value;if(v!=null)payload[f.id]=v;});
       if(cfg.kind==='capability'){
-        payload.method_refs=Array.from(container.querySelectorAll('#se-method-refs [data-ref-chip][data-selected="1"]')).map(c=>c.dataset.refId);
+        payload.operation_refs=Array.from(container.querySelectorAll('#se-method-refs [data-ref-chip][data-selected="1"]')).map(c=>c.dataset.refId);
         payload.data_object_refs=Array.from(container.querySelectorAll('#se-do-refs [data-ref-chip][data-selected="1"]')).map(c=>c.dataset.refId);
       }
       const r=await fetch(_b+'/api/v1/services/'+encodeURIComponent(svcName)+'/'+cfg.endpoint+'/'+encodeURIComponent(item.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});

@@ -109,8 +109,8 @@ func TestAPIServiceUserInterfaceItemMethodNotAllowed(t *testing.T) {
 
 func TestAPIServiceMethodAdd(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	rr := postJSON(h, "/api/v1/services/user-account/methods",
-		`{"method":"createUser"}`)
+	rr := postJSON(h, "/api/v1/services/user-account/operations",
+		`{"operation":"createUser"}`)
 	if rr.Code != 200 && rr.Code != 201 {
 		t.Fatalf("POST methods: %d %s", rr.Code, rr.Body.String())
 	}
@@ -118,7 +118,7 @@ func TestAPIServiceMethodAdd(t *testing.T) {
 
 func TestAPIServiceMethodList(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	rr := get(h, "/api/v1/services/user-account/methods")
+	rr := get(h, "/api/v1/services/user-account/operations")
 	if rr.Code != 200 {
 		t.Fatalf("GET methods: %d %s", rr.Code, rr.Body.String())
 	}
@@ -126,7 +126,7 @@ func TestAPIServiceMethodList(t *testing.T) {
 
 func TestAPIServiceMethodMethodNotAllowed(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	rr := rawReq(h, http.MethodDelete, "/api/v1/services/user-account/methods", "", "")
+	rr := rawReq(h, http.MethodDelete, "/api/v1/services/user-account/operations", "", "")
 	if rr.Code != 405 {
 		t.Fatalf("expected 405 for DELETE /methods, got %d", rr.Code)
 	}
@@ -134,9 +134,9 @@ func TestAPIServiceMethodMethodNotAllowed(t *testing.T) {
 
 func TestAPIServiceMethodGet(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	postJSON(h, "/api/v1/services/user-account/methods",
-		`{"method":"getUser"}`)
-	rr := get(h, "/api/v1/services/user-account/methods/getUser")
+	postJSON(h, "/api/v1/services/user-account/operations",
+		`{"operation":"getUser"}`)
+	rr := get(h, "/api/v1/services/user-account/operations/getUser")
 	if rr.Code != 200 && rr.Code != 404 {
 		t.Fatalf("GET method: %d %s", rr.Code, rr.Body.String())
 	}
@@ -144,9 +144,9 @@ func TestAPIServiceMethodGet(t *testing.T) {
 
 func TestAPIServiceMethodUpdate(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	postJSON(h, "/api/v1/services/user-account/methods",
-		`{"method":"updateUser"}`)
-	rr := putJSONCov(h, "/api/v1/services/user-account/methods/updateUser",
+	postJSON(h, "/api/v1/services/user-account/operations",
+		`{"operation":"updateUser"}`)
+	rr := putJSONCov(h, "/api/v1/services/user-account/operations/updateUser",
 		map[string]any{"summary": "Update user", "http_method": "PUT", "path": "/users/{id}"})
 	if rr.Code != 200 && rr.Code != 404 {
 		t.Fatalf("PUT method: %d %s", rr.Code, rr.Body.String())
@@ -155,9 +155,9 @@ func TestAPIServiceMethodUpdate(t *testing.T) {
 
 func TestAPIServiceMethodDelete(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	postJSON(h, "/api/v1/services/user-account/methods",
-		`{"method":"deleteUser"}`)
-	rr := rawReq(h, http.MethodDelete, "/api/v1/services/user-account/methods/deleteUser", "", "")
+	postJSON(h, "/api/v1/services/user-account/operations",
+		`{"operation":"deleteUser"}`)
+	rr := rawReq(h, http.MethodDelete, "/api/v1/services/user-account/operations/deleteUser", "", "")
 	if rr.Code != 200 && rr.Code != 404 {
 		t.Fatalf("DELETE method: %d %s", rr.Code, rr.Body.String())
 	}
@@ -165,7 +165,7 @@ func TestAPIServiceMethodDelete(t *testing.T) {
 
 func TestAPIServiceMethodItemMethodNotAllowed(t *testing.T) {
 	h := NewHandler(createTestCosmos(t))
-	rr := rawReq(h, http.MethodPatch, "/api/v1/services/user-account/methods/x", "", "")
+	rr := rawReq(h, http.MethodPatch, "/api/v1/services/user-account/operations/x", "", "")
 	if rr.Code != 405 {
 		t.Fatalf("expected 405 for PATCH method, got %d", rr.Code)
 	}

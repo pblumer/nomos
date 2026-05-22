@@ -124,11 +124,11 @@ var apiEndpoints = []apiEndpoint{
 	{Method: "POST", Path: "/api/v1/services/{service}/user-interfaces", Tag: "Services", Summary: "Add user interface", Description: "Adds a user interface to a service.", Request: genObj(), Response: schemaRef("Service"), Code: "201"},
 	{Method: "PUT", Path: "/api/v1/services/{service}/user-interfaces/{userInterface}", Tag: "Services", Summary: "Update user interface", Description: "Updates a service user interface.", Request: genObj(), Response: schemaRef("Service")},
 	{Method: "DELETE", Path: "/api/v1/services/{service}/user-interfaces/{userInterface}", Tag: "Services", Summary: "Delete user interface", Description: "Removes a service user interface.", Response: schemaRef("Service")},
-	{Method: "GET", Path: "/api/v1/services/{service}/methods", Tag: "Services", Summary: "List methods", Description: "Returns the methods defined on a service.", Response: genObj()},
-	{Method: "POST", Path: "/api/v1/services/{service}/methods", Tag: "Services", Summary: "Add method", Description: "Adds a method to a service.", Request: object(map[string]any{"method": stringSchema("Method name.")}), Response: schemaRef("Service"), Code: "201"},
-	{Method: "GET", Path: "/api/v1/services/{service}/methods/{method}", Tag: "Services", Summary: "Get method", Description: "Returns one service method definition.", Response: genObj()},
-	{Method: "PUT", Path: "/api/v1/services/{service}/methods/{method}", Tag: "Services", Summary: "Update method", Description: "Updates a service method definition.", Request: genObj(), Response: schemaRef("Service")},
-	{Method: "DELETE", Path: "/api/v1/services/{service}/methods/{method}", Tag: "Services", Summary: "Delete method", Description: "Removes a service method.", Response: schemaRef("Service")},
+	{Method: "GET", Path: "/api/v1/services/{service}/operations", Tag: "Services", Summary: "List operations", Description: "Returns the operations defined on a service.", Response: genObj()},
+	{Method: "POST", Path: "/api/v1/services/{service}/operations", Tag: "Services", Summary: "Add operation", Description: "Adds an operation to a service.", Request: object(map[string]any{"operation": stringSchema("Operation name.")}), Response: schemaRef("Service"), Code: "201"},
+	{Method: "GET", Path: "/api/v1/services/{service}/operations/{operation}", Tag: "Services", Summary: "Get operation", Description: "Returns one service operation definition.", Response: genObj()},
+	{Method: "PUT", Path: "/api/v1/services/{service}/operations/{operation}", Tag: "Services", Summary: "Update operation", Description: "Updates a service operation definition.", Request: genObj(), Response: schemaRef("Service")},
+	{Method: "DELETE", Path: "/api/v1/services/{service}/operations/{operation}", Tag: "Services", Summary: "Delete operation", Description: "Removes a service operation.", Response: schemaRef("Service")},
 
 	// Namespaces
 	{Method: "GET", Path: "/api/v1/namespaces", Tag: "Namespaces", Summary: "Get namespace tree", Description: "Returns the cosmos namespace tree.", Response: schemaRef("NamespaceTree")},

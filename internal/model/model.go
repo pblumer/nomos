@@ -294,16 +294,15 @@ type Connector struct {
 // surrounding service's methods and data objects it is composed of. The
 // referenced values are method names and data-object IDs.
 type ServiceCapability struct {
-	ID             string      `yaml:"id" json:"id"`
-	Name           string      `yaml:"name" json:"name"`
-	Summary        string      `yaml:"summary,omitempty" json:"summary,omitempty"`
-	Stability      string      `yaml:"stability,omitempty" json:"stability,omitempty"`
-	SideEffect     string      `yaml:"side_effect,omitempty" json:"side_effect,omitempty"`
-	Connectors     []Connector `yaml:"connectors,omitempty" json:"connectors,omitempty"`
-	RelatedUCI     []string    `yaml:"related_uci,omitempty" json:"related_uci,omitempty"`
-	// MethodRefs is the legacy name; OperationRefs is the successor. Reading a
-	// capability lifts method_refs into OperationRefs (operations replace methods).
-	MethodRefs     []string `yaml:"method_refs,omitempty" json:"method_refs,omitempty"`
+	ID         string      `yaml:"id" json:"id"`
+	Name       string      `yaml:"name" json:"name"`
+	Summary    string      `yaml:"summary,omitempty" json:"summary,omitempty"`
+	Stability  string      `yaml:"stability,omitempty" json:"stability,omitempty"`
+	SideEffect string      `yaml:"side_effect,omitempty" json:"side_effect,omitempty"`
+	Connectors []Connector `yaml:"connectors,omitempty" json:"connectors,omitempty"`
+	RelatedUCI []string    `yaml:"related_uci,omitempty" json:"related_uci,omitempty"`
+	// OperationRefs names the operations on the same service that compose this
+	// capability (successor to the removed method_refs).
 	OperationRefs  []string `yaml:"operation_refs,omitempty" json:"operation_refs,omitempty"`
 	DataObjectRefs []string `yaml:"data_object_refs,omitempty" json:"data_object_refs,omitempty"`
 }
@@ -320,8 +319,14 @@ func (c *ServiceCapability) UnmarshalYAML(unmarshal func(interface{}) error) err
 		return err
 	}
 	// Lazy-lift: legacy method_refs become operation_refs when none are set.
-	if len(c.OperationRefs) == 0 && len(c.MethodRefs) > 0 {
-		c.OperationRefs = append([]string(nil), c.MethodRefs...)
+	if len(c.OperationRefs) == 0 {
+		var legacy struct {
+			MethodRefs []string `yaml:"method_refs"`
+		}
+		_ = unmarshal(&legacy)
+		if len(legacy.MethodRefs) > 0 {
+			c.OperationRefs = legacy.MethodRefs
+		}
 	}
 	return nil
 }
@@ -425,7 +430,6 @@ type Service struct {
 	DataObjects       []ServiceDataObject    `yaml:"data_objects,omitempty" json:"data_objects,omitempty"`
 	UserInterfaces    []ServiceUserInterface `yaml:"user_interfaces,omitempty" json:"user_interfaces,omitempty"`
 	SupportedProducts []string               `yaml:"supported_products,omitempty" json:"supported_products,omitempty"`
-	Methods           []MethodDefinition     `yaml:"methods,omitempty" json:"methods,omitempty"`
 	Operations        []Operation            `yaml:"operations,omitempty" json:"operations,omitempty"`
 	Summary           string                 `yaml:"summary" json:"summary"`
 	SLA               *ServiceLevelInfo      `yaml:"sla,omitempty" json:"sla,omitempty"`
@@ -433,16 +437,20 @@ type Service struct {
 }
 
 // UnmarshalYAML lazily lifts a service's legacy methods into Operations on load,
-// so existing service.yaml files keep working while operations become the
-// canonical callable units. Methods stays populated for now (deprecated) until
-// the API/UI consumers are migrated.
+// so existing service.yaml files keep working while operations are the canonical
+// callable units. The legacy `methods:` key is read into a local struct since the
+// Methods field has been removed from the model.
 func (s *Service) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type plain Service
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
-	if len(s.Operations) == 0 && len(s.Methods) > 0 {
-		for _, m := range s.Methods {
+	if len(s.Operations) == 0 {
+		var legacy struct {
+			Methods []MethodDefinition `yaml:"methods"`
+		}
+		_ = unmarshal(&legacy)
+		for _, m := range legacy.Methods {
 			s.Operations = append(s.Operations, m.ToOperation())
 		}
 	}
