@@ -1254,37 +1254,34 @@ async function doCommit(row){if(!localOnly(row))return;const repo=repoIdFor(row)
 
 // slugifyId derives a lowercase-slug type id (a-z, 0-9, -) from a free-text
 // label; prefixFromLabel derives the three-uppercase-letter instance-id prefix.
-// Both keep the new-type dialog free of manual id entry.
+// They let the capture form (type_new.frm) omit the id/prefix fields entirely:
+// when the form does not supply them, doAddType derives them from the label.
 function slugifyId(s){return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');}
 function prefixFromLabel(s){const letters=(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z]/g,'').toUpperCase();return letters.length>=3?letters.slice(0,3):'';}
 
 // doAddType creates a new user-defined type definition under .nomos/types via
-// POST /repositories/{repo}/fs/type. Only the label is captured; the type id
-// and the instance-id prefix are derived from it automatically (shown read-only),
-// so no slug/prefix has to be entered by hand. Available from the types folder
-// and from any existing type-def node.
+// POST /repositories/{repo}/fs/type. The capture form is the form-js view
+// authored in .nomos/views/type_new.frm (ADR-0024) rendered live in the modal,
+// so editing that .frm changes this dialog. The form need only capture the
+// label: when it omits the id (and id_prefix), they are derived from the label
+// automatically. Available from the types folder and from any type-def node.
 function doAddType(row){if(!localOnly(row))return;const repo=repoIdFor(row);
-  const PT=['string','number','boolean','text'];
-  const propRow=(p)=>{p=p||{};return `<div class="ty-prop-row" style="display:flex;gap:.4rem;align-items:center;margin-bottom:.3rem"><input class="ty-p-name tp-input" placeholder="Feldname" value="${esc(p.name||'')}" style="flex:1" /><select class="ty-p-type tp-select" style="width:7rem">${PT.map(t=>`<option value="${t}"${(p.type||'string')===t?' selected':''}>${t}</option>`).join('')}</select><label style="display:inline-flex;align-items:center;gap:.25rem;font-size:.78rem;white-space:nowrap"><input type="checkbox" class="ty-p-req"${p.required?' checked':''}> Pflicht</label><button type="button" class="btn btn-secondary btn-sm ty-p-del" title="Entfernen">✕</button></div>`;};
-  const sel=(opts,cur)=>opts.map(([v,l])=>`<option value="${v}"${(cur||'')===v?' selected':''}>${esc(l)}</option>`).join('');
-  const html=`<div class="nfield"><label>Label</label><input id="ty-label" class="tp-input" placeholder="z.B. Data Object" /><div class="nfield-hint">Anzeigename im Explorer. ID und Pr&auml;fix werden automatisch daraus erzeugt.</div></div>`
-    +`<div style="display:flex;gap:.6rem"><div class="nfield" style="flex:2"><label>ID (automatisch)</label><input id="ty-id" class="tp-input" readonly style="font-family:monospace;background:#f8fafc;color:#64748b" /></div><div class="nfield" style="flex:1"><label>ID-Pr&auml;fix (automatisch)</label><input id="ty-prefix" class="tp-input" readonly style="font-family:monospace;background:#f8fafc;color:#64748b" placeholder="—" /></div></div>`
-    +`<div class="nfield"><label>Beschreibung</label><textarea id="ty-desc" class="tp-input" rows="2"></textarea></div>`
-    +`<div style="display:flex;gap:.6rem"><div class="nfield" style="flex:1"><label>Icon</label><input id="ty-icon" class="tp-input" placeholder="z.B. settings" /></div><div class="nfield" style="flex:1"><label>Viewer</label><select id="ty-viewer" class="tp-select">${sel([['','—'],['form','Formular'],['bpmn','BPMN'],['dmn','DMN']],'')}</select></div><div class="nfield" style="flex:1"><label>Editor</label><select id="ty-editor" class="tp-select">${sel([['','—'],['form','Formular'],['dmn','DMN']],'')}</select></div></div>`
-    +`<div class="nfield"><label>Properties</label><div id="ty-props"></div><button type="button" class="btn btn-secondary btn-sm" id="ty-prop-add" style="margin-top:.2rem">+ Property</button></div>`;
-  openModal('Neuer Typ',html,async()=>{
-    const label=($('ty-label')?.value||'').trim();
-    if(!label)throw new Error('Label erforderlich');
-    const id=slugifyId(label);
-    if(!/^[a-z0-9][a-z0-9_-]*$/.test(id))throw new Error('Aus dem Label konnte keine gültige ID erzeugt werden — bitte Label anpassen.');
-    const properties=Array.from(document.querySelectorAll('#ty-props .ty-prop-row')).map(r=>({name:(r.querySelector('.ty-p-name')?.value||'').trim(),type:r.querySelector('.ty-p-type')?.value||'string',required:!!r.querySelector('.ty-p-req')?.checked})).filter(p=>p.name);
-    const def={id,label,icon:($('ty-icon')?.value||'').trim(),file:'',id_prefix:($('ty-prefix')?.value||'').trim().toUpperCase(),description:($('ty-desc')?.value||'').trim(),viewer:$('ty-viewer')?.value||'',editor:$('ty-editor')?.value||'',properties};
+  let typeForm=null;
+  openModal('Neuer Typ',`<div id="ty-form-host" class="view-render"><p class="muted" style="color:#64748b;font-size:.85rem">Formular l&auml;dt…</p></div>`,async()=>{
+    if(!typeForm)throw new Error('Erfassungsformular nicht geladen');
+    const res=await typeForm.submit();
+    if(res.errors&&Object.keys(res.errors).length)throw new Error('Bitte Pflichtfelder korrekt ausfüllen.');
+    const d=res.data||{};const label=(d.label||'').trim();
+    let id=(d.id||'').trim();if(!id)id=slugifyId(label);
+    if(!id)throw new Error('Label oder ID erforderlich');
+    if(!/^[a-z0-9][a-z0-9_-]*$/.test(id))throw new Error('ID muss ein Kleinbuchstaben-Slug sein (a-z, 0-9, -, _)');
+    let id_prefix=(d.id_prefix||'').trim().toUpperCase();if(!id_prefix)id_prefix=prefixFromLabel(label);
+    const properties=(Array.isArray(d.properties)?d.properties:[]).map(p=>({name:(p&&p.name||'').trim(),type:p&&p.type||'string',required:!!(p&&p.required)})).filter(p=>p.name);
+    const def={id,label,icon:(d.icon||'').trim(),file:(d.file||'').trim(),id_prefix,description:(d.description||'').trim(),viewer:d.viewer||'',editor:d.editor||'',properties};
     const r=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/fs/type',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(def)});const rd=await r.json().catch(()=>({}));if(r.ok){closeModal();location.reload();}else throw new Error(rd.error?.message||'Typ konnte nicht erstellt werden');
   },'Typ anlegen');
-  const sync=()=>{const lbl=$('ty-label')?.value||'';const idEl=$('ty-id'),pxEl=$('ty-prefix');if(idEl)idEl.value=slugifyId(lbl);if(pxEl)pxEl.value=prefixFromLabel(lbl);};
-  $('ty-label')?.addEventListener('input',sync);
-  const bindDel=()=>document.querySelectorAll('#ty-props .ty-p-del').forEach(b=>{b.onclick=()=>b.closest('.ty-prop-row')?.remove();});
-  $('ty-prop-add')?.addEventListener('click',()=>{$('ty-props')?.insertAdjacentHTML('beforeend',propRow({}));bindDel();});}
+  const host=$('ty-form-host');
+  (async()=>{try{const fr=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/type-form?type_id=type');const fd=await fr.json().catch(()=>({}));if(fr.ok&&fd.exists&&fd.view&&fd.view.schema){typeForm=await renderFormJsView(host,fd.view.schema);}else{host.innerHTML='<p class="muted" style="color:#b45309;font-size:.85rem">Kein Erfassungsformular gefunden — erwartet <code>.nomos/views/type_new.frm</code>.</p>';}}catch(e){host.innerHTML='<p class="muted" style="color:#b45309;font-size:.85rem">'+esc(e.message)+'</p>';}})();}
 
 // doEditType edits an existing type definition (label/description/render hints/
 // properties) and saves it via PUT /repositories/{repo}/types/{id}. The id stays
