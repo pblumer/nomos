@@ -73,6 +73,65 @@ func TestSaveAndLoadTypeForm(t *testing.T) {
 	}
 }
 
+func TestSaveTypeDefSeedsStandardForms(t *testing.T) {
+	p := createAppTestCosmos(t)
+	if _, err := SaveTypeDef(p, model.TypeDef{
+		ID:    "risk",
+		Label: "Risk",
+		Properties: []model.TypeProperty{
+			{Name: "title", Type: "string", Required: true},
+		},
+	}); err != nil {
+		t.Fatalf("SaveTypeDef: %v", err)
+	}
+	// All four standard view forms are generated.
+	for _, v := range []string{"new", "edit", "list", "short"} {
+		if _, err := os.Stat(filepath.Join(storage.ViewsDir(p), "risk_"+v+".frm")); err != nil {
+			t.Errorf("expected seeded risk_%s.frm: %v", v, err)
+		}
+		view, ok, err := LoadTypeFormVariant(p, "risk", v)
+		if err != nil || !ok {
+			t.Errorf("LoadTypeFormVariant(%s): ok=%v err=%v", v, ok, err)
+			continue
+		}
+		if view.Engine != "form-js" {
+			t.Errorf("variant %s engine = %q, want form-js", v, view.Engine)
+		}
+	}
+
+	// Re-saving must not clobber a form the user has edited.
+	custom := map[string]any{"type": "default", "components": []any{map[string]any{"type": "textfield", "key": "custom"}}}
+	if _, err := SaveTypeFormVariant(p, "risk", "edit", model.View{Schema: custom}); err != nil {
+		t.Fatalf("SaveTypeFormVariant: %v", err)
+	}
+	if _, err := SaveTypeDef(p, model.TypeDef{ID: "risk", Label: "Risk v2"}); err != nil {
+		t.Fatalf("SaveTypeDef (re-save): %v", err)
+	}
+	v, _, err := LoadTypeFormVariant(p, "risk", "edit")
+	if err != nil {
+		t.Fatalf("LoadTypeFormVariant after re-save: %v", err)
+	}
+	comps, _ := v.Schema["components"].([]any)
+	if len(comps) != 1 {
+		t.Fatalf("authored edit form was clobbered on re-save: %+v", v.Schema)
+	}
+
+	// Unknown variants are rejected.
+	if _, _, err := LoadTypeFormVariant(p, "risk", "bogus"); err == nil {
+		t.Error("expected rejection of unknown form variant")
+	}
+
+	// Deleting the type removes all four forms.
+	if err := DeleteTypeDef(p, "risk"); err != nil {
+		t.Fatalf("DeleteTypeDef: %v", err)
+	}
+	for _, v := range []string{"new", "edit", "list", "short"} {
+		if _, err := os.Stat(filepath.Join(storage.ViewsDir(p), "risk_"+v+".frm")); !os.IsNotExist(err) {
+			t.Errorf("expected risk_%s.frm removed, stat err = %v", v, err)
+		}
+	}
+}
+
 func TestRepoTreeShowsTypeDefs(t *testing.T) {
 	p := createAppTestCosmos(t)
 	if _, err := SaveTypeDef(p, model.TypeDef{ID: "widget", Label: "Widget", Viewer: "form"}); err != nil {

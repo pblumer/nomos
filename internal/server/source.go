@@ -40,30 +40,62 @@ var allowedViewExt = map[string]bool{".frm": true}
 // allowedErdExt gates the ERD endpoint to .erd relationship-diagram files.
 var allowedErdExt = map[string]bool{".erd": true}
 
-// resolveSourcePath maps a client-supplied path to an absolute file inside the
-// cosmos workspace, rejecting traversal outside the root and disallowed types.
-func (h *handler) resolveSourcePath(raw string) (string, bool) {
-	return h.resolveWorkspacePath(raw, allowedSourceExt)
+// resolveSourcePath maps a client-supplied path to an absolute source file
+// inside the named repository (empty/"default" = workspace), rejecting
+// traversal outside the root and disallowed types.
+func (h *handler) resolveSourcePath(repoID, raw string) (string, bool) {
+	return h.resolveRepoPath(repoID, raw, allowedSourceExt)
+}
+
+// repoRoot returns the working-directory root for a repository id. An empty id
+// (or the default repository) resolves to the local workspace; any other id is
+// looked up in the registry so file editors can reach files inside attached
+// repositories, whose paths are repo-relative (ADR-0022).
+func (h *handler) repoRoot(repoID string) (string, bool) {
+	if repoID == "" || repoID == app.LocalDefaultRepoID {
+		return h.cosmosPath, true
+	}
+	dto, err := app.GetRepository(h.cosmosPath, repoID)
+	if err != nil || dto.Location == "" {
+		return "", false
+	}
+	return dto.Location, true
+}
+
+// resolveRepoPath maps a client-supplied, repository-relative path to an
+// absolute file inside the named repository's working directory, applying the
+// same traversal/extension guards as resolveWorkspacePath.
+func (h *handler) resolveRepoPath(repoID, raw string, allowed map[string]bool) (string, bool) {
+	root, ok := h.repoRoot(repoID)
+	if !ok {
+		return "", false
+	}
+	return resolvePathUnder(root, raw, allowed)
 }
 
 // resolveWorkspacePath maps a client-supplied path to an absolute file inside
 // the cosmos workspace given an extension allow-set, rejecting traversal
 // outside the root and disallowed types.
 func (h *handler) resolveWorkspacePath(raw string, allowed map[string]bool) (string, bool) {
+	return resolvePathUnder(h.cosmosPath, raw, allowed)
+}
+
+// resolvePathUnder resolves raw against root, rejecting disallowed extensions
+// and any target that escapes root. Two bases are tried: the working directory
+// (artifact DTO paths carry the same base as root) and root itself (Explorer
+// file nodes carry repo-relative paths). The first candidate that stays inside
+// root wins.
+func resolvePathUnder(rootPath, raw string, allowed map[string]bool) (string, bool) {
 	if raw == "" {
 		return "", false
 	}
 	if !allowed[strings.ToLower(filepath.Ext(raw))] {
 		return "", false
 	}
-	root, err := filepath.Abs(h.cosmosPath)
+	root, err := filepath.Abs(rootPath)
 	if err != nil {
 		return "", false
 	}
-	// Two bases are tried: the working directory (artifact DTO paths carry the
-	// same base as cosmosPath) and the cosmos root itself (Explorer file nodes
-	// carry repo-relative paths). The first candidate that stays inside the
-	// root wins.
 	var candidates []string
 	if abs, err := filepath.Abs(raw); err == nil {
 		candidates = append(candidates, abs)
@@ -86,7 +118,7 @@ func (h *handler) resolveWorkspacePath(raw string, allowed map[string]bool) (str
 // writes the file, then runs cosmos validation so the backend stays the
 // authority on artifact correctness.
 func (h *handler) apiSource(w http.ResponseWriter, r *http.Request) {
-	path, ok := h.resolveSourcePath(r.URL.Query().Get("path"))
+	path, ok := h.resolveSourcePath(r.URL.Query().Get("repo"), r.URL.Query().Get("path"))
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or unsupported path"})
 		return
@@ -153,7 +185,7 @@ func (h *handler) apiSourceScaffold(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	if _, ok := h.resolveSourcePath(r.URL.Query().Get("path")); !ok {
+	if _, ok := h.resolveSourcePath(r.URL.Query().Get("repo"), r.URL.Query().Get("path")); !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or unsupported path"})
 		return
 	}
@@ -180,7 +212,7 @@ func (h *handler) apiSourceScaffold(w http.ResponseWriter, r *http.Request) {
 // It complements the type-keyed type-form endpoint by letting the Explorer open
 // any .frm directly in the form-js editor (ADR-0024).
 func (h *handler) apiView(w http.ResponseWriter, r *http.Request) {
-	path, ok := h.resolveWorkspacePath(r.URL.Query().Get("path"), allowedViewExt)
+	path, ok := h.resolveRepoPath(r.URL.Query().Get("repo"), r.URL.Query().Get("path"), allowedViewExt)
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or unsupported path"})
 		return
@@ -236,7 +268,7 @@ func (h *handler) apiView(w http.ResponseWriter, r *http.Request) {
 // lightweight SVG editor. Only the layout is stored here; relationships live in
 // the type definitions' dependencies.
 func (h *handler) apiERD(w http.ResponseWriter, r *http.Request) {
-	path, ok := h.resolveWorkspacePath(r.URL.Query().Get("path"), allowedErdExt)
+	path, ok := h.resolveRepoPath(r.URL.Query().Get("repo"), r.URL.Query().Get("path"), allowedErdExt)
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or unsupported path"})
 		return

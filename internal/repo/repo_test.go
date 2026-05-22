@@ -67,6 +67,12 @@ func TestCreateFilesystemDefaultLocationIsOutsideWorkspace(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(storage.ViewsDir(want), "type_new.frm")); err != nil {
 		t.Errorf("expected seeded type-capture view: %v", err)
 	}
+	// The Decision starter type ships with its four standard view forms.
+	for _, v := range []string{"new", "edit", "list", "short"} {
+		if _, err := os.Stat(filepath.Join(storage.ViewsDir(want), "decision_"+v+".frm")); err != nil {
+			t.Errorf("expected seeded decision_%s.frm: %v", v, err)
+		}
+	}
 	// The obsolete .nomos/domains directory is no longer scaffolded.
 	if _, err := os.Stat(filepath.Join(storage.NomosDir(want), "domains")); !os.IsNotExist(err) {
 		t.Errorf("expected no .nomos/domains directory, stat err = %v", err)
