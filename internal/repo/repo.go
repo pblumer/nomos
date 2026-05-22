@@ -117,7 +117,7 @@ func (r *Registry) CreateFilesystem(name string) (Repository, error) {
 	// Seed the views directory with the starter "capture a type" form (ADR-0024)
 	// so a freshly created repository ships a data-entry view. This MkdirAll also
 	// materialises .nomos itself, which cosmos.yaml and the type seeds rely on.
-	if err := seedDefaultViews(loc); err != nil {
+	if err := SeedDefaultViews(loc); err != nil {
 		return Repository{}, err
 	}
 	displayName := strings.TrimSpace(name)
@@ -234,11 +234,12 @@ func seedDefaultTypes(loc string) error {
 	return nil
 }
 
-// seedDefaultViews writes the starter "capture a type" form under .nomos/views
+// SeedDefaultViews writes the starter "capture a type" form under .nomos/views
 // so a freshly created repository ships a data-entry view (ADR-0024). The file
 // follows the <typeID>_new.frm convention; here the captured type is "type",
-// i.e. the form that records a new type definition.
-func seedDefaultViews(loc string) error {
+// i.e. the form that records a new type definition. Exported so the cosmos-init
+// CLI path seeds the same view as API-created repositories.
+func SeedDefaultViews(loc string) error {
 	dir := storage.ViewsDir(loc)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err

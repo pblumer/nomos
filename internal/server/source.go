@@ -9,6 +9,7 @@ import (
 
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/nomos/nomos/internal/app"
+	"github.com/nomos/nomos/internal/model"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 	gmhtml "github.com/yuin/goldmark/renderer/html"
@@ -33,13 +34,23 @@ var allowedSourceExt = map[string]bool{
 	".yaml": true, ".yml": true, ".json": true, ".md": true, ".markdown": true,
 }
 
+// allowedViewExt gates the view endpoint to .frm form files (ADR-0024).
+var allowedViewExt = map[string]bool{".frm": true}
+
 // resolveSourcePath maps a client-supplied path to an absolute file inside the
 // cosmos workspace, rejecting traversal outside the root and disallowed types.
 func (h *handler) resolveSourcePath(raw string) (string, bool) {
+	return h.resolveWorkspacePath(raw, allowedSourceExt)
+}
+
+// resolveWorkspacePath maps a client-supplied path to an absolute file inside
+// the cosmos workspace given an extension allow-set, rejecting traversal
+// outside the root and disallowed types.
+func (h *handler) resolveWorkspacePath(raw string, allowed map[string]bool) (string, bool) {
 	if raw == "" {
 		return "", false
 	}
-	if !allowedSourceExt[strings.ToLower(filepath.Ext(raw))] {
+	if !allowed[strings.ToLower(filepath.Ext(raw))] {
 		return "", false
 	}
 	root, err := filepath.Abs(h.cosmosPath)
@@ -124,6 +135,62 @@ func (h *handler) apiSource(w http.ResponseWriter, r *http.Request) {
 			resp["validation"] = val
 		}
 		writeJSON(w, http.StatusOK, resp)
+	default:
+		w.Header().Set("Allow", "GET, PUT")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+// apiView reads (GET) or writes (PUT) a .frm form file by workspace path,
+// translating between its YAML on disk and the form-js schema the editor wants.
+// It complements the type-keyed type-form endpoint by letting the Explorer open
+// any .frm directly in the form-js editor (ADR-0024).
+func (h *handler) apiView(w http.ResponseWriter, r *http.Request) {
+	path, ok := h.resolveWorkspacePath(r.URL.Query().Get("path"), allowedViewExt)
+	if !ok {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or unsupported path"})
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		data, err := os.ReadFile(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				writeJSON(w, http.StatusNotFound, map[string]string{"error": "file not found"})
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		var v model.View
+		if err := yaml.Unmarshal(data, &v); err != nil {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "form is not valid YAML: " + err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"path": r.URL.Query().Get("path"), "view": v})
+	case http.MethodPut:
+		var v model.View
+		if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+			return
+		}
+		if v.Engine == "" {
+			v.Engine = "form-js"
+		}
+		out, err := yaml.Marshal(v)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		mode := os.FileMode(0o644)
+		if info, statErr := os.Stat(path); statErr == nil {
+			mode = info.Mode().Perm()
+		}
+		if err := os.WriteFile(path, out, mode); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	default:
 		w.Header().Set("Allow", "GET, PUT")
 		w.WriteHeader(http.StatusMethodNotAllowed)
