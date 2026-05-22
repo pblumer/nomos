@@ -22,11 +22,14 @@ func (h *handler) handleTypeRoutes(w http.ResponseWriter, r *http.Request, loc s
 	case 1:
 		h.typeDefItem(w, r, loc, seg[0])
 	case 2:
-		if seg[1] != "instances" {
+		switch seg[1] {
+		case "instances":
+			h.typeInstances(w, r, loc, seg[0])
+		case "new-id":
+			h.typeNewID(w, r, loc, seg[0])
+		default:
 			http.NotFound(w, r)
-			return
 		}
-		h.typeInstances(w, r, loc, seg[0])
 	default:
 		http.NotFound(w, r)
 	}
@@ -81,6 +84,17 @@ func (h *handler) typeDefItem(w http.ResponseWriter, r *http.Request, loc, id st
 		w.Header().Set("Allow", "GET, PUT, DELETE")
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
+}
+
+// typeNewID mints a fresh instance id from the type's IDPrefix.
+func (h *handler) typeNewID(w http.ResponseWriter, r *http.Request, loc, typeID string) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	id, err := app.NewTypeInstanceID(loc, typeID)
+	h.writeOrErr(w, map[string]string{"id": id}, err)
 }
 
 // typeInstances serves instances of a type. The collection lives at

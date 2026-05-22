@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/nomos/nomos/internal/fsx"
+	"github.com/nomos/nomos/internal/idgen"
 	"github.com/nomos/nomos/internal/model"
 	"github.com/nomos/nomos/internal/storage"
 )
@@ -49,6 +50,10 @@ func SaveTypeDef(loc string, def model.TypeDef) (model.TypeDef, error) {
 	def.ID = strings.TrimSpace(def.ID)
 	if !typeIDPattern.MatchString(def.ID) {
 		return model.TypeDef{}, Error(CodeInvalidInput, "type id must be a lowercase slug (a-z, 0-9, -, _)", http.StatusBadRequest, nil)
+	}
+	def.IDPrefix = strings.ToUpper(strings.TrimSpace(def.IDPrefix))
+	if def.IDPrefix != "" && !idgen.IsValidPrefix(def.IDPrefix) {
+		return model.TypeDef{}, Error(CodeInvalidInput, "id_prefix must be exactly three uppercase letters (e.g. RSK)", http.StatusBadRequest, nil)
 	}
 	dir := storage.TypesDir(loc)
 	if err := os.MkdirAll(dir, 0o755); err != nil {

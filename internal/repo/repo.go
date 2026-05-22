@@ -288,6 +288,7 @@ func defaultTypeCaptureView() viewSeed {
 						},
 						{"type": "textfield", "key": "label", "label": "Label", "description": "Anzeigename im Explorer."},
 						{"type": "textfield", "key": "file", "label": "Erkennungsdatei", "description": "Markiert ein Verzeichnis als Instanz dieses Typs (z. B. \"requirement.yaml\")."},
+						{"type": "textfield", "key": "id_prefix", "label": "ID-Präfix", "description": "Optional: drei Großbuchstaben für automatische Instanz-IDs (z. B. \"RSK\" → RSK_4F7K2Q).", "validate": map[string]any{"pattern": "^[A-Z]{0,3}$"}},
 						{"type": "textarea", "key": "description", "label": "Beschreibung"},
 					},
 				},

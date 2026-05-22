@@ -23,7 +23,11 @@ type TypeDef struct {
 	Editor      string `yaml:"editor,omitempty" json:"editor,omitempty"`
 	// File is the filename that marks a directory as this type (e.g.
 	// "service.yaml"), used to recognize instances in the working tree.
-	File         string           `yaml:"file,omitempty" json:"file,omitempty"`
+	File string `yaml:"file,omitempty" json:"file,omitempty"`
+	// IDPrefix is an optional three-uppercase-letter prefix for auto-generated
+	// instance ids (e.g. "RSK" -> RSK_4F7K2Q). When empty, instances are named
+	// by a user-supplied slug instead.
+	IDPrefix     string           `yaml:"id_prefix,omitempty" json:"id_prefix,omitempty"`
 	Properties   []TypeProperty   `yaml:"properties,omitempty" json:"properties,omitempty"`
 	Dependencies []TypeDependency `yaml:"dependencies,omitempty" json:"dependencies,omitempty"`
 	// DataMain is the id of the type's main data object (its table schema). When

@@ -825,7 +825,7 @@ const TYPES_BY_REPO={};
 async function fetchRepoTypes(repo){
   if(TYPES_BY_REPO[repo])return TYPES_BY_REPO[repo];
   let user=[];
-  try{const r=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/types');if(r.ok){const d=await r.json();user=(d.types||[]).map(t=>({id:t.id,label:t.label||t.id}));}}catch(e){}
+  try{const r=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/types');if(r.ok){const d=await r.json();user=(d.types||[]).map(t=>({id:t.id,label:t.label||t.id,prefix:t.id_prefix||''}));}}catch(e){}
   const ids=new Set(user.map(t=>t.id));
   const merged=BUILTIN_TYPES.filter(b=>!ids.has(b.id)).concat(user).sort((a,b)=>a.label.localeCompare(b.label));
   TYPES_BY_REPO[repo]=merged;return merged;
@@ -847,7 +847,7 @@ function injectFolderTypeItems(row){
     ctx.querySelectorAll('.nctx-dyn').forEach(e=>e.remove());
     const list=restrict.length?types.filter(t=>restrict.includes(t.id)):types;
     const anchor=ctx.querySelector('.nctx-item[data-action="add-folder"]');
-    list.forEach(t=>{const el=document.createElement('div');el.className='nctx-item nctx-dyn';const ic=document.createElement('span');ic.className='mi';ic.style.fontFamily="'Material Symbols Outlined'";ic.textContent='add';el.appendChild(ic);el.appendChild(document.createTextNode(' Neu: '+t.label));el.addEventListener('click',e=>{e.stopPropagation();hideCtx();if(t.id==='decision')doAddDecision(row);else doAddTypeInstance(row,t.id,t.label);});ctx.insertBefore(el,anchor);});
+    list.forEach(t=>{const el=document.createElement('div');el.className='nctx-item nctx-dyn';const ic=document.createElement('span');ic.className='mi';ic.style.fontFamily="'Material Symbols Outlined'";ic.textContent='add';el.appendChild(ic);el.appendChild(document.createTextNode(' Neu: '+t.label));el.addEventListener('click',e=>{e.stopPropagation();hideCtx();if(t.id==='decision')doAddDecision(row);else doAddTypeInstance(row,t.id,t.label,t.prefix);});ctx.insertBefore(el,anchor);});
   };
   const cached=TYPES_BY_REPO[repo];
   if(cached)build(cached);else fetchRepoTypes(repo).then(build);
@@ -1190,7 +1190,7 @@ async function loadTypeDefDetail(row){const id=row.dataset.canonical||row.datase
   const propBlock=propRows?`<h5 style="margin:.7rem 0 .15rem;font-size:.75rem;color:#475569">Properties</h5><table style="font-size:.82rem;border-collapse:collapse">${propRows}</table>`:'';
   const depRows=(def.dependencies||[]).map(d=>`<li><code>${esc(d.type||'')}</code>${d.relation?` <span style="color:#64748b">· ${esc(d.relation)}</span>`:''}${d.required?' <span style="color:#b45309">(erforderlich)</span>':''}</li>`).join('');
   const depBlock=depRows?`<h5 style="margin:.7rem 0 .15rem;font-size:.75rem;color:#475569">Abhängigkeiten</h5><ul style="font-size:.82rem;margin:.1rem 0;padding-left:1.1rem">${depRows}</ul>`:'';
-  const props=[['ID',def.id],['Viewer',def.viewer||'—'],['Editor',def.editor||'—'],['Erkennung (Datei)',def.file||'—']].map(([k,v])=>`<dt>${esc(k)}</dt><dd><code>${esc(String(v))}</code></dd>`).join('');
+  const props=[['ID',def.id],['ID-Präfix',def.id_prefix||'—'],['Viewer',def.viewer||'—'],['Editor',def.editor||'—'],['Erkennung (Datei)',def.file||'—']].map(([k,v])=>`<dt>${esc(k)}</dt><dd><code>${esc(String(v))}</code></dd>`).join('');
   let dataObjects=[];try{const dr=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/data-objects');if(dr.ok){const dd=await dr.json();dataObjects=dd.data_objects||[];}}catch(e){}
   const doById={};dataObjects.forEach(o=>doById[o.id]=o);
   const mainId=def.data_main||def.id,helperIds=(def.data_helpers||[]).filter(Boolean);
@@ -1261,7 +1261,7 @@ function doAddType(row){if(!localOnly(row))return;const repo=repoIdFor(row);
     if(!id)throw new Error('ID erforderlich');
     if(!/^[a-z0-9][a-z0-9_-]*$/.test(id))throw new Error('ID muss ein Kleinbuchstaben-Slug sein (a-z, 0-9, -, _)');
     const properties=(Array.isArray(d.properties)?d.properties:[]).map(p=>({name:(p&&p.name||'').trim(),type:p&&p.type||'string',required:!!(p&&p.required)})).filter(p=>p.name);
-    const def={id,label:(d.label||'').trim(),icon:(d.icon||'').trim(),file:(d.file||'').trim(),description:(d.description||'').trim(),viewer:d.viewer||'',editor:d.editor||'',properties};
+    const def={id,label:(d.label||'').trim(),icon:(d.icon||'').trim(),file:(d.file||'').trim(),id_prefix:(d.id_prefix||'').trim().toUpperCase(),description:(d.description||'').trim(),viewer:d.viewer||'',editor:d.editor||'',properties};
     const r=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/fs/type',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(def)});const rd=await r.json().catch(()=>({}));if(r.ok){closeModal();location.reload();}else throw new Error(rd.error?.message||'Typ konnte nicht erstellt werden');
   },'Typ anlegen');
   const host=$('ty-form-host');
@@ -1270,19 +1270,23 @@ function doAddType(row){if(!localOnly(row))return;const repo=repoIdFor(row);
 // doAddTypeInstance creates an instance of a user-defined type inside a folder:
 // it opens the type's capture form (<typeid>_new.frm, if any) and POSTs the data
 // to .../types/{id}/instances at <folder>/<name>.
-function doAddTypeInstance(row,typeId,typeLabel){if(!localOnly(row))return;const repo=repoIdFor(row),baseDir=folderArtifactDir(row);let typeForm=null;
-  openModal('Neu: '+typeLabel,`<div class="nfield"><label>Name</label><input id="ti-name" placeholder="z.B. mein-eintrag" /><div class="nfield-hint">Verzeichnis unter <code>${esc(baseDir||'/')}</code>.</div></div><div id="ti-form-host" class="view-render"><p class="muted" style="color:#64748b;font-size:.82rem">Formular l&auml;dt…</p></div>`,async()=>{
-    const name=($('ti-name')?.value||'').trim();
-    if(!/^[a-z0-9][a-z0-9_-]*$/.test(name))throw new Error('Name muss ein Kleinbuchstaben-Slug sein (a-z, 0-9, -, _)');
+function doAddTypeInstance(row,typeId,typeLabel,prefix){if(!localOnly(row))return;const repo=repoIdFor(row),baseDir=folderArtifactDir(row);let typeForm=null;const auto=!!prefix;
+  const idField=auto?`<div class="nfield"><label>ID</label><div style="display:flex;gap:.4rem;align-items:center"><input id="ti-id" readonly style="flex:1;font-family:monospace" /><button type="button" class="btn btn-secondary btn-sm" id="ti-regen" title="Neue ID generieren"><span class="mi" style="font-family:'Material Symbols Outlined'">refresh</span></button></div><div class="nfield-hint">Automatisch aus Pr&auml;fix <code>${esc(prefix)}</code>. Verzeichnis unter <code>${esc(baseDir||'/')}</code>.</div></div>`:`<div class="nfield"><label>Name</label><input id="ti-name" placeholder="z.B. mein-eintrag" /><div class="nfield-hint">Verzeichnis unter <code>${esc(baseDir||'/')}</code>.</div></div>`;
+  openModal('Neu: '+typeLabel,`${idField}<div id="ti-form-host" class="view-render"><p class="muted" style="color:#64748b;font-size:.82rem">Formular l&auml;dt…</p></div>`,async()=>{
+    let name;
+    if(auto){name=($('ti-id')?.value||'').trim();if(!name)throw new Error('Keine ID generiert — bitte erneut versuchen');}
+    else{name=($('ti-name')?.value||'').trim();if(!/^[a-z0-9][a-z0-9_-]*$/.test(name))throw new Error('Name muss ein Kleinbuchstaben-Slug sein (a-z, 0-9, -, _)');}
     let data={};
     if(typeForm){const res=await typeForm.submit();if(res.errors&&Object.keys(res.errors).length)throw new Error('Bitte Pflichtfelder korrekt ausfüllen.');data=res.data||{};}
+    if(auto&&!data.id)data.id=name;
     const path=(baseDir?baseDir+'/':'')+name;
     const r=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/types/'+encodeURIComponent(typeId)+'/instances',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path,data})});
     const d=await r.json().catch(()=>({}));
     if(r.ok){closeModal();location.reload();}else throw new Error(d.error?.message||d.error||'Anlegen fehlgeschlagen');
   },'Anlegen');
+  if(auto){const mint=async()=>{try{const r=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/types/'+encodeURIComponent(typeId)+'/new-id');const d=await r.json().catch(()=>({}));const el=$('ti-id');if(r.ok&&d.id&&el)el.value=d.id;else if(el)el.placeholder='ID-Generierung fehlgeschlagen';}catch(e){}};mint();$('ti-regen')?.addEventListener('click',mint);}
   const host=$('ti-form-host');
-  (async()=>{try{const fr=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/type-form?type_id='+encodeURIComponent(typeId));const fd=await fr.json().catch(()=>({}));if(fr.ok&&fd.exists&&fd.view&&fd.view.schema){typeForm=await renderFormJsView(host,fd.view.schema);}else{host.innerHTML='<p class="muted" style="color:#64748b;font-size:.82rem">Kein Erfassungsformular für diesen Typ — es wird nur der Name angelegt.</p>';}}catch(e){host.innerHTML='<p class="muted" style="color:#b45309;font-size:.85rem">'+esc(e.message)+'</p>';}})();}
+  (async()=>{try{const fr=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/type-form?type_id='+encodeURIComponent(typeId));const fd=await fr.json().catch(()=>({}));if(fr.ok&&fd.exists&&fd.view&&fd.view.schema){typeForm=await renderFormJsView(host,fd.view.schema);}else{host.innerHTML='<p class="muted" style="color:#64748b;font-size:.82rem">Kein Erfassungsformular für diesen Typ — es wird nur '+(auto?'die ID':'der Name')+' angelegt.</p>';}}catch(e){host.innerHTML='<p class="muted" style="color:#b45309;font-size:.85rem">'+esc(e.message)+'</p>';}})();}
 
 async function doManageBranches(row){if(!localOnly(row))return;const repo=repoIdFor(row);const r=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/git/branches');const d=await r.json().catch(()=>({}));if(!r.ok){alert(d.error?.message||'Branches konnten nicht geladen werden');return;}const cur=d.current||'';const branches=d.branches||[];const items=branches.length?branches.map(b=>`<li class="git-branch" data-branch="${esc(b)}" style="display:flex;align-items:center;gap:.5rem;padding:.3rem .5rem;border-radius:6px;cursor:${b===cur?'default':'pointer'};font-size:.85rem">${b===cur?'<span class="mi" style="font-family:\'Material Symbols Outlined\';font-size:16px;color:#16a34a">check</span>':'<span class="mi" style="font-family:\'Material Symbols Outlined\';font-size:16px;color:#94a3b8">radio_button_unchecked</span>'}<span>${esc(b)}</span>${b===cur?'<span class="muted" style="margin-left:auto;font-size:.72rem">aktuell</span>':'<span class="muted" style="margin-left:auto;font-size:.72rem">&rarr; wechseln</span>'}</li>`).join(''):`<p style="color:#64748b;font-size:.85rem">Noch keine Branches — committe zuerst.</p>`;openModal('Branches · '+esc(repo),`<div class="nfield"><label>Branches</label><ul id="gb-list" style="list-style:none;margin:.3rem 0;padding:0;max-height:200px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px">${items}</ul></div><div class="nfield"><label>Neuer Branch</label><div style="display:flex;gap:.4rem;align-items:center"><input id="gb-name" placeholder="z.B. feature-x" style="flex:1" /><label style="display:inline-flex;align-items:center;gap:.3rem;font-size:.8rem;white-space:nowrap"><input type="checkbox" id="gb-checkout" checked> wechseln</label></div></div>`,async()=>{const name=$('gb-name')?.value.trim();if(!name)throw new Error('Branch-Name erforderlich');const cr=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/git/branches',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,checkout:!!$('gb-checkout')?.checked})});const cd=await cr.json().catch(()=>({}));if(cr.ok)location.reload();else throw new Error(cd.error?.message||'Branch konnte nicht erstellt werden');},'Branch anlegen');setTimeout(()=>{document.querySelectorAll('#gb-list .git-branch').forEach(li=>{const b=li.dataset.branch;if(b===cur)return;li.addEventListener('mouseenter',()=>li.style.background='#f1f5f9');li.addEventListener('mouseleave',()=>li.style.background='');li.addEventListener('click',async()=>{if(!confirm('HEAD auf Branch "'+b+'" wechseln?\nNicht committete Änderungen im Arbeitsbaum können den Wechsel blockieren.'))return;const cr=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/git/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({branch:b})});if(cr.ok)location.reload();else{const cd=await cr.json().catch(()=>({}));showModalError(cd.error?.message||'Wechsel fehlgeschlagen');}});});},0);}
 
