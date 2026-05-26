@@ -40,6 +40,7 @@ ADRs record significant architectural and technology decisions. Each ADR capture
 | [ADR-0030](ADR-0030-DRAFT-decentralized-directory-gossip.md) | Dezentrales, selbstheilendes Verzeichnis (Membership-Gossip mit Leaf-Knoten) | Draft |
 | [ADR-0031](ADR-0031-DRAFT-reference-form-components.md) | Referenz-basierte Form-Komponenten und abhängige Auswahlfelder | Draft |
 | [ADR-0032](ADR-0032-DRAFT-form-composition-subforms.md) | Form-Komposition über eingebettete Subforms | Draft |
+| [ADR-0033](ADR-0033-DRAFT-type-relation-editor-and-view-propagation.md) | Beziehungs-Editor für Typen und Propagation in Standard-Views | Draft |
 
 ## Superseded / legacy stubs
 
