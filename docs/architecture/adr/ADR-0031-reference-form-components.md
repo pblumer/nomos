@@ -1,8 +1,8 @@
-# ADR-0031 (DRAFT): Referenz-basierte Form-Komponenten und abhängige Auswahlfelder
+# ADR-0031: Referenz-basierte Form-Komponenten und abhängige Auswahlfelder
 
 ## Status
 
-Draft
+Proposed
 
 ## Datum
 

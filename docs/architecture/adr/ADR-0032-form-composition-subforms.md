@@ -1,8 +1,8 @@
-# ADR-0032 (DRAFT): Form-Komposition über eingebettete Subforms
+# ADR-0032: Form-Komposition über eingebettete Subforms
 
 ## Status
 
-Draft
+Proposed
 
 ## Datum
 
@@ -229,4 +229,4 @@ endlos gerendert wird.
 - [ADR-0023 (DRAFT) — Inter-Server-Authentifizierung](ADR-0023-DRAFT-inter-server-authentication.md)
 - [ADR-0024 (DRAFT) — Deklarative View-/Form-Artefakte](ADR-0024-DRAFT-declarative-view-artifacts.md)
 - [ADR-0028 (DRAFT) — ID-basierte Referenzen](ADR-0028-DRAFT-id-based-references.md)
-- [ADR-0031 (DRAFT) — Referenz-basierte Form-Komponenten](ADR-0031-DRAFT-reference-form-components.md)
+- [ADR-0031 — Referenz-basierte Form-Komponenten](ADR-0031-reference-form-components.md)
