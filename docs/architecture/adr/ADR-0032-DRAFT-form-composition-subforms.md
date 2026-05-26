@@ -143,6 +143,41 @@ freistehendes Form, nicht ein eingebettetes.
 eigenen Bestellformular anzeigen" derselbe Mechanismus wie eine lokale
 Einbettung.
 
+### 9. Editor-UX und Preview
+
+Im Form-Editor erscheint `formRef` als eigene Komponente in der Toolbox unter
+einer neuen Gruppe **„Composition"**. Der Flow beim Einfügen:
+
+1. Nutzerin zieht **„Subform"** aus der Toolbox ins Canvas.
+2. Ein Form-Picker (Modal oder Side-Panel) listet alle in Repo + aktiven
+   Mounts vorhandenen `.frm`-Dateien. Standardfilter ist die im Eltern-Form
+   bindende Typ-Relation (falls vorhanden) und Variante `short`; beides ist
+   übersteuerbar. Such-/Tippfilter inklusive.
+3. Auswahl bestätigt → der `formRef`-Block wird an der Drop-Position eingefügt
+   und das Subform wird **im Canvas an Ort und Stelle gerendert** (WYSIWYG).
+4. Das Property-Panel rechts zeigt die Bindings (`source.action`, `id`,
+   `dependsOn`, optional `variant`/`formRef`) und erlaubt das Anpassen wie bei
+   jeder anderen Komponente. Eine Schaltfläche „Anderes Form wählen" öffnet
+   den Picker erneut.
+5. Speichern persistiert den `formRef`-Block im `schema:` der Eltern-`.frm`.
+
+Für die WYSIWYG-Darstellung **im Editor** (nicht zur Laufzeit) wird zwischen
+drei Preview-Modi unterschieden, umschaltbar pro Subform-Instanz:
+
+| Modus | Verhalten | Wann sinnvoll |
+| --- | --- | --- |
+| **Struktur** (Default) | Felder werden leer mit Labels gerendert, kein Fetch. Deterministisch, offline-fähig. | Schnelles Layout-Editieren, kein Backend verfügbar. |
+| **Live** | Erste verfügbare Instanz des Zieltyps wird über die Instance-API geholt und eingesetzt. | Realistischer visueller Eindruck bei vorhandener Datenbasis. |
+| **Mock** | Editor erlaubt im Property-Panel JSON-Beispieldaten; werden nur im Editor verwendet, nicht ins Artefakt persistiert (Editor-Setting, kein Schemafeld). | Reproduzierbare Previews, Demos, Tests ohne Live-Daten. |
+
+Der Preview-Modus ist eine **reine Editor-Einstellung** und beeinflusst das
+gespeicherte Artefakt nicht — zur Laufzeit gilt ausschließlich `source.action`.
+
+Bei verschachtelten Subforms zeigt der Editor den gleichen Preview-Modus
+rekursiv an; das Tiefenlimit (Abschnitt 6) gilt auch im Editor-Rendering, damit
+ein versehentlicher Zyklus während der Bearbeitung sichtbar gemeldet, nicht
+endlos gerendert wird.
+
 ## Konsequenzen
 
 ### Positiv
