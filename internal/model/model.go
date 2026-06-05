@@ -74,10 +74,14 @@ type TypeProperty struct {
 }
 
 // TypeDependency declares an allowed relationship from this type to another.
+// Field carries the foreign-key column name written to the main DataObject; it
+// is optional in YAML and defaults to "<type>_id" when SaveTypeDef syncs the
+// relation into the data layer.
 type TypeDependency struct {
 	Type     string `yaml:"type" json:"type"`
 	Relation string `yaml:"relation,omitempty" json:"relation,omitempty"`
 	Required bool   `yaml:"required,omitempty" json:"required,omitempty"`
+	Field    string `yaml:"field,omitempty" json:"field,omitempty"`
 }
 
 // ERD is a relationship-diagram layout persisted as a .erd file. It stores only

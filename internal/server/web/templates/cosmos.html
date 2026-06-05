@@ -1190,8 +1190,13 @@ async function loadTypeDefDetail(row){const id=row.dataset.canonical||row.datase
   if(!def){detail.innerHTML=`<div class="detail-head"><div class="detail-head-left">${iconDiv('type-def')}<div><div class="detail-title">${esc(id)}</div><div class="detail-subtitle">Typ-Definition</div></div></div></div><div class="detail-body"><p style="color:#dc2626;font-size:.85rem">Definition konnte nicht geladen werden.</p><dl class="detail-props"><dt>Pfad</dt><dd><code>${esc(path)}</code></dd></dl></div>`;return;}
   const propRows=(def.properties||[]).map(p=>`<tr><td style="padding:.2rem .5rem .2rem 0"><code>${esc(p.name||'')}</code></td><td style="padding:.2rem .5rem;color:#64748b">${esc(p.type||'—')}</td><td style="padding:.2rem 0;color:${p.required?'#b45309':'#94a3b8'}">${p.required?'erforderlich':'optional'}</td></tr>`).join('');
   const propBlock=propRows?`<h5 style="margin:.7rem 0 .15rem;font-size:.75rem;color:#475569">Properties</h5><table style="font-size:.82rem;border-collapse:collapse">${propRows}</table>`:'';
-  const depRows=(def.dependencies||[]).map(d=>`<li><code>${esc(d.type||'')}</code>${d.relation?` <span style="color:#64748b">· ${esc(d.relation)}</span>`:''}${d.required?' <span style="color:#b45309">(erforderlich)</span>':''}</li>`).join('');
-  const depBlock=depRows?`<h5 style="margin:.7rem 0 .15rem;font-size:.75rem;color:#475569">Abhängigkeiten</h5><ul style="font-size:.82rem;margin:.1rem 0;padding-left:1.1rem">${depRows}</ul>`:'';
+  // Beziehungs-Tabelle (ADR-0033 § 6). Spalten: Ziel, Relation, Pflicht,
+  // Datenfeld, Aktionen. Aktionen-Buttons werden nach detail.innerHTML
+  // unten an doRelationEdit/doRelationDelete gebunden.
+  const depFieldFor=d=>(d.field||'').trim()||((d.type||'').trim()?((d.type||'').trim()+'_id'):'');
+  const depRowsTbl=(def.dependencies||[]).map((d,i)=>`<tr><td style="padding:.25rem .5rem .25rem 0"><code>${esc(d.type||'')}</code></td><td style="padding:.25rem .5rem;color:#475569">${d.relation?esc(d.relation):'<span class="muted">—</span>'}</td><td style="padding:.25rem .5rem;color:${d.required?'#b45309':'#94a3b8'}">${d.required?'erforderlich':'optional'}</td><td style="padding:.25rem .5rem"><code style="color:#475569">${esc(depFieldFor(d))}</code></td><td style="padding:.25rem 0;text-align:right;white-space:nowrap"><button class="btn btn-secondary btn-sm rel-edit" data-rel-idx="${i}">Bearbeiten</button> <button class="btn btn-danger btn-sm rel-delete" data-rel-idx="${i}">Löschen</button></td></tr>`).join('');
+  const depTableInner=depRowsTbl?`<table style="font-size:.82rem;border-collapse:collapse;width:100%;margin-top:.2rem"><thead><tr style="color:#64748b;text-align:left;font-weight:500;font-size:.72rem"><th style="padding:.15rem .5rem .15rem 0">Ziel</th><th style="padding:.15rem .5rem">Relation</th><th style="padding:.15rem .5rem">Pflicht</th><th style="padding:.15rem .5rem">Datenfeld</th><th></th></tr></thead><tbody>${depRowsTbl}</tbody></table>`:`<p class="muted" style="font-size:.82rem;color:#64748b;margin:.2rem 0">Noch keine Beziehungen zu anderen Typen.</p>`;
+  const depBlock=`<div style="display:flex;align-items:center;gap:.4rem;margin:.7rem 0 .15rem"><h5 style="margin:0;flex:1;font-size:.75rem;color:#475569">Beziehungen</h5><button class="btn btn-secondary btn-sm" id="rel-add"><span class="mi" style="font-family:'Material Symbols Outlined'">add</span> Beziehung hinzufügen</button></div>${depTableInner}`;
   const props=[['ID',def.id],['ID-Präfix',def.id_prefix||'—'],['Viewer',def.viewer||'—'],['Editor',def.editor||'—'],['Erkennung (Datei)',def.file||'—']].map(([k,v])=>`<dt>${esc(k)}</dt><dd><code>${esc(String(v))}</code></dd>`).join('');
   let dataObjects=[];try{const dr=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/data-objects');if(dr.ok){const dd=await dr.json();dataObjects=dd.data_objects||[];}}catch(e){}
   const doById={};dataObjects.forEach(o=>doById[o.id]=o);
@@ -1211,6 +1216,42 @@ async function loadTypeDefDetail(row){const id=row.dataset.canonical||row.datase
   detail.querySelector('#dbo-create-main')?.addEventListener('click',async()=>{if(!localOnly(row))return;const r=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/data-objects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:mainId,label:def.label||def.id})});const d=await r.json().catch(()=>({}));if(r.ok)location.reload();else alert(d.error?.message||d.error||'Anlegen fehlgeschlagen');});
   detail.querySelector('#dbo-link-helper')?.addEventListener('click',()=>{if(!linkable.length){alert('Keine weiteren Datenobjekte zum Verknüpfen. Lege zuerst eines an („Neu anlegen").');return;}openModal('Datenobjekt verknüpfen',`<div class="nfield"><label>Datenobjekt</label><select id="dbo-pick">${linkable.map(i=>`<option value="${esc(i)}">${esc(i)}</option>`).join('')}</select></div>`,async()=>{const pick=$('dbo-pick')?.value;if(!pick)throw new Error('Auswahl erforderlich');def.data_helpers=(def.data_helpers||[]).concat([pick]);await saveDefAndReload();},'Verknüpfen');});
   detail.querySelector('#dbo-new-helper')?.addEventListener('click',()=>{openModal('Neues Hilfs-Datenobjekt',`<div class="nfield"><label>ID</label><input id="dbo-nid" placeholder="z.B. invoice_line" /><div class="nfield-hint">Lowercase-Slug. Datei <code>.nomos/data/&lt;id&gt;.yaml</code>.</div></div><div class="nfield"><label>Label</label><input id="dbo-nlabel" /></div>`,async()=>{const nid=($('dbo-nid')?.value||'').trim();if(!/^[a-z0-9][a-z0-9_-]*$/.test(nid))throw new Error('ID muss ein Lowercase-Slug sein');const r=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/data-objects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:nid,label:($('dbo-nlabel')?.value||'').trim()})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error?.message||d.error||'Anlegen fehlgeschlagen');def.data_helpers=(def.data_helpers||[]).concat([nid]);await saveDefAndReload();},'Anlegen');});
+  // Picker dialog for relations (ADR-0033 § 1): one helper handles Add (from
+  // the table button or the ERD connect-mode) and Edit (from a row's pencil).
+  // Returns nothing; mutates def.dependencies and persists via saveDefAndReload.
+  function openRelationDialog(opts){opts=opts||{};const existing=opts.dep||null,defaultTarget=opts.defaultTarget||(existing&&existing.type)||'';
+    const known=Array.from(new Set([...(allTypes||[]).map(t=>t.id),defaultTarget].filter(Boolean))).sort();
+    const targetField=opts.lockTarget?`<input id="rel-target" class="tp-input" value="${esc(defaultTarget)}" readonly />`:`<select id="rel-target" class="tp-select"><option value="">— Typ wählen —</option>${known.map(id=>`<option value="${esc(id)}"${id===defaultTarget?' selected':''}>${esc(id)}</option>`).join('')}<option value="__custom__"${defaultTarget&&!known.includes(defaultTarget)?' selected':''}>Anderer Typ (eintippen)…</option></select><input id="rel-target-custom" class="tp-input" placeholder="z.B. address" style="margin-top:.3rem;display:${defaultTarget&&!known.includes(defaultTarget)?'block':'none'}" value="${esc(defaultTarget&&!known.includes(defaultTarget)?defaultTarget:'')}" />`;
+    const html=`<div class="nfield"><label>Ziel-Typ</label>${targetField}<div class="nfield-hint">Slug des Ziel-Typs (a-z, 0-9, -, _). Für Mounts: kanonische ID.</div></div>`
+      +`<div class="nfield"><label>Beziehung (Label)</label><input id="rel-relation" class="tp-input" value="${esc(existing?existing.relation||'':'')}" placeholder="z.B. uses, has, belongs_to" /><div class="nfield-hint">Optional. Zwei Beziehungen zum gleichen Ziel sind nur mit unterschiedlichem Label erlaubt.</div></div>`
+      +`<div class="nfield"><label style="display:inline-flex;align-items:center;gap:.4rem;font-weight:500"><input type="checkbox" id="rel-required"${existing&&existing.required?' checked':''}> Pflicht</label></div>`
+      +`<div class="nfield"><label>Datenfeld</label><input id="rel-field" class="tp-input" value="${esc(existing&&existing.field||'')}" placeholder="${esc(defaultTarget?defaultTarget+'_id':'<target>_id')}" /><div class="nfield-hint">Foreign-Key-Spalte im Haupt-Datenobjekt. Leer = Vorgabe <code>&lt;ziel&gt;_id</code>.</div></div>`;
+    openModal(opts.title||(existing?'Beziehung bearbeiten':'Beziehung hinzufügen'),html,async()=>{
+      let target='';
+      const tEl=$('rel-target');
+      if(opts.lockTarget){target=defaultTarget;}
+      else{target=(tEl?.value||'').trim();if(target==='__custom__')target=($('rel-target-custom')?.value||'').trim();}
+      if(!/^[a-z0-9][a-z0-9_-]*$/.test(target))throw new Error('Ziel-Typ muss ein Lowercase-Slug sein (a-z, 0-9, -, _)');
+      const relation=($('rel-relation')?.value||'').trim();
+      const required=!!$('rel-required')?.checked;
+      const field=($('rel-field')?.value||'').trim();
+      const deps=(def.dependencies||[]).slice();
+      const key=(t,r)=>t+'/'+r;
+      // Duplicate check: same (Target, Relation) is rejected. When editing, the
+      // current entry is excluded from the check by index.
+      const dupIdx=deps.findIndex((d,i)=>(!existing||i!==opts.editIdx)&&d&&d.type===target&&(d.relation||'')===relation);
+      if(dupIdx>=0)throw new Error('Beziehung '+target+(relation?(' ('+relation+')'):'')+' existiert bereits');
+      const next={type:target,relation,required,field};
+      if(existing&&typeof opts.editIdx==='number')deps[opts.editIdx]=next;else deps.push(next);
+      def.dependencies=deps;
+      await saveDefAndReload();
+    },existing?'Speichern':'Anlegen');
+    // Toggle custom input visibility when the select changes
+    const sel=$('rel-target');if(sel&&!opts.lockTarget)sel.addEventListener('change',()=>{const ci=$('rel-target-custom');if(!ci)return;ci.style.display=sel.value==='__custom__'?'block':'none';if(sel.value==='__custom__')ci.focus();});
+  }
+  detail.querySelector('#rel-add')?.addEventListener('click',()=>{if(!localOnly(row))return;openRelationDialog({});});
+  detail.querySelectorAll('.rel-edit').forEach(b=>b.addEventListener('click',()=>{if(!localOnly(row))return;const idx=parseInt(b.dataset.relIdx,10);const dep=(def.dependencies||[])[idx];if(!dep)return;openRelationDialog({dep,editIdx:idx,lockTarget:false});}));
+  detail.querySelectorAll('.rel-delete').forEach(b=>b.addEventListener('click',async()=>{if(!localOnly(row))return;const idx=parseInt(b.dataset.relIdx,10);const dep=(def.dependencies||[])[idx];if(!dep)return;if(!confirm('Beziehung '+def.id+' → '+dep.type+(dep.relation?(' ('+dep.relation+')'):'')+' löschen?'))return;def.dependencies=(def.dependencies||[]).filter((_,i)=>i!==idx);try{await saveDefAndReload();}catch(e){alert(e.message);}}));
   (function(){const canvas=detail.querySelector('#type-erd-canvas'),svg=detail.querySelector('#type-erd-edges'),st=detail.querySelector('#type-erd-status');if(!canvas)return;
     const setStatus=(m,k)=>{if(st){st.textContent=m||'';st.className='editor-status'+(k?' editor-status-'+k:'');}};
     const defs={};allTypes.forEach(t=>defs[t.id]=t);
@@ -1381,7 +1422,28 @@ function mountErd(opts){const {canvas,svg,repo,row,defs,nodes,setStatus}=opts;co
   function makeNode(n){const d=defs[n.type]||{id:n.type};const el=document.createElement('div');el.className='erd-node'+(connectMode?' connecting':'');el.dataset.type=n.type;el.style.left=(n.x||20)+'px';el.style.top=(n.y||20)+'px';const props=(d.properties||[]).slice(0,8).map(p=>`<li><span>${esc(p.name||'')}</span><span class="erd-prop-type">${esc(p.type||'')}</span></li>`).join('');el.innerHTML=`<div class="erd-node-title"><span class="mi">${esc(d.icon||'category')}</span><span>${esc(d.label||d.id||n.type)}</span></div>`+(props?`<ul class="erd-node-props">${props}</ul>`:'<div class="erd-node-empty">keine Properties</div>');attachDrag(el,n);el.addEventListener('click',ev=>{if(!connectMode)return;ev.stopPropagation();onConnectClick(n.type,el);});canvas.appendChild(el);return el;}
   function onConnectClick(typeId,el){if(!connectFrom){connectFrom=typeId;el.classList.add('connect-source');setStatus('Quelle: '+typeId+' — jetzt Ziel-Box wählen','');return;}const from=connectFrom,to=typeId;connectFrom=null;canvas.querySelectorAll('.erd-node.connect-source').forEach(e=>e.classList.remove('connect-source'));if(from===to){setStatus('Quelle = Ziel — abgebrochen','warn');return;}addDependency(from,to);}
   async function saveTypeDef(def){if(!localOnly(row))return false;const r=await fetch('/api/v1/repositories/'+encodeURIComponent(repo)+'/fs/type',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(def)});if(r.ok){const saved=await r.json().catch(()=>null);if(saved&&saved.id)defs[saved.id]=saved;return true;}const d=await r.json().catch(()=>({}));setStatus(d.error?.message||'Speichern fehlgeschlagen','error');return false;}
-  async function addDependency(from,to){const def=defs[from];if(!def){setStatus('Quelltyp unbekannt','error');return;}def.dependencies=def.dependencies||[];if(def.dependencies.some(d=>d&&d.type===to)){setStatus(from+' → '+to+' existiert bereits','warn');drawEdges();return;}const relation=(prompt('Beziehung "'+from+'" → "'+to+'" — Bezeichnung (optional):','')||'').trim();def.dependencies.push({type:to,relation,required:false});setStatus('Speichere Abhängigkeit…','');const ok=await saveTypeDef(def);if(ok){setStatus(from+' → '+to+' angelegt','ok');drawEdges();opts.onDependencyChange&&opts.onDependencyChange();}else{def.dependencies=def.dependencies.filter(d=>!(d.type===to&&(d.relation||'')===relation));}}
+  async function addDependency(from,to){const def=defs[from];if(!def){setStatus('Quelltyp unbekannt','error');return;}def.dependencies=def.dependencies||[];
+    // Open the same picker the type-detail table uses: target is fixed to the
+    // clicked node, but relation/required/field stay editable. Duplicate
+    // (Target, Relation) pairs are rejected here and again by the server.
+    const html=`<div class="nfield"><label>Quelle → Ziel</label><div style="font-size:.85rem;color:#475569"><code>${esc(from)}</code> &rarr; <code>${esc(to)}</code></div></div>`
+      +`<div class="nfield"><label>Beziehung (Label)</label><input id="rel-relation" class="tp-input" placeholder="z.B. uses, has, belongs_to" /><div class="nfield-hint">Optional. Zwei Beziehungen zum gleichen Ziel sind nur mit unterschiedlichem Label erlaubt.</div></div>`
+      +`<div class="nfield"><label style="display:inline-flex;align-items:center;gap:.4rem;font-weight:500"><input type="checkbox" id="rel-required"> Pflicht</label></div>`
+      +`<div class="nfield"><label>Datenfeld</label><input id="rel-field" class="tp-input" placeholder="${esc(to+'_id')}" /><div class="nfield-hint">Foreign-Key-Spalte im Haupt-Datenobjekt. Leer = Vorgabe <code>&lt;ziel&gt;_id</code>.</div></div>`;
+    openModal('Beziehung anlegen',html,async()=>{
+      const relation=(document.getElementById('rel-relation')?.value||'').trim();
+      const required=!!document.getElementById('rel-required')?.checked;
+      const field=(document.getElementById('rel-field')?.value||'').trim();
+      if(def.dependencies.some(d=>d&&d.type===to&&(d.relation||'')===relation))throw new Error(from+' → '+to+(relation?(' ('+relation+')'):'')+' existiert bereits');
+      def.dependencies.push({type:to,relation,required,field});
+      setStatus('Speichere Abhängigkeit…','');
+      const ok=await saveTypeDef(def);
+      if(!ok){def.dependencies=def.dependencies.filter(d=>!(d.type===to&&(d.relation||'')===relation));throw new Error('Speichern fehlgeschlagen');}
+      setStatus(from+' → '+to+' angelegt','ok');drawEdges();
+      if(typeof closeModal==='function')closeModal();
+      opts.onDependencyChange&&opts.onDependencyChange();
+    },'Anlegen');
+  }
   async function removeDependency(from,to){const def=defs[from];if(!def)return;if(!confirm('Beziehung '+from+' → '+to+' löschen?'))return;const prev=(def.dependencies||[]).slice();def.dependencies=prev.filter(d=>!(d&&d.type===to));setStatus('Lösche Abhängigkeit…','');const ok=await saveTypeDef(def);if(ok){setStatus(from+' → '+to+' gelöscht','ok');drawEdges();opts.onDependencyChange&&opts.onDependencyChange();}else{def.dependencies=prev;}}
   function render(){canvas.querySelectorAll('.erd-node').forEach(e=>e.remove());nodes.forEach((n,i)=>{if(typeof n.x!=='number')n.x=20+(i%4)*190;if(typeof n.y!=='number')n.y=20+Math.floor(i/4)*160;makeNode(n);});drawEdges();}
   function setConnect(on){connectMode=!!on;connectFrom=null;canvas.querySelectorAll('.erd-node').forEach(e=>{e.classList.toggle('connecting',connectMode);e.classList.remove('connect-source');});return connectMode;}

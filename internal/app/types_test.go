@@ -132,6 +132,150 @@ func TestSaveTypeDefSeedsStandardForms(t *testing.T) {
 	}
 }
 
+// TestSaveTypeDefSyncsMainDataObjectRelations exercises the ADR-0033 § 1
+// contract: adding, editing, and removing a TypeDependency reflects in the
+// matching DataObject's Relations in the same save, while data-layer
+// additions not derived from a dependency survive untouched.
+func TestSaveTypeDefSyncsMainDataObjectRelations(t *testing.T) {
+	p := createAppTestCosmos(t)
+	if _, err := SaveDataObject(p, model.DataObject{
+		ID:        "person",
+		Relations: []model.DataRelation{{Target: "external", Field: "ext_id"}},
+	}); err != nil {
+		t.Fatalf("SaveDataObject seed: %v", err)
+	}
+	// Add a dependency with an explicit field name.
+	if _, err := SaveTypeDef(p, model.TypeDef{
+		ID:    "person",
+		Label: "Person",
+		Dependencies: []model.TypeDependency{
+			{Type: "address", Relation: "lives_at", Field: "primary_address"},
+		},
+	}); err != nil {
+		t.Fatalf("SaveTypeDef add: %v", err)
+	}
+	obj, err := GetDataObject(p, "person")
+	if err != nil {
+		t.Fatalf("GetDataObject after add: %v", err)
+	}
+	if !containsRelation(obj.Relations, "address", "lives_at", "primary_address") {
+		t.Fatalf("expected relation added, got %+v", obj.Relations)
+	}
+	if !containsRelation(obj.Relations, "external", "", "ext_id") {
+		t.Fatalf("expected hand-authored relation preserved, got %+v", obj.Relations)
+	}
+
+	// Default field name derivation when the dependency omits Field.
+	if _, err := SaveTypeDef(p, model.TypeDef{
+		ID:    "person",
+		Label: "Person",
+		Dependencies: []model.TypeDependency{
+			{Type: "address", Relation: "lives_at", Field: "primary_address"},
+			{Type: "team"},
+		},
+	}); err != nil {
+		t.Fatalf("SaveTypeDef add second: %v", err)
+	}
+	obj, err = GetDataObject(p, "person")
+	if err != nil {
+		t.Fatalf("GetDataObject after second add: %v", err)
+	}
+	if !containsRelation(obj.Relations, "team", "", "team_id") {
+		t.Fatalf("expected default field team_id, got %+v", obj.Relations)
+	}
+
+	// Editing the field name updates the matched relation in place.
+	if _, err := SaveTypeDef(p, model.TypeDef{
+		ID:    "person",
+		Label: "Person",
+		Dependencies: []model.TypeDependency{
+			{Type: "address", Relation: "lives_at", Field: "home_address"},
+			{Type: "team"},
+		},
+	}); err != nil {
+		t.Fatalf("SaveTypeDef edit field: %v", err)
+	}
+	obj, err = GetDataObject(p, "person")
+	if err != nil {
+		t.Fatalf("GetDataObject after edit: %v", err)
+	}
+	if !containsRelation(obj.Relations, "address", "lives_at", "home_address") {
+		t.Fatalf("expected relation field updated, got %+v", obj.Relations)
+	}
+	if containsRelation(obj.Relations, "address", "lives_at", "primary_address") {
+		t.Fatalf("expected old field replaced, got %+v", obj.Relations)
+	}
+
+	// Removing the address dependency removes only its relation.
+	if _, err := SaveTypeDef(p, model.TypeDef{
+		ID:           "person",
+		Label:        "Person",
+		Dependencies: []model.TypeDependency{{Type: "team"}},
+	}); err != nil {
+		t.Fatalf("SaveTypeDef remove: %v", err)
+	}
+	obj, err = GetDataObject(p, "person")
+	if err != nil {
+		t.Fatalf("GetDataObject after remove: %v", err)
+	}
+	if containsRelation(obj.Relations, "address", "lives_at", "home_address") {
+		t.Fatalf("expected address relation removed, got %+v", obj.Relations)
+	}
+	if !containsRelation(obj.Relations, "team", "", "team_id") {
+		t.Fatalf("expected team relation kept, got %+v", obj.Relations)
+	}
+	if !containsRelation(obj.Relations, "external", "", "ext_id") {
+		t.Fatalf("expected hand-authored relation still present, got %+v", obj.Relations)
+	}
+}
+
+// TestSaveTypeDefRejectsDuplicateDependencies guards the ADR-0033 § 1 rule
+// that (Target, Relation) is the unique key for dependencies.
+func TestSaveTypeDefRejectsDuplicateDependencies(t *testing.T) {
+	p := createAppTestCosmos(t)
+	_, err := SaveTypeDef(p, model.TypeDef{
+		ID: "order",
+		Dependencies: []model.TypeDependency{
+			{Type: "person", Relation: "customer"},
+			{Type: "person", Relation: "customer"},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected duplicate dependency to be rejected")
+	}
+}
+
+// TestSaveTypeDefWithoutDataObject confirms the sync is a no-op when the main
+// data object file does not exist yet; the type itself is still written.
+func TestSaveTypeDefWithoutDataObject(t *testing.T) {
+	p := createAppTestCosmos(t)
+	if _, err := SaveTypeDef(p, model.TypeDef{
+		ID:           "order",
+		Dependencies: []model.TypeDependency{{Type: "person", Relation: "customer"}},
+	}); err != nil {
+		t.Fatalf("SaveTypeDef: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(storage.DataDir(p), "order.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("expected no main data object created implicitly, stat err = %v", err)
+	}
+	def, err := GetTypeDef(p, "order")
+	if err != nil {
+		t.Fatalf("GetTypeDef: %v", err)
+	}
+	if len(def.Dependencies) != 1 || def.Dependencies[0].Type != "person" {
+		t.Fatalf("expected dependency persisted on type, got %+v", def.Dependencies)
+	}
+}
+
+func containsRelation(rs []model.DataRelation, target, relation, field string) bool {
+	for _, r := range rs {
+		if r.Target == target && r.Relation == relation && r.Field == field {
+			return true
+		}
+	}
+	return false
+}
+
 func TestRepoTreeShowsTypeDefs(t *testing.T) {
 	p := createAppTestCosmos(t)
 	if _, err := SaveTypeDef(p, model.TypeDef{ID: "widget", Label: "Widget", Viewer: "form"}); err != nil {

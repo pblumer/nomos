@@ -56,12 +56,22 @@ func SaveTypeDef(loc string, def model.TypeDef) (model.TypeDef, error) {
 	if def.IDPrefix != "" && !idgen.IsValidPrefix(def.IDPrefix) {
 		return model.TypeDef{}, Error(CodeInvalidInput, "id_prefix must be exactly three uppercase letters (e.g. RSK)", http.StatusBadRequest, nil)
 	}
+	if err := validateTypeDependencies(def.Dependencies); err != nil {
+		return model.TypeDef{}, err
+	}
 	dir := storage.TypesDir(loc)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return model.TypeDef{}, Error(CodeInternalError, "failed to create types directory: "+err.Error(), http.StatusInternalServerError, err)
 	}
+	// Snapshot the previous on-disk state so we can diff dependencies and
+	// reconcile the matching DataObject below (ADR-0033 § 1: TypeDependency
+	// and DataRelation move together in one save).
+	prev, _ := readTypeDef(filepath.Join(dir, def.ID+".yaml"))
 	if err := fsx.WriteYAML(filepath.Join(dir, def.ID+".yaml"), def); err != nil {
 		return model.TypeDef{}, Error(CodeInternalError, "failed to write type definition: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	if err := syncMainDataObjectRelations(loc, def, prev); err != nil {
+		return model.TypeDef{}, err
 	}
 	// Ensure the type ships with its four standard view forms (ADR-0024). Only
 	// variants that do not yet exist are written, so editing a type never
@@ -70,6 +80,110 @@ func SaveTypeDef(loc string, def model.TypeDef) (model.TypeDef, error) {
 		return model.TypeDef{}, err
 	}
 	return def, nil
+}
+
+// validateTypeDependencies rejects duplicated (Target, Relation) pairs and
+// empty target slugs, matching ADR-0033 § 1's validation rules. Existence of
+// the target type is not enforced here so a type can be saved while its target
+// lives in a mount that is not yet resolvable.
+func validateTypeDependencies(deps []model.TypeDependency) error {
+	seen := map[string]struct{}{}
+	for _, d := range deps {
+		t := strings.TrimSpace(d.Type)
+		if t == "" {
+			return Error(CodeInvalidInput, "type dependency target must not be empty", http.StatusBadRequest, nil)
+		}
+		k := t + "/" + strings.TrimSpace(d.Relation)
+		if _, dup := seen[k]; dup {
+			rel := strings.TrimSpace(d.Relation)
+			msg := "duplicate dependency on " + t
+			if rel != "" {
+				msg += " with relation \"" + rel + "\""
+			}
+			return Error(CodeInvalidInput, msg, http.StatusBadRequest, nil)
+		}
+		seen[k] = struct{}{}
+	}
+	return nil
+}
+
+// syncMainDataObjectRelations reconciles the main DataObject's Relations with
+// the type's Dependencies. Relations that match a previous dependency but no
+// longer match a current one are removed; current dependencies are upserted
+// by (Target, Relation). Relations on targets that were never part of the
+// type's dependencies are left untouched, so data-layer additions made by
+// hand survive a type save. When the main DataObject file does not yet exist
+// the sync is a no-op — the dependency lives on the type until the user
+// creates the data object via the existing CRUD endpoints.
+func syncMainDataObjectRelations(loc string, cur, prev model.TypeDef) error {
+	mainID := strings.TrimSpace(cur.DataMain)
+	if mainID == "" {
+		mainID = cur.ID
+	}
+	dPath := filepath.Join(storage.DataDir(loc), mainID+".yaml")
+	if _, err := os.Stat(dPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return Error(CodeInternalError, "failed to inspect data object: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	obj, ok := readDataObject(dPath)
+	if !ok {
+		return Error(CodeInternalError, "data object is not valid YAML: "+mainID, http.StatusInternalServerError, nil)
+	}
+	key := func(target, relation string) string {
+		return strings.TrimSpace(target) + "/" + strings.TrimSpace(relation)
+	}
+	curByKey := map[string]model.TypeDependency{}
+	for _, d := range cur.Dependencies {
+		if strings.TrimSpace(d.Type) == "" {
+			continue
+		}
+		curByKey[key(d.Type, d.Relation)] = d
+	}
+	prevByKey := map[string]struct{}{}
+	for _, d := range prev.Dependencies {
+		if strings.TrimSpace(d.Type) == "" {
+			continue
+		}
+		prevByKey[key(d.Type, d.Relation)] = struct{}{}
+	}
+	// Drop relations that matched a removed dependency.
+	kept := obj.Relations[:0:0]
+	for _, r := range obj.Relations {
+		k := key(r.Target, r.Relation)
+		_, wasPrev := prevByKey[k]
+		_, isCur := curByKey[k]
+		if wasPrev && !isCur {
+			continue
+		}
+		kept = append(kept, r)
+	}
+	obj.Relations = kept
+	// Upsert relations for current dependencies.
+	for k, d := range curByKey {
+		field := strings.TrimSpace(d.Field)
+		if field == "" {
+			field = strings.TrimSpace(d.Type) + "_id"
+		}
+		rel := model.DataRelation{Target: strings.TrimSpace(d.Type), Relation: strings.TrimSpace(d.Relation), Field: field}
+		idx := -1
+		for i, r := range obj.Relations {
+			if key(r.Target, r.Relation) == k {
+				idx = i
+				break
+			}
+		}
+		if idx >= 0 {
+			obj.Relations[idx] = rel
+		} else {
+			obj.Relations = append(obj.Relations, rel)
+		}
+	}
+	if err := fsx.WriteYAML(dPath, obj); err != nil {
+		return Error(CodeInternalError, "failed to write data object: "+err.Error(), http.StatusInternalServerError, err)
+	}
+	return nil
 }
 
 // SeedTypeForms writes the four standard view forms (new/edit/list/short) for a
